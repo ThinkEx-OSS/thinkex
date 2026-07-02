@@ -29,7 +29,7 @@ import {
 } from "#/features/workspaces/ai/ai-inspector-store";
 import type { AIThreadContext } from "#/features/workspaces/ai/ai-thread-metadata";
 
-type AIThreadInspectorHost = {
+export type AIThreadInspectorHost = {
 	sql<T = unknown>(strings: TemplateStringsArray, ...values: unknown[]): T[];
 };
 

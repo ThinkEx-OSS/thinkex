@@ -15,6 +15,8 @@ export interface PostHogAiSpanInput {
 	spanId: string;
 	spanName: string;
 	parentId?: string;
+	inputState?: unknown;
+	outputState?: unknown;
 	latencySeconds?: number;
 	isError?: boolean;
 	error?: unknown;
@@ -115,6 +117,14 @@ export function capturePostHogAiSpan(input: PostHogAiSpanInput) {
 	};
 
 	appendAiTraceProperties(properties, input);
+
+	if (input.inputState !== undefined) {
+		properties.$ai_input_state = input.inputState;
+	}
+
+	if (input.outputState !== undefined) {
+		properties.$ai_output_state = input.outputState;
+	}
 
 	if (input.latencySeconds !== undefined) {
 		properties.$ai_latency = input.latencySeconds;

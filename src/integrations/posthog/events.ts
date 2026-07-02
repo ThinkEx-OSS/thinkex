@@ -60,6 +60,8 @@ export interface PostHogEventPropertiesByName {
 		error_stage: string | null;
 		error_classification: string | null;
 		error_message: string;
+		messages_persisted: boolean | null;
+		request_id: string | null;
 	};
 }
 

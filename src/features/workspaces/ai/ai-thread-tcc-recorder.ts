@@ -1,4 +1,5 @@
 import type {
+	ChatErrorClassification,
 	ChatErrorContext,
 	ChatResponseResult,
 	PrepareStepContext,
@@ -19,6 +20,11 @@ import {
 	sanitizeInspectorValue,
 	summarizeInspectorMessages,
 } from "#/features/workspaces/ai/ai-inspector-serialization";
+import {
+	buildAiTelemetryToolDefinitions,
+	buildTccTokenUsage,
+	extractAiTelemetryTokenUsage,
+} from "#/features/workspaces/ai/ai-thread-telemetry-format";
 
 const TCC_WORKSPACE_AGENT_NAME = "workspace-assistant";
 
@@ -41,6 +47,7 @@ interface TccActiveToolCall {
 
 interface TccTurnState {
 	apiKey: string;
+	availableToolDefinitions?: unknown[];
 	gatewayModel: string;
 	metadata: Record<string, string>;
 	modelId: WorkspaceAiChatModelId;
@@ -73,6 +80,7 @@ export class AIThreadTccRecorder {
 		modelId: WorkspaceAiChatModelId;
 		system: string;
 		thread: AIThreadContext;
+		tools?: unknown;
 	}) {
 		const apiKey = getTccApiKey(input.env);
 
@@ -91,6 +99,7 @@ export class AIThreadTccRecorder {
 
 		this.turn = {
 			apiKey,
+			availableToolDefinitions: buildTccToolDefinitions(input.tools),
 			gatewayModel,
 			metadata,
 			modelId: input.modelId,
@@ -180,7 +189,8 @@ export class AIThreadTccRecorder {
 			response,
 			startTime: activeStep?.startTime ?? turn.startTime,
 			stepId: crypto.randomUUID(),
-			tokens: extractTccTokenUsage(ctx.usage),
+			tokens: buildTccTokenUsage(extractAiTelemetryTokenUsage(ctx.usage)),
+			toolDefinitions: turn.availableToolDefinitions,
 		});
 	}
 
@@ -203,7 +213,10 @@ export class AIThreadTccRecorder {
 	recordTurnError(
 		error: unknown,
 		input?: {
+			errorClassification?: ChatErrorClassification;
 			errorStage?: ChatErrorContext["stage"];
+			messagesPersisted?: boolean;
+			requestId?: string;
 		},
 	) {
 		const turn = this.turn;
@@ -212,13 +225,116 @@ export class AIThreadTccRecorder {
 		}
 
 		this.turn = null;
+		const errorMessage = getErrorMessage(error);
+		const statusParts = [input?.errorStage, input?.errorClassification, errorMessage].filter(
+			Boolean,
+		);
 		this.sendTurn({
 			...turn,
 			endTime: new Date(),
+			metadata: {
+				...turn.metadata,
+				error_classification: input?.errorClassification ?? "",
+				error_stage: input?.errorStage ?? "",
+				messages_persisted:
+					input?.messagesPersisted === undefined ? "" : String(input.messagesPersisted),
+				request_id: input?.requestId ?? "",
+			},
 			response: turn.lastStepText,
 			statusCode: 2,
-			statusMessage: [input?.errorStage, getErrorMessage(error)].filter(Boolean).join(": "),
+			statusMessage: statusParts.join(": "),
 		});
+	}
+
+	recordAuxiliaryGeneration(input: {
+		env: Cloudflare.Env;
+		feature: "compaction" | "thread-title";
+		gatewayModel: string;
+		latencySeconds: number;
+		prompt: string;
+		text: string;
+		thread: Pick<AIThreadContext, "id" | "workspaceId" | "userId">;
+		usage?: unknown;
+	}) {
+		this.recordAuxiliaryRun({
+			env: input.env,
+			feature: input.feature,
+			gatewayModel: input.gatewayModel,
+			latencySeconds: input.latencySeconds,
+			prompt: input.prompt,
+			response: input.text,
+			thread: input.thread,
+			tokens: buildTccTokenUsage(extractAiTelemetryTokenUsage(input.usage)),
+		});
+	}
+
+	recordAuxiliaryError(input: {
+		env: Cloudflare.Env;
+		error: unknown;
+		feature: "compaction" | "thread-title";
+		gatewayModel: string;
+		latencySeconds?: number;
+		prompt: string;
+		thread: Pick<AIThreadContext, "id" | "workspaceId" | "userId">;
+	}) {
+		this.recordAuxiliaryRun({
+			env: input.env,
+			feature: input.feature,
+			gatewayModel: input.gatewayModel,
+			latencySeconds: input.latencySeconds,
+			prompt: input.prompt,
+			statusCode: 2,
+			statusMessage: getErrorMessage(input.error),
+			thread: input.thread,
+		});
+	}
+
+	private recordAuxiliaryRun(input: {
+		env: Cloudflare.Env;
+		feature: "compaction" | "thread-title";
+		gatewayModel: string;
+		latencySeconds?: number;
+		prompt: string;
+		response?: string;
+		statusCode?: number;
+		statusMessage?: string;
+		thread: Pick<AIThreadContext, "id" | "workspaceId" | "userId">;
+		tokens?: StepInput["tokens"];
+	}) {
+		const apiKey = getTccApiKey(input.env);
+		if (!apiKey) {
+			return;
+		}
+
+		const endTime = new Date();
+		const startTime =
+			input.latencySeconds === undefined
+				? endTime
+				: new Date(endTime.getTime() - input.latencySeconds * 1000);
+		const task = sendTccAuxiliaryRun({
+			apiKey,
+			endTime,
+			feature: input.feature,
+			gatewayModel: input.gatewayModel,
+			prompt: input.prompt,
+			response: input.response,
+			runId: crypto.randomUUID(),
+			sessionId: input.thread.id,
+			startTime,
+			statusCode: input.statusCode,
+			statusMessage: input.statusMessage,
+			thread: input.thread,
+			tokens: input.tokens,
+		}).catch((error: unknown) => {
+			console.warn("[AIThread] TCC auxiliary telemetry export failed", error);
+		});
+
+		if (this.schedule) {
+			this.schedule(task);
+			return;
+		}
+
+		void task;
 	}
 
 	private sendTurn(
@@ -266,6 +382,67 @@ async function sendTccRun(
 		statusMessage: input.statusMessage,
 		steps: input.steps,
 		toolCalls: input.toolCalls,
+	});
+}
+
+async function sendTccAuxiliaryRun(input: {
+	apiKey: string;
+	endTime: Date;
+	feature: "compaction" | "thread-title";
+	gatewayModel: string;
+	prompt: string;
+	response?: string;
+	runId: string;
+	sessionId: string;
+	startTime: Date;
+	statusCode?: number;
+	statusMessage?: string;
+	thread: Pick<AIThreadContext, "id" | "workspaceId" | "userId">;
+	tokens?: StepInput["tokens"];
+}) {
+	configure({ apiKey: input.apiKey });
+
+	await sendRun({
+		conversational: false,
+		endTime: input.endTime,
+		metadata: {
+			"tcc.agent": TCC_WORKSPACE_AGENT_NAME,
+			"tcc.conversational": "false",
+			"tcc.orgId": input.thread.workspaceId,
+			"tcc.sessionId": input.thread.id,
+			"tcc.userId": input.thread.userId,
+			feature: input.feature,
+			gateway_model: input.gatewayModel,
+			model_id: input.gatewayModel,
+			workspace_id: input.thread.workspaceId,
+		},
+		prompt: {
+			full_input: input.prompt,
+			user_prompt: input.feature,
+		},
+		response: input.response,
+		runId: input.runId,
+		sessionId: input.sessionId,
+		startTime: input.startTime,
+		statusCode: input.statusCode ?? 0,
+		statusMessage: input.statusMessage ?? "ok",
+		steps: [
+			{
+				endTime: input.endTime,
+				finishReason: input.statusCode === 2 ? "error" : "stop",
+				model: {
+					requested: input.gatewayModel,
+					used: input.gatewayModel,
+				},
+				prompt: input.prompt,
+				response: input.response ?? "",
+				startTime: input.startTime,
+				stepId: crypto.randomUUID(),
+				statusCode: input.statusCode,
+				statusMessage: input.statusMessage,
+				tokens: input.tokens,
+			},
+		],
 	});
 }
 
@@ -367,29 +544,6 @@ function getTccStepResponse(ctx: StepContext) {
 	});
 }
 
-function extractTccTokenUsage(usage: unknown) {
-	if (!usage || typeof usage !== "object") {
-		return undefined;
-	}
-
-	const record = usage as Record<string, unknown>;
-	const inputTokens = getNumberValue(record.inputTokens) ?? getNumberValue(record.promptTokens);
-	const cachedTokens = getNumberValue(record.cachedInputTokens);
-	const outputTokens =
-		getNumberValue(record.outputTokens) ?? getNumberValue(record.completionTokens);
-
-	return {
-		uncached:
-			inputTokens === undefined ? undefined : Math.max(0, inputTokens - (cachedTokens ?? 0)),
-		cached: cachedTokens,
-		completion: outputTokens,
-	};
-}
-
-function getNumberValue(value: unknown) {
-	return typeof value === "number" && Number.isFinite(value) ? value : undefined;
-}
-
 function toTccRecord(value: unknown): Record<string, unknown> | undefined {
 	if (!value || typeof value !== "object" || Array.isArray(value)) {
 		return value === undefined ? undefined : { value };
@@ -400,6 +554,10 @@ function toTccRecord(value: unknown): Record<string, unknown> | undefined {
 
 function stringifyTccPayload(value: unknown) {
 	return JSON.stringify(sanitizeInspectorValue(value));
+}
+
+function buildTccToolDefinitions(tools: unknown) {
+	return buildAiTelemetryToolDefinitions(tools) ?? undefined;
 }
 
 function getErrorMessage(error: unknown) {

@@ -12,6 +12,15 @@ import type {
 
 import type { AIThreadContext } from "#/features/workspaces/ai/ai-thread-metadata";
 import {
+	buildAiTelemetryInputFromPrompt,
+	buildAiTelemetryInputFromStep,
+	buildAiTelemetryOutputFromStep,
+	buildAiTelemetryOutputFromText,
+	buildAiTelemetryToolDefinitions,
+	extractAiTelemetryTokenUsage,
+	getAiTelemetryToolCallNames,
+} from "#/features/workspaces/ai/ai-thread-telemetry-format";
+import {
 	getWorkspaceAiChatModel,
 	type WorkspaceAiChatModelId,
 } from "#/features/workspaces/ai/models";
@@ -19,7 +28,10 @@ import {
 	capturePostHogAiGeneration,
 	capturePostHogAiSpan,
 } from "#/integrations/posthog/ai-observability";
-import { capturePostHogServerEvent } from "#/integrations/posthog/server";
+import {
+	capturePostHogServerEvent,
+	capturePostHogServerException,
+} from "#/integrations/posthog/server";
 import { emptyTelemetryRequestContext } from "#/integrations/posthog/server-context";
 import type { PostHogTelemetryScheduler } from "#/integrations/posthog/scheduler";
 
@@ -39,88 +51,8 @@ function parseGatewayModel(gatewayModel: string) {
 	};
 }
 
-function extractTokenUsage(usage: unknown) {
-	if (!usage || typeof usage !== "object") {
-		return {};
-	}
-
-	const record = usage as Record<string, unknown>;
-
-	return {
-		inputTokens:
-			typeof record.inputTokens === "number"
-				? record.inputTokens
-				: typeof record.promptTokens === "number"
-					? record.promptTokens
-					: undefined,
-		outputTokens:
-			typeof record.outputTokens === "number"
-				? record.outputTokens
-				: typeof record.completionTokens === "number"
-					? record.completionTokens
-					: undefined,
-	};
-}
-
-function buildPostHogAiInputFromPrompt(prompt: string) {
-	return [{ role: "user", content: prompt }];
-}
-
-function buildPostHogAiOutputFromText(text: string) {
-	return [{ role: "assistant", content: text }];
-}
-
-function buildPostHogAiInputFromStep(ctx: StepContext) {
-	const stepRecord = ctx as StepContext & { messages?: unknown };
-
-	if (Array.isArray(stepRecord.messages)) {
-		return stepRecord.messages;
-	}
-
-	const request = ctx.request as Record<string, unknown> | undefined;
-
-	if (!request || typeof request !== "object") {
-		return [];
-	}
-
-	if (Array.isArray(request.messages)) {
-		return request.messages;
-	}
-
-	const body = request.body;
-	if (!body || typeof body !== "object") {
-		return [];
-	}
-
-	const bodyRecord = body as Record<string, unknown>;
-
-	if (Array.isArray(bodyRecord.messages)) {
-		return bodyRecord.messages;
-	}
-
-	if (typeof bodyRecord.prompt === "string") {
-		return buildPostHogAiInputFromPrompt(bodyRecord.prompt);
-	}
-
-	return [];
-}
-
-function buildPostHogAiOutputFromStep(ctx: StepContext) {
-	if (ctx.text) {
-		return buildPostHogAiOutputFromText(ctx.text);
-	}
-
-	const response = ctx.response as Record<string, unknown> | undefined;
-	const messages = response?.messages;
-
-	if (Array.isArray(messages)) {
-		return messages;
-	}
-
-	return [];
-}
-
 interface PostHogTurnState {
+	availableTools: unknown[] | null;
 	distinctId: string;
 	sessionId: string;
 	traceId: string;
@@ -132,6 +64,7 @@ interface PostHogTurnState {
 	turnStartedAt: number;
 	currentStepStartedAt?: number;
 	currentStepFirstTokenAt?: number;
+	currentGenerationSpanId?: string;
 	activeToolSpans: Map<string, { spanId: string; startedAt: number }>;
 }
 
@@ -140,6 +73,35 @@ function turnTelemetryProperties(turn: PostHogTurnState) {
 		thread_id: turn.sessionId,
 		workspace_id: turn.workspaceId,
 		trace_id: turn.traceId,
+	};
+}
+
+function aiExceptionTelemetryProperties(input: {
+	errorClassification?: ChatErrorClassification;
+	errorStage?: ChatErrorContext["stage"];
+	feature: string;
+	messagesPersisted?: boolean;
+	requestId?: string;
+	sessionId: string;
+	spanId?: string;
+	spanName?: string;
+	traceId: string;
+	workspaceId: string;
+}) {
+	return {
+		exception_source: "ai_chat",
+		feature: input.feature,
+		thread_id: input.sessionId,
+		workspace_id: input.workspaceId,
+		trace_id: input.traceId,
+		error_stage: input.errorStage ?? null,
+		error_classification: input.errorClassification ?? null,
+		request_id: input.requestId ?? null,
+		messages_persisted: input.messagesPersisted ?? null,
+		$ai_trace_id: input.traceId,
+		$ai_session_id: input.sessionId,
+		...(input.spanId ? { $ai_span_id: input.spanId } : {}),
+		...(input.spanName ? { $ai_span_name: input.spanName } : {}),
 	};
 }
 
@@ -177,12 +139,14 @@ export class AIThreadPostHogRecorder {
 		ctx: TurnContext;
 		modelId: WorkspaceAiChatModelId;
 		thread: AIThreadContext;
+		tools?: unknown;
 	}) {
 		const traceId = crypto.randomUUID();
 		const turnRootSpanId = crypto.randomUUID();
 		const gatewayModel = getWorkspaceAiChatModel(input.modelId);
 
 		const turn: PostHogTurnState = {
+			availableTools: buildAiTelemetryToolDefinitions(input.tools),
 			distinctId: input.thread.userId,
 			sessionId: input.thread.id,
 			traceId,
@@ -215,6 +179,7 @@ export class AIThreadPostHogRecorder {
 
 		this.turn.currentStepStartedAt = Date.now();
 		this.turn.currentStepFirstTokenAt = undefined;
+		this.turn.currentGenerationSpanId = crypto.randomUUID();
 	}
 
 	recordToolStarted(ctx: ToolCallContext) {
@@ -247,7 +212,9 @@ export class AIThreadPostHogRecorder {
 			sessionId: turn.sessionId,
 			spanId: activeToolSpan.spanId,
 			spanName: ctx.toolName,
-			parentId: turn.turnRootSpanId,
+			parentId: turn.currentGenerationSpanId ?? turn.turnRootSpanId,
+			inputState: ctx.input,
+			outputState: ctx.success ? ctx.output : undefined,
 			latencySeconds: ctx.durationMs / 1000,
 			isError: !ctx.success,
 			error: ctx.success ? undefined : ctx.error,
@@ -255,8 +222,6 @@ export class AIThreadPostHogRecorder {
 				...turnTelemetryProperties(turn),
 				tool_call_id: ctx.toolCallId,
 				step_number: ctx.stepNumber,
-				tool_input: ctx.input,
-				tool_output: ctx.success ? ctx.output : undefined,
 			},
 			schedule: this.schedule,
 		});
@@ -289,6 +254,8 @@ export class AIThreadPostHogRecorder {
 			turn.currentStepFirstTokenAt !== undefined
 				? (turn.currentStepFirstTokenAt - stepStartedAt) / 1000
 				: undefined;
+		const toolCallNames = getAiTelemetryToolCallNames(ctx.toolCalls);
+		const generationSpanId = turn.currentGenerationSpanId ?? crypto.randomUUID();
 
 		capturePostHogAiGeneration({
 			distinctId: turn.distinctId,
@@ -296,27 +263,35 @@ export class AIThreadPostHogRecorder {
 			sessionId: turn.sessionId,
 			spanName: "chat_step",
 			parentId: turn.turnRootSpanId,
-			spanId: crypto.randomUUID(),
+			spanId: generationSpanId,
 			provider,
 			model,
-			input: buildPostHogAiInputFromStep(ctx),
-			output: buildPostHogAiOutputFromStep(ctx),
-			usage: extractTokenUsage(ctx.usage),
+			input: buildAiTelemetryInputFromStep(ctx),
+			output: buildAiTelemetryOutputFromStep(ctx),
+			usage: extractAiTelemetryTokenUsage(ctx.usage),
 			latency: latencySeconds,
 			timeToFirstToken,
 			stopReason: ctx.finishReason,
+			tools: turn.availableTools,
 			properties: {
 				...turnTelemetryProperties(turn),
 				model_id: turn.modelId,
 				step_number: ctx.stepNumber,
 				feature: "workspace-chat",
 				$ai_stream: timeToFirstToken !== undefined,
+				...(toolCallNames.length > 0
+					? {
+							$ai_tools_called: toolCallNames,
+							$ai_tool_call_count: toolCallNames.length,
+						}
+					: {}),
 			},
 			schedule: this.schedule,
 		});
 
 		turn.currentStepStartedAt = undefined;
 		turn.currentStepFirstTokenAt = undefined;
+		turn.currentGenerationSpanId = undefined;
 	}
 
 	recordChunk(ctx: ChunkContext) {
@@ -337,6 +312,21 @@ export class AIThreadPostHogRecorder {
 			return;
 		}
 
+		capturePostHogAiSpan({
+			distinctId: turn.distinctId,
+			traceId: turn.traceId,
+			sessionId: turn.sessionId,
+			spanId: turn.turnRootSpanId,
+			spanName: "workspace_chat_turn",
+			outputState: {
+				status: result.status,
+				stepCount: turn.stepCount,
+			},
+			latencySeconds: (Date.now() - turn.turnStartedAt) / 1000,
+			properties: turnTelemetryProperties(turn),
+			schedule: this.schedule,
+		});
+
 		capturePostHogServerEvent({
 			distinctId: turn.distinctId,
 			event: "ai_turn_completed",
@@ -356,12 +346,31 @@ export class AIThreadPostHogRecorder {
 		input?: {
 			errorStage?: ChatErrorContext["stage"];
 			errorClassification?: ChatErrorClassification;
+			messagesPersisted?: boolean;
+			requestId?: string;
 		},
 	) {
 		const turn = this.turn;
 		if (!turn) {
 			return;
 		}
+
+		capturePostHogAiSpan({
+			distinctId: turn.distinctId,
+			traceId: turn.traceId,
+			sessionId: turn.sessionId,
+			spanId: turn.turnRootSpanId,
+			spanName: "workspace_chat_turn",
+			outputState: {
+				errorStage: input?.errorStage ?? null,
+				errorClassification: input?.errorClassification ?? null,
+			},
+			latencySeconds: (Date.now() - turn.turnStartedAt) / 1000,
+			isError: true,
+			error,
+			properties: turnTelemetryProperties(turn),
+			schedule: this.schedule,
+		});
 
 		capturePostHogServerEvent({
 			distinctId: turn.distinctId,
@@ -371,7 +380,27 @@ export class AIThreadPostHogRecorder {
 				error_stage: input?.errorStage ?? null,
 				error_classification: input?.errorClassification ?? null,
 				error_message: error instanceof Error ? error.message : String(error),
+				messages_persisted: input?.messagesPersisted ?? null,
+				request_id: input?.requestId ?? null,
 			},
+			...this.serverEventRuntime,
+		});
+
+		capturePostHogServerException({
+			distinctId: turn.distinctId,
+			error,
+			properties: aiExceptionTelemetryProperties({
+				errorClassification: input?.errorClassification,
+				errorStage: input?.errorStage,
+				messagesPersisted: input?.messagesPersisted,
+				requestId: input?.requestId,
+				feature: "workspace-chat",
+				sessionId: turn.sessionId,
+				spanId: turn.turnRootSpanId,
+				spanName: "workspace_chat_turn",
+				traceId: turn.traceId,
+				workspaceId: turn.workspaceId,
+			}),
 			...this.serverEventRuntime,
 		});
 
@@ -419,9 +448,9 @@ export class AIThreadPostHogRecorder {
 			spanId: crypto.randomUUID(),
 			provider,
 			model,
-			input: buildPostHogAiInputFromPrompt(input.prompt),
-			output: buildPostHogAiOutputFromText(input.text),
-			usage: extractTokenUsage(input.usage),
+			input: buildAiTelemetryInputFromPrompt(input.prompt),
+			output: buildAiTelemetryOutputFromText(input.text),
+			usage: extractAiTelemetryTokenUsage(input.usage),
 			latency: input.latencySeconds,
 			properties: {
 				thread_id: input.thread.id,
@@ -429,6 +458,66 @@ export class AIThreadPostHogRecorder {
 				feature: input.feature,
 			},
 			schedule: this.schedule,
+		});
+	}
+
+	recordAuxiliaryError(input: {
+		error: unknown;
+		feature: "chat-recovery" | "compaction" | "thread-title" | "session-prompt-refresh";
+		gatewayModel?: string;
+		latencySeconds?: number;
+		prompt?: string;
+		thread: Pick<AIThreadContext, "id" | "workspaceId" | "userId">;
+		traceContext?: AIThreadPostHogTraceContext | null;
+	}) {
+		const traceContext = input.traceContext;
+		const traceId = traceContext?.traceId ?? crypto.randomUUID();
+		const parentId = traceContext?.parentSpanId;
+		const distinctId = traceContext?.distinctId ?? input.thread.userId;
+		const sessionId = traceContext?.sessionId ?? input.thread.id;
+		const workspaceId = traceContext?.workspaceId ?? input.thread.workspaceId;
+		const spanId = input.gatewayModel && input.prompt ? crypto.randomUUID() : undefined;
+
+		if (input.gatewayModel && input.prompt) {
+			const { provider, model } = parseGatewayModel(input.gatewayModel);
+
+			capturePostHogAiGeneration({
+				distinctId,
+				traceId,
+				sessionId,
+				spanName: input.feature,
+				parentId,
+				spanId,
+				provider,
+				model,
+				input: buildAiTelemetryInputFromPrompt(input.prompt),
+				output: [],
+				latency: input.latencySeconds,
+				error: input.error,
+				properties: {
+					thread_id: input.thread.id,
+					workspace_id: workspaceId,
+					feature: input.feature,
+				},
+				schedule: this.schedule,
+			});
+		}
+
+		capturePostHogServerException({
+			distinctId,
+			error: input.error,
+			properties: {
+				...aiExceptionTelemetryProperties({
+					sessionId,
+					feature: input.feature,
+					spanId,
+					spanName: input.feature,
+					traceId,
+					workspaceId,
+				}),
+				parent_span_id: parentId ?? null,
+			},
+			...this.serverEventRuntime,
 		});
 	}
 }
