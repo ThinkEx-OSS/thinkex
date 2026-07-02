@@ -27,6 +27,9 @@ BETTER_AUTH_URL="http://localhost:3000"
 # AI chat and title generation (Vercel AI Gateway).
 # AI_GATEWAY_API_KEY=""
 
+# Autumn usage analytics. When unset, usage tracking is skipped.
+# AUTUMN_SECRET_KEY=""
+
 # Web search and URL/PDF extraction (Firecrawl).
 # FIRECRAWL_API_KEY=""
 

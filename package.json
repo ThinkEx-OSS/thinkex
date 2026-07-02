@@ -104,6 +104,7 @@
 		"@tiptap/y-tiptap": "^3.0.5",
 		"agents": "^0.17.0",
 		"ai": "^6.0.208",
+		"autumn-js": "^1.2.34",
 		"better-auth": "^1.6.19",
 		"class-variance-authority": "^0.7.1",
 		"clsx": "^2.1.1",

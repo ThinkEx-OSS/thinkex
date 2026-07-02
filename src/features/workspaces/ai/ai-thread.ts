@@ -20,6 +20,7 @@ import { createCompactFunction } from "agents/experimental/memory/utils";
 import { generateText, type LanguageModel, type ToolSet } from "ai";
 
 import type { AIInspectorSnapshot } from "#/features/workspaces/ai/ai-inspector";
+import type { AIThreadContext } from "#/features/workspaces/ai/ai-thread-metadata";
 import { AIThreadTelemetryRecorder } from "#/features/workspaces/ai/ai-thread-telemetry-recorder";
 import {
 	createAIThreadTools,
@@ -34,8 +35,13 @@ import {
 	DEFAULT_WORKSPACE_AI_CHAT_MODEL_ID,
 	getWorkspaceAiChatModel,
 	resolveWorkspaceAiChatModelId,
+	type WorkspaceAiChatModelId,
 } from "#/features/workspaces/ai/models";
 import type { UserAIStore } from "#/features/workspaces/ai/user-ai-agents";
+import {
+	checkWorkspaceAiMessageAccess,
+	trackWorkspaceAiMessageUsage,
+} from "#/integrations/autumn/workspace-ai-usage";
 
 const AI_THREAD_CHAT_RECOVERY_NO_PROGRESS_TIMEOUT_MS = 90_000;
 const AI_THREAD_CHAT_RECOVERY_TERMINAL_MESSAGE =
@@ -52,6 +58,11 @@ type AIThreadRunSettlement =
 			errorStage?: ChatErrorContext["stage"];
 			kind: "failed";
 	  };
+
+interface AIThreadUsageContext {
+	modelId: WorkspaceAiChatModelId;
+	thread: AIThreadContext;
+}
 
 export function createAIThreadClass(getUserAIStore: () => typeof UserAIStore) {
 	return class AIThread extends Think<Cloudflare.Env> {
@@ -75,6 +86,7 @@ export function createAIThreadClass(getUserAIStore: () => typeof UserAIStore) {
 		override sendReasoning = false;
 		private shouldRefreshSessionPrompt = false;
 		private activeRunStartedAt: number | undefined;
+		private activeUsageContext: AIThreadUsageContext | undefined;
 		private readonly telemetry = new AIThreadTelemetryRecorder({
 			env: this.env,
 			host: this,
@@ -153,6 +165,24 @@ export function createAIThreadClass(getUserAIStore: () => typeof UserAIStore) {
 			}
 
 			const modelId = resolveWorkspaceAiChatModelId(ctx.body?.modelId);
+
+			if (!ctx.continuation) {
+				const access = await checkWorkspaceAiMessageAccess({
+					env: this.env,
+					modelId,
+					userId: thread.userId,
+				});
+
+				if (!access.allowed) {
+					throw new Error("Usage limit reached");
+				}
+
+				this.activeUsageContext = {
+					modelId,
+					thread,
+				};
+			}
+
 			const system = getAIThreadSystemPromptForWorkspace(ctx.system, thread.promptScope, {
 				timeZone: getBodyString(ctx.body, "timeZone"),
 				workspaceAiContext: ctx.body?.workspaceAiContext,
@@ -204,6 +234,7 @@ export function createAIThreadClass(getUserAIStore: () => typeof UserAIStore) {
 
 		override async onChatResponse(result: ChatResponseResult) {
 			this.telemetry.recordTurnFinished(result);
+			this._trackCompletedMessageUsage(result);
 			if (!this._shouldSettleRunAfterResponse(result)) {
 				await this._refreshSessionPromptIfNeeded();
 				return;
@@ -307,11 +338,33 @@ export function createAIThreadClass(getUserAIStore: () => typeof UserAIStore) {
 				}
 
 				this.activeRunStartedAt = undefined;
+				this.activeUsageContext = undefined;
 			} catch (error) {
 				onError(error);
 			} finally {
 				await this._refreshSessionPromptIfNeeded();
 			}
+		}
+
+		private _trackCompletedMessageUsage(result: ChatResponseResult) {
+			if (result.continuation || result.status !== "completed") {
+				return;
+			}
+
+			const usageContext = this.activeUsageContext;
+			if (!usageContext) {
+				return;
+			}
+
+			void this.keepAliveWhile(() =>
+				trackWorkspaceAiMessageUsage({
+					env: this.env,
+					modelId: usageContext.modelId,
+					threadId: usageContext.thread.id,
+					userId: usageContext.thread.userId,
+					workspaceId: usageContext.thread.workspaceId,
+				}),
+			);
 		}
 
 		private async _handleChatRecoveryExhausted(ctx: ChatRecoveryExhaustedContext) {
