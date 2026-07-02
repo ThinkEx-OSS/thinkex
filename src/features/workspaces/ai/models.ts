@@ -14,6 +14,7 @@ export type WorkspaceAiChatProvider = (typeof WORKSPACE_AI_CHAT_PROVIDERS)[numbe
 // named quality (faster, smarter, pricier) — rendered as little segment bars in
 // the picker, never as raw numbers or benchmark jargon.
 export type WorkspaceAiChatModelLevel = 1 | 2 | 3 | 4;
+export type WorkspaceAiChatModelBillingTier = "standard" | "premium";
 
 // Slugs, names, context windows, and pricing are sourced from the live Vercel
 // AI Gateway catalog (GET https://ai-gateway.vercel.sh/v1/models). The 1-4
@@ -35,6 +36,7 @@ export const WORKSPACE_AI_CHAT_MODELS = [
 		intelligence: 3,
 		speed: 3,
 		cost: 1,
+		billingTier: "standard",
 	},
 	{
 		id: "claude-sonnet",
@@ -48,6 +50,7 @@ export const WORKSPACE_AI_CHAT_MODELS = [
 		intelligence: 3,
 		speed: 3,
 		cost: 4,
+		billingTier: "premium",
 	},
 	{
 		id: "claude-haiku",
@@ -60,6 +63,7 @@ export const WORKSPACE_AI_CHAT_MODELS = [
 		intelligence: 2,
 		speed: 4,
 		cost: 1,
+		billingTier: "standard",
 	},
 	{
 		id: "chatgpt",
@@ -73,6 +77,7 @@ export const WORKSPACE_AI_CHAT_MODELS = [
 		intelligence: 4,
 		speed: 3,
 		cost: 4,
+		billingTier: "premium",
 	},
 	{
 		id: "chatgpt-mini",
@@ -85,6 +90,7 @@ export const WORKSPACE_AI_CHAT_MODELS = [
 		intelligence: 2,
 		speed: 4,
 		cost: 1,
+		billingTier: "standard",
 	},
 	{
 		id: "gemini-pro",
@@ -98,6 +104,7 @@ export const WORKSPACE_AI_CHAT_MODELS = [
 		intelligence: 4,
 		speed: 2,
 		cost: 3,
+		billingTier: "premium",
 	},
 	{
 		id: "gemini",
@@ -111,6 +118,7 @@ export const WORKSPACE_AI_CHAT_MODELS = [
 		intelligence: 3,
 		speed: 4,
 		cost: 1,
+		billingTier: "standard",
 	},
 ] as const;
 
