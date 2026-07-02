@@ -3,6 +3,7 @@ import {
 	resolveWorkspaceCapabilityPath,
 } from "#/features/workspaces/capabilities/common";
 import {
+	parseWorkspaceCapabilityPageRange,
 	readWorkspaceCapabilityProjectionPages,
 	WorkspaceCapabilityPageError,
 	type WorkspaceCapabilityReadPages,
@@ -34,8 +35,8 @@ export interface WorkspaceCapabilityReadItemsResult {
 }
 
 const WORKSPACE_READ_MARKDOWN_LINES_PER_PAGE = 1000;
-const MAX_AI_READ_LINE_LENGTH = 2000;
-const TRUNCATED_LINE_SUFFIX = `... (line truncated to ${MAX_AI_READ_LINE_LENGTH} chars)`;
+const MAX_WORKSPACE_READ_LINE_LENGTH = 2000;
+const TRUNCATED_LINE_SUFFIX = `... (line truncated to ${MAX_WORKSPACE_READ_LINE_LENGTH} chars)`;
 
 type WorkspaceCapabilityReadFailureCode =
 	| "page_range_out_of_range"
@@ -145,7 +146,7 @@ async function readWorkspaceCapabilityItem(input: {
 	if (item.type === "document") {
 		const { content } = await input.kernel.readItem({ itemId: item.id });
 		const markdown = serializeTiptapDocumentToMarkdown(parseTiptapDocumentJson(content));
-		const page = readWorkspaceAiMarkdownPages(markdown, { pages: input.pages });
+		const page = readWorkspaceCapabilityMarkdownPages(markdown, { pages: input.pages });
 
 		return {
 			content: page.content,
@@ -232,14 +233,14 @@ function createWorkspaceCapabilityFileStatusItem(
 	};
 }
 
-function readWorkspaceAiMarkdownPages(
+function readWorkspaceCapabilityMarkdownPages(
 	content: string,
 	input: { pages?: string },
 ): { content: string; pages: WorkspaceCapabilityReadPages } {
 	const lines = content === "" ? [] : content.split(/\r?\n/);
 	const totalPages = Math.max(1, Math.ceil(lines.length / WORKSPACE_READ_MARKDOWN_LINES_PER_PAGE));
 	const requested = input.pages?.trim() || "1";
-	const selectedPageNumbers = parseWorkspaceAiPageRange(requested, totalPages);
+	const selectedPageNumbers = parseWorkspaceCapabilityPageRange(requested, totalPages);
 
 	const selectedLines: string[] = [];
 
@@ -248,7 +249,7 @@ function readWorkspaceAiMarkdownPages(
 		const pageLines = lines.slice(startIndex, startIndex + WORKSPACE_READ_MARKDOWN_LINES_PER_PAGE);
 
 		for (const rawLine of pageLines) {
-			const line = truncateWorkspaceAiMarkdownLine(rawLine);
+			const line = truncateWorkspaceCapabilityMarkdownLine(rawLine);
 			selectedLines.push(line.value);
 		}
 	}
@@ -263,49 +264,13 @@ function readWorkspaceAiMarkdownPages(
 	};
 }
 
-function parseWorkspaceAiPageRange(value: string, totalPages: number) {
-	const selected = new Set<number>();
-	const parts = value.split(",");
-
-	for (const rawPart of parts) {
-		const part = rawPart.trim();
-
-		if (!part) {
-			continue;
-		}
-
-		const rangeMatch = /^(\d+)(?:\s*-\s*(\d+))?$/.exec(part);
-
-		if (!rangeMatch) {
-			throw new WorkspaceCapabilityPageError("page_range_out_of_range");
-		}
-
-		const start = Number(rangeMatch[1]);
-		const end = Number(rangeMatch[2] ?? rangeMatch[1]);
-
-		if (start < 1 || end < start || end > totalPages) {
-			throw new WorkspaceCapabilityPageError("page_range_out_of_range");
-		}
-
-		for (let pageNumber = start; pageNumber <= end; pageNumber += 1) {
-			selected.add(pageNumber);
-		}
-	}
-
-	if (selected.size === 0) {
-		throw new WorkspaceCapabilityPageError("page_range_out_of_range");
-	}
-
-	return Array.from(selected).sort((left, right) => left - right);
-}
-
-function truncateWorkspaceAiMarkdownLine(line: string) {
-	if (line.length <= MAX_AI_READ_LINE_LENGTH) {
+function truncateWorkspaceCapabilityMarkdownLine(line: string) {
+	if (line.length <= MAX_WORKSPACE_READ_LINE_LENGTH) {
 		return { truncated: false, value: line };
 	}
 
 	return {
 		truncated: true,
-		value: line.slice(0, MAX_AI_READ_LINE_LENGTH) + TRUNCATED_LINE_SUFFIX,
+		value: line.slice(0, MAX_WORKSPACE_READ_LINE_LENGTH) + TRUNCATED_LINE_SUFFIX,
 	};
 }

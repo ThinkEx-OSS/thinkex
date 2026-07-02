@@ -44,7 +44,7 @@ export function readWorkspaceCapabilityProjectionPages(
 	};
 }
 
-function parseWorkspaceCapabilityPageRange(value: string, totalPages: number) {
+export function parseWorkspaceCapabilityPageRange(value: string, totalPages: number) {
 	const selected = new Set<number>();
 	const parts = value.split(",");
 
