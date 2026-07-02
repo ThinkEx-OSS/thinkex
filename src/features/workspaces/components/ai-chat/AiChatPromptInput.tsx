@@ -101,7 +101,7 @@ export default function AiChatPromptInput({
 	const draftFiles = useWorkspaceAiComposerDraftFiles(context.workspaceId);
 	const attachmentsReady =
 		draftFiles.length === 0 || draftFiles.every((file) => file.status === "ready");
-	const canType = true;
+	const canType = status !== "error";
 	const canSend = status === "ready" && attachmentsReady;
 	const { capabilities } = useWorkspaceMutationAccess();
 	const { uploadFiles: uploadWorkspaceFiles } = useWorkspaceFileUpload();

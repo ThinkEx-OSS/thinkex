@@ -37,6 +37,7 @@ export default function AiChatThreadView({
 }) {
 	const chat = useWorkspaceAiChat({ modelId, threadId });
 	const {
+		connectionError,
 		error,
 		inputStatus,
 		messages,
@@ -61,6 +62,7 @@ export default function AiChatThreadView({
 	}, [onRecoveringChange, presentation.isRecovering]);
 
 	const assistantError = getAssistantErrorState({
+		hasConnectionError: Boolean(connectionError),
 		hasLiveError: Boolean(error),
 		inputStatus,
 		threadSummary,
@@ -131,6 +133,7 @@ function getChatMessageFromPrompt(message: PromptInputMessage): AiChatSendMessag
 }
 
 function getAssistantErrorState(input: {
+	hasConnectionError: boolean;
 	hasLiveError: boolean;
 	inputStatus: AiChatStatus;
 	threadSummary?: AIThreadSummary;
@@ -139,9 +142,16 @@ function getAssistantErrorState(input: {
 		return null;
 	}
 
+	if (input.hasConnectionError) {
+		return {
+			kind: "connection",
+		};
+	}
+
 	if (input.hasLiveError) {
 		return {
 			classification: input.threadSummary?.lastErrorClassification,
+			kind: "assistant",
 			stage: input.threadSummary?.lastErrorStage,
 		};
 	}
@@ -149,6 +159,7 @@ function getAssistantErrorState(input: {
 	if (input.threadSummary?.lastRunResult === "error") {
 		return {
 			classification: input.threadSummary.lastErrorClassification,
+			kind: "assistant",
 			stage: input.threadSummary.lastErrorStage,
 		};
 	}

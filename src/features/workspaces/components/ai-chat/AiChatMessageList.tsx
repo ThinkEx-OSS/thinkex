@@ -41,10 +41,15 @@ type SelectedText = {
 	text: string;
 };
 
-export interface AiChatAssistantErrorState {
-	classification?: ChatErrorClassification | null;
-	stage?: ChatErrorContext["stage"] | null;
-}
+export type AiChatAssistantErrorState =
+	| {
+			classification?: ChatErrorClassification | null;
+			kind: "assistant";
+			stage?: ChatErrorContext["stage"] | null;
+	  }
+	| {
+			kind: "connection";
+	  };
 
 type AiChatListRow =
 	| {
@@ -188,7 +193,7 @@ function AiChatListRowView({
 		return (
 			<AiChatTranscriptRail>
 				<AiChatAssistantError
-					canRetry={canRetry}
+					canRetry={canRetry && row.errorState.kind !== "connection"}
 					errorState={row.errorState}
 					hasAssistantContent={hasAssistantContent}
 					onRetry={onRegenerateLastResponse}
@@ -348,6 +353,10 @@ function getChatErrorMessage({
 	errorState: AiChatAssistantErrorState;
 	hasAssistantContent: boolean;
 }) {
+	if (errorState.kind === "connection") {
+		return "The chat connection closed before the response could finish. Refresh the page to reconnect.";
+	}
+
 	if (errorState.classification === "context_overflow") {
 		return "This chat got too large to finish. Try again or start a new chat.";
 	}

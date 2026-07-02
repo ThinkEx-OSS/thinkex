@@ -25,6 +25,7 @@ export default function AiChatPromptSubmit({
 	const isGenerating = isAiChatStreamActive(status);
 	const hasContent = Boolean(input.trim() || attachments.files.length > 0);
 	const canStop = isGenerating && Boolean(onStop);
+	const canSubmit = status === "ready" && hasContent && attachmentsReady;
 	const isWaitingForAttachments = !attachmentsReady && hasContent;
 
 	return (
@@ -33,7 +34,7 @@ export default function AiChatPromptSubmit({
 				isGenerating ? "Stop" : isWaitingForAttachments ? "Uploading attachments" : "Submit"
 			}
 			className={cn(workspaceToolbarButtonSizeClass, "rounded-full")}
-			disabled={isGenerating ? !canStop : !hasContent || !attachmentsReady}
+			disabled={isGenerating ? !canStop : !canSubmit}
 			status={status}
 			onStop={onStop}
 			type={isGenerating ? "button" : "submit"}

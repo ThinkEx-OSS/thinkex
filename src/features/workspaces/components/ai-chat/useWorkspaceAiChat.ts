@@ -35,6 +35,7 @@ export function useWorkspaceAiChat({ modelId, threadId }: UseWorkspaceAiChatOpti
 	});
 	const {
 		clearError,
+		connectionError,
 		error,
 		isRecovering,
 		isServerStreaming,
@@ -53,15 +54,16 @@ export function useWorkspaceAiChat({ modelId, threadId }: UseWorkspaceAiChatOpti
 		isToolContinuation,
 	});
 	const canStop = status === "submitted" || presentation.isBusy;
-	const inputStatus: AiChatStatus =
-		presentation.tailPending || presentation.isRecovering
+	const inputStatus: AiChatStatus = connectionError
+		? "error"
+		: presentation.tailPending || presentation.isRecovering
 			? "submitted"
 			: presentation.isBusy
 				? "streaming"
 				: status === "error"
 					? "ready"
 					: status;
-	const canSend = inputStatus === "ready" && !presentation.isBusy;
+	const canSend = inputStatus === "ready" && !presentation.isBusy && !connectionError;
 
 	const sendMessage = (message: AiChatSendMessage, options?: AiChatSendMessageOptions) => {
 		if (message.parts.length === 0 || !canSend) {
@@ -82,6 +84,7 @@ export function useWorkspaceAiChat({ modelId, threadId }: UseWorkspaceAiChatOpti
 	};
 
 	return {
+		connectionError,
 		error,
 		inputStatus,
 		messages,

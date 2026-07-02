@@ -46,6 +46,15 @@ import {
 const AI_THREAD_CHAT_RECOVERY_NO_PROGRESS_TIMEOUT_MS = 90_000;
 const AI_THREAD_CHAT_RECOVERY_TERMINAL_MESSAGE =
 	"The assistant was interrupted and could not recover this turn.";
+const AI_THREAD_CHAT_RECOVERY_REASON_MESSAGES: Record<string, string> = {
+	max_attempts_exceeded:
+		"The assistant was interrupted repeatedly and could not recover this turn.",
+	no_progress_timeout: "The assistant stopped making progress and could not recover this turn.",
+	out_of_memory: "The assistant ran out of memory while recovering this turn.",
+	recovery_aborted: "The assistant recovery was stopped before this turn could finish.",
+	stable_timeout: "The assistant could not reach a stable state while recovering this turn.",
+	work_budget_exceeded: "The assistant kept retrying recovery work and could not finish this turn.",
+};
 
 type AIThreadRunSettlement =
 	| {
@@ -368,13 +377,15 @@ export function createAIThreadClass(getUserAIStore: () => typeof UserAIStore) {
 		}
 
 		private async _handleChatRecoveryExhausted(ctx: ChatRecoveryExhaustedContext) {
+			const errorMessage = getChatRecoveryExhaustedMessage(ctx);
+
 			await this._recordAuxiliaryError({
-				error: new Error(AI_THREAD_CHAT_RECOVERY_TERMINAL_MESSAGE),
+				error: new Error(errorMessage),
 				feature: "chat-recovery",
 			});
 			await this._settleActiveRun(
 				{
-					error: AI_THREAD_CHAT_RECOVERY_TERMINAL_MESSAGE,
+					error: errorMessage,
 					errorStage: "recovery",
 					kind: "failed",
 				},
@@ -525,4 +536,12 @@ function filterToolSetByNames(tools: ToolSet, activeToolNames: string[] | undefi
 function getBodyString(body: Record<string, unknown> | undefined, key: string) {
 	const value = body?.[key];
 	return typeof value === "string" ? value : undefined;
+}
+
+function getChatRecoveryExhaustedMessage(ctx: ChatRecoveryExhaustedContext) {
+	return (
+		AI_THREAD_CHAT_RECOVERY_REASON_MESSAGES[ctx.reason] ??
+		ctx.terminalMessage ??
+		AI_THREAD_CHAT_RECOVERY_TERMINAL_MESSAGE
+	);
 }
