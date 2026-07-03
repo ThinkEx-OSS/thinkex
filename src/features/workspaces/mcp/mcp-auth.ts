@@ -1,3 +1,4 @@
+import { APIError } from "better-auth/api";
 import { verifyAccessToken } from "better-auth/oauth2";
 
 import {
@@ -10,7 +11,7 @@ import {
 	type WorkspaceAccessContext,
 	type WorkspaceAccessScope,
 } from "#/features/workspaces/operations/workspace-access-context";
-import { getAuthBaseURL, getAppOrigin } from "#/lib/app-origin";
+import { getAuthBaseURL, getAppOrigin, getMcpResourceUrl } from "#/lib/app-origin";
 
 export interface McpActor {
 	userId: string;
@@ -88,12 +89,17 @@ export async function verifyMcpBearerToken(request: Request): Promise<McpActor> 
 	try {
 		payload = await verifyAccessToken(token, {
 			jwksUrl: `${jwksBaseUrl}/api/auth/jwks`,
+			scopes: ["workspace:read"],
 			verifyOptions: {
 				issuer,
-				audience: getAppOrigin(),
+				audience: getMcpResourceUrl(),
 			},
 		});
-	} catch {
+	} catch (error) {
+		if (error instanceof APIError && error.status === "FORBIDDEN") {
+			throw new McpAuthError(403, "insufficient_scope");
+		}
+
 		throw new McpAuthError(401, "invalid_token");
 	}
 

@@ -4,12 +4,26 @@ vi.mock("better-auth/oauth2", () => ({
 	verifyAccessToken: vi.fn(),
 }));
 
+vi.mock("better-auth/api", () => ({
+	APIError: class APIError extends Error {
+		constructor(
+			readonly status: string,
+			readonly body?: { message?: string },
+		) {
+			super(body?.message ?? status);
+			this.name = "APIError";
+		}
+	},
+}));
+
 vi.mock("#/lib/app-origin", () => ({
 	getAppOrigin: () => "https://app.example.com",
 	getAuthBaseURL: () => "https://app.example.com",
+	getMcpResourceUrl: () => "https://app.example.com/mcp",
 }));
 
 import { verifyAccessToken } from "better-auth/oauth2";
+import { APIError } from "better-auth/api";
 import {
 	buildMcpAccountContext,
 	buildMcpWorkspaceContext,
@@ -76,6 +90,35 @@ describe("verifyMcpBearerToken", () => {
 		});
 	});
 
+	it("verifies access tokens against the MCP resource audience", async () => {
+		vi.mocked(verifyAccessToken).mockResolvedValueOnce({
+			sub: "user-1",
+			scope: "workspace:read",
+		} as never);
+
+		await verifyMcpBearerToken(makeRequest("Bearer valid.token"));
+
+		expect(verifyAccessToken).toHaveBeenCalledWith("valid.token", {
+			jwksUrl: "https://app.example.com/api/auth/jwks",
+			scopes: ["workspace:read"],
+			verifyOptions: {
+				issuer: "https://app.example.com",
+				audience: "https://app.example.com/mcp",
+			},
+		});
+	});
+
+	it("throws 403 insufficient_scope when verifyAccessToken rejects missing scope", async () => {
+		vi.mocked(verifyAccessToken).mockRejectedValueOnce(
+			new APIError("FORBIDDEN", { message: "invalid scope workspace:read" }),
+		);
+
+		await expect(verifyMcpBearerToken(makeRequest("Bearer scoped.token"))).rejects.toMatchObject({
+			status: 403,
+			code: "insufficient_scope",
+		});
+	});
+
 	it("returns null clientId when client_id is absent from payload", async () => {
 		vi.mocked(verifyAccessToken).mockResolvedValueOnce({
 			sub: "user-2",
@@ -87,12 +130,17 @@ describe("verifyMcpBearerToken", () => {
 		expect(actor.clientId).toBeNull();
 	});
 
-	it("returns empty grantedScopes when scope claim is absent", async () => {
-		vi.mocked(verifyAccessToken).mockResolvedValueOnce({ sub: "user-3" } as never);
+	it("throws 401 invalid_token when scope claim is absent from a rejected token", async () => {
+		vi.mocked(verifyAccessToken).mockRejectedValueOnce(
+			new APIError("FORBIDDEN", { message: "invalid scope workspace:read" }),
+		);
 
-		const actor = await verifyMcpBearerToken(makeRequest("Bearer valid.no-scope.token"));
-
-		expect(actor.grantedScopes).toEqual(new Set());
+		await expect(
+			verifyMcpBearerToken(makeRequest("Bearer valid.no-scope.token")),
+		).rejects.toMatchObject({
+			status: 403,
+			code: "insufficient_scope",
+		});
 	});
 
 	it("errors are McpAuthError instances", async () => {
