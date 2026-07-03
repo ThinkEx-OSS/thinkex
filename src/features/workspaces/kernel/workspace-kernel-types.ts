@@ -2,6 +2,7 @@ import type {
 	JsonValue,
 	WorkspaceItemColor,
 	WorkspaceItemSummary,
+	WorkspaceRelationKind,
 	WorkspaceItemType,
 } from "#/features/workspaces/contracts";
 import type {
@@ -13,6 +14,26 @@ export interface WorkspaceKernelPage {
 	workspaceId: string;
 	items: WorkspaceItemSummary[];
 	revision: number;
+}
+
+export interface CreateWorkspaceKernelRelationArgs {
+	fromItemId: string;
+	kind: WorkspaceRelationKind;
+	note?: string | null;
+	toItemId: string;
+}
+
+export interface ListWorkspaceKernelItemRelationsArgs {
+	itemId: string;
+	limit?: number;
+}
+
+export interface WorkspaceKernelItemRelation {
+	id: string;
+	fromItemId: string;
+	kind: WorkspaceRelationKind;
+	note: string | null;
+	toItemId: string;
 }
 
 export interface ListWorkspaceKernelItemsArgs {

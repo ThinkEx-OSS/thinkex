@@ -18,12 +18,15 @@ import {
 } from "#/features/workspaces/kernel/workspace-kernel-list";
 import type {
 	CreateWorkspaceKernelFileFromUploadArgs,
+	CreateWorkspaceKernelRelationArgs,
 	DeleteWorkspaceKernelItemsResult,
+	ListWorkspaceKernelItemRelationsArgs,
 	MoveWorkspaceKernelItemsResult,
 	ReadWorkspaceKernelFilePreviewResult,
 	ReadWorkspaceKernelFileProjectionArgs,
 	ReadWorkspaceKernelFileProjectionResult,
 	UpsertWorkspaceKernelFileProjectionArgs,
+	WorkspaceKernelItemRelation,
 	WorkspaceKernelNameConflictPolicy,
 } from "#/features/workspaces/kernel/workspace-kernel-types";
 import type { WorkspaceFileAssetKind } from "#/features/workspaces/model/workspace-file";
@@ -53,6 +56,10 @@ export interface WorkspaceKernelClient {
 		items: WorkspaceItemSummary[];
 		revision: number;
 	}>;
+	createRelations(input: { relations: CreateWorkspaceKernelRelationArgs[] }): Promise<void>;
+	listItemRelations(
+		input: ListWorkspaceKernelItemRelationsArgs,
+	): Promise<WorkspaceKernelItemRelation[]>;
 	createItem(input: {
 		id?: string;
 		parentId?: string | null;

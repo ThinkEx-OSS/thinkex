@@ -3,10 +3,15 @@ import { z } from "zod";
 import { createWorkspaceItemsFailureCodes } from "#/features/workspaces/operations/create-items";
 import { deleteWorkspaceItemsFailureCodes } from "#/features/workspaces/operations/delete-items";
 import { editWorkspaceItemFailureCodes } from "#/features/workspaces/operations/edit-item";
+import { linkWorkspaceItemsFailureCodes } from "#/features/workspaces/operations/link-items";
 import { moveWorkspaceItemsFailureCodes } from "#/features/workspaces/operations/move-items";
 import { readWorkspaceItemsFailureCodes } from "#/features/workspaces/operations/read-items";
 import { renameWorkspaceItemFailureCodes } from "#/features/workspaces/operations/rename-item";
-import { workspaceItemTypeSchema, workspaceSummarySchema } from "#/features/workspaces/contracts";
+import {
+	workspaceItemTypeSchema,
+	workspaceRelationKindSchema,
+	workspaceSummarySchema,
+} from "#/features/workspaces/contracts";
 import { documentMarkdownEditSchema } from "#/features/workspaces/documents/document-markdown-edits";
 
 export const workspaceDocumentMarkdownMathInstruction =
@@ -63,6 +68,19 @@ export const workspaceReadPagesSchema = z.object({
 	total: z.number().int().min(1).describe("Total pages available."),
 });
 
+const workspaceRelationInputSchema = z.object({
+	kind: workspaceRelationKindSchema.describe(
+		"`derived_from` means this item was created or materially changed from the linked item. `references` means this item cites or points to the linked item.",
+	),
+	note: z
+		.string()
+		.trim()
+		.max(240)
+		.optional()
+		.describe("Optional short source detail, like pages 12-14 or section on photosynthesis."),
+	path: z.string().min(1).describe("Absolute path of the related ThinkEx workspace item."),
+});
+
 export const workspacePageRangeSchema = z
 	.string()
 	.trim()
@@ -100,15 +118,42 @@ export const workspaceReadItemsInputSchema = z.object({
 		.describe("Absolute paths in the actual ThinkEx workspace to read."),
 });
 
-export const workspaceEditItemInputSchema = z.object({
-	path: z.string().min(1).describe("Absolute path of one actual ThinkEx workspace item to edit."),
-	edits: z
-		.array(documentMarkdownEditSchema)
+export const workspaceEditItemInputSchema = z
+	.object({
+		path: z.string().min(1).describe("Absolute path of one actual ThinkEx workspace item to edit."),
+		relations: z
+			.array(workspaceRelationInputSchema)
+			.max(20)
+			.optional()
+			.describe("Optional relationships from this item to other workspace items."),
+		edits: z
+			.array(documentMarkdownEditSchema)
+			.min(1)
+			.max(40)
+			.optional()
+			.describe(
+				`Ordered text edits to apply to a document projection. ${workspaceDocumentMarkdownMathInstruction}`,
+			),
+	})
+	.superRefine((input, ctx) => {
+		if ((input.edits?.length ?? 0) > 0 || (input.relations?.length ?? 0) > 0) {
+			return;
+		}
+
+		ctx.addIssue({
+			code: z.ZodIssueCode.custom,
+			message: "Provide edits or relations.",
+			path: ["edits"],
+		});
+	});
+
+export const workspaceLinkItemsInputSchema = z.object({
+	path: z.string().min(1).describe("Absolute path of the workspace item to link from."),
+	relations: z
+		.array(workspaceRelationInputSchema)
 		.min(1)
-		.max(40)
-		.describe(
-			`Ordered text edits to apply to the item projection. ${workspaceDocumentMarkdownMathInstruction}`,
-		),
+		.max(20)
+		.describe("Relationships from this item to other workspace items."),
 });
 
 export const workspaceRenameItemInputSchema = z.object({
@@ -135,10 +180,20 @@ export const workspaceCreateItemsInputSchema = z.object({
 				z.object({
 					type: z.literal("folder"),
 					path: z.string().min(1).describe("Final absolute path for the folder to create."),
+					relations: z
+						.array(workspaceRelationInputSchema)
+						.max(20)
+						.optional()
+						.describe("Optional relationships from this new folder to other workspace items."),
 				}),
 				z.object({
 					type: z.literal("document"),
 					path: z.string().min(1).describe("Final absolute path for the document to create."),
+					relations: z
+						.array(workspaceRelationInputSchema)
+						.max(20)
+						.optional()
+						.describe("Optional relationships from this new document to other workspace items."),
 					initialContent: z
 						.string()
 						.describe(
@@ -210,6 +265,13 @@ export const workspaceCreateItemsInputExamples = createInputExamples<
 			type: "document",
 			path: "/Demo Folder/Demo Document",
 			initialContent: "# Demo Document\nThis document was created as part of a tool demo.",
+			relations: [
+				{
+					kind: "derived_from",
+					path: "/Demo Folder/Demo PDF.pdf",
+					note: "Pages 1-3",
+				},
+			],
 		},
 	],
 });
@@ -224,10 +286,30 @@ export const workspaceEditItemInputExamples = createInputExamples<
 	z.input<typeof workspaceEditItemInputSchema>
 >({
 	path: "/Demo Folder/Demo Document",
+	relations: [
+		{
+			kind: "references",
+			path: "/Demo Folder/Demo PDF.pdf",
+			note: "Source section used for the update.",
+		},
+	],
 	edits: [
 		{
 			type: "overwrite",
 			content: "# Demo Document\nThis document was updated as part of the demo.",
+		},
+	],
+});
+
+export const workspaceLinkItemsInputExamples = createInputExamples<
+	z.input<typeof workspaceLinkItemsInputSchema>
+>({
+	path: "/Demo Folder",
+	relations: [
+		{
+			kind: "references",
+			path: "/Demo Folder/Demo PDF.pdf",
+			note: "Source folder for related materials.",
 		},
 	],
 });
@@ -250,6 +332,16 @@ export const workspaceReadItemsOutputSchema = createWorkspaceItemsResultSchema({
 		status: z.enum(["failed", "pending", "ready", "unsupported"]),
 		content: z.string().optional(),
 		pages: workspaceReadPagesSchema.optional(),
+		relations: z
+			.array(
+				z.object({
+					direction: z.enum(["incoming", "outgoing"]),
+					kind: workspaceRelationKindSchema,
+					note: z.string().optional(),
+					path: workspacePathSchema,
+				}),
+			)
+			.optional(),
 	}),
 	failureSchema: createFailureSchema(readWorkspaceItemsFailureCodes),
 });
@@ -298,4 +390,9 @@ export const workspaceEditItemOutputSchema = z.object({
 		.array(z.string())
 		.describe("Content projection warnings after applying edits.")
 		.optional(),
+});
+
+export const workspaceLinkItemsOutputSchema = z.object({
+	item: workspacePathItemSchema.optional(),
+	failed: z.array(createFailureSchema(linkWorkspaceItemsFailureCodes, { includeIndex: false })),
 });
