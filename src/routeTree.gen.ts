@@ -22,10 +22,12 @@ import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as ProtectedSettingsRouteImport } from './routes/_protected/settings'
 import { Route as ProtectedHomeRouteImport } from './routes/_protected/home'
 import { Route as DotwellKnownOauthAuthorizationServerRouteImport } from './routes/[.]well-known/oauth-authorization-server'
+import { Route as ProtectedSettingsIndexRouteImport } from './routes/_protected/settings/index'
 import { Route as ApiV1WorkspacesRouteImport } from './routes/api/v1/workspaces'
 import { Route as ApiPosthogSurveyFeedbackRouteImport } from './routes/api/posthog/survey-feedback'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ProtectedWorkspacesWorkspaceIdRouteImport } from './routes/_protected/workspaces.$workspaceId'
+import { Route as ProtectedSettingsConnectionsRouteImport } from './routes/_protected/settings/connections'
 import { Route as ApiV1WorkspacesWorkspaceIdFileUploadRouteImport } from './routes/api/v1/workspaces.$workspaceId.file-upload'
 import { Route as ApiV1WorkspacesWorkspaceIdChatAttachmentNormalizationRouteImport } from './routes/api/v1/workspaces.$workspaceId.chat-attachment-normalization'
 import { Route as ApiV1WorkspacesWorkspaceIdFilesItemIdPreviewRouteImport } from './routes/api/v1/workspaces.$workspaceId.files.$itemId.preview'
@@ -96,6 +98,11 @@ const DotwellKnownOauthAuthorizationServerRoute =
     path: '/.well-known/oauth-authorization-server',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ProtectedSettingsIndexRoute = ProtectedSettingsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ProtectedSettingsRoute,
+} as any)
 const ApiV1WorkspacesRoute = ApiV1WorkspacesRouteImport.update({
   id: '/api/v1/workspaces',
   path: '/api/v1/workspaces',
@@ -117,6 +124,12 @@ const ProtectedWorkspacesWorkspaceIdRoute =
     id: '/workspaces/$workspaceId',
     path: '/workspaces/$workspaceId',
     getParentRoute: () => ProtectedRoute,
+  } as any)
+const ProtectedSettingsConnectionsRoute =
+  ProtectedSettingsConnectionsRouteImport.update({
+    id: '/connections',
+    path: '/connections',
+    getParentRoute: () => ProtectedSettingsRoute,
   } as any)
 const ApiV1WorkspacesWorkspaceIdFileUploadRoute =
   ApiV1WorkspacesWorkspaceIdFileUploadRouteImport.update({
@@ -153,13 +166,15 @@ export interface FileRoutesByFullPath {
   '/terms': typeof TermsRoute
   '/.well-known/oauth-authorization-server': typeof DotwellKnownOauthAuthorizationServerRoute
   '/home': typeof ProtectedHomeRoute
-  '/settings': typeof ProtectedSettingsRoute
+  '/settings': typeof ProtectedSettingsRouteWithChildren
   '/invite/$token': typeof InviteTokenRoute
   '/oauth/consent': typeof OauthConsentRoute
+  '/settings/connections': typeof ProtectedSettingsConnectionsRoute
   '/workspaces/$workspaceId': typeof ProtectedWorkspacesWorkspaceIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/posthog/survey-feedback': typeof ApiPosthogSurveyFeedbackRoute
   '/api/v1/workspaces': typeof ApiV1WorkspacesRouteWithChildren
+  '/settings/': typeof ProtectedSettingsIndexRoute
   '/api/v1/workspaces/$workspaceId/chat-attachment-normalization': typeof ApiV1WorkspacesWorkspaceIdChatAttachmentNormalizationRoute
   '/api/v1/workspaces/$workspaceId/file-upload': typeof ApiV1WorkspacesWorkspaceIdFileUploadRoute
   '/api/v1/workspaces/$workspaceId/files/$itemId/content': typeof ApiV1WorkspacesWorkspaceIdFilesItemIdContentRoute
@@ -175,13 +190,14 @@ export interface FileRoutesByTo {
   '/terms': typeof TermsRoute
   '/.well-known/oauth-authorization-server': typeof DotwellKnownOauthAuthorizationServerRoute
   '/home': typeof ProtectedHomeRoute
-  '/settings': typeof ProtectedSettingsRoute
   '/invite/$token': typeof InviteTokenRoute
   '/oauth/consent': typeof OauthConsentRoute
+  '/settings/connections': typeof ProtectedSettingsConnectionsRoute
   '/workspaces/$workspaceId': typeof ProtectedWorkspacesWorkspaceIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/posthog/survey-feedback': typeof ApiPosthogSurveyFeedbackRoute
   '/api/v1/workspaces': typeof ApiV1WorkspacesRouteWithChildren
+  '/settings': typeof ProtectedSettingsIndexRoute
   '/api/v1/workspaces/$workspaceId/chat-attachment-normalization': typeof ApiV1WorkspacesWorkspaceIdChatAttachmentNormalizationRoute
   '/api/v1/workspaces/$workspaceId/file-upload': typeof ApiV1WorkspacesWorkspaceIdFileUploadRoute
   '/api/v1/workspaces/$workspaceId/files/$itemId/content': typeof ApiV1WorkspacesWorkspaceIdFilesItemIdContentRoute
@@ -199,13 +215,15 @@ export interface FileRoutesById {
   '/terms': typeof TermsRoute
   '/.well-known/oauth-authorization-server': typeof DotwellKnownOauthAuthorizationServerRoute
   '/_protected/home': typeof ProtectedHomeRoute
-  '/_protected/settings': typeof ProtectedSettingsRoute
+  '/_protected/settings': typeof ProtectedSettingsRouteWithChildren
   '/invite/$token': typeof InviteTokenRoute
   '/oauth/consent': typeof OauthConsentRoute
+  '/_protected/settings/connections': typeof ProtectedSettingsConnectionsRoute
   '/_protected/workspaces/$workspaceId': typeof ProtectedWorkspacesWorkspaceIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/posthog/survey-feedback': typeof ApiPosthogSurveyFeedbackRoute
   '/api/v1/workspaces': typeof ApiV1WorkspacesRouteWithChildren
+  '/_protected/settings/': typeof ProtectedSettingsIndexRoute
   '/api/v1/workspaces/$workspaceId/chat-attachment-normalization': typeof ApiV1WorkspacesWorkspaceIdChatAttachmentNormalizationRoute
   '/api/v1/workspaces/$workspaceId/file-upload': typeof ApiV1WorkspacesWorkspaceIdFileUploadRoute
   '/api/v1/workspaces/$workspaceId/files/$itemId/content': typeof ApiV1WorkspacesWorkspaceIdFilesItemIdContentRoute
@@ -226,10 +244,12 @@ export interface FileRouteTypes {
     | '/settings'
     | '/invite/$token'
     | '/oauth/consent'
+    | '/settings/connections'
     | '/workspaces/$workspaceId'
     | '/api/auth/$'
     | '/api/posthog/survey-feedback'
     | '/api/v1/workspaces'
+    | '/settings/'
     | '/api/v1/workspaces/$workspaceId/chat-attachment-normalization'
     | '/api/v1/workspaces/$workspaceId/file-upload'
     | '/api/v1/workspaces/$workspaceId/files/$itemId/content'
@@ -245,13 +265,14 @@ export interface FileRouteTypes {
     | '/terms'
     | '/.well-known/oauth-authorization-server'
     | '/home'
-    | '/settings'
     | '/invite/$token'
     | '/oauth/consent'
+    | '/settings/connections'
     | '/workspaces/$workspaceId'
     | '/api/auth/$'
     | '/api/posthog/survey-feedback'
     | '/api/v1/workspaces'
+    | '/settings'
     | '/api/v1/workspaces/$workspaceId/chat-attachment-normalization'
     | '/api/v1/workspaces/$workspaceId/file-upload'
     | '/api/v1/workspaces/$workspaceId/files/$itemId/content'
@@ -271,10 +292,12 @@ export interface FileRouteTypes {
     | '/_protected/settings'
     | '/invite/$token'
     | '/oauth/consent'
+    | '/_protected/settings/connections'
     | '/_protected/workspaces/$workspaceId'
     | '/api/auth/$'
     | '/api/posthog/survey-feedback'
     | '/api/v1/workspaces'
+    | '/_protected/settings/'
     | '/api/v1/workspaces/$workspaceId/chat-attachment-normalization'
     | '/api/v1/workspaces/$workspaceId/file-upload'
     | '/api/v1/workspaces/$workspaceId/files/$itemId/content'
@@ -391,6 +414,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DotwellKnownOauthAuthorizationServerRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_protected/settings/': {
+      id: '/_protected/settings/'
+      path: '/'
+      fullPath: '/settings/'
+      preLoaderRoute: typeof ProtectedSettingsIndexRouteImport
+      parentRoute: typeof ProtectedSettingsRoute
+    }
     '/api/v1/workspaces': {
       id: '/api/v1/workspaces'
       path: '/api/v1/workspaces'
@@ -418,6 +448,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/workspaces/$workspaceId'
       preLoaderRoute: typeof ProtectedWorkspacesWorkspaceIdRouteImport
       parentRoute: typeof ProtectedRoute
+    }
+    '/_protected/settings/connections': {
+      id: '/_protected/settings/connections'
+      path: '/connections'
+      fullPath: '/settings/connections'
+      preLoaderRoute: typeof ProtectedSettingsConnectionsRouteImport
+      parentRoute: typeof ProtectedSettingsRoute
     }
     '/api/v1/workspaces/$workspaceId/file-upload': {
       id: '/api/v1/workspaces/$workspaceId/file-upload'
@@ -450,15 +487,28 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface ProtectedSettingsRouteChildren {
+  ProtectedSettingsConnectionsRoute: typeof ProtectedSettingsConnectionsRoute
+  ProtectedSettingsIndexRoute: typeof ProtectedSettingsIndexRoute
+}
+
+const ProtectedSettingsRouteChildren: ProtectedSettingsRouteChildren = {
+  ProtectedSettingsConnectionsRoute: ProtectedSettingsConnectionsRoute,
+  ProtectedSettingsIndexRoute: ProtectedSettingsIndexRoute,
+}
+
+const ProtectedSettingsRouteWithChildren =
+  ProtectedSettingsRoute._addFileChildren(ProtectedSettingsRouteChildren)
+
 interface ProtectedRouteChildren {
   ProtectedHomeRoute: typeof ProtectedHomeRoute
-  ProtectedSettingsRoute: typeof ProtectedSettingsRoute
+  ProtectedSettingsRoute: typeof ProtectedSettingsRouteWithChildren
   ProtectedWorkspacesWorkspaceIdRoute: typeof ProtectedWorkspacesWorkspaceIdRoute
 }
 
 const ProtectedRouteChildren: ProtectedRouteChildren = {
   ProtectedHomeRoute: ProtectedHomeRoute,
-  ProtectedSettingsRoute: ProtectedSettingsRoute,
+  ProtectedSettingsRoute: ProtectedSettingsRouteWithChildren,
   ProtectedWorkspacesWorkspaceIdRoute: ProtectedWorkspacesWorkspaceIdRoute,
 }
 

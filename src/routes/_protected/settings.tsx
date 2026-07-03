@@ -1,14 +1,9 @@
-import { createFileRoute } from "@tanstack/react-router";
-
-import { SettingsPage } from "#/features/account/components/SettingsPage";
+import { createFileRoute, Outlet } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_protected/settings")({
-	head: () => ({
-		meta: [
-			{
-				title: "ThinkEx | Settings",
-			},
-		],
-	}),
-	component: SettingsPage,
+	component: SettingsLayout,
 });
+
+function SettingsLayout() {
+	return <Outlet />;
+}

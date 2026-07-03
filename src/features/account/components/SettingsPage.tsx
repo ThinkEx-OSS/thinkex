@@ -9,6 +9,7 @@ import { Button } from "#/components/ui/button";
 import { Field, FieldGroup, FieldLabel } from "#/components/ui/field";
 import { Input } from "#/components/ui/input";
 import { DeleteAccountSection } from "#/features/account/components/DeleteAccountSection";
+import { SettingsNav } from "#/features/account/components/SettingsNav";
 import { signOutCurrentUser } from "#/lib/auth-sign-out";
 import { getErrorMessage } from "#/lib/error-message";
 import { getAuthSessionQueryOptions } from "#/lib/session-query";
@@ -63,6 +64,8 @@ export function SettingsPage() {
 					<ArrowLeft className="size-4" />
 					Back
 				</Button>
+
+				<SettingsNav />
 
 				<div className="flex justify-center">
 					<Avatar className="size-24">
