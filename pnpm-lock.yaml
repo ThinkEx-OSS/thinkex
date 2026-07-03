@@ -28,8 +28,8 @@ importers:
         specifier: ^0.3.7
         version: 0.3.7
       '@cloudflare/sandbox':
-        specifier: 0.12.2
-        version: 0.12.2
+        specifier: 0.12.3
+        version: 0.12.3
       '@cloudflare/shell':
         specifier: ^0.4.1
         version: 0.4.1(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(@tanstack/ai@0.22.0(@opentelemetry/api@1.9.1))(ai@6.0.208(zod@4.4.3))(zod@4.4.3)
@@ -306,7 +306,7 @@ importers:
         version: 8.0.2(@babel/core@7.29.7)
       '@cloudflare/vitest-pool-workers':
         specifier: ^0.16.17
-        version: 0.16.18(@cloudflare/workers-types@4.20260627.1)(@vitest/runner@4.1.9)(@vitest/snapshot@4.1.9)(vitest@4.1.9(@opentelemetry/api@1.9.1)(@types/node@26.0.1)(@vitest/browser-preview@4.1.9)(@voidzero-dev/vite-plus-core@0.2.2(@types/node@26.0.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(typescript@6.0.3)(yaml@2.9.0))(jsdom@28.1.0(@noble/hashes@2.2.0))(msw@2.14.6(@types/node@26.0.1)(typescript@6.0.3)))
+        version: 0.16.18(@cloudflare/workers-types@4.20260627.1)(@vitest/runner@4.1.9)(@vitest/snapshot@4.1.9)(vitest@4.1.9)
       '@cloudflare/workers-types':
         specifier: ^4.20260627.1
         version: 4.20260627.1
@@ -867,8 +867,8 @@ packages:
     resolution: {integrity: sha512-jxQYkj8dSIzc0cD6cMMNdOc1UVjqSqu8BZdor5s8cGjW2I8BjODt/kWPVdY+u9zj3ms75Q5qaZgnxUad83+eAg==}
     engines: {node: '>=22.0.0'}
 
-  '@cloudflare/sandbox@0.12.2':
-    resolution: {integrity: sha512-B3hgDEJuNT7IomMVN/oFulRFiHcs0rDUKDRuA1T36dOgR7gGheEQs3YpNp07lbREy0w4Gv+xob61+JCqE8FyAQ==}
+  '@cloudflare/sandbox@0.12.3':
+    resolution: {integrity: sha512-4yx+PtBCZBrS3eZteefwBfGOm+8MTZahLH8/fG/qsvqoNflzno9780FsM6HZf02gGuoDy+s9jQrXbg/h5gEvgw==}
     peerDependencies:
       '@openai/agents': ^0.3.3
       '@opencode-ai/sdk': ^1.1.40
@@ -5743,8 +5743,8 @@ packages:
   ee-first@1.1.1:
     resolution: {integrity: sha512-WMwm9LhRUo+WUaRN+vRuETqG89IgZphVSNkdFgeb6sS/E4OrDIN7t48CAewSHXc6C8lefD8KKfr5vY61brQlow==}
 
-  electron-to-chromium@1.5.383:
-    resolution: {integrity: sha512-I2484/KkAvl8lm9VyjH2JnbOIV0d/UCqT7gbzs6l+o6Vmn9wgB66uVcKX+Vk6HrXtY6fbWTOEXuv8waDTuFNCw==}
+  electron-to-chromium@1.5.384:
+    resolution: {integrity: sha512-g6KAKY1vkYsADvSPWvdJsuYT0ixdcu6lUtD9P/wJKGBEDlZVXh2AX42j1mPqqaQPDluWjara9ziQ7xqAeXCt5A==}
 
   emoji-regex@10.6.0:
     resolution: {integrity: sha512-toUI84YS5YmxW219erniWD0CIVOo46xGKColeNQRgOzDorgBi1v4D71/OFzgD9GO2UGKIv1C3Sp8DAn0+j5w7A==}
@@ -7969,8 +7969,8 @@ packages:
     engines: {node: '>=20.16.0'}
     hasBin: true
 
-  srvx@0.11.18:
-    resolution: {integrity: sha512-7/EW5sPdC1bU7iq1tgTvCZqUQDkJdsqIVzYqBv7SuBfQQ10oWkKj4KYNOw0H4Ig26bXuUYDA7XTKxB+/HC5SRw==}
+  srvx@0.11.19:
+    resolution: {integrity: sha512-tvHYSerecoVfQBBEtiUg+KnsP0q5hr0g2EQohoBylmJTAAj5gm5HH9kEV+L1mJu0s5m6gsZ7I0Qp/UhM1sCVgA==}
     engines: {node: '>=20.16.0'}
     hasBin: true
 
@@ -9254,7 +9254,7 @@ snapshots:
 
   '@cloudflare/kv-asset-handler@0.5.0': {}
 
-  '@cloudflare/sandbox@0.12.2':
+  '@cloudflare/sandbox@0.12.3':
     dependencies:
       '@cloudflare/containers': 0.3.7
       aws4fetch: 1.0.20
@@ -9323,7 +9323,7 @@ snapshots:
       - utf-8-validate
       - workerd
 
-  '@cloudflare/vitest-pool-workers@0.16.18(@cloudflare/workers-types@4.20260627.1)(@vitest/runner@4.1.9)(@vitest/snapshot@4.1.9)(vitest@4.1.9(@opentelemetry/api@1.9.1)(@types/node@26.0.1)(@vitest/browser-preview@4.1.9)(@voidzero-dev/vite-plus-core@0.2.2(@types/node@26.0.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(typescript@6.0.3)(yaml@2.9.0))(jsdom@28.1.0(@noble/hashes@2.2.0))(msw@2.14.6(@types/node@26.0.1)(typescript@6.0.3)))':
+  '@cloudflare/vitest-pool-workers@0.16.18(@cloudflare/workers-types@4.20260627.1)(@vitest/runner@4.1.9)(@vitest/snapshot@4.1.9)(vitest@4.1.9)':
     dependencies:
       '@vitest/runner': 4.1.9
       '@vitest/snapshot': 4.1.9
@@ -12722,7 +12722,7 @@ snapshots:
     dependencies:
       baseline-browser-mapping: 2.10.40
       caniuse-lite: 1.0.30001800
-      electron-to-chromium: 1.5.383
+      electron-to-chromium: 1.5.384
       node-releases: 2.0.50
       update-browserslist-db: 1.2.3(browserslist@4.28.4)
 
@@ -13326,7 +13326,7 @@ snapshots:
 
   ee-first@1.1.1: {}
 
-  electron-to-chromium@1.5.383: {}
+  electron-to-chromium@1.5.384: {}
 
   emoji-regex@10.6.0: {}
 
@@ -13890,7 +13890,7 @@ snapshots:
   h3@2.0.1-rc.20:
     dependencies:
       rou3: 0.8.1
-      srvx: 0.11.18
+      srvx: 0.11.19
 
   hachure-fill@0.5.2: {}
 
@@ -16298,7 +16298,7 @@ snapshots:
 
   srvx@0.11.17: {}
 
-  srvx@0.11.18: {}
+  srvx@0.11.19: {}
 
   stackback@0.0.2: {}
 

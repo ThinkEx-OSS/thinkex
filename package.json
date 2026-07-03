@@ -43,7 +43,7 @@
 		"@cf-wasm/photon": "^0.3.6",
 		"@cloudflare/codemode": "^0.4.2",
 		"@cloudflare/containers": "^0.3.7",
-		"@cloudflare/sandbox": "0.12.2",
+		"@cloudflare/sandbox": "0.12.3",
 		"@cloudflare/shell": "^0.4.1",
 		"@cloudflare/think": "^0.12.1",
 		"@cloudflare/vite-plugin": "^1.42.3",
