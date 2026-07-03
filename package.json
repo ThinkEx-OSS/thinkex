@@ -73,7 +73,7 @@
 		"@posthog/rollup-plugin": "^1.4.7",
 		"@streamdown/cjk": "^1.0.3",
 		"@streamdown/math": "^1.0.2",
-		"@tailwindcss/vite": "^4.3.1",
+		"@tailwindcss/vite": "^4.3.2",
 		"@tanstack/pacer": "^0.21.1",
 		"@tanstack/react-devtools": "0.10.8",
 		"@tanstack/react-hotkeys": "^0.10.0",
