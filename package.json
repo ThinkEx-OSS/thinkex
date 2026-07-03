@@ -82,7 +82,7 @@
 		"@tanstack/react-router": "1.170.16",
 		"@tanstack/react-router-devtools": "1.167.0",
 		"@tanstack/react-router-ssr-query": "1.167.1",
-		"@tanstack/react-start": "1.168.26",
+		"@tanstack/react-start": "1.168.27",
 		"@tanstack/router-plugin": "^1.168.18",
 		"@tiptap/core": "^3.27.1",
 		"@tiptap/extension-character-count": "^3.27.1",
