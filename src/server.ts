@@ -3,6 +3,7 @@ import handler from "@tanstack/react-start/server-entry";
 import { routeUserAIRequest } from "#/features/workspaces/ai/auth";
 import { routeDocumentSessionRequest } from "#/features/workspaces/documents/document-session-auth";
 import { routeWorkspaceKernelRequest } from "#/features/workspaces/kernel/workspace-kernel-auth";
+import { routeMcpRequest } from "#/features/workspaces/mcp/mcp-route";
 import { posthogHost, posthogHostOrigin, posthogProjectToken } from "#/integrations/posthog/config";
 import { capturePostHogServerException } from "#/integrations/posthog/server";
 
@@ -108,8 +109,14 @@ function withSecurityHeaders(response: Response) {
 }
 
 export default {
-	async fetch(request, env) {
+	async fetch(request, env, ctx) {
 		try {
+			const mcpResponse = await routeMcpRequest(request, env, ctx);
+
+			if (mcpResponse) {
+				return mcpResponse;
+			}
+
 			const chatResponse = await routeUserAIRequest(request, env);
 
 			if (chatResponse) {

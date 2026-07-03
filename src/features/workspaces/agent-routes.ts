@@ -10,6 +10,7 @@ export const workspaceKernelPathPrefix = "/workspace-kernel";
 export const workspaceKernelBasePath = "workspace-kernel";
 export const workspaceKernelRealtimeSegment = "realtime";
 export const documentSessionPathPrefix = "/document-session";
+export const mcpPathPrefix = "/mcp";
 
 export interface DocumentSessionRouteParams {
 	workspaceId: string;
@@ -26,6 +27,10 @@ export function isWorkspaceKernelRequestPath(pathname: string) {
 
 export function isDocumentSessionRequestPath(pathname: string) {
 	return pathname.startsWith(`${documentSessionPathPrefix}/`);
+}
+
+export function isMcpRequestPath(pathname: string) {
+	return matchesPathPrefix(pathname, mcpPathPrefix);
 }
 
 export function getWorkspaceKernelRouteWorkspaceId(pathname: string) {

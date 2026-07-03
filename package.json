@@ -69,6 +69,7 @@
 		"@embedpdf/plugin-viewport": "^2.14.4",
 		"@embedpdf/plugin-zoom": "^2.14.4",
 		"@fontsource-variable/geist": "5.2.9",
+		"@modelcontextprotocol/sdk": "^1.29.0",
 		"@posthog/ai": "^8.2.2",
 		"@posthog/react": "^1.10.3",
 		"@posthog/rollup-plugin": "^1.4.7",
