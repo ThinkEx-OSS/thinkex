@@ -19,7 +19,7 @@ import { createAIThreadResearchTools } from "#/features/workspaces/ai/research-t
 import { createAIThreadTimeTools } from "#/features/workspaces/ai/time-tools";
 import { createAIThreadWebTools } from "#/features/workspaces/ai/web-tools";
 import { createAIThreadWorkspaceTools } from "#/features/workspaces/ai/workspace-tools";
-import { workspaceCapabilityToolDefinitions } from "#/features/workspaces/capabilities/workspace-capability-tools";
+import { workspaceToolDefinitions } from "#/features/workspaces/operations/workspace-tool-definitions";
 import { formatWorkspaceAiContextForPrompt } from "#/features/workspaces/model/workspace-ai-context";
 
 const thinkPromptSectionDivider = "══════════════════════════════════════════════";
@@ -165,7 +165,7 @@ const AI_THREAD_TIME_TOOL_DESCRIPTORS: AIThreadToolDescriptor[] = [
 ];
 
 const AI_THREAD_WORKSPACE_TOOL_DESCRIPTORS: AIThreadToolDescriptor[] = [
-	...workspaceCapabilityToolDefinitions.map(({ name, mutating }) => ({
+	...workspaceToolDefinitions.map(({ name, mutating }) => ({
 		name,
 		codemode: true,
 		mutating,

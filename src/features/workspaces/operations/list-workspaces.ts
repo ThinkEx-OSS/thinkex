@@ -1,19 +1,19 @@
 import { createDbContext } from "#/db/server";
 import type { WorkspaceSummary } from "#/features/workspaces/contracts";
 import {
-	assertAccountCapabilityScope,
-	type AccountCapabilityContext,
-} from "#/features/workspaces/capabilities/account-capability-context";
+	assertAccountAccessScope,
+	type AccountAccessContext,
+} from "#/features/workspaces/operations/account-access-context";
 import { listWorkspacesForUser } from "#/features/workspaces/server/queries";
 
-export interface ListAccountCapabilityWorkspacesResult {
+export interface ListAccountWorkspacesOperationResult {
 	workspaces: WorkspaceSummary[];
 }
 
-export async function listAccountCapabilityWorkspaces(
-	context: AccountCapabilityContext,
-): Promise<ListAccountCapabilityWorkspacesResult> {
-	assertAccountCapabilityScope(context, "workspaces:read");
+export async function listAccountWorkspacesOperation(
+	context: AccountAccessContext,
+): Promise<ListAccountWorkspacesOperationResult> {
+	assertAccountAccessScope(context, "workspaces:read");
 	const dbContext = await createDbContext();
 
 	try {

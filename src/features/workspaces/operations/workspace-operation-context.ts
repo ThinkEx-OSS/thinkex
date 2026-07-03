@@ -16,18 +16,18 @@ import {
 	assertCanReadWorkspace,
 } from "#/features/workspaces/server/permissions";
 import {
-	assertWorkspaceCapabilityScope,
-	type WorkspaceCapabilityContext,
-} from "#/features/workspaces/capabilities/workspace-capability-context";
+	assertWorkspaceAccessScope,
+	type WorkspaceAccessContext,
+} from "#/features/workspaces/operations/workspace-access-context";
 
-export type WorkspaceCapabilityAccessMode = "read" | "mutate";
+export type WorkspaceOperationAccessMode = "read" | "mutate";
 
-export interface WorkspaceCapabilityPageContext {
+export interface WorkspaceOperationContext {
 	kernel: WorkspaceKernelClient;
 	tree: WorkspaceKernelTree;
 }
 
-export type WorkspaceCapabilityPathResolution =
+export type WorkspaceOperationPathResolution =
 	| {
 			code: "path_not_absolute";
 			path: string;
@@ -47,7 +47,7 @@ export type WorkspaceCapabilityPathResolution =
 			status: "item";
 	  };
 
-export type WorkspaceCapabilityExistingItemResolution<TRootCode extends string> =
+export type WorkspaceExistingItemResolution<TRootCode extends string> =
 	| {
 			failure: {
 				code: "path_not_absolute" | "path_not_found" | TRootCode;
@@ -61,10 +61,10 @@ export type WorkspaceCapabilityExistingItemResolution<TRootCode extends string> 
 			status: "item";
 	  };
 
-export async function getWorkspaceCapabilityPageContext(input: {
-	access: WorkspaceCapabilityAccessMode;
-	context: WorkspaceCapabilityContext;
-}): Promise<WorkspaceCapabilityPageContext> {
+export async function getWorkspaceOperationContext(input: {
+	access: WorkspaceOperationAccessMode;
+	context: WorkspaceAccessContext;
+}): Promise<WorkspaceOperationContext> {
 	const dbContext = await createDbContext();
 	const workspaceUser = {
 		userId: input.context.actor.userId,
@@ -73,10 +73,10 @@ export async function getWorkspaceCapabilityPageContext(input: {
 
 	try {
 		if (input.access === "read") {
-			assertWorkspaceCapabilityScope(input.context, "workspace:read");
+			assertWorkspaceAccessScope(input.context, "workspace:read");
 			await assertCanReadWorkspace(dbContext.db, workspaceUser);
 		} else {
-			assertWorkspaceCapabilityScope(input.context, "workspace:write");
+			assertWorkspaceAccessScope(input.context, "workspace:write");
 			await assertCanMutateWorkspace(dbContext.db, workspaceUser);
 		}
 
@@ -92,10 +92,10 @@ export async function getWorkspaceCapabilityPageContext(input: {
 	}
 }
 
-export function resolveWorkspaceCapabilityPath(input: {
+export function resolveWorkspaceOperationPath(input: {
 	path: string;
 	tree: WorkspaceKernelTree;
-}): WorkspaceCapabilityPathResolution {
+}): WorkspaceOperationPathResolution {
 	try {
 		const normalizedPath = normalizeWorkspacePath(input.path);
 
@@ -133,12 +133,12 @@ export function resolveWorkspaceCapabilityPath(input: {
 	}
 }
 
-export function resolveWorkspaceCapabilityExistingItemPath<TRootCode extends string>(input: {
+export function resolveWorkspaceExistingItemPath<TRootCode extends string>(input: {
 	path: string;
 	rootFailureCode: TRootCode;
 	tree: WorkspaceKernelTree;
-}): WorkspaceCapabilityExistingItemResolution<TRootCode> {
-	const resolution = resolveWorkspaceCapabilityPath(input);
+}): WorkspaceExistingItemResolution<TRootCode> {
+	const resolution = resolveWorkspaceOperationPath(input);
 
 	if (resolution.status === "invalid_path") {
 		return {

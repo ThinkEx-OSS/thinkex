@@ -1,8 +1,8 @@
 import {
-	getWorkspaceCapabilityPageContext,
-	resolveWorkspaceCapabilityPath,
-} from "#/features/workspaces/capabilities/common";
-import type { WorkspaceCapabilityContext } from "#/features/workspaces/capabilities/workspace-capability-context";
+	getWorkspaceOperationContext,
+	resolveWorkspaceOperationPath,
+} from "#/features/workspaces/operations/workspace-operation-context";
+import type { WorkspaceAccessContext } from "#/features/workspaces/operations/workspace-access-context";
 import type { WorkspaceItemSummary } from "#/features/workspaces/contracts";
 import { parseMarkdownToTiptapDocumentProjection } from "#/features/workspaces/documents/document-markdown";
 import { stringifyTiptapDocumentJson } from "#/features/workspaces/documents/tiptap-document";
@@ -17,17 +17,17 @@ import {
 } from "#/features/workspaces/kernel/workspace-kernel-paths";
 import { WorkspaceKernelNameConflictError } from "#/features/workspaces/kernel/workspace-kernel-store";
 
-export interface CreateWorkspaceCapabilityItemInput {
+export interface CreateWorkspaceItemOperationInput {
 	type: "document" | "folder";
 	path: string;
 	initialContent?: string;
 }
 
-export interface CreateWorkspaceCapabilityItemsInput {
-	items: CreateWorkspaceCapabilityItemInput[];
+export interface CreateWorkspaceItemsOperationInput {
+	items: CreateWorkspaceItemOperationInput[];
 }
 
-export const createWorkspaceCapabilityFailureCodes = [
+export const createWorkspaceItemsFailureCodes = [
 	"cannot_create_root",
 	"invalid_initial_content",
 	"path_already_exists",
@@ -37,26 +37,26 @@ export const createWorkspaceCapabilityFailureCodes = [
 	"path_not_found",
 ] as const;
 
-type CreateWorkspaceCapabilityFailureCode = (typeof createWorkspaceCapabilityFailureCodes)[number];
+type CreateWorkspaceItemsFailureCode = (typeof createWorkspaceItemsFailureCodes)[number];
 
-export interface CreateWorkspaceCapabilityFailure {
-	code: CreateWorkspaceCapabilityFailureCode;
+export interface CreateWorkspaceItemsFailure {
+	code: CreateWorkspaceItemsFailureCode;
 	index: number;
 	path: string;
 }
 
-export interface CreateWorkspaceCapabilityCreatedItem {
+export interface CreatedWorkspaceItem {
 	path: string;
 	type: "document" | "folder";
 	warnings?: string[];
 }
 
-export interface CreateWorkspaceCapabilityItemsResult {
-	items: CreateWorkspaceCapabilityCreatedItem[];
-	failed: CreateWorkspaceCapabilityFailure[];
+export interface CreateWorkspaceItemsOperationResult {
+	items: CreatedWorkspaceItem[];
+	failed: CreateWorkspaceItemsFailure[];
 }
 
-type WorkspaceCapabilityCreatePathResolution =
+type CreateWorkspaceItemPathResolution =
 	| {
 			code: "cannot_create_root" | "path_not_absolute" | "path_not_canonical";
 			path: string;
@@ -69,20 +69,20 @@ type WorkspaceCapabilityCreatePathResolution =
 			status: "ready";
 	  };
 
-export async function createWorkspaceCapabilityItems(
-	capabilityContext: WorkspaceCapabilityContext,
-	input: CreateWorkspaceCapabilityItemsInput,
-): Promise<CreateWorkspaceCapabilityItemsResult> {
-	const workspaceContext = await getWorkspaceCapabilityPageContext({
+export async function createWorkspaceItemsOperation(
+	accessContext: WorkspaceAccessContext,
+	input: CreateWorkspaceItemsOperationInput,
+): Promise<CreateWorkspaceItemsOperationResult> {
+	const workspaceContext = await getWorkspaceOperationContext({
 		access: "mutate",
-		context: capabilityContext,
+		context: accessContext,
 	});
-	const items: CreateWorkspaceCapabilityCreatedItem[] = [];
-	const failed: CreateWorkspaceCapabilityFailure[] = [];
+	const items: CreatedWorkspaceItem[] = [];
+	const failed: CreateWorkspaceItemsFailure[] = [];
 	const createdItemsByPath = new Map<string, { id: string; type: WorkspaceItemSummary["type"] }>();
 
 	for (const [index, itemInput] of input.items.entries()) {
-		const path = resolveWorkspaceCapabilityCreatePath(itemInput.path);
+		const path = resolveCreateWorkspaceItemPath(itemInput.path);
 
 		if (path.status === "failed") {
 			failed.push({
@@ -93,7 +93,7 @@ export async function createWorkspaceCapabilityItems(
 			continue;
 		}
 
-		const parent = resolveWorkspaceCapabilityCreateParent({
+		const parent = resolveCreateWorkspaceItemParent({
 			createdItemsByPath,
 			parentPath: path.parentPath,
 			tree: workspaceContext.tree,
@@ -108,7 +108,7 @@ export async function createWorkspaceCapabilityItems(
 			continue;
 		}
 
-		const initialContent = getWorkspaceCapabilityCreateInitialContent(itemInput);
+		const initialContent = getCreateWorkspaceItemInitialContent(itemInput);
 
 		if (initialContent.status === "failed") {
 			failed.push({
@@ -128,7 +128,7 @@ export async function createWorkspaceCapabilityItems(
 				name: path.name,
 				onNameConflict: "error",
 				initialContent: initialContent.content,
-				actorUserId: capabilityContext.actor.userId,
+				actorUserId: accessContext.actor.userId,
 				clientMutationId: null,
 			});
 		} catch (error) {
@@ -169,7 +169,7 @@ export async function createWorkspaceCapabilityItems(
 	};
 }
 
-function resolveWorkspaceCapabilityCreateParent(input: {
+function resolveCreateWorkspaceItemParent(input: {
 	createdItemsByPath: ReadonlyMap<string, { id: string; type: WorkspaceItemSummary["type"] }>;
 	parentPath: string;
 	tree: WorkspaceKernelTree;
@@ -208,7 +208,7 @@ function resolveWorkspaceCapabilityCreateParent(input: {
 		};
 	}
 
-	const parent = resolveWorkspaceCapabilityPath({
+	const parent = resolveWorkspaceOperationPath({
 		path: input.parentPath,
 		tree: input.tree,
 	});
@@ -242,9 +242,7 @@ function resolveWorkspaceCapabilityCreateParent(input: {
 	};
 }
 
-function resolveWorkspaceCapabilityCreatePath(
-	path: string,
-): WorkspaceCapabilityCreatePathResolution {
+function resolveCreateWorkspaceItemPath(path: string): CreateWorkspaceItemPathResolution {
 	try {
 		const normalizedPath = normalizeWorkspacePath(path);
 
@@ -287,7 +285,7 @@ function resolveWorkspaceCapabilityCreatePath(
 	}
 }
 
-function getWorkspaceCapabilityCreateInitialContent(input: CreateWorkspaceCapabilityItemInput):
+function getCreateWorkspaceItemInitialContent(input: CreateWorkspaceItemOperationInput):
 	| {
 			content?: string;
 			status: "ready";

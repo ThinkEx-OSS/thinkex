@@ -3,17 +3,17 @@ import { tool } from "ai";
 
 import type { AIThreadContext } from "#/features/workspaces/ai/ai-thread-metadata";
 import {
-	workspaceCapabilityToolDefinitions,
-	type WorkspaceCapabilityToolDefinition,
-} from "#/features/workspaces/capabilities/workspace-capability-tools";
+	workspaceToolDefinitions,
+	type WorkspaceToolDefinition,
+} from "#/features/workspaces/operations/workspace-tool-definitions";
 import {
-	createWorkspaceCapabilityContext,
-	type WorkspaceCapabilityContext,
-	type WorkspaceCapabilityScope,
-} from "#/features/workspaces/capabilities/workspace-capability-context";
+	createWorkspaceAccessContext,
+	type WorkspaceAccessContext,
+	type WorkspaceAccessScope,
+} from "#/features/workspaces/operations/workspace-access-context";
 
 type WorkspaceThreadToolConfig = {
-	definition: WorkspaceCapabilityToolDefinition;
+	definition: WorkspaceToolDefinition;
 	getThreadContext: () => Promise<AIThreadContext | null>;
 };
 
@@ -31,7 +31,7 @@ function createWorkspaceThreadTool(input: WorkspaceThreadToolConfig) {
 
 			return await definition.execute(
 				args,
-				createThreadWorkspaceCapabilityContext(thread, definition.scopes),
+				createThreadWorkspaceAccessContext(thread, definition.scopes),
 			);
 		},
 	});
@@ -41,7 +41,7 @@ export function createAIThreadWorkspaceTools(input: {
 	getThreadContext: () => Promise<AIThreadContext | null>;
 }): ToolSet {
 	return Object.fromEntries(
-		workspaceCapabilityToolDefinitions.map((definition) => [
+		workspaceToolDefinitions.map((definition) => [
 			definition.name,
 			createWorkspaceThreadTool({
 				definition,
@@ -61,11 +61,11 @@ async function requireThreadContext(getThreadContext: () => Promise<AIThreadCont
 	return thread;
 }
 
-function createThreadWorkspaceCapabilityContext(
+function createThreadWorkspaceAccessContext(
 	thread: AIThreadContext,
-	scopes: readonly WorkspaceCapabilityScope[],
-): WorkspaceCapabilityContext {
-	return createWorkspaceCapabilityContext({
+	scopes: readonly WorkspaceAccessScope[],
+): WorkspaceAccessContext {
+	return createWorkspaceAccessContext({
 		scopes,
 		userId: thread.userId,
 		workspaceId: thread.workspaceId,

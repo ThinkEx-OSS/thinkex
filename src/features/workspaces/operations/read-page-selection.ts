@@ -3,27 +3,27 @@ import {
 	type MarkdownProjectionPage,
 } from "#/features/workspaces/extraction/page-markdown-projection";
 
-export interface WorkspaceCapabilityReadPages {
+export interface WorkspaceReadPages {
 	requested: string;
 	returned: number[];
 	total: number;
 }
 
-export class WorkspaceCapabilityPageError extends Error {
+export class WorkspacePageSelectionError extends Error {
 	constructor(readonly code: "page_range_out_of_range") {
 		super(code);
 	}
 }
 
-export function readWorkspaceCapabilityProjectionPages(
+export function readWorkspaceProjectionPages(
 	pages: readonly MarkdownProjectionPage[],
 	input: {
 		pages?: string;
 	},
-): { content: string; pages: WorkspaceCapabilityReadPages } {
+): { content: string; pages: WorkspaceReadPages } {
 	const requested = input.pages?.trim() || "1";
 	if (pages.length === 0) {
-		const selectedPageNumbers = parseWorkspaceCapabilityPageRange(requested, 1);
+		const selectedPageNumbers = parseWorkspacePageRange(requested, 1);
 
 		return {
 			content: "",
@@ -36,12 +36,12 @@ export function readWorkspaceCapabilityProjectionPages(
 	}
 
 	const maxPageNumber = pages.reduce((max, page) => Math.max(max, page.pageNumber), 0);
-	const selectedPageNumbers = parseWorkspaceCapabilityPageRange(requested, maxPageNumber);
+	const selectedPageNumbers = parseWorkspacePageRange(requested, maxPageNumber);
 	const selectedPages = selectedPageNumbers.map((pageNumber) => {
 		const page = pages.find((candidate) => candidate.pageNumber === pageNumber);
 
 		if (!page) {
-			throw new WorkspaceCapabilityPageError("page_range_out_of_range");
+			throw new WorkspacePageSelectionError("page_range_out_of_range");
 		}
 
 		return page;
@@ -57,7 +57,7 @@ export function readWorkspaceCapabilityProjectionPages(
 	};
 }
 
-export function parseWorkspaceCapabilityPageRange(value: string, totalPages: number) {
+export function parseWorkspacePageRange(value: string, totalPages: number) {
 	const selected = new Set<number>();
 	const parts = value.split(",");
 
@@ -71,14 +71,14 @@ export function parseWorkspaceCapabilityPageRange(value: string, totalPages: num
 		const rangeMatch = /^(\d+)(?:\s*-\s*(\d+))?$/.exec(part);
 
 		if (!rangeMatch) {
-			throw new WorkspaceCapabilityPageError("page_range_out_of_range");
+			throw new WorkspacePageSelectionError("page_range_out_of_range");
 		}
 
 		const start = Number(rangeMatch[1]);
 		const end = Number(rangeMatch[2] ?? rangeMatch[1]);
 
 		if (start < 1 || end < start || end > totalPages) {
-			throw new WorkspaceCapabilityPageError("page_range_out_of_range");
+			throw new WorkspacePageSelectionError("page_range_out_of_range");
 		}
 
 		for (let pageNumber = start; pageNumber <= end; pageNumber += 1) {
@@ -87,7 +87,7 @@ export function parseWorkspaceCapabilityPageRange(value: string, totalPages: num
 	}
 
 	if (selected.size === 0) {
-		throw new WorkspaceCapabilityPageError("page_range_out_of_range");
+		throw new WorkspacePageSelectionError("page_range_out_of_range");
 	}
 
 	return Array.from(selected).sort((left, right) => left - right);

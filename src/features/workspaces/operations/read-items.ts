@@ -1,73 +1,73 @@
 import {
-	getWorkspaceCapabilityPageContext,
-	resolveWorkspaceCapabilityPath,
-} from "#/features/workspaces/capabilities/common";
+	getWorkspaceOperationContext,
+	resolveWorkspaceOperationPath,
+} from "#/features/workspaces/operations/workspace-operation-context";
 import {
-	parseWorkspaceCapabilityPageRange,
-	readWorkspaceCapabilityProjectionPages,
-	WorkspaceCapabilityPageError,
-	type WorkspaceCapabilityReadPages,
-} from "#/features/workspaces/capabilities/read-pages";
+	parseWorkspacePageRange,
+	readWorkspaceProjectionPages,
+	WorkspacePageSelectionError,
+	type WorkspaceReadPages,
+} from "#/features/workspaces/operations/read-page-selection";
 import type { WorkspaceItemSummary } from "#/features/workspaces/contracts";
 import { serializeTiptapDocumentToMarkdown } from "#/features/workspaces/documents/document-markdown";
 import { parseMarkdownPagesProjection } from "#/features/workspaces/extraction/page-markdown-projection";
 import { parseTiptapDocumentJson } from "#/features/workspaces/documents/tiptap-document";
 import type { WorkspaceKernelClient } from "#/features/workspaces/kernel/workspace-kernel-access";
 import { resolveWorkspaceFileTypeFromItem } from "#/features/workspaces/model/workspace-file";
-import type { WorkspaceCapabilityContext } from "#/features/workspaces/capabilities/workspace-capability-context";
+import type { WorkspaceAccessContext } from "#/features/workspaces/operations/workspace-access-context";
 
-export interface ReadWorkspaceCapabilityItemsInput {
+export interface ReadWorkspaceItemsOperationInput {
 	pages?: string;
 	paths: string[];
 }
 
-export interface WorkspaceCapabilityReadItem {
+export interface WorkspaceReadItem {
 	content?: string;
-	pages?: WorkspaceCapabilityReadPages;
+	pages?: WorkspaceReadPages;
 	path: string;
 	status: "failed" | "pending" | "ready" | "unsupported";
 	type: "document" | "file" | "flashcard" | "quiz";
 }
 
-export interface WorkspaceCapabilityReadItemsResult {
-	items: WorkspaceCapabilityReadItem[];
-	failed: WorkspaceCapabilityReadFailure[];
+export interface WorkspaceReadItemsResult {
+	items: WorkspaceReadItem[];
+	failed: WorkspaceReadItemsFailure[];
 }
 
 const WORKSPACE_READ_MARKDOWN_LINES_PER_PAGE = 1000;
 const MAX_WORKSPACE_READ_LINE_LENGTH = 2000;
 const TRUNCATED_LINE_SUFFIX = `... (line truncated to ${MAX_WORKSPACE_READ_LINE_LENGTH} chars)`;
 
-export const readWorkspaceCapabilityFailureCodes = [
+export const readWorkspaceItemsFailureCodes = [
 	"page_range_out_of_range",
 	"path_is_folder",
 	"path_not_absolute",
 	"path_not_found",
 ] as const;
 
-type WorkspaceCapabilityReadFailureCode = (typeof readWorkspaceCapabilityFailureCodes)[number];
+type WorkspaceReadItemsFailureCode = (typeof readWorkspaceItemsFailureCodes)[number];
 
-interface WorkspaceCapabilityReadFailure {
-	code: WorkspaceCapabilityReadFailureCode;
+interface WorkspaceReadItemsFailure {
+	code: WorkspaceReadItemsFailureCode;
 	index: number;
 	path: string;
 }
 
-export async function readWorkspaceCapabilityItems(
-	capabilityContext: WorkspaceCapabilityContext,
-	input: ReadWorkspaceCapabilityItemsInput,
-): Promise<WorkspaceCapabilityReadItemsResult> {
-	const workspaceContext = await getWorkspaceCapabilityPageContext({
+export async function readWorkspaceItemsOperation(
+	accessContext: WorkspaceAccessContext,
+	input: ReadWorkspaceItemsOperationInput,
+): Promise<WorkspaceReadItemsResult> {
+	const workspaceContext = await getWorkspaceOperationContext({
 		access: "read",
-		context: capabilityContext,
+		context: accessContext,
 	});
-	const result: WorkspaceCapabilityReadItemsResult = {
+	const result: WorkspaceReadItemsResult = {
 		items: [],
 		failed: [],
 	};
 
 	for (const [index, path] of input.paths.entries()) {
-		const resolution = resolveWorkspaceCapabilityPath({
+		const resolution = resolveWorkspaceOperationPath({
 			path,
 			tree: workspaceContext.tree,
 		});
@@ -110,7 +110,7 @@ export async function readWorkspaceCapabilityItems(
 
 		try {
 			result.items.push(
-				await readWorkspaceCapabilityItem({
+				await readWorkspaceItem({
 					item: resolution.item,
 					kernel: workspaceContext.kernel,
 					pages: input.pages,
@@ -118,7 +118,7 @@ export async function readWorkspaceCapabilityItems(
 				}),
 			);
 		} catch (error) {
-			if (error instanceof WorkspaceCapabilityPageError) {
+			if (error instanceof WorkspacePageSelectionError) {
 				result.failed.push({
 					code: error.code,
 					index,
@@ -134,12 +134,12 @@ export async function readWorkspaceCapabilityItems(
 	return result;
 }
 
-async function readWorkspaceCapabilityItem(input: {
+async function readWorkspaceItem(input: {
 	item: WorkspaceItemSummary;
 	kernel: WorkspaceKernelClient;
 	pages?: string;
 	path: string;
-}): Promise<WorkspaceCapabilityReadItem> {
+}): Promise<WorkspaceReadItem> {
 	const { item } = input;
 
 	if (item.type === "folder") {
@@ -149,7 +149,7 @@ async function readWorkspaceCapabilityItem(input: {
 	if (item.type === "document") {
 		const { content } = await input.kernel.readItem({ itemId: item.id });
 		const markdown = serializeTiptapDocumentToMarkdown(parseTiptapDocumentJson(content));
-		const page = readWorkspaceCapabilityMarkdownPages(markdown, { pages: input.pages });
+		const page = readWorkspaceMarkdownPages(markdown, { pages: input.pages });
 
 		return {
 			content: page.content,
@@ -161,7 +161,7 @@ async function readWorkspaceCapabilityItem(input: {
 	}
 
 	if (item.type === "file") {
-		return await readWorkspaceCapabilityFileItem(input);
+		return await readWorkspaceFileItem(input);
 	}
 
 	return {
@@ -171,21 +171,21 @@ async function readWorkspaceCapabilityItem(input: {
 	};
 }
 
-async function readWorkspaceCapabilityFileItem(input: {
+async function readWorkspaceFileItem(input: {
 	item: WorkspaceItemSummary;
 	kernel: WorkspaceKernelClient;
 	pages?: string;
 	path: string;
-}): Promise<WorkspaceCapabilityReadItem> {
+}): Promise<WorkspaceReadItem> {
 	const { item } = input;
 	const fileType = resolveWorkspaceFileTypeFromItem(item);
 
 	if (!fileType) {
-		return createWorkspaceCapabilityFileStatusItem(input.path, "unsupported");
+		return createWorkspaceFileStatusItem(input.path, "unsupported");
 	}
 
 	if (fileType.aiReadStrategy !== "markdown_extraction") {
-		return createWorkspaceCapabilityFileStatusItem(input.path, "unsupported");
+		return createWorkspaceFileStatusItem(input.path, "unsupported");
 	}
 
 	const pagesProjection = await input.kernel.readFileProjection({
@@ -198,18 +198,18 @@ async function readWorkspaceCapabilityFileItem(input: {
 		pagesProjection?.status === "processing" ||
 		pagesProjection?.status === "not_started"
 	) {
-		return createWorkspaceCapabilityFileStatusItem(input.path, "pending");
+		return createWorkspaceFileStatusItem(input.path, "pending");
 	}
 
 	if (!pagesProjection) {
-		return createWorkspaceCapabilityFileStatusItem(input.path, "pending");
+		return createWorkspaceFileStatusItem(input.path, "pending");
 	}
 
 	if (pagesProjection.status !== "ready" || pagesProjection.content === null) {
-		return createWorkspaceCapabilityFileStatusItem(input.path, "failed");
+		return createWorkspaceFileStatusItem(input.path, "failed");
 	}
 
-	const pageRead = readWorkspaceCapabilityProjectionPages(
+	const pageRead = readWorkspaceProjectionPages(
 		parseMarkdownPagesProjection(pagesProjection.content),
 		{
 			pages: input.pages,
@@ -225,10 +225,10 @@ async function readWorkspaceCapabilityFileItem(input: {
 	};
 }
 
-function createWorkspaceCapabilityFileStatusItem(
+function createWorkspaceFileStatusItem(
 	path: string,
-	status: WorkspaceCapabilityReadItem["status"],
-): WorkspaceCapabilityReadItem {
+	status: WorkspaceReadItem["status"],
+): WorkspaceReadItem {
 	return {
 		path,
 		status,
@@ -236,14 +236,14 @@ function createWorkspaceCapabilityFileStatusItem(
 	};
 }
 
-function readWorkspaceCapabilityMarkdownPages(
+function readWorkspaceMarkdownPages(
 	content: string,
 	input: { pages?: string },
-): { content: string; pages: WorkspaceCapabilityReadPages } {
+): { content: string; pages: WorkspaceReadPages } {
 	const lines = content === "" ? [] : content.split(/\r?\n/);
 	const totalPages = Math.max(1, Math.ceil(lines.length / WORKSPACE_READ_MARKDOWN_LINES_PER_PAGE));
 	const requested = input.pages?.trim() || "1";
-	const selectedPageNumbers = parseWorkspaceCapabilityPageRange(requested, totalPages);
+	const selectedPageNumbers = parseWorkspacePageRange(requested, totalPages);
 
 	const selectedLines: string[] = [];
 
@@ -252,7 +252,7 @@ function readWorkspaceCapabilityMarkdownPages(
 		const pageLines = lines.slice(startIndex, startIndex + WORKSPACE_READ_MARKDOWN_LINES_PER_PAGE);
 
 		for (const rawLine of pageLines) {
-			const line = truncateWorkspaceCapabilityMarkdownLine(rawLine);
+			const line = truncateWorkspaceMarkdownLine(rawLine);
 			selectedLines.push(line.value);
 		}
 	}
@@ -267,7 +267,7 @@ function readWorkspaceCapabilityMarkdownPages(
 	};
 }
 
-function truncateWorkspaceCapabilityMarkdownLine(line: string) {
+function truncateWorkspaceMarkdownLine(line: string) {
 	if (line.length <= MAX_WORKSPACE_READ_LINE_LENGTH) {
 		return { truncated: false, value: line };
 	}

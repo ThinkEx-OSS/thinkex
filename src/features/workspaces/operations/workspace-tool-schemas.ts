@@ -1,11 +1,11 @@
 import { z } from "zod";
 
-import { createWorkspaceCapabilityFailureCodes } from "#/features/workspaces/capabilities/create-items";
-import { deleteWorkspaceCapabilityFailureCodes } from "#/features/workspaces/capabilities/delete-items";
-import { editWorkspaceCapabilityFailureCodes } from "#/features/workspaces/capabilities/edit-item";
-import { moveWorkspaceCapabilityFailureCodes } from "#/features/workspaces/capabilities/move-items";
-import { readWorkspaceCapabilityFailureCodes } from "#/features/workspaces/capabilities/read-items";
-import { renameWorkspaceCapabilityFailureCodes } from "#/features/workspaces/capabilities/rename-item";
+import { createWorkspaceItemsFailureCodes } from "#/features/workspaces/operations/create-items";
+import { deleteWorkspaceItemsFailureCodes } from "#/features/workspaces/operations/delete-items";
+import { editWorkspaceItemFailureCodes } from "#/features/workspaces/operations/edit-item";
+import { moveWorkspaceItemsFailureCodes } from "#/features/workspaces/operations/move-items";
+import { readWorkspaceItemsFailureCodes } from "#/features/workspaces/operations/read-items";
+import { renameWorkspaceItemFailureCodes } from "#/features/workspaces/operations/rename-item";
 import { workspaceItemTypeSchema, workspaceSummarySchema } from "#/features/workspaces/contracts";
 import { documentMarkdownEditSchema } from "#/features/workspaces/documents/document-markdown-edits";
 
@@ -251,7 +251,7 @@ export const workspaceReadItemsOutputSchema = createWorkspaceItemsResultSchema({
 		content: z.string().optional(),
 		pages: workspaceReadPagesSchema.optional(),
 	}),
-	failureSchema: createFailureSchema(readWorkspaceCapabilityFailureCodes),
+	failureSchema: createFailureSchema(readWorkspaceItemsFailureCodes),
 });
 
 export const workspaceCreateItemsOutputSchema = createWorkspaceItemsResultSchema({
@@ -263,17 +263,17 @@ export const workspaceCreateItemsOutputSchema = createWorkspaceItemsResultSchema
 			.optional()
 			.describe("Content projection warnings for created documents."),
 	}),
-	failureSchema: createFailureSchema(createWorkspaceCapabilityFailureCodes),
+	failureSchema: createFailureSchema(createWorkspaceItemsFailureCodes),
 });
 
 export const workspaceDeleteItemsOutputSchema = createWorkspaceItemsResultSchema({
 	itemSchema: workspacePathItemSchema,
-	failureSchema: createFailureSchema(deleteWorkspaceCapabilityFailureCodes),
+	failureSchema: createFailureSchema(deleteWorkspaceItemsFailureCodes),
 });
 
 export const workspaceMoveItemsOutputSchema = createWorkspaceItemsResultSchema({
 	itemSchema: workspacePreviousPathItemSchema,
-	failureSchema: createFailureSchema(moveWorkspaceCapabilityFailureCodes, {
+	failureSchema: createFailureSchema(moveWorkspaceItemsFailureCodes, {
 		includeIndex: false,
 	}).extend({
 		index: workspaceIndexSchema.optional(),
@@ -282,9 +282,7 @@ export const workspaceMoveItemsOutputSchema = createWorkspaceItemsResultSchema({
 
 export const workspaceRenameItemOutputSchema = z.object({
 	item: workspacePreviousPathItemSchema.optional(),
-	failed: z.array(
-		createFailureSchema(renameWorkspaceCapabilityFailureCodes, { includeIndex: false }),
-	),
+	failed: z.array(createFailureSchema(renameWorkspaceItemFailureCodes, { includeIndex: false })),
 });
 
 export const workspaceEditItemOutputSchema = z.object({
@@ -292,7 +290,7 @@ export const workspaceEditItemOutputSchema = z.object({
 	applied: z.number().int().min(0),
 	failed: z.array(
 		z.object({
-			code: z.enum(editWorkspaceCapabilityFailureCodes),
+			code: z.enum(editWorkspaceItemFailureCodes),
 			index: workspaceIndexSchema,
 		}),
 	),

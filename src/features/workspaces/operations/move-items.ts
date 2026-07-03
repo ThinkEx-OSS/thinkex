@@ -1,9 +1,9 @@
 import {
-	getWorkspaceCapabilityPageContext,
-	resolveWorkspaceCapabilityExistingItemPath,
-	resolveWorkspaceCapabilityPath,
-} from "#/features/workspaces/capabilities/common";
-import type { WorkspaceCapabilityContext } from "#/features/workspaces/capabilities/workspace-capability-context";
+	getWorkspaceOperationContext,
+	resolveWorkspaceExistingItemPath,
+	resolveWorkspaceOperationPath,
+} from "#/features/workspaces/operations/workspace-operation-context";
+import type { WorkspaceAccessContext } from "#/features/workspaces/operations/workspace-access-context";
 import type { WorkspaceItemSummary } from "#/features/workspaces/contracts";
 import {
 	getParentWorkspacePath,
@@ -12,12 +12,12 @@ import {
 } from "#/features/workspaces/kernel/workspace-kernel-paths";
 import { WorkspaceKernelNameConflictError } from "#/features/workspaces/kernel/workspace-kernel-store";
 
-export interface MoveWorkspaceCapabilityItemsInput {
+export interface MoveWorkspaceItemsOperationInput {
 	destinationPath: string;
 	paths: string[];
 }
 
-export const moveWorkspaceCapabilityFailureCodes = [
+export const moveWorkspaceItemsFailureCodes = [
 	"already_in_destination",
 	"cannot_move_into_descendant",
 	"cannot_move_root",
@@ -29,7 +29,7 @@ export const moveWorkspaceCapabilityFailureCodes = [
 	"path_not_found",
 ] as const;
 
-interface MoveWorkspaceCapabilityDestinationFailure {
+interface MoveWorkspaceDestinationFailure {
 	code:
 		| "destination_path_not_absolute"
 		| "destination_path_not_folder"
@@ -37,32 +37,32 @@ interface MoveWorkspaceCapabilityDestinationFailure {
 	path: string;
 }
 
-export interface MoveWorkspaceCapabilityFailure {
-	code: (typeof moveWorkspaceCapabilityFailureCodes)[number];
+export interface MoveWorkspaceItemsFailure {
+	code: (typeof moveWorkspaceItemsFailureCodes)[number];
 	index?: number;
 	path: string;
 }
 
-export interface MoveWorkspaceCapabilityMovedItem {
+export interface MovedWorkspaceItem {
 	path: string;
 	previousPath: string;
 	type: WorkspaceItemSummary["type"];
 }
 
-export interface MoveWorkspaceCapabilityItemsResult {
-	failed: MoveWorkspaceCapabilityFailure[];
-	items: MoveWorkspaceCapabilityMovedItem[];
+export interface MoveWorkspaceItemsOperationResult {
+	failed: MoveWorkspaceItemsFailure[];
+	items: MovedWorkspaceItem[];
 }
 
-export async function moveWorkspaceCapabilityItems(
-	capabilityContext: WorkspaceCapabilityContext,
-	input: MoveWorkspaceCapabilityItemsInput,
-): Promise<MoveWorkspaceCapabilityItemsResult> {
-	const workspaceContext = await getWorkspaceCapabilityPageContext({
+export async function moveWorkspaceItemsOperation(
+	accessContext: WorkspaceAccessContext,
+	input: MoveWorkspaceItemsOperationInput,
+): Promise<MoveWorkspaceItemsOperationResult> {
+	const workspaceContext = await getWorkspaceOperationContext({
 		access: "mutate",
-		context: capabilityContext,
+		context: accessContext,
 	});
-	const destination = resolveWorkspaceCapabilityMoveDestination({
+	const destination = resolveMoveWorkspaceDestination({
 		path: input.destinationPath,
 		tree: workspaceContext.tree,
 	});
@@ -79,7 +79,7 @@ export async function moveWorkspaceCapabilityItems(
 		};
 	}
 
-	const failed: MoveWorkspaceCapabilityFailure[] = [];
+	const failed: MoveWorkspaceItemsFailure[] = [];
 	const resolvedItems: Array<{
 		index: number;
 		item: WorkspaceItemSummary;
@@ -87,7 +87,7 @@ export async function moveWorkspaceCapabilityItems(
 	}> = [];
 
 	for (const [index, path] of input.paths.entries()) {
-		const resolution = resolveWorkspaceCapabilityExistingItemPath({
+		const resolution = resolveWorkspaceExistingItemPath({
 			path,
 			rootFailureCode: "cannot_move_root",
 			tree: workspaceContext.tree,
@@ -137,7 +137,7 @@ export async function moveWorkspaceCapabilityItems(
 		};
 	}
 
-	const items: MoveWorkspaceCapabilityMovedItem[] = [];
+	const items: MovedWorkspaceItem[] = [];
 	const pendingItems = [...resolvedItems];
 
 	while (pendingItems.length > 0) {
@@ -146,7 +146,7 @@ export async function moveWorkspaceCapabilityItems(
 				items: pendingItems.map((resolved) => ({ itemId: resolved.item.id })),
 				parentId: destination.parentId,
 				onNameConflict: "error",
-				actorUserId: capabilityContext.actor.userId,
+				actorUserId: accessContext.actor.userId,
 				clientMutationId: null,
 			});
 			const pendingItemsById = new Map<string, (typeof pendingItems)[number]>();
@@ -201,12 +201,9 @@ export async function moveWorkspaceCapabilityItems(
 	};
 }
 
-function resolveWorkspaceCapabilityMoveDestination(input: {
-	path: string;
-	tree: WorkspaceKernelTree;
-}):
+function resolveMoveWorkspaceDestination(input: { path: string; tree: WorkspaceKernelTree }):
 	| {
-			failure: MoveWorkspaceCapabilityDestinationFailure;
+			failure: MoveWorkspaceDestinationFailure;
 			status: "failed";
 	  }
 	| {
@@ -214,7 +211,7 @@ function resolveWorkspaceCapabilityMoveDestination(input: {
 			path: string;
 			status: "destination";
 	  } {
-	const resolution = resolveWorkspaceCapabilityPath(input);
+	const resolution = resolveWorkspaceOperationPath(input);
 
 	if (resolution.status === "invalid_path") {
 		return {

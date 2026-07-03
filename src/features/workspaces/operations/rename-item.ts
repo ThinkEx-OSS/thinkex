@@ -1,8 +1,8 @@
 import {
-	getWorkspaceCapabilityPageContext,
-	resolveWorkspaceCapabilityExistingItemPath,
-} from "#/features/workspaces/capabilities/common";
-import type { WorkspaceCapabilityContext } from "#/features/workspaces/capabilities/workspace-capability-context";
+	getWorkspaceOperationContext,
+	resolveWorkspaceExistingItemPath,
+} from "#/features/workspaces/operations/workspace-operation-context";
+import type { WorkspaceAccessContext } from "#/features/workspaces/operations/workspace-access-context";
 import type { WorkspaceItemSummary } from "#/features/workspaces/contracts";
 import {
 	getParentWorkspacePath,
@@ -10,43 +10,43 @@ import {
 } from "#/features/workspaces/kernel/workspace-kernel-paths";
 import { WorkspaceKernelNameConflictError } from "#/features/workspaces/kernel/workspace-kernel-store";
 
-export interface RenameWorkspaceCapabilityItemInput {
+export interface RenameWorkspaceItemOperationInput {
 	name: string;
 	path: string;
 }
 
-export const renameWorkspaceCapabilityFailureCodes = [
+export const renameWorkspaceItemFailureCodes = [
 	"cannot_rename_root",
 	"path_already_exists",
 	"path_not_absolute",
 	"path_not_found",
 ] as const;
 
-export interface RenameWorkspaceCapabilityFailure {
-	code: (typeof renameWorkspaceCapabilityFailureCodes)[number];
+export interface RenameWorkspaceItemFailure {
+	code: (typeof renameWorkspaceItemFailureCodes)[number];
 	path: string;
 }
 
-export interface RenameWorkspaceCapabilityRenamedItem {
+export interface RenamedWorkspaceItem {
 	path: string;
 	previousPath: string;
 	type: WorkspaceItemSummary["type"];
 }
 
-export interface RenameWorkspaceCapabilityItemResult {
-	failed: RenameWorkspaceCapabilityFailure[];
-	item?: RenameWorkspaceCapabilityRenamedItem;
+export interface RenameWorkspaceItemOperationResult {
+	failed: RenameWorkspaceItemFailure[];
+	item?: RenamedWorkspaceItem;
 }
 
-export async function renameWorkspaceCapabilityItem(
-	capabilityContext: WorkspaceCapabilityContext,
-	input: RenameWorkspaceCapabilityItemInput,
-): Promise<RenameWorkspaceCapabilityItemResult> {
-	const workspaceContext = await getWorkspaceCapabilityPageContext({
+export async function renameWorkspaceItemOperation(
+	accessContext: WorkspaceAccessContext,
+	input: RenameWorkspaceItemOperationInput,
+): Promise<RenameWorkspaceItemOperationResult> {
+	const workspaceContext = await getWorkspaceOperationContext({
 		access: "mutate",
-		context: capabilityContext,
+		context: accessContext,
 	});
-	const resolution = resolveWorkspaceCapabilityExistingItemPath({
+	const resolution = resolveWorkspaceExistingItemPath({
 		path: input.path,
 		rootFailureCode: "cannot_rename_root",
 		tree: workspaceContext.tree,
@@ -68,7 +68,7 @@ export async function renameWorkspaceCapabilityItem(
 			itemId: resolution.item.id,
 			name: input.name,
 			onNameConflict: "error",
-			actorUserId: capabilityContext.actor.userId,
+			actorUserId: accessContext.actor.userId,
 			clientMutationId: null,
 		});
 

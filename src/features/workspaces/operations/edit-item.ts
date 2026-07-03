@@ -1,15 +1,15 @@
 import { getDocumentSessionFromEnv } from "#/features/workspaces/document-session-access";
 import {
-	getWorkspaceCapabilityPageContext,
-	resolveWorkspaceCapabilityExistingItemPath,
-} from "#/features/workspaces/capabilities/common";
-import type { WorkspaceCapabilityContext } from "#/features/workspaces/capabilities/workspace-capability-context";
+	getWorkspaceOperationContext,
+	resolveWorkspaceExistingItemPath,
+} from "#/features/workspaces/operations/workspace-operation-context";
+import type { WorkspaceAccessContext } from "#/features/workspaces/operations/workspace-access-context";
 import {
 	type DocumentMarkdownEdit,
 	documentMarkdownEditFailureCodes,
 } from "#/features/workspaces/documents/document-markdown-edits";
 
-export const editWorkspaceCapabilityFailureCodes = [
+export const editWorkspaceItemFailureCodes = [
 	"cannot_edit_root",
 	"path_not_absolute",
 	"path_not_found",
@@ -18,34 +18,34 @@ export const editWorkspaceCapabilityFailureCodes = [
 	"invalid_document_projection",
 ] as const;
 
-type EditWorkspaceCapabilityFailureCode = (typeof editWorkspaceCapabilityFailureCodes)[number];
+type EditWorkspaceItemFailureCode = (typeof editWorkspaceItemFailureCodes)[number];
 
-export interface EditWorkspaceCapabilityItemInput {
+export interface EditWorkspaceItemOperationInput {
 	edits: DocumentMarkdownEdit[];
 	path: string;
 }
 
-interface EditWorkspaceCapabilityFailure {
-	code: EditWorkspaceCapabilityFailureCode;
+interface EditWorkspaceItemFailure {
+	code: EditWorkspaceItemFailureCode;
 	index: number;
 }
 
-export interface EditWorkspaceCapabilityItemResult {
+export interface EditWorkspaceItemOperationResult {
 	applied: number;
-	failed: EditWorkspaceCapabilityFailure[];
+	failed: EditWorkspaceItemFailure[];
 	path: string;
 	warnings: string[];
 }
 
-export async function editWorkspaceCapabilityItem(
-	capabilityContext: WorkspaceCapabilityContext,
-	input: EditWorkspaceCapabilityItemInput,
-): Promise<EditWorkspaceCapabilityItemResult> {
-	const workspaceContext = await getWorkspaceCapabilityPageContext({
+export async function editWorkspaceItemOperation(
+	accessContext: WorkspaceAccessContext,
+	input: EditWorkspaceItemOperationInput,
+): Promise<EditWorkspaceItemOperationResult> {
+	const workspaceContext = await getWorkspaceOperationContext({
 		access: "mutate",
-		context: capabilityContext,
+		context: accessContext,
 	});
-	const resolution = resolveWorkspaceCapabilityExistingItemPath({
+	const resolution = resolveWorkspaceExistingItemPath({
 		path: input.path,
 		rootFailureCode: "cannot_edit_root",
 		tree: workspaceContext.tree,
@@ -55,7 +55,7 @@ export async function editWorkspaceCapabilityItem(
 		return {
 			path: resolution.failure.path,
 			warnings: [],
-			...failedWorkspaceCapabilityEditResult(resolution.failure.code, input.edits.length),
+			...failedWorkspaceEditResult(resolution.failure.code, input.edits.length),
 		};
 	}
 
@@ -63,13 +63,13 @@ export async function editWorkspaceCapabilityItem(
 		return {
 			path: resolution.path,
 			warnings: [],
-			...failedWorkspaceCapabilityEditResult("unsupported_item_type", input.edits.length),
+			...failedWorkspaceEditResult("unsupported_item_type", input.edits.length),
 		};
 	}
 
 	const documentSession = await getDocumentSession({
 		itemId: resolution.item.id,
-		workspaceId: capabilityContext.workspaceId,
+		workspaceId: accessContext.workspaceId,
 	});
 
 	const result = await documentSession.applyMarkdownEdits({
@@ -90,10 +90,10 @@ async function getDocumentSession(input: { itemId: string; workspaceId: string }
 	return getDocumentSessionFromEnv(env, input);
 }
 
-function failedWorkspaceCapabilityEditResult(
-	code: EditWorkspaceCapabilityFailureCode,
+function failedWorkspaceEditResult(
+	code: EditWorkspaceItemFailureCode,
 	editCount: number,
-): Pick<EditWorkspaceCapabilityItemResult, "applied" | "failed"> {
+): Pick<EditWorkspaceItemOperationResult, "applied" | "failed"> {
 	return {
 		applied: 0,
 		failed: Array.from({ length: editCount }, (_, index) => ({
