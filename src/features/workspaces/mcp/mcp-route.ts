@@ -3,10 +3,11 @@ import { createMcpHandler } from "agents/mcp";
 
 import { isMcpRequestPath } from "#/features/workspaces/agent-routes";
 import { type McpActor, McpAuthError, verifyMcpBearerToken } from "./mcp-auth";
+import { registerMcpTools } from "./mcp-tools";
 
-function buildMcpServer(): McpServer {
+function buildMcpServer(actor: McpActor): McpServer {
 	const server = new McpServer({ name: "thinkex", version: "1.0.0" });
-	// Tool registrations added in Subproblem 4
+	registerMcpTools(server, actor);
 	return server;
 }
 
@@ -32,7 +33,7 @@ export async function routeMcpRequest(
 		throw error;
 	}
 
-	const handler = createMcpHandler(buildMcpServer(), {
+	const handler = createMcpHandler(buildMcpServer(actor), {
 		authContext: {
 			props: {
 				userId: actor.userId,
