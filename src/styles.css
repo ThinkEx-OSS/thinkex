@@ -92,8 +92,7 @@
 }
 
 @layer components {
-	/* Local fallback for shadcn utility classes that are documented but not present
-	   in the currently installed `shadcn/tailwind.css` package build. */
+	/* Local scroll-fade behavior predates the richer shadcn utility. */
 	.scroll-fade,
 	.scroll-fade-y {
 		--scroll-fade-size: min(8%, 24px);
@@ -144,18 +143,18 @@
 		);
 	}
 
-	.shimmer {
-		background: linear-gradient(
-			110deg,
-			var(--color-muted-foreground) 0%,
-			color-mix(in oklch, var(--color-muted-foreground) 35%, transparent) 38%,
-			var(--color-muted-foreground) 76%
-		);
-		background-size: 200% 100%;
-		-webkit-background-clip: text;
-		background-clip: text;
-		color: transparent;
-		animation: shimmer 1.8s linear infinite;
+	.ai-status-shimmer {
+		--shimmer-duration: 1800ms;
+		--shimmer-spread: 2.5rem;
+		--shimmer-color: color-mix(in oklch, var(--foreground) 35%, transparent);
+	}
+
+	.shimmer.ai-status-shimmer {
+		color: var(--muted-foreground);
+	}
+
+	.dark .ai-status-shimmer {
+		--shimmer-color: color-mix(in oklch, var(--foreground) 55%, transparent);
 	}
 
 	.workspace-tab-active {
@@ -251,16 +250,6 @@
 
 		100% {
 			opacity: 0;
-		}
-	}
-
-	@keyframes shimmer {
-		from {
-			background-position: 200% 0;
-		}
-
-		to {
-			background-position: -200% 0;
 		}
 	}
 

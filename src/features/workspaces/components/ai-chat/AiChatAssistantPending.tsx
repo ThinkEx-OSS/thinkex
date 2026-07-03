@@ -26,7 +26,9 @@ function AiChatAssistantPendingBody({ pending }: { pending: AssistantPendingKind
 				<MarkerIcon>
 					<RefreshCw className="size-3.5 animate-spin" />
 				</MarkerIcon>
-				<MarkerContent className="shimmer">{"Recovering response..."}</MarkerContent>
+				<MarkerContent className="shimmer ai-status-shimmer">
+					{"Recovering response..."}
+				</MarkerContent>
 			</Marker>
 		);
 	}
@@ -40,7 +42,7 @@ function AiChatThinkingLoader() {
 			<MarkerIcon className="size-[18px]">
 				<ThinkExThinkingMark />
 			</MarkerIcon>
-			<MarkerContent className="shimmer">Thinking...</MarkerContent>
+			<MarkerContent className="shimmer ai-status-shimmer">Thinking...</MarkerContent>
 		</Marker>
 	);
 }

@@ -93,7 +93,7 @@ function ActivitySummary({
 	if (isRunning) {
 		return (
 			<Marker role="status" aria-live="polite" className="w-fit max-w-full py-1 text-sm">
-				<MarkerContent className="shimmer">{activity.summary}</MarkerContent>
+				<MarkerContent className="shimmer ai-status-shimmer">{activity.summary}</MarkerContent>
 				{canExpand ? <ChevronDown className="size-3 shrink-0" aria-hidden="true" /> : null}
 			</Marker>
 		);
