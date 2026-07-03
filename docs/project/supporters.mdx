@@ -5,25 +5,43 @@ description: Programs and platforms supporting ThinkEx.
 
 ThinkEx is supported by programs and platforms that provide credits, tooling, infrastructure, and product support.
 
-<CardGroup cols={2}>
-  <Card title="Capy" icon="sparkles" href="https://capy.ai/">
-    AI product support.
-  </Card>
-  <Card title="Greptile" icon="search-code" href="https://www.greptile.com/">
-    Code review and repository intelligence.
-  </Card>
-  <Card title="The Context Company" icon="activity" href="https://www.thecontextcompany.com/">
-    Agent observability and context tracing.
-  </Card>
-  <Card title="PostHog" icon="chart-no-axes-combined" href="https://posthog.com/">
-    Product analytics, feedback, and diagnostics.
-  </Card>
-  <Card title="Mintlify" icon="book-open" href="https://mintlify.com/">
-    Documentation hosting and docs tooling.
-  </Card>
-  <Card title="CodeRabbit" icon="git-pull-request" href="https://www.coderabbit.ai/">
-    Pull request review support.
-  </Card>
-</CardGroup>
-
-See the [GitHub README](https://github.com/ThinkEx-OSS/thinkex#supporters) for the current supporter logos.
+<div className="not-prose mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+  <a href="https://capy.ai/" className="flex min-h-28 items-center justify-center rounded-lg border border-gray-200 px-8 py-7 transition hover:border-gray-300 dark:border-gray-800 dark:hover:border-gray-700">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcSet="/assets/supporters/capy-wordmark-dark.svg" />
+      <source media="(prefers-color-scheme: light)" srcSet="/assets/supporters/capy-wordmark-light.svg" />
+      <img alt="Capy" src="/assets/supporters/capy-wordmark-light.svg" className="max-h-12 w-auto" />
+    </picture>
+  </a>
+  <a href="https://www.greptile.com/" className="flex min-h-28 items-center justify-center rounded-lg border border-gray-200 px-8 py-7 transition hover:border-gray-300 dark:border-gray-800 dark:hover:border-gray-700">
+    <img alt="Greptile" src="/assets/supporters/greptile-wordmark-green.svg" className="max-h-12 w-auto" />
+  </a>
+  <a href="https://www.thecontextcompany.com/" className="flex min-h-28 items-center justify-center rounded-lg border border-gray-200 px-8 py-7 transition hover:border-gray-300 dark:border-gray-800 dark:hover:border-gray-700">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcSet="/assets/supporters/the-context-company-wordmark-dark.svg" />
+      <source media="(prefers-color-scheme: light)" srcSet="/assets/supporters/the-context-company-wordmark-light.svg" />
+      <img alt="The Context Company" src="/assets/supporters/the-context-company-wordmark-light.svg" className="max-h-12 w-auto" />
+    </picture>
+  </a>
+  <a href="https://posthog.com/" className="flex min-h-28 items-center justify-center rounded-lg border border-gray-200 px-8 py-7 transition hover:border-gray-300 dark:border-gray-800 dark:hover:border-gray-700">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcSet="/assets/supporters/posthog-wordmark-dark.svg" />
+      <source media="(prefers-color-scheme: light)" srcSet="/assets/supporters/posthog-wordmark-light.svg" />
+      <img alt="PostHog" src="/assets/supporters/posthog-wordmark-light.svg" className="max-h-12 w-auto" />
+    </picture>
+  </a>
+  <a href="https://mintlify.com/" className="flex min-h-28 items-center justify-center rounded-lg border border-gray-200 px-8 py-7 transition hover:border-gray-300 dark:border-gray-800 dark:hover:border-gray-700">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcSet="/assets/supporters/mintlify-wordmark-dark.svg" />
+      <source media="(prefers-color-scheme: light)" srcSet="/assets/supporters/mintlify-wordmark-light.svg" />
+      <img alt="Mintlify" src="/assets/supporters/mintlify-wordmark-light.svg" className="max-h-12 w-auto" />
+    </picture>
+  </a>
+  <a href="https://www.coderabbit.ai/" className="flex min-h-28 items-center justify-center rounded-lg border border-gray-200 px-8 py-7 transition hover:border-gray-300 dark:border-gray-800 dark:hover:border-gray-700">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcSet="/assets/supporters/coderabbit-wordmark-dark.svg" />
+      <source media="(prefers-color-scheme: light)" srcSet="/assets/supporters/coderabbit-wordmark-light.svg" />
+      <img alt="CodeRabbit" src="/assets/supporters/coderabbit-wordmark-light.svg" className="max-h-12 w-auto" />
+    </picture>
+  </a>
+</div>
