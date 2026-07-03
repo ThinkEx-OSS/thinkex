@@ -40,49 +40,50 @@ Instead of uploading sources into a chat, you keep the actual materials in view:
 | Obsidian                | Markdown files and local knowledge bases | PDFs, images, docs, AI chat, and sharing are first-class  |
 | Google Drive, Dropbox   | Storing and sharing files                | Files become source material with docs and AI beside them |
 
-## What's In This Repo
+## Built On
 
-This is the current ThinkEx web app. It uses React, TanStack Start, TypeScript, Tailwind CSS, Better Auth, Drizzle, Tiptap, Yjs/PartyServer, EmbedPDF/PDFium, and Cloudflare Workers.
+ThinkEx is a full-stack TypeScript app on Cloudflare. The frontend is React, TanStack Start, Tailwind CSS, Tiptap, EmbedPDF/PDFium, Yjs, and AI SDK. The backend runs on Cloudflare Workers with Durable Objects, D1, R2, Workflows, Containers, Workers AI, Browser Rendering, and Email.
 
-Most product code lives in [`src/features/workspaces/`](src/features/workspaces/). Runtime and deployment configuration lives in [`wrangler.jsonc`](wrangler.jsonc), with database migrations in [`drizzle/`](drizzle/).
+<details>
+<summary>Technology stack</summary>
 
-For deeper implementation details, see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) and [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md).
+### Cloudflare
 
-## Local Development
+- **Workers** for the application server.
+- **Durable Objects** for workspace, document, AI, sandbox, and conversion coordination.
+- **D1** for relational app data with Drizzle migrations.
+- **R2** for workspace file storage.
+- **Workflows** for file extraction.
+- **Containers** for code execution, office conversion, and image conversion.
+- **Workers AI** and **AI Gateway** for model access.
+- **Browser Rendering** for web browsing workflows.
+- **Email** for workspace invites.
+- **Observability** for logs, traces, and source maps.
+- **Wrangler**, **Cloudflare Vite plugin**, and **Workers Vitest pool** for local runtime, deploys, types, and tests.
 
-With Infisical:
+### App and UI
 
-```bash
-pnpm install --frozen-lockfile
-pnpm dev
-```
+- **React 19**, **TanStack Start/Router/Query**, **TypeScript**, **Vite+**, and **Tailwind CSS v4**.
+- **Base UI**, **lucide-react**, **motion**, **sonner**, and local shadcn-style components.
+- **Tiptap 3**, **ProseMirror**, **Yjs**, **y-partyserver**, and **PartyServer** for collaborative documents.
+- **EmbedPDF**, **PDFium**, **Photon**, **Gotenberg**, and image conversion containers for rich source handling.
 
-Without Infisical, you can run with `.dev.vars`:
+### AI, data, and product systems
 
-```bash
-pnpm install --frozen-lockfile
-cp .dev.vars.example .dev.vars
-pnpm serve:dev
-```
+- **AI SDK**, **Cloudflare Think**, **Cloudflare Sandbox**, **Cloudflare Shell**, and **Cloudflare Codemode**.
+- **Better Auth**, **Drizzle ORM**, **Zod**, **PostHog**, **The Context Company**, **Autumn**, **Firecrawl**, and **LlamaCloud** integrations.
+- **Streamdown**, **KaTeX**, **Shiki**, **PapaParse**, **dnd-kit**, **react-resizable-panels**, and **Zustand** for workspace interactions.
 
-The app runs at [http://localhost:3000](http://localhost:3000). Only `BETTER_AUTH_SECRET` and `BETTER_AUTH_URL` are required for the core local app; optional secrets unlock features such as AI chat, browsing, and email.
+See [`package.json`](package.json), [`wrangler.jsonc`](wrangler.jsonc), and [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md) for deeper implementation details.
 
-Useful commands:
+</details>
 
-- `pnpm serve:dev` starts the local dev server with existing environment variables or `.dev.vars`.
-- `pnpm db:migrate:local` applies local D1 migrations before first database use.
-- `pnpm check` runs the fast TypeScript/lint validation.
-- `pnpm verify` runs the full validation suite.
+## Working With The Repo
 
-Local caveats:
+This repository is the ThinkEx web app. If you want to run or contribute to it, start with:
 
-- Node `>=22.18` is required.
-- Docker must be running because the app declares Cloudflare Container bindings.
-- If you are not logged into Cloudflare locally, run with `CLOUDFLARE_VITE_FORCE_LOCAL=true pnpm serve:dev`.
-
-## Contributing
-
-Issues and pull requests are welcome. Start with [`CONTRIBUTING.md`](CONTRIBUTING.md), keep changes focused, and run `pnpm verify` before opening a PR when possible.
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) for contribution expectations.
+- [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md) for local setup.
 
 ## License
 
