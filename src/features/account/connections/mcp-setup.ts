@@ -1,3 +1,5 @@
+import { getClientOrigin } from "#/lib/client-url";
+
 interface EditorSetupGuide {
 	id: string;
 	label: string;
@@ -44,10 +46,12 @@ export const EDITOR_SETUP_GUIDES: readonly EditorSetupGuide[] = [
 	},
 ] as const;
 
-export function getMcpServerUrl(): string {
-	if (typeof window === "undefined") {
-		return "https://app.thinkex.app/mcp";
+export function getMcpServerUrl(serverMcpServerUrl: string): string {
+	const origin = getClientOrigin();
+
+	if (origin) {
+		return `${origin}/mcp`;
 	}
 
-	return `${window.location.origin}/mcp`;
+	return serverMcpServerUrl;
 }

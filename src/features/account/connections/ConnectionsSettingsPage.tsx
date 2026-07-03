@@ -65,8 +65,8 @@ function formatAuthorizedDate(value: Date | string): string {
 	});
 }
 
-function McpServerUrlField() {
-	const mcpServerUrl = getMcpServerUrl();
+function McpServerUrlField({ serverMcpServerUrl }: { serverMcpServerUrl: string }) {
+	const mcpServerUrl = getMcpServerUrl(serverMcpServerUrl);
 	const { copied, copy } = useCopyToClipboard({
 		onError: () => toast.error("Could not copy MCP server URL"),
 	});
@@ -101,8 +101,8 @@ function McpServerUrlField() {
 	);
 }
 
-function EditorSetupInstructions() {
-	const mcpServerUrl = getMcpServerUrl();
+function EditorSetupInstructions({ serverMcpServerUrl }: { serverMcpServerUrl: string }) {
+	const mcpServerUrl = getMcpServerUrl(serverMcpServerUrl);
 	const configJson = useMemo(() => buildMcpServerConfig(mcpServerUrl), [mcpServerUrl]);
 
 	return (
@@ -315,7 +315,7 @@ function AuthorizedConnectionsSection() {
 	);
 }
 
-export function ConnectionsSettingsPage() {
+export function ConnectionsSettingsPage({ mcpServerUrl }: { mcpServerUrl: string }) {
 	const navigate = useNavigate();
 	const router = useRouter();
 	const canGoBack = useCanGoBack();
@@ -358,8 +358,8 @@ export function ConnectionsSettingsPage() {
 					</p>
 				</div>
 
-				<McpServerUrlField />
-				<EditorSetupInstructions />
+				<McpServerUrlField serverMcpServerUrl={mcpServerUrl} />
+				<EditorSetupInstructions serverMcpServerUrl={mcpServerUrl} />
 				<AuthorizedConnectionsSection />
 			</div>
 		</AppShell>
