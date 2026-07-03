@@ -20,27 +20,40 @@ Contributions should prioritize:
 
 ## Development Setup
 
-ThinkEx is a React and TanStack Start app deployed on Cloudflare Workers.
+ThinkEx is a React and TanStack Start app deployed on Cloudflare Workers. The repository pins Node 24 and pnpm through Vite+ managed tooling.
 
 Prerequisites:
 
-- Node.js
-- pnpm
-- Infisical access for local secrets
+- Node.js 24 (`>=24.11.0 <25`)
+- pnpm 11
+- Docker, for the local Cloudflare Container bindings
+- Infisical access if you are on the core team, or a local `.dev.vars` file if you are not
 
 ```bash
 git clone https://github.com/ThinkEx-OSS/thinkex.git
-cd thinkex
-pnpm install
+cd thinkex/web
+vp install --frozen-lockfile
+```
+
+Core team members with Infisical access can run:
+
+```bash
 pnpm dev
 ```
 
-The app runs at [http://localhost:3000](http://localhost:3000).
+Contributors without Infisical should copy `.dev.vars.example` to `.dev.vars`, set `BETTER_AUTH_SECRET` and `BETTER_AUTH_URL`, then run:
+
+```bash
+pnpm serve:dev
+```
+
+The app runs at [http://localhost:3000](http://localhost:3000). See [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md) for local secrets, guest sign-in, Cloudflare credential caveats, and local D1 setup.
 
 ## Useful Commands
 
 ```bash
 pnpm dev
+pnpm serve:dev
 pnpm check
 pnpm test
 pnpm build
