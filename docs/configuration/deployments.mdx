@@ -22,6 +22,8 @@ vp run verify
 
 `verify` runs the repo's check, test, and build tasks using Vite Task caching.
 
+The separate `React Doctor` workflow runs on pull requests and pushes to `main`. It scans changed React files on pull requests, posts inline diagnostics, and records the React Doctor score without folding those comments into the main Vite+ verification job.
+
 ## Production Deploy
 
 The production workflow checks out the successful `main` commit, installs dependencies, runs quality gates, builds the production bundle, applies remote D1 migrations, and deploys the production Worker.
