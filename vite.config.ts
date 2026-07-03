@@ -12,6 +12,18 @@ export default defineConfig(({ command }) => {
 		build: {
 			sourcemap: command === "build",
 		},
+		run: {
+			tasks: {
+				ciCheck: "vp check",
+				ciTest: "vp test --run",
+				ciBuild: {
+					command: "node --run build:app",
+					untrackedEnv: ["INIT_CWD"],
+					input: [{ auto: true }, "!dist/**"],
+					output: ["dist/**"],
+				},
+			},
+		},
 		lint: {
 			options: {
 				typeAware: true,

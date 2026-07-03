@@ -8,16 +8,17 @@
 	"scripts": {
 		"dev": "infisical run --env=dev --path=/app --watch -- pnpm serve:dev",
 		"serve:dev": "vp dev --host 0.0.0.0 --port 3000",
-		"build": "CLOUDFLARE_LOAD_DEV_VARS_FROM_DOT_ENV=false vp build && node scripts/patch-worker-observability.mjs",
-		"build:production": "CLOUDFLARE_ENV=production vp run build",
+		"build": "vp run ciBuild",
+		"build:app": "CLOUDFLARE_LOAD_DEV_VARS_FROM_DOT_ENV=false vp build && node scripts/patch-worker-observability.mjs",
+		"build:production": "CLOUDFLARE_ENV=production vp run ciBuild",
 		"build:staging": "CLOUDFLARE_ENV=staging CLOUDFLARE_LOAD_DEV_VARS_FROM_DOT_ENV=false vp build --mode staging && node scripts/patch-worker-observability.mjs",
-		"preview": "vp run build && vp preview",
+		"preview": "vp run ciBuild && vp preview",
 		"format": "vp fmt",
 		"lint": "vp lint",
 		"check": "vp check",
-		"verify": "pnpm check && pnpm test && pnpm build",
+		"verify": "vp run ciCheck && vp run ciTest && vp run ciBuild",
 		"commitlint": "commitlint",
-		"analyze": "ANALYZE=true vp run build",
+		"analyze": "ANALYZE=true vp run ciBuild",
 		"doctor": "react-doctor . --scope changed --verbose",
 		"doctor:full": "react-doctor . --scope full --verbose",
 		"knip": "knip",
@@ -160,6 +161,9 @@
 		"vite-plus": "^0.2.2",
 		"vitest": "^4.1.9",
 		"wrangler": "^4.105.0"
+	},
+	"engines": {
+		"node": ">=24.11.0 <25"
 	},
 	"packageManager": "pnpm@11.7.0"
 }
