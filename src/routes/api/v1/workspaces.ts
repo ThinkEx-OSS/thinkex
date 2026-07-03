@@ -1,28 +1,30 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { createDbContext } from "#/db/server";
-import { listWorkspacesForUser } from "#/features/workspaces/server/queries";
+import {
+	accountCapabilityScopes,
+	createAccountCapabilityContext,
+} from "#/features/workspaces/capabilities/account-capability-context";
+import { listAccountCapabilityWorkspaces } from "#/features/workspaces/capabilities/list-workspaces";
 import { apiError, apiJson, getRequestId } from "#/lib/api/http";
-import { getSessionFromRequest } from "#/lib/auth-queries.server";
+import { getAuthenticatedRequestUser } from "#/lib/auth-queries.server";
 
 async function handleListWorkspaces(request: Request) {
 	const requestId = getRequestId(request);
 
 	try {
-		const session = await getSessionFromRequest(request);
+		const user = await getAuthenticatedRequestUser(request);
 
-		if (!session) {
+		if (!user) {
 			return apiError(requestId, 401, "UNAUTHORIZED", "You must be signed in to view workspaces.");
 		}
 
-		const dbContext = await createDbContext();
-
-		try {
-			const workspaces = await listWorkspacesForUser(dbContext.db, session.user.id);
-			return apiJson({ workspaces }, requestId);
-		} finally {
-			await dbContext.dispose();
-		}
+		const result = await listAccountCapabilityWorkspaces(
+			createAccountCapabilityContext({
+				scopes: accountCapabilityScopes,
+				userId: user.id,
+			}),
+		);
+		return apiJson(result, requestId);
 	} catch (error) {
 		return apiError(
 			requestId,

@@ -1,6 +1,6 @@
 import type { ToolSet } from "ai";
 import { tool } from "ai";
-import { z } from "zod";
+import type { z } from "zod";
 
 import type { AIThreadContext } from "#/features/workspaces/ai/ai-thread-metadata";
 import {
@@ -16,325 +16,33 @@ import { listWorkspaceCapabilityItems } from "#/features/workspaces/capabilities
 import { moveWorkspaceCapabilityItems } from "#/features/workspaces/capabilities/move-items";
 import { readWorkspaceCapabilityItems } from "#/features/workspaces/capabilities/read-items";
 import { renameWorkspaceCapabilityItem } from "#/features/workspaces/capabilities/rename-item";
-import { workspaceItemTypeSchema } from "#/features/workspaces/contracts";
-import { documentMarkdownEditSchema } from "#/features/workspaces/documents/document-markdown-edits";
+import {
+	workspaceCreateItemsInputExamples,
+	workspaceCreateItemsInputSchema,
+	workspaceCreateItemsOutputSchema,
+	workspaceDeleteItemsInputExamples,
+	workspaceDeleteItemsInputSchema,
+	workspaceDeleteItemsOutputSchema,
+	workspaceDocumentMarkdownMathInstruction,
+	workspaceEditItemInputExamples,
+	workspaceEditItemInputSchema,
+	workspaceEditItemOutputSchema,
+	workspaceListItemsInputExamples,
+	workspaceListItemsInputSchema,
+	workspaceListItemsOutputSchema,
+	workspaceMoveItemsInputExamples,
+	workspaceMoveItemsInputSchema,
+	workspaceMoveItemsOutputSchema,
+	workspaceReadItemsInputExamples,
+	workspaceReadItemsInputSchema,
+	workspaceReadItemsOutputSchema,
+	workspaceRenameItemInputExamples,
+	workspaceRenameItemInputSchema,
+	workspaceRenameItemOutputSchema,
+} from "#/features/workspaces/capabilities/tool-schemas";
 
-const workspaceDocumentMarkdownMathInstruction =
-	"For document Markdown math, use `$...$` for inline math and `$$...$$` on separate lines for block math. Escape literal currency dollar signs as `\\$`.";
 const workspaceReadCapabilityScopes: readonly WorkspaceCapabilityScope[] = ["workspace:read"];
 const workspaceMutateCapabilityScopes = workspaceCapabilityScopes;
-const workspacePathSchema = z.string().min(1);
-const workspaceIndexSchema = z.number().int().nonnegative();
-
-function createInputExamples<T>(...inputs: T[]) {
-	return inputs.map((input) => ({ input }));
-}
-
-function createFailureSchema<const TCodes extends [string, ...string[]]>(
-	codes: TCodes,
-	options?: { includeIndex?: boolean },
-) {
-	return z.object({
-		code: z.enum(codes),
-		path: workspacePathSchema,
-		...(options?.includeIndex === false
-			? {}
-			: {
-					index: workspaceIndexSchema,
-				}),
-	});
-}
-
-const workspacePathItemSchema = z.object({
-	path: workspacePathSchema,
-	type: workspaceItemTypeSchema,
-});
-
-const workspacePreviousPathItemSchema = workspacePathItemSchema.extend({
-	previousPath: workspacePathSchema,
-});
-
-function createWorkspaceItemsResultSchema<
-	TItemSchema extends z.ZodTypeAny,
-	TFailureSchema extends z.ZodTypeAny,
->(input: { failureSchema: TFailureSchema; itemSchema: TItemSchema }) {
-	return z.object({
-		items: z.array(input.itemSchema),
-		failed: z.array(input.failureSchema),
-	});
-}
-
-const workspaceReadPagesSchema = z.object({
-	requested: z.string().describe("Requested page range."),
-	returned: z.array(z.number().int().min(1)).describe("Page numbers included in content."),
-	total: z.number().int().min(1).describe("Total pages available."),
-});
-
-const workspacePageRangeSchema = z
-	.string()
-	.trim()
-	.min(1)
-	.regex(/^\d+(?:\s*-\s*\d+)?(?:\s*,\s*\d+(?:\s*-\s*\d+)?)*$/)
-	.describe(
-		"1-based pages to read, like 1, 3, 5-7, or 1,4-6. For PDFs, pages are PDF pages. For Markdown-backed items, each page is 1000 Markdown lines. Defaults to 1.",
-	);
-
-const workspaceListItemsInputSchema = z.object({
-	limit: z
-		.number()
-		.int()
-		.min(1)
-		.max(200)
-		.optional()
-		.describe("Maximum number of workspace items to return. Defaults to 100."),
-	path: z
-		.string()
-		.min(1)
-		.optional()
-		.describe("Absolute path in the actual ThinkEx workspace. Defaults to /."),
-	recursive: z
-		.boolean()
-		.optional()
-		.describe("Include nested descendants. Defaults to false for immediate children only."),
-});
-
-const workspaceReadItemsInputSchema = z.object({
-	pages: workspacePageRangeSchema.optional(),
-	paths: z
-		.array(z.string().min(1))
-		.min(1)
-		.max(20)
-		.describe("Absolute paths in the actual ThinkEx workspace to read."),
-});
-
-const workspaceEditItemInputSchema = z.object({
-	path: z.string().min(1).describe("Absolute path of one actual ThinkEx workspace item to edit."),
-	edits: z
-		.array(documentMarkdownEditSchema)
-		.min(1)
-		.max(40)
-		.describe(
-			`Ordered text edits to apply to the item projection. ${workspaceDocumentMarkdownMathInstruction}`,
-		),
-});
-
-const workspaceRenameItemInputSchema = z.object({
-	name: z.string().trim().min(1).max(160).describe("New user-visible item name."),
-	path: z.string().min(1).describe("Absolute path of one actual ThinkEx workspace item to rename."),
-});
-
-const workspaceMoveItemsInputSchema = z.object({
-	destinationPath: z
-		.string()
-		.min(1)
-		.describe("Absolute path of the destination folder. Use / for the workspace root."),
-	paths: z
-		.array(z.string().min(1))
-		.min(1)
-		.max(20)
-		.describe("Absolute paths of one or more actual ThinkEx workspace items to move."),
-});
-
-const workspaceCreateItemsInputSchema = z.object({
-	items: z
-		.array(
-			z.discriminatedUnion("type", [
-				z.object({
-					type: z.literal("folder"),
-					path: z.string().min(1).describe("Final absolute path for the folder to create."),
-				}),
-				z.object({
-					type: z.literal("document"),
-					path: z.string().min(1).describe("Final absolute path for the document to create."),
-					initialContent: z
-						.string()
-						.describe(
-							`Optional initial Markdown content for the document. ${workspaceDocumentMarkdownMathInstruction}`,
-						)
-						.optional(),
-				}),
-			]),
-		)
-		.min(1)
-		.max(20)
-		.describe(
-			"One or more folders or documents to create in order. Parent folders must already exist or be created earlier in the same request.",
-		),
-});
-
-const workspaceDeleteItemsInputSchema = z.object({
-	paths: z
-		.array(z.string().min(1))
-		.min(1)
-		.max(20)
-		.describe("Absolute paths of one or more actual ThinkEx workspace items to delete."),
-});
-
-const workspaceListItemsInputExamples = createInputExamples<
-	z.input<typeof workspaceListItemsInputSchema>
->({
-	path: "/",
-	limit: 50,
-	recursive: false,
-});
-
-const workspaceReadItemsInputExamples = createInputExamples<
-	z.input<typeof workspaceReadItemsInputSchema>
->(
-	{
-		paths: ["/Demo Folder/Demo Document"],
-		pages: "1",
-	},
-	{
-		paths: ["/Demo Folder/Demo PDF.pdf"],
-		pages: "1-3",
-	},
-);
-
-const workspaceRenameItemInputExamples = createInputExamples<
-	z.input<typeof workspaceRenameItemInputSchema>
->({
-	path: "/Demo Folder/Demo Document",
-	name: "Tool Demo",
-});
-
-const workspaceMoveItemsInputExamples = createInputExamples<
-	z.input<typeof workspaceMoveItemsInputSchema>
->({
-	destinationPath: "/Archive",
-	paths: ["/Demo Folder/Demo Document"],
-});
-
-const workspaceCreateItemsInputExamples = createInputExamples<
-	z.input<typeof workspaceCreateItemsInputSchema>
->({
-	items: [
-		{
-			type: "folder",
-			path: "/Demo Folder",
-		},
-		{
-			type: "document",
-			path: "/Demo Folder/Demo Document",
-			initialContent: "# Demo Document\nThis document was created as part of a tool demo.",
-		},
-	],
-});
-
-const workspaceDeleteItemsInputExamples = createInputExamples<
-	z.input<typeof workspaceDeleteItemsInputSchema>
->({
-	paths: ["/Demo Folder/Demo Document"],
-});
-
-const workspaceEditItemInputExamples = createInputExamples<
-	z.input<typeof workspaceEditItemInputSchema>
->({
-	path: "/Demo Folder/Demo Document",
-	edits: [
-		{
-			type: "overwrite",
-			content: "# Demo Document\nThis document was updated as part of the demo.",
-		},
-	],
-});
-
-const workspaceListItemsOutputSchema = z.object({
-	path: workspacePathSchema,
-	more: z.boolean(),
-	items: z.array(workspacePathItemSchema),
-	failed: z.array(
-		createFailureSchema(["path_not_absolute", "path_not_folder", "path_not_found"], {
-			includeIndex: false,
-		}),
-	),
-});
-
-const workspaceReadItemsOutputSchema = createWorkspaceItemsResultSchema({
-	itemSchema: z.object({
-		path: workspacePathSchema,
-		type: z.enum(["document", "file", "flashcard", "quiz"]),
-		status: z.enum(["failed", "pending", "ready", "unsupported"]),
-		content: z.string().optional(),
-		pages: workspaceReadPagesSchema.optional(),
-	}),
-	failureSchema: createFailureSchema([
-		"page_range_out_of_range",
-		"path_is_folder",
-		"path_not_absolute",
-		"path_not_found",
-	]),
-});
-
-const workspaceCreateItemsOutputSchema = createWorkspaceItemsResultSchema({
-	itemSchema: z.object({
-		path: workspacePathSchema,
-		type: z.enum(["document", "folder"]),
-		warnings: z
-			.array(z.string())
-			.optional()
-			.describe("Content projection warnings for created documents."),
-	}),
-	failureSchema: createFailureSchema([
-		"cannot_create_root",
-		"invalid_initial_content",
-		"path_already_exists",
-		"path_not_absolute",
-		"path_not_canonical",
-		"path_not_folder",
-		"path_not_found",
-	]),
-});
-
-const workspaceDeleteItemsOutputSchema = createWorkspaceItemsResultSchema({
-	itemSchema: workspacePathItemSchema,
-	failureSchema: createFailureSchema(["cannot_delete_root", "path_not_absolute", "path_not_found"]),
-});
-
-const workspaceMoveItemsOutputSchema = createWorkspaceItemsResultSchema({
-	itemSchema: workspacePreviousPathItemSchema,
-	failureSchema: createFailureSchema(
-		[
-			"already_in_destination",
-			"cannot_move_into_descendant",
-			"cannot_move_root",
-			"destination_path_not_absolute",
-			"destination_path_not_folder",
-			"destination_path_not_found",
-			"path_already_exists",
-			"path_not_absolute",
-			"path_not_found",
-		],
-		{ includeIndex: false },
-	).extend({
-		index: workspaceIndexSchema.optional(),
-	}),
-});
-
-const workspaceRenameItemOutputSchema = z.object({
-	item: workspacePreviousPathItemSchema.optional(),
-	failed: z.array(
-		createFailureSchema(
-			["cannot_rename_root", "path_already_exists", "path_not_absolute", "path_not_found"],
-			{ includeIndex: false },
-		),
-	),
-});
-
-const workspaceEditItemOutputSchema = z.object({
-	path: workspacePathSchema,
-	applied: z.number().int().min(0),
-	failed: z.array(
-		z.object({
-			code: z.string(),
-			index: workspaceIndexSchema,
-		}),
-	),
-	warnings: z
-		.array(z.string())
-		.describe("Content projection warnings after applying edits.")
-		.optional(),
-});
 
 type WorkspaceThreadToolConfig<
 	TInputSchema extends z.ZodTypeAny,
