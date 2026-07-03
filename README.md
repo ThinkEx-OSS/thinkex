@@ -25,7 +25,7 @@
 
 ThinkEx is a workspace for source-heavy study and research.
 
-Instead of uploading sources into a chat, you keep the actual materials in view: PDFs, docs, images, folders, and AI chat. Arrange them, pick what the AI should use, and keep the answer tied to the workspace where the work is happening.
+Instead of uploading sources into a chat, you keep the actual materials in view: PDFs, docs, images, folders, and AI chat. Arrange them, pick what the AI should use as context, and keep the work grounded in your actual materials.
 
 - Open PDFs, documents, images, and folders in a workspace.
 - Put sources side by side while you read or compare them.
