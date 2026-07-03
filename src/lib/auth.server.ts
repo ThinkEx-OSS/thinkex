@@ -14,7 +14,12 @@ import {
 import { sendDeleteAccountVerificationEmail } from "#/features/account/account-deletion-email";
 import * as schema from "#/db/schema";
 import { createDbContext } from "#/db/server";
-import { getAuthBaseURL, getAppOrigin, getTrustedAppOrigins } from "#/lib/app-origin";
+import {
+	getAuthBaseURL,
+	getAppOrigin,
+	getMcpResourceUrl,
+	getTrustedAppOrigins,
+} from "#/lib/app-origin";
 
 const isProduction = import.meta.env.PROD;
 
@@ -218,6 +223,7 @@ function createAuth(database: Db, env: AuthRuntimeEnv) {
 				clientRegistrationDefaultScopes: ["workspace:read"],
 				allowDynamicClientRegistration: true,
 				allowUnauthenticatedClientRegistration: true,
+				validAudiences: [getAppOrigin(), getMcpResourceUrl()],
 			}),
 			tanstackStartCookies(),
 		],

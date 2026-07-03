@@ -91,3 +91,11 @@ export function getTrustedAppOrigins(appOrigin?: string) {
 export function buildInviteUrl(token: string, appOrigin = getAppOrigin()) {
 	return `${appOrigin}${buildInvitePath(token)}`;
 }
+
+export function getMcpResourceUrl(appOrigin = getAppOrigin()) {
+	return `${appOrigin}/mcp`;
+}
+
+export function getMcpProtectedResourceMetadataUrl(appOrigin = getAppOrigin()) {
+	return `${appOrigin}/.well-known/oauth-protected-resource/mcp`;
+}

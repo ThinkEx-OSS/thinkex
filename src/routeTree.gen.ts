@@ -28,6 +28,7 @@ import { Route as ApiPosthogSurveyFeedbackRouteImport } from './routes/api/posth
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ProtectedWorkspacesWorkspaceIdRouteImport } from './routes/_protected/workspaces.$workspaceId'
 import { Route as ProtectedSettingsConnectionsRouteImport } from './routes/_protected/settings/connections'
+import { Route as DotwellKnownOauthProtectedResourceMcpRouteImport } from './routes/[.]well-known/oauth-protected-resource/mcp'
 import { Route as ApiV1WorkspacesWorkspaceIdFileUploadRouteImport } from './routes/api/v1/workspaces.$workspaceId.file-upload'
 import { Route as ApiV1WorkspacesWorkspaceIdChatAttachmentNormalizationRouteImport } from './routes/api/v1/workspaces.$workspaceId.chat-attachment-normalization'
 import { Route as ApiV1WorkspacesWorkspaceIdFilesItemIdPreviewRouteImport } from './routes/api/v1/workspaces.$workspaceId.files.$itemId.preview'
@@ -131,6 +132,12 @@ const ProtectedSettingsConnectionsRoute =
     path: '/connections',
     getParentRoute: () => ProtectedSettingsRoute,
   } as any)
+const DotwellKnownOauthProtectedResourceMcpRoute =
+  DotwellKnownOauthProtectedResourceMcpRouteImport.update({
+    id: '/.well-known/oauth-protected-resource/mcp',
+    path: '/.well-known/oauth-protected-resource/mcp',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiV1WorkspacesWorkspaceIdFileUploadRoute =
   ApiV1WorkspacesWorkspaceIdFileUploadRouteImport.update({
     id: '/$workspaceId/file-upload',
@@ -169,6 +176,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof ProtectedSettingsRouteWithChildren
   '/invite/$token': typeof InviteTokenRoute
   '/oauth/consent': typeof OauthConsentRoute
+  '/.well-known/oauth-protected-resource/mcp': typeof DotwellKnownOauthProtectedResourceMcpRoute
   '/settings/connections': typeof ProtectedSettingsConnectionsRoute
   '/workspaces/$workspaceId': typeof ProtectedWorkspacesWorkspaceIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -192,6 +200,7 @@ export interface FileRoutesByTo {
   '/home': typeof ProtectedHomeRoute
   '/invite/$token': typeof InviteTokenRoute
   '/oauth/consent': typeof OauthConsentRoute
+  '/.well-known/oauth-protected-resource/mcp': typeof DotwellKnownOauthProtectedResourceMcpRoute
   '/settings/connections': typeof ProtectedSettingsConnectionsRoute
   '/workspaces/$workspaceId': typeof ProtectedWorkspacesWorkspaceIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -218,6 +227,7 @@ export interface FileRoutesById {
   '/_protected/settings': typeof ProtectedSettingsRouteWithChildren
   '/invite/$token': typeof InviteTokenRoute
   '/oauth/consent': typeof OauthConsentRoute
+  '/.well-known/oauth-protected-resource/mcp': typeof DotwellKnownOauthProtectedResourceMcpRoute
   '/_protected/settings/connections': typeof ProtectedSettingsConnectionsRoute
   '/_protected/workspaces/$workspaceId': typeof ProtectedWorkspacesWorkspaceIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -244,6 +254,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/invite/$token'
     | '/oauth/consent'
+    | '/.well-known/oauth-protected-resource/mcp'
     | '/settings/connections'
     | '/workspaces/$workspaceId'
     | '/api/auth/$'
@@ -267,6 +278,7 @@ export interface FileRouteTypes {
     | '/home'
     | '/invite/$token'
     | '/oauth/consent'
+    | '/.well-known/oauth-protected-resource/mcp'
     | '/settings/connections'
     | '/workspaces/$workspaceId'
     | '/api/auth/$'
@@ -292,6 +304,7 @@ export interface FileRouteTypes {
     | '/_protected/settings'
     | '/invite/$token'
     | '/oauth/consent'
+    | '/.well-known/oauth-protected-resource/mcp'
     | '/_protected/settings/connections'
     | '/_protected/workspaces/$workspaceId'
     | '/api/auth/$'
@@ -316,6 +329,7 @@ export interface RootRouteChildren {
   DotwellKnownOauthAuthorizationServerRoute: typeof DotwellKnownOauthAuthorizationServerRoute
   InviteTokenRoute: typeof InviteTokenRoute
   OauthConsentRoute: typeof OauthConsentRoute
+  DotwellKnownOauthProtectedResourceMcpRoute: typeof DotwellKnownOauthProtectedResourceMcpRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiPosthogSurveyFeedbackRoute: typeof ApiPosthogSurveyFeedbackRoute
   ApiV1WorkspacesRoute: typeof ApiV1WorkspacesRouteWithChildren
@@ -456,6 +470,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedSettingsConnectionsRouteImport
       parentRoute: typeof ProtectedSettingsRoute
     }
+    '/.well-known/oauth-protected-resource/mcp': {
+      id: '/.well-known/oauth-protected-resource/mcp'
+      path: '/.well-known/oauth-protected-resource/mcp'
+      fullPath: '/.well-known/oauth-protected-resource/mcp'
+      preLoaderRoute: typeof DotwellKnownOauthProtectedResourceMcpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/v1/workspaces/$workspaceId/file-upload': {
       id: '/api/v1/workspaces/$workspaceId/file-upload'
       path: '/$workspaceId/file-upload'
@@ -551,6 +572,8 @@ const rootRouteChildren: RootRouteChildren = {
     DotwellKnownOauthAuthorizationServerRoute,
   InviteTokenRoute: InviteTokenRoute,
   OauthConsentRoute: OauthConsentRoute,
+  DotwellKnownOauthProtectedResourceMcpRoute:
+    DotwellKnownOauthProtectedResourceMcpRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiPosthogSurveyFeedbackRoute: ApiPosthogSurveyFeedbackRoute,
   ApiV1WorkspacesRoute: ApiV1WorkspacesRouteWithChildren,
