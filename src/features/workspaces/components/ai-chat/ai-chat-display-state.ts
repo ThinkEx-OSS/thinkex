@@ -6,6 +6,10 @@ import type {
 	AiChatStatus,
 	AiChatToolPart,
 } from "#/features/workspaces/components/ai-chat/types";
+import {
+	getAiToolActivityTitle,
+	getAiToolPresentation,
+} from "#/features/workspaces/ai/ai-tool-presentation";
 import { getFinishedToolReceipt } from "#/features/workspaces/components/ai-chat/ai-chat-tool-receipts";
 
 export type AssistantPendingKind = "thinking" | "recovering";
@@ -225,7 +229,7 @@ export function getToolActivityForPart(part: AiChatToolPart): AiChatToolActivity
 
 export function isVisibleToolPart(part: AiChatToolPart) {
 	const toolName = getToolPartName(part);
-	return toolName !== "sandbox_bash" && !toolName.startsWith("time_");
+	return getAiToolPresentation(toolName).visibility === "visible";
 }
 
 function getToolPartName(part: AiChatToolPart) {
@@ -233,36 +237,10 @@ function getToolPartName(part: AiChatToolPart) {
 }
 
 function getToolActivityTitle(part: AiChatToolPart, toolName: string) {
-	const title = part.title?.trim();
-
-	if (title) {
-		return title;
-	}
-
-	switch (toolName) {
-		case "orchestrate":
-			return "Working";
-		case "compute":
-			return "Computing";
-		case "workspace_create_items":
-		case "workspace_delete_items":
-		case "workspace_edit_item":
-		case "workspace_move_items":
-		case "workspace_rename_item":
-			return "Updating workspace";
-		case "workspace_list_items":
-		case "workspace_read_items":
-			return "Reading workspace";
-		case "web_search":
-		case "web_markdown":
-		case "web_links":
-			return "Reading the web";
-		case "research_discover":
-		case "research_deepen":
-			return "Researching sources";
-		default:
-			return humanizeToolName(toolName);
-	}
+	return getAiToolActivityTitle({
+		title: part.title,
+		toolName,
+	});
 }
 
 function getToolActivityReceipt(
@@ -292,14 +270,4 @@ function getToolActivityReceipt(
 				summary: title,
 			};
 	}
-}
-
-function humanizeToolName(value: string) {
-	return value
-		.split("_")
-		.filter(Boolean)
-		.map((segment, index) =>
-			index === 0 ? segment.charAt(0).toUpperCase() + segment.slice(1) : segment,
-		)
-		.join(" ");
 }

@@ -171,6 +171,12 @@ export const workspaceRoles = ["owner", "admin", "editor", "viewer"] as const;
 
 export const workspaceMembershipRoleSchema = z.enum(workspaceRoles);
 
+export const workspaceRelationKindValues = ["derived_from", "references"] as const;
+
+export const workspaceRelationKindSchema = z.enum(workspaceRelationKindValues);
+
+export type WorkspaceRelationKind = (typeof workspaceRelationKindValues)[number];
+
 export const workspaceSummarySchema = z.object({
 	id: z.string(),
 	name: z.string(),

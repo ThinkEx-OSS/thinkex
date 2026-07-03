@@ -17,6 +17,7 @@ import {
 	type KernelItemRow,
 	mapKernelItemRow,
 } from "#/features/workspaces/kernel/workspace-kernel-rows";
+import type { WorkspaceKernelRelations } from "#/features/workspaces/kernel/workspace-kernel-relations";
 import type { WorkspaceKernelSql } from "#/features/workspaces/kernel/workspace-kernel-schema";
 import type { WorkspaceKernelStore } from "#/features/workspaces/kernel/workspace-kernel-store";
 import type {
@@ -38,6 +39,7 @@ import type { WorkspaceCommandResult } from "#/features/workspaces/realtime/mess
 
 export class WorkspaceKernelItemCommands {
 	private readonly events: WorkspaceKernelEventBus;
+	private readonly relations: WorkspaceKernelRelations;
 	private readonly sql: WorkspaceKernelSql;
 	private readonly store: WorkspaceKernelStore;
 	private readonly workspace: ShellWorkspace;
@@ -45,12 +47,14 @@ export class WorkspaceKernelItemCommands {
 
 	constructor(input: {
 		events: WorkspaceKernelEventBus;
+		relations: WorkspaceKernelRelations;
 		sql: WorkspaceKernelSql;
 		store: WorkspaceKernelStore;
 		workspace: ShellWorkspace;
 		workspaceId: () => string;
 	}) {
 		this.events = input.events;
+		this.relations = input.relations;
 		this.sql = input.sql;
 		this.store = input.store;
 		this.workspace = input.workspace;
@@ -245,6 +249,7 @@ export class WorkspaceKernelItemCommands {
 			.filter((row): row is KernelItemRow => Boolean(row));
 
 		this.store.softDeleteItems(deleteIds, Date.now());
+		this.relations.deleteRelationsForItems(deleteIds);
 		await Promise.all(
 			rowsToRemove.map((row) =>
 				this.workspace.rm(row.shell_path, {

@@ -2,6 +2,11 @@ import {
 	getWorkspaceOperationContext,
 	resolveWorkspaceOperationPath,
 } from "#/features/workspaces/operations/workspace-operation-context";
+import {
+	resolveWorkspaceRelations,
+	type WorkspaceRelationInput,
+	workspaceRelationFailureCodes,
+} from "#/features/workspaces/operations/relations";
 import type { WorkspaceAccessContext } from "#/features/workspaces/operations/workspace-access-context";
 import type { WorkspaceItemSummary } from "#/features/workspaces/contracts";
 import { parseMarkdownToTiptapDocumentProjection } from "#/features/workspaces/documents/document-markdown";
@@ -21,6 +26,7 @@ export interface CreateWorkspaceItemOperationInput {
 	type: "document" | "folder";
 	path: string;
 	initialContent?: string;
+	relations?: WorkspaceRelationInput[];
 }
 
 export interface CreateWorkspaceItemsOperationInput {
@@ -35,6 +41,7 @@ export const createWorkspaceItemsFailureCodes = [
 	"path_not_canonical",
 	"path_not_folder",
 	"path_not_found",
+	...workspaceRelationFailureCodes,
 ] as const;
 
 type CreateWorkspaceItemsFailureCode = (typeof createWorkspaceItemsFailureCodes)[number];
@@ -82,6 +89,7 @@ export async function createWorkspaceItemsOperation(
 	const createdItemsByPath = new Map<string, { id: string; type: WorkspaceItemSummary["type"] }>();
 
 	for (const [index, itemInput] of input.items.entries()) {
+		const id = crypto.randomUUID();
 		const path = resolveCreateWorkspaceItemPath(itemInput.path);
 
 		if (path.status === "failed") {
@@ -119,10 +127,27 @@ export async function createWorkspaceItemsOperation(
 			continue;
 		}
 
+		const relations = resolveWorkspaceRelations({
+			createdItemsByPath,
+			fromItemId: id,
+			relations: itemInput.relations,
+			tree: workspaceContext.tree,
+		});
+
+		if (relations.status === "failed") {
+			failed.push({
+				code: relations.failure.code,
+				index,
+				path: relations.failure.path,
+			});
+			continue;
+		}
+
 		let command: Awaited<ReturnType<WorkspaceKernelClient["createItem"]>>;
 
 		try {
 			command = await workspaceContext.kernel.createItem({
+				id,
 				parentId: parent.parentId,
 				type: itemInput.type,
 				name: path.name,
@@ -142,6 +167,10 @@ export async function createWorkspaceItemsOperation(
 			}
 
 			throw error;
+		}
+
+		if (relations.relations.length > 0) {
+			await workspaceContext.kernel.createRelations({ relations: relations.relations });
 		}
 
 		const createdPath = joinWorkspaceItemPath(parent.path, command.result.name);

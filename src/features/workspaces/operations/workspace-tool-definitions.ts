@@ -3,6 +3,7 @@ import type { z } from "zod";
 import { createWorkspaceItemsOperation } from "#/features/workspaces/operations/create-items";
 import { deleteWorkspaceItemsOperation } from "#/features/workspaces/operations/delete-items";
 import { editWorkspaceItemOperation } from "#/features/workspaces/operations/edit-item";
+import { linkWorkspaceItemsOperation } from "#/features/workspaces/operations/link-items";
 import { listWorkspaceItemsOperation } from "#/features/workspaces/operations/list-items";
 import { moveWorkspaceItemsOperation } from "#/features/workspaces/operations/move-items";
 import { readWorkspaceItemsOperation } from "#/features/workspaces/operations/read-items";
@@ -18,6 +19,9 @@ import {
 	workspaceEditItemInputExamples,
 	workspaceEditItemInputSchema,
 	workspaceEditItemOutputSchema,
+	workspaceLinkItemsInputExamples,
+	workspaceLinkItemsInputSchema,
+	workspaceLinkItemsOutputSchema,
 	workspaceListItemsInputExamples,
 	workspaceListItemsInputSchema,
 	workspaceListItemsOutputSchema,
@@ -161,16 +165,33 @@ export const workspaceToolDefinitions = [
 	}),
 	defineWorkspaceTool({
 		name: "workspace_edit_item",
-		description: `Edit one actual ThinkEx workspace document by absolute path. Read before editing unless the user requested a simple append or prepend. ${workspaceDocumentMarkdownMathInstruction}`,
+		description: `Edit one actual ThinkEx workspace document by absolute path, or add relationships from any workspace item. Read before editing unless the user requested a simple append or prepend. ${workspaceDocumentMarkdownMathInstruction}`,
 		inputSchema: workspaceEditItemInputSchema,
 		inputExamples: workspaceEditItemInputExamples,
 		outputSchema: workspaceEditItemOutputSchema,
 		scopes: workspaceWriteScopes,
 		mutating: true,
-		execute: async ({ path, edits }, context) => {
+		execute: async ({ path, edits, relations }, context) => {
 			return await editWorkspaceItemOperation(context, {
 				path,
 				edits,
+				relations,
+			});
+		},
+	}),
+	defineWorkspaceTool({
+		name: "workspace_link_items",
+		description:
+			"Create relationships from one actual ThinkEx workspace item to other workspace items by absolute path.",
+		inputSchema: workspaceLinkItemsInputSchema,
+		inputExamples: workspaceLinkItemsInputExamples,
+		outputSchema: workspaceLinkItemsOutputSchema,
+		scopes: workspaceWriteScopes,
+		mutating: true,
+		execute: async ({ path, relations }, context) => {
+			return await linkWorkspaceItemsOperation(context, {
+				path,
+				relations,
 			});
 		},
 	}),

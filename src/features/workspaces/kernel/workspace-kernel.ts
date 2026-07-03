@@ -15,13 +15,16 @@ import {
 	initializeWorkspaceKernelStorage,
 	type WorkspaceKernelSql,
 } from "#/features/workspaces/kernel/workspace-kernel-schema";
+import { WorkspaceKernelRelations } from "#/features/workspaces/kernel/workspace-kernel-relations";
 import { WorkspaceKernelStore } from "#/features/workspaces/kernel/workspace-kernel-store";
 import type {
 	CreateWorkspaceKernelFileFromUploadArgs,
 	CreateWorkspaceKernelItemArgs,
+	CreateWorkspaceKernelRelationArgs,
 	DeleteWorkspaceKernelItemsArgs,
 	DeleteWorkspaceKernelItemsResult,
 	ListWorkspaceKernelEventsArgs,
+	ListWorkspaceKernelItemRelationsArgs,
 	ListWorkspaceKernelItemsArgs,
 	MoveWorkspaceKernelItemsArgs,
 	MoveWorkspaceKernelItemsResult,
@@ -65,8 +68,10 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 		getNextRevision: () => this.store.getNextRevision(),
 		broadcast: (message) => this.broadcastRealtimeMessage(message),
 	});
+	private readonly relations = new WorkspaceKernelRelations(this.kernelSql);
 	private readonly itemCommands = new WorkspaceKernelItemCommands({
 		events: this.events,
+		relations: this.relations,
 		sql: this.kernelSql,
 		store: this.store,
 		workspace: this.workspace,
@@ -112,6 +117,20 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 
 	async listItems(input: ListWorkspaceKernelItemsArgs = {}) {
 		return this.store.listItems(input);
+	}
+
+	async createRelations(input: { relations: CreateWorkspaceKernelRelationArgs[] }) {
+		for (const relation of input.relations) {
+			this.store.assertActiveItem(relation.fromItemId);
+			this.store.assertActiveItem(relation.toItemId);
+		}
+
+		this.relations.createRelations(input.relations);
+	}
+
+	async listItemRelations(input: ListWorkspaceKernelItemRelationsArgs) {
+		this.store.assertActiveItem(input.itemId);
+		return this.relations.listItemRelations(input.itemId, input.limit);
 	}
 
 	async createItem(

@@ -69,7 +69,7 @@ function AiChatAttachmentButton() {
 			disabled={attachments.composerReady === false}
 			onClick={attachments.openFileDialog}
 		>
-			<Plus />
+			<Plus className="size-4.5" />
 		</PromptInputButton>
 	);
 }

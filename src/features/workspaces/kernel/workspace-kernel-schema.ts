@@ -48,6 +48,22 @@ export function initializeWorkspaceKernelStorage(sql: WorkspaceKernelSql) {
 	sql`CREATE INDEX IF NOT EXISTS kernel_item_projections_status_idx
 		ON kernel_item_projections (status, updated_at)`;
 	sql`
+		CREATE TABLE IF NOT EXISTS kernel_relations (
+			id TEXT PRIMARY KEY,
+			from_item_id TEXT NOT NULL,
+			to_item_id TEXT NOT NULL,
+			kind TEXT NOT NULL,
+			note TEXT NOT NULL DEFAULT '',
+			created_at INTEGER NOT NULL
+		)
+	`;
+	sql`CREATE UNIQUE INDEX IF NOT EXISTS kernel_relations_unique_idx
+		ON kernel_relations (from_item_id, to_item_id, kind, note)`;
+	sql`CREATE INDEX IF NOT EXISTS kernel_relations_from_idx
+		ON kernel_relations (from_item_id, created_at)`;
+	sql`CREATE INDEX IF NOT EXISTS kernel_relations_to_idx
+		ON kernel_relations (to_item_id, created_at)`;
+	sql`
 		CREATE TABLE IF NOT EXISTS kernel_meta (
 			key TEXT PRIMARY KEY,
 			value TEXT NOT NULL,

@@ -3,6 +3,10 @@ import {
 	resolveWorkspaceOperationPath,
 } from "#/features/workspaces/operations/workspace-operation-context";
 import {
+	serializeWorkspaceRelations,
+	type WorkspaceRelationOutput,
+} from "#/features/workspaces/operations/relations";
+import {
 	parseWorkspacePageRange,
 	readWorkspaceProjectionPages,
 	WorkspacePageSelectionError,
@@ -13,6 +17,7 @@ import { serializeTiptapDocumentToMarkdown } from "#/features/workspaces/documen
 import { parseMarkdownPagesProjection } from "#/features/workspaces/extraction/page-markdown-projection";
 import { parseTiptapDocumentJson } from "#/features/workspaces/documents/tiptap-document";
 import type { WorkspaceKernelClient } from "#/features/workspaces/kernel/workspace-kernel-access";
+import { buildWorkspaceKernelItemPathIndex } from "#/features/workspaces/kernel/workspace-kernel-paths";
 import { resolveWorkspaceFileTypeFromItem } from "#/features/workspaces/model/workspace-file";
 import type { WorkspaceAccessContext } from "#/features/workspaces/operations/workspace-access-context";
 
@@ -25,6 +30,7 @@ export interface WorkspaceReadItem {
 	content?: string;
 	pages?: WorkspaceReadPages;
 	path: string;
+	relations?: WorkspaceRelationOutput[];
 	status: "failed" | "pending" | "ready" | "unsupported";
 	type: "document" | "file" | "flashcard" | "quiz";
 }
@@ -65,6 +71,7 @@ export async function readWorkspaceItemsOperation(
 		items: [],
 		failed: [],
 	};
+	const pathsByItemId = buildWorkspaceKernelItemPathIndex(workspaceContext.pageItems);
 
 	for (const [index, path] of input.paths.entries()) {
 		const resolution = resolveWorkspaceOperationPath({
@@ -109,14 +116,24 @@ export async function readWorkspaceItemsOperation(
 		}
 
 		try {
-			result.items.push(
-				await readWorkspaceItem({
-					item: resolution.item,
-					kernel: workspaceContext.kernel,
-					pages: input.pages,
-					path: resolution.path,
+			const item = await readWorkspaceItem({
+				item: resolution.item,
+				kernel: workspaceContext.kernel,
+				pages: input.pages,
+				path: resolution.path,
+			});
+			const relations = serializeWorkspaceRelations({
+				item: resolution.item,
+				pathsByItemId,
+				relations: await workspaceContext.kernel.listItemRelations({
+					itemId: resolution.item.id,
 				}),
-			);
+			});
+
+			result.items.push({
+				...item,
+				...(relations.length > 0 ? { relations } : {}),
+			});
 		} catch (error) {
 			if (error instanceof WorkspacePageSelectionError) {
 				result.failed.push({
