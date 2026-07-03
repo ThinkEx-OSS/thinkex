@@ -17,9 +17,11 @@ import { Route as CookiesRouteImport } from './routes/cookies'
 import { Route as AccountDeletedRouteImport } from './routes/account-deleted'
 import { Route as ProtectedRouteImport } from './routes/_protected'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as OauthConsentRouteImport } from './routes/oauth/consent'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as ProtectedSettingsRouteImport } from './routes/_protected/settings'
 import { Route as ProtectedHomeRouteImport } from './routes/_protected/home'
+import { Route as DotwellKnownOauthAuthorizationServerRouteImport } from './routes/[.]well-known/oauth-authorization-server'
 import { Route as ApiV1WorkspacesRouteImport } from './routes/api/v1/workspaces'
 import { Route as ApiPosthogSurveyFeedbackRouteImport } from './routes/api/posthog/survey-feedback'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
@@ -68,6 +70,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const OauthConsentRoute = OauthConsentRouteImport.update({
+  id: '/oauth/consent',
+  path: '/oauth/consent',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const InviteTokenRoute = InviteTokenRouteImport.update({
   id: '/invite/$token',
   path: '/invite/$token',
@@ -83,6 +90,12 @@ const ProtectedHomeRoute = ProtectedHomeRouteImport.update({
   path: '/home',
   getParentRoute: () => ProtectedRoute,
 } as any)
+const DotwellKnownOauthAuthorizationServerRoute =
+  DotwellKnownOauthAuthorizationServerRouteImport.update({
+    id: '/.well-known/oauth-authorization-server',
+    path: '/.well-known/oauth-authorization-server',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiV1WorkspacesRoute = ApiV1WorkspacesRouteImport.update({
   id: '/api/v1/workspaces',
   path: '/api/v1/workspaces',
@@ -138,9 +151,11 @@ export interface FileRoutesByFullPath {
   '/privacy': typeof PrivacyRoute
   '/signup': typeof SignupRoute
   '/terms': typeof TermsRoute
+  '/.well-known/oauth-authorization-server': typeof DotwellKnownOauthAuthorizationServerRoute
   '/home': typeof ProtectedHomeRoute
   '/settings': typeof ProtectedSettingsRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/oauth/consent': typeof OauthConsentRoute
   '/workspaces/$workspaceId': typeof ProtectedWorkspacesWorkspaceIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/posthog/survey-feedback': typeof ApiPosthogSurveyFeedbackRoute
@@ -158,9 +173,11 @@ export interface FileRoutesByTo {
   '/privacy': typeof PrivacyRoute
   '/signup': typeof SignupRoute
   '/terms': typeof TermsRoute
+  '/.well-known/oauth-authorization-server': typeof DotwellKnownOauthAuthorizationServerRoute
   '/home': typeof ProtectedHomeRoute
   '/settings': typeof ProtectedSettingsRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/oauth/consent': typeof OauthConsentRoute
   '/workspaces/$workspaceId': typeof ProtectedWorkspacesWorkspaceIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/posthog/survey-feedback': typeof ApiPosthogSurveyFeedbackRoute
@@ -180,9 +197,11 @@ export interface FileRoutesById {
   '/privacy': typeof PrivacyRoute
   '/signup': typeof SignupRoute
   '/terms': typeof TermsRoute
+  '/.well-known/oauth-authorization-server': typeof DotwellKnownOauthAuthorizationServerRoute
   '/_protected/home': typeof ProtectedHomeRoute
   '/_protected/settings': typeof ProtectedSettingsRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/oauth/consent': typeof OauthConsentRoute
   '/_protected/workspaces/$workspaceId': typeof ProtectedWorkspacesWorkspaceIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/posthog/survey-feedback': typeof ApiPosthogSurveyFeedbackRoute
@@ -202,9 +221,11 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/signup'
     | '/terms'
+    | '/.well-known/oauth-authorization-server'
     | '/home'
     | '/settings'
     | '/invite/$token'
+    | '/oauth/consent'
     | '/workspaces/$workspaceId'
     | '/api/auth/$'
     | '/api/posthog/survey-feedback'
@@ -222,9 +243,11 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/signup'
     | '/terms'
+    | '/.well-known/oauth-authorization-server'
     | '/home'
     | '/settings'
     | '/invite/$token'
+    | '/oauth/consent'
     | '/workspaces/$workspaceId'
     | '/api/auth/$'
     | '/api/posthog/survey-feedback'
@@ -243,9 +266,11 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/signup'
     | '/terms'
+    | '/.well-known/oauth-authorization-server'
     | '/_protected/home'
     | '/_protected/settings'
     | '/invite/$token'
+    | '/oauth/consent'
     | '/_protected/workspaces/$workspaceId'
     | '/api/auth/$'
     | '/api/posthog/survey-feedback'
@@ -265,7 +290,9 @@ export interface RootRouteChildren {
   PrivacyRoute: typeof PrivacyRoute
   SignupRoute: typeof SignupRoute
   TermsRoute: typeof TermsRoute
+  DotwellKnownOauthAuthorizationServerRoute: typeof DotwellKnownOauthAuthorizationServerRoute
   InviteTokenRoute: typeof InviteTokenRoute
+  OauthConsentRoute: typeof OauthConsentRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiPosthogSurveyFeedbackRoute: typeof ApiPosthogSurveyFeedbackRoute
   ApiV1WorkspacesRoute: typeof ApiV1WorkspacesRouteWithChildren
@@ -329,6 +356,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/oauth/consent': {
+      id: '/oauth/consent'
+      path: '/oauth/consent'
+      fullPath: '/oauth/consent'
+      preLoaderRoute: typeof OauthConsentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/invite/$token': {
       id: '/invite/$token'
       path: '/invite/$token'
@@ -349,6 +383,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/home'
       preLoaderRoute: typeof ProtectedHomeRouteImport
       parentRoute: typeof ProtectedRoute
+    }
+    '/.well-known/oauth-authorization-server': {
+      id: '/.well-known/oauth-authorization-server'
+      path: '/.well-known/oauth-authorization-server'
+      fullPath: '/.well-known/oauth-authorization-server'
+      preLoaderRoute: typeof DotwellKnownOauthAuthorizationServerRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/v1/workspaces': {
       id: '/api/v1/workspaces'
@@ -456,7 +497,10 @@ const rootRouteChildren: RootRouteChildren = {
   PrivacyRoute: PrivacyRoute,
   SignupRoute: SignupRoute,
   TermsRoute: TermsRoute,
+  DotwellKnownOauthAuthorizationServerRoute:
+    DotwellKnownOauthAuthorizationServerRoute,
   InviteTokenRoute: InviteTokenRoute,
+  OauthConsentRoute: OauthConsentRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiPosthogSurveyFeedbackRoute: ApiPosthogSurveyFeedbackRoute,
   ApiV1WorkspacesRoute: ApiV1WorkspacesRouteWithChildren,

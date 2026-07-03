@@ -1,8 +1,9 @@
+import { oauthProvider } from "@better-auth/oauth-provider";
 import { env as workerEnv } from "cloudflare:workers";
 import { APIError } from "better-auth/api";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { betterAuth } from "better-auth/minimal";
-import { anonymous } from "better-auth/plugins";
+import { anonymous, jwt } from "better-auth/plugins";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
 import { sql } from "drizzle-orm";
 
@@ -13,7 +14,7 @@ import {
 import { sendDeleteAccountVerificationEmail } from "#/features/account/account-deletion-email";
 import * as schema from "#/db/schema";
 import { createDbContext } from "#/db/server";
-import { getAuthBaseURL, getTrustedAppOrigins } from "#/lib/app-origin";
+import { getAuthBaseURL, getAppOrigin, getTrustedAppOrigins } from "#/lib/app-origin";
 
 const isProduction = import.meta.env.PROD;
 
@@ -157,6 +158,7 @@ function createAuth(database: Db, env: AuthRuntimeEnv) {
 	const baseURL = getAuthBaseURL();
 
 	return betterAuth({
+		disabledPaths: ["/token"],
 		database: drizzleAdapter(database, {
 			provider: "sqlite",
 			schema,
@@ -201,6 +203,21 @@ function createAuth(database: Db, env: AuthRuntimeEnv) {
 					await transferAnonymousUserData(database, transferInput);
 					await transferLinkedAccountResources(transferInput);
 				},
+			}),
+			jwt({
+				disableSettingJwtHeader: true,
+				jwt: {
+					issuer: typeof baseURL === "string" ? baseURL : getAppOrigin(),
+				},
+			}),
+			oauthProvider({
+				loginPage: "/login",
+				consentPage: "/oauth/consent",
+				scopes: ["workspace:read"],
+				clientRegistrationAllowedScopes: ["workspace:read"],
+				clientRegistrationDefaultScopes: ["workspace:read"],
+				allowDynamicClientRegistration: true,
+				allowUnauthenticatedClientRegistration: true,
 			}),
 			tanstackStartCookies(),
 		],

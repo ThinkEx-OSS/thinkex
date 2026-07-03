@@ -40,6 +40,7 @@
 	"dependencies": {
 		"@ai-sdk/react": "^3.0.210",
 		"@base-ui/react": "^1.6.0",
+		"@better-auth/oauth-provider": "^1.6.19",
 		"@cf-wasm/photon": "^0.3.6",
 		"@cloudflare/codemode": "^0.4.2",
 		"@cloudflare/containers": "^0.3.7",

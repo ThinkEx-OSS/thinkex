@@ -35,6 +35,8 @@ peerDependencyRules:
 allowBuilds:
   "@mongodb-js/zstd": true
   "@posthog/cli": true
+  "@prisma/client": false
+  better-sqlite3: false
   core-js: true
   core-js-pure: true
   esbuild: true
