@@ -11,5 +11,5 @@ export function parseOAuthScopeParam(scope: string | undefined): string[] {
 		return [];
 	}
 
-	return scope.split(/\s+/).filter(Boolean);
+	return [...new Set(scope.split(/\s+/).filter(Boolean))];
 }
