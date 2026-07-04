@@ -342,7 +342,7 @@ export function ConnectionsSettingsPage({ mcpServerUrl }: { mcpServerUrl: string
 				</>
 			}
 		>
-			<div className="mx-auto w-full max-w-lg space-y-8">
+			<div className="mx-auto w-full max-w-lg space-y-8 pb-8">
 				<Button
 					variant="ghost"
 					size="sm"
