@@ -69,16 +69,22 @@ async function readAuthJson<T>(response: Response): Promise<T> {
 	return payload;
 }
 
-async function authGet<T>(path: string, query?: Record<string, string>): Promise<T> {
-	const url = new URL(path, window.location.origin);
-
-	if (query) {
-		for (const [key, value] of Object.entries(query)) {
-			url.searchParams.set(key, value);
-		}
+// These auth endpoints are same-origin and cookie-scoped, so we issue relative
+// requests. `fetch` resolves them against the document base in the browser,
+// avoiding a hard dependency on `window` (which keeps the helpers testable).
+function buildAuthRequestPath(path: string, query?: Record<string, string>): string {
+	if (!query) {
+		return path;
 	}
 
-	const response = await fetch(url, {
+	const searchParams = new URLSearchParams(query);
+	const queryString = searchParams.toString();
+
+	return queryString ? `${path}?${queryString}` : path;
+}
+
+async function authGet<T>(path: string, query?: Record<string, string>): Promise<T> {
+	const response = await fetch(buildAuthRequestPath(path, query), {
 		credentials: "include",
 	});
 
@@ -86,7 +92,7 @@ async function authGet<T>(path: string, query?: Record<string, string>): Promise
 }
 
 async function authPost<T>(path: string, body: Record<string, unknown>): Promise<T> {
-	const response = await fetch(new URL(path, window.location.origin), {
+	const response = await fetch(path, {
 		method: "POST",
 		credentials: "include",
 		headers: {
