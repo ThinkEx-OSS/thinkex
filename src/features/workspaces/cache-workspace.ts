@@ -8,29 +8,19 @@ import type {
 
 type WorkspaceListCacheMode = "upsert" | "update-existing";
 
-type SeedWorkspacePageInput = {
-	workspace: WorkspaceSummary;
-	items: WorkspaceItemSummary[];
-	revision?: number;
-};
-
-export function seedWorkspaceCaches(
+// Insert or refresh a workspace's entry in the list cache.
+// - "upsert": add it if missing (used when a workspace is created).
+// - "update-existing": only touch it if the list is already loaded; never
+//   fabricate a single-item list, which would make /home briefly render just
+//   one workspace before the real list arrives.
+export function upsertWorkspaceInList(
 	queryClient: QueryClient,
-	input: SeedWorkspacePageInput | { workspace: WorkspaceSummary },
-	options: {
-		listMode?: WorkspaceListCacheMode;
-	} = {},
+	workspace: WorkspaceSummary,
+	mode: WorkspaceListCacheMode = "upsert",
 ) {
-	const { workspace } = input;
-	const listMode = options.listMode ?? "upsert";
-
 	queryClient.setQueryData<WorkspaceSummary[]>(workspacesQueryKey, (current) => {
-		if (!current && listMode === "update-existing") {
-			return undefined;
-		}
-
 		if (!current) {
-			return [workspace];
+			return mode === "update-existing" ? undefined : [workspace];
 		}
 
 		if (current.some((item) => item.id === workspace.id)) {
@@ -41,28 +31,17 @@ export function seedWorkspaceCaches(
 
 		return [workspace, ...current].sort(compareWorkspaceRecentFirst);
 	});
-
-	if ("items" in input) {
-		queryClient.setQueryData<WorkspacePage>(workspacePageQueryKey(workspace.id), (current) =>
-			createWorkspacePageCacheEntry({
-				workspace,
-				items: input.items,
-				revision: input.revision ?? current?.revision ?? 0,
-			}),
-		);
-	}
 }
 
-function createWorkspacePageCacheEntry(input: {
-	workspace: WorkspaceSummary;
-	items: WorkspaceItemSummary[];
-	revision: number;
-}): WorkspacePage {
-	return {
+export function setWorkspacePageCache(
+	queryClient: QueryClient,
+	input: { workspace: WorkspaceSummary; items: WorkspaceItemSummary[]; revision?: number },
+) {
+	queryClient.setQueryData<WorkspacePage>(workspacePageQueryKey(input.workspace.id), (current) => ({
 		workspace: input.workspace,
 		items: input.items,
-		revision: input.revision,
-	};
+		revision: input.revision ?? current?.revision ?? 0,
+	}));
 }
 
 export function restoreWorkspaceListCache(
@@ -109,7 +88,7 @@ export function markWorkspaceOpenedInCache(
 }
 
 export function updateWorkspaceInCaches(queryClient: QueryClient, workspace: WorkspaceSummary) {
-	seedWorkspaceCaches(queryClient, { workspace }, { listMode: "update-existing" });
+	upsertWorkspaceInList(queryClient, workspace, "update-existing");
 	queryClient.setQueryData<WorkspacePage>(workspacePageQueryKey(workspace.id), (current) =>
 		current
 			? {
