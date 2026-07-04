@@ -216,7 +216,7 @@ function AuthorizedConnectionRow({
 
 function AuthorizedConnectionsSection() {
 	const queryClient = useQueryClient();
-	const [revokingConsentId, setRevokingConsentId] = useState<string | null>(null);
+	const [revokingConsentIds, setRevokingConsentIds] = useState<ReadonlySet<string>>(new Set());
 
 	const {
 		data: consents,
@@ -244,13 +244,17 @@ function AuthorizedConnectionsSection() {
 		onError: (mutationError) => {
 			toast.error(getErrorMessage(mutationError, "Unable to revoke access right now."));
 		},
-		onSettled: () => {
-			setRevokingConsentId(null);
+		onSettled: (_data, _error, consentId) => {
+			setRevokingConsentIds((current) => {
+				const next = new Set(current);
+				next.delete(consentId);
+				return next;
+			});
 		},
 	});
 
 	const handleRevoke = (consentId: string) => {
-		setRevokingConsentId(consentId);
+		setRevokingConsentIds((current) => new Set(current).add(consentId));
 		revokeMutation.mutate(consentId);
 	};
 
@@ -304,7 +308,7 @@ function AuthorizedConnectionsSection() {
 								clientName={client?.client_name}
 								scopes={Array.isArray(consent.scopes) ? consent.scopes : []}
 								authorizedAt={consent.createdAt}
-								isRevoking={revokingConsentId === consent.id}
+								isRevoking={revokingConsentIds.has(consent.id)}
 								onRevoke={() => handleRevoke(consent.id)}
 							/>
 						);
