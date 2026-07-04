@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Loader2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -39,6 +39,7 @@ export const Route = createFileRoute("/oauth/consent")({
 
 function OAuthConsentPage() {
 	const search = Route.useSearch();
+	const navigate = useNavigate();
 	const [pendingAction, setPendingAction] = useState<"allow" | "deny" | null>(null);
 	const requestedScopes = parseOAuthScopeParam(search.scope);
 	const scopeLabels = formatOAuthScopes(requestedScopes);
@@ -93,9 +94,20 @@ function OAuthConsentPage() {
 			</div>
 
 			{!search.client_id ? (
-				<p className="text-sm text-destructive">
-					This authorization request is missing a client identifier.
-				</p>
+				<div className="space-y-3">
+					<p className="text-sm text-destructive">
+						This authorization request is missing a client identifier.
+					</p>
+					<Button
+						type="button"
+						variant="outline"
+						onClick={() => {
+							void navigate({ to: "/home" });
+						}}
+					>
+						Return to ThinkEx
+					</Button>
+				</div>
 			) : null}
 
 			<section className="space-y-4 rounded-lg border bg-background p-4">
