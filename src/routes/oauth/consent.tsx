@@ -41,6 +41,7 @@ function OAuthConsentPage() {
 	const search = Route.useSearch();
 	const navigate = useNavigate();
 	const [pendingAction, setPendingAction] = useState<"allow" | "deny" | null>(null);
+	const [completedAction, setCompletedAction] = useState<"allow" | "deny" | null>(null);
 	const requestedScopes = parseOAuthScopeParam(search.scope);
 	const scopeLabels = formatOAuthScopes(requestedScopes);
 
@@ -64,6 +65,7 @@ function OAuthConsentPage() {
 			});
 
 			if (result.url) {
+				setCompletedAction(accept ? "allow" : "deny");
 				window.location.assign(result.url);
 				return;
 			}
@@ -138,52 +140,75 @@ function OAuthConsentPage() {
 					) : null}
 				</div>
 
-				<div className="space-y-2 border-t border-border pt-4">
-					<p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-						Requested access
-					</p>
-					{scopeLabels.length > 0 ? (
-						<ul className="space-y-2 text-sm">
-							{scopeLabels.map((label) => (
-								<li key={label} className="text-foreground">
-									{label}
-								</li>
-							))}
-						</ul>
-					) : (
-						<p className="text-sm text-muted-foreground">No scopes were requested.</p>
-					)}
-				</div>
+				{completedAction ? (
+					<div className="space-y-3 border-t border-border pt-4">
+						<p className="text-sm text-foreground">
+							{completedAction === "allow"
+								? `Authorization complete. Return to ${clientName} to continue. You can close this tab.`
+								: "Access denied. You can close this tab."}
+						</p>
+						<Button
+							type="button"
+							variant="outline"
+							onClick={() => {
+								void navigate({ to: "/home" });
+							}}
+						>
+							Return to ThinkEx
+						</Button>
+					</div>
+				) : (
+					<div className="space-y-2 border-t border-border pt-4">
+						<p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+							Requested access
+						</p>
+						{scopeLabels.length > 0 ? (
+							<ul className="space-y-2 text-sm">
+								{scopeLabels.map((label) => (
+									<li key={label} className="text-foreground">
+										{label}
+									</li>
+								))}
+							</ul>
+						) : (
+							<p className="text-sm text-muted-foreground">No scopes were requested.</p>
+						)}
+					</div>
+				)}
 			</section>
 
-			<p className="text-sm text-muted-foreground">
-				Allowing access lets this application read your ThinkEx workspaces on your behalf. You can
-				revoke access anytime from Settings → Connections.
-			</p>
+			{completedAction ? null : (
+				<>
+					<p className="text-sm text-muted-foreground">
+						Allowing access lets this application read your ThinkEx workspaces on your behalf. You
+						can revoke access anytime from Settings → Connections.
+					</p>
 
-			<div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-				<Button
-					type="button"
-					variant="outline"
-					disabled={isPending || !search.client_id}
-					onClick={() => {
-						void handleConsent(false);
-					}}
-				>
-					{pendingAction === "deny" ? <Loader2 className="size-4 animate-spin" /> : null}
-					Deny
-				</Button>
-				<Button
-					type="button"
-					disabled={isPending || !search.client_id || isClientLoading || isClientError}
-					onClick={() => {
-						void handleConsent(true);
-					}}
-				>
-					{pendingAction === "allow" ? <Loader2 className="size-4 animate-spin" /> : null}
-					Allow
-				</Button>
-			</div>
+					<div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+						<Button
+							type="button"
+							variant="outline"
+							disabled={isPending || !search.client_id}
+							onClick={() => {
+								void handleConsent(false);
+							}}
+						>
+							{pendingAction === "deny" ? <Loader2 className="size-4 animate-spin" /> : null}
+							Deny
+						</Button>
+						<Button
+							type="button"
+							disabled={isPending || !search.client_id || isClientLoading || isClientError}
+							onClick={() => {
+								void handleConsent(true);
+							}}
+						>
+							{pendingAction === "allow" ? <Loader2 className="size-4 animate-spin" /> : null}
+							Allow
+						</Button>
+					</div>
+				</>
+			)}
 		</main>
 	);
 }
