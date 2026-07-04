@@ -1,5 +1,4 @@
 import { env as workerEnv } from "cloudflare:workers";
-import { APIError } from "better-auth/api";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { betterAuth } from "better-auth/minimal";
 import { anonymous } from "better-auth/plugins";
@@ -10,7 +9,6 @@ import {
 	purgeUserAccountResources,
 	transferLinkedAccountResources,
 } from "#/features/workspaces/durable-object-lifecycle";
-import { sendDeleteAccountVerificationEmail } from "#/features/account/account-deletion-email";
 import * as schema from "#/db/schema";
 import { createDbContext } from "#/db/server";
 import { capturePostHogServerEvent } from "#/integrations/posthog/server";
@@ -230,23 +228,6 @@ function createAuth(database: Db, env: AuthRuntimeEnv) {
 		user: {
 			deleteUser: {
 				enabled: true,
-				sendDeleteAccountVerification: async ({ user, url }) => {
-					const result = await sendDeleteAccountVerificationEmail({
-						email: user.email,
-						url,
-					});
-
-					if (result.ok) {
-						return;
-					}
-
-					const message =
-						result.reason === "missing_binding"
-							? "Account deletion email is not configured."
-							: "Unable to send account deletion email right now.";
-
-					throw APIError.fromStatus("INTERNAL_SERVER_ERROR", { message });
-				},
 				beforeDelete: async (user) => {
 					await purgeUserAccountResources(user.id);
 				},

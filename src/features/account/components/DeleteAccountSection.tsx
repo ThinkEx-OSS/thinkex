@@ -1,3 +1,4 @@
+import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -16,9 +17,8 @@ import { Button } from "#/components/ui/button";
 import { authClient } from "#/lib/auth-client";
 import { getErrorMessage } from "#/lib/error-message";
 
-const accountDeletedCallbackPath = "/account-deleted";
-
 export function DeleteAccountSection() {
+	const navigate = useNavigate();
 	const [open, setOpen] = useState(false);
 	const [isPending, setIsPending] = useState(false);
 
@@ -26,18 +26,16 @@ export function DeleteAccountSection() {
 		setIsPending(true);
 
 		try {
-			const result = await authClient.deleteUser({
-				callbackURL: accountDeletedCallbackPath,
-			});
+			const result = await authClient.deleteUser();
 
 			if (result.error) {
 				throw result.error;
 			}
 
 			setOpen(false);
-			toast.success("Check your email to confirm account deletion.");
+			await navigate({ to: "/account-deleted", replace: true });
 		} catch (error) {
-			toast.error(getErrorMessage(error, "Unable to start account deletion right now."));
+			toast.error(getErrorMessage(error, "Unable to delete your account right now."));
 		} finally {
 			setIsPending(false);
 		}
@@ -66,8 +64,8 @@ export function DeleteAccountSection() {
 						<AlertDialogTitle>Delete your account?</AlertDialogTitle>
 						<AlertDialogDescription>
 							This permanently deletes your ThinkEx account and every workspace you own. Other
-							members will lose access to those workspaces and their contents. You will receive a
-							verification email before deletion completes.
+							members will lose access to those workspaces and their contents. This action cannot be
+							undone.
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
