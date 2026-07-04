@@ -3,16 +3,18 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { ListWorkspaceKernelItemsResult } from "#/features/workspaces/kernel/workspace-kernel-list";
 import { listAccountWorkspacesOperation } from "#/features/workspaces/operations/list-workspaces";
 import { listWorkspaceItemsOperation } from "#/features/workspaces/operations/list-items";
-import type { WorkspaceReadItemsResult } from "#/features/workspaces/operations/read-items";
 import { readWorkspaceItemsOperation } from "#/features/workspaces/operations/read-items";
 import { recordMcpToolCallFromActor } from "#/features/workspaces/mcp/mcp-audit";
 import { buildMcpAccountContext, buildMcpWorkspaceContext, type McpActor } from "./mcp-auth";
+import { capMcpReadItemsContent, type McpReadItemsResult } from "./mcp-read-content-cap";
 import { mcpListItemsInputSchema, mcpReadItemsInputSchema } from "./mcp-schemas";
 import {
 	isMcpToolAccessError,
 	mcpListItemsAccessDeniedResult,
 	mcpListWorkspacesAccessDeniedResult,
 	mcpReadItemsAccessDeniedResult,
+	resolveMcpToolAccessFailureCode,
+	type McpToolAccessFailureCode,
 } from "./mcp-tool-access";
 
 export { mcpListItemsInputSchema, mcpReadItemsInputSchema } from "./mcp-schemas";
@@ -30,7 +32,7 @@ function mcpTextResult(result: unknown) {
 
 async function runMcpTool<TResult>(input: {
 	actor: McpActor;
-	deniedResult: TResult;
+	deniedResultForCode: (code: McpToolAccessFailureCode) => TResult;
 	run: () => Promise<TResult>;
 	toolName: string;
 	workspaceId?: string;
@@ -50,7 +52,7 @@ async function runMcpTool<TResult>(input: {
 				toolName: input.toolName,
 				workspaceId: input.workspaceId,
 			});
-			return mcpTextResult(input.deniedResult);
+			return mcpTextResult(input.deniedResultForCode(resolveMcpToolAccessFailureCode(error)));
 		}
 
 		recordMcpToolCallFromActor(input.actor, {
@@ -71,7 +73,7 @@ export function registerMcpTools(server: McpServer, actor: McpActor): void {
 		async () =>
 			runMcpTool({
 				actor,
-				deniedResult: mcpListWorkspacesAccessDeniedResult(),
+				deniedResultForCode: mcpListWorkspacesAccessDeniedResult,
 				toolName: "thinkex_list_workspaces",
 				run: async () => {
 					const context = buildMcpAccountContext(actor);
@@ -98,9 +100,11 @@ export function registerMcpTools(server: McpServer, actor: McpActor): void {
 		async ({ workspaceId, limit, path, recursive }) =>
 			runMcpTool<ListWorkspaceKernelItemsResult>({
 				actor,
-				deniedResult: mcpListItemsAccessDeniedResult(
-					path,
-				) as unknown as ListWorkspaceKernelItemsResult,
+				deniedResultForCode: (code) =>
+					mcpListItemsAccessDeniedResult(
+						path ?? "/",
+						code,
+					) as unknown as ListWorkspaceKernelItemsResult,
 				toolName: "thinkex_workspace_list_items",
 				workspaceId,
 				run: async () => {
@@ -121,17 +125,20 @@ export function registerMcpTools(server: McpServer, actor: McpActor): void {
 			inputSchema: mcpReadItemsInputSchema,
 		},
 		async ({ workspaceId, pages, paths }) =>
-			runMcpTool<WorkspaceReadItemsResult>({
+			runMcpTool<McpReadItemsResult>({
 				actor,
-				deniedResult: mcpReadItemsAccessDeniedResult() as unknown as WorkspaceReadItemsResult,
+				deniedResultForCode: (code) =>
+					mcpReadItemsAccessDeniedResult(code) as unknown as McpReadItemsResult,
 				toolName: "thinkex_workspace_read_items",
 				workspaceId,
 				run: async () => {
 					const context = buildMcpWorkspaceContext(actor, workspaceId);
-					return readWorkspaceItemsOperation(context, {
+					const result = await readWorkspaceItemsOperation(context, {
 						pages,
 						paths,
 					});
+
+					return capMcpReadItemsContent(result);
 				},
 			}),
 	);

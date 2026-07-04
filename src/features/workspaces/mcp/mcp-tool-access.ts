@@ -17,25 +17,25 @@ export function resolveMcpToolAccessFailureCode(
 	return error instanceof WorkspaceForbiddenError ? "workspace_forbidden" : "insufficient_scope";
 }
 
-export function mcpListWorkspacesAccessDeniedResult() {
+export function mcpListWorkspacesAccessDeniedResult(code: McpToolAccessFailureCode) {
 	return {
 		workspaces: [],
-		failed: [{ code: "insufficient_scope" as const }],
+		failed: [{ code }],
 	};
 }
 
-export function mcpListItemsAccessDeniedResult(path = "/") {
+export function mcpListItemsAccessDeniedResult(path: string, code: McpToolAccessFailureCode) {
 	return {
 		path,
 		more: false,
 		items: [],
-		failed: [{ code: "workspace_forbidden" as const }],
+		failed: [{ code }],
 	};
 }
 
-export function mcpReadItemsAccessDeniedResult() {
+export function mcpReadItemsAccessDeniedResult(code: McpToolAccessFailureCode) {
 	return {
 		items: [],
-		failed: [{ code: "workspace_forbidden" as const }],
+		failed: [{ code }],
 	};
 }

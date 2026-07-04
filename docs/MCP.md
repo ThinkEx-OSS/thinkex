@@ -49,5 +49,6 @@ Google creds are optional; guest sign-in is enough to authorize a client.
 - **No images** — text/Markdown projections only; unsupported types return `status: "unsupported"`.
 - **Async PDFs** — `status: "pending"` means extraction isn't ready yet (retry later); `status: "failed"` means extraction failed.
 - **No resources or subscriptions** — tools only; no `thinkex://` URIs or change notifications.
+- **Read cap** — 100k chars per read response (`truncated: true` if exceeded).
 - **No rate limiting** on tool calls yet; scope and membership are enforced on every call at the token and operation layers.
 - **Audit logging** is structured (`recordMcpToolCall`) but not wired to telemetry yet; actor fields (`userId`, `clientId`, `scopes`) are recorded at each tool invocation for a future issue.
