@@ -56,17 +56,27 @@ function buildSignedOAuthQuery(search: string): string | undefined {
 }
 
 async function readAuthJson<T>(response: Response): Promise<T> {
-	const payload = (await response.json()) as T & { message?: string };
+	const rawBody = await response.text();
+
+	let payload: (T & { message?: string }) | undefined;
+
+	if (rawBody) {
+		try {
+			payload = JSON.parse(rawBody) as T & { message?: string };
+		} catch {
+			payload = undefined;
+		}
+	}
 
 	if (!response.ok) {
 		throw new Error(
-			typeof payload === "object" && payload && "message" in payload && payload.message
+			payload && typeof payload === "object" && "message" in payload && payload.message
 				? payload.message
 				: "Request failed",
 		);
 	}
 
-	return payload;
+	return payload as T;
 }
 
 // These auth endpoints are same-origin and cookie-scoped, so we issue relative
