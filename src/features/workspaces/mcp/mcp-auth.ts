@@ -54,11 +54,14 @@ function resolveJwksBaseUrl(): string {
 function parseBearerToken(request: Request): string {
 	const authHeader = request.headers.get("Authorization");
 
-	if (!authHeader?.startsWith("Bearer ")) {
+	// RFC 7235: the auth-scheme is case-insensitive, so accept "bearer"/"BEARER" too.
+	const match = authHeader?.match(/^Bearer[ \t]+(.*)$/i);
+
+	if (!match) {
 		throw new McpAuthError(401, "missing_token");
 	}
 
-	const token = authHeader.slice("Bearer ".length).trim();
+	const token = match[1].trim();
 
 	if (!token) {
 		throw new McpAuthError(401, "missing_token");

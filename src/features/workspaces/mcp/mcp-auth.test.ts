@@ -90,6 +90,18 @@ describe("verifyMcpBearerToken", () => {
 		});
 	});
 
+	it("accepts a case-insensitive bearer scheme per RFC 7235", async () => {
+		vi.mocked(verifyAccessToken).mockResolvedValueOnce({
+			sub: "user-1",
+			scope: "workspace:read",
+		} as never);
+
+		const actor = await verifyMcpBearerToken(makeRequest("bearer valid.token"));
+
+		expect(actor.userId).toBe("user-1");
+		expect(verifyAccessToken).toHaveBeenCalledWith("valid.token", expect.anything());
+	});
+
 	it("verifies access tokens against the MCP resource audience", async () => {
 		vi.mocked(verifyAccessToken).mockResolvedValueOnce({
 			sub: "user-1",
