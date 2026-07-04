@@ -90,7 +90,7 @@ export function WorkspaceRootEmptyPreview({ onUploadFiles }: { onUploadFiles: ()
 			<WorkspaceClickableEmptyState
 				className="absolute inset-0 z-10 rounded-lg"
 				aria-label="Upload files to this workspace"
-				description="Click anywhere here to upload files"
+				description="Or click here to upload files"
 				media={<WorkspaceRootEmptyMedia />}
 				onClick={onUploadFiles}
 				surfaceClassName="bg-background/80 backdrop-blur-[1px]"

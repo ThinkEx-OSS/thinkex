@@ -331,7 +331,7 @@ function WorkspaceBrowseEmptyState({
 	const Icon = isWorkspaceRoot ? Eye : FolderOpen;
 	const title = isWorkspaceRoot ? "This workspace is empty" : "This folder is empty";
 	const description = canUpload
-		? "Click anywhere here to upload files."
+		? "Or click here to upload files."
 		: isWorkspaceRoot
 			? "An editor needs to add the first items before anything appears here."
 			: "Items added here will appear in this folder.";
