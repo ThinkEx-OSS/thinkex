@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 
-import { oauthAccessToken, oauthConsent, oauthRefreshToken } from "#/db/schema";
+import { oauthConsent, oauthRefreshToken } from "#/db/schema";
 import type { createDbContext } from "#/db/server";
 
 type Db = Awaited<ReturnType<typeof createDbContext>>["db"];
@@ -22,12 +22,9 @@ export class OAuthConsentForbiddenError extends Error {
 /**
  * Revoke an authorized OAuth connection for the current user.
  *
- * Deleting the consent row alone does not stop access: Better Auth leaves the
- * client's issued access/refresh tokens in place, and the client silently mints
- * new access tokens from its refresh token. We also purge the client's tokens
- * for this user so the refresh loop is cut immediately. MCP bearer verification
- * is offline (JWKS only), so an already-issued access token still works until it
- * expires (bounded by `accessTokenExpiresIn`), but it can no longer be renewed.
+ * Deleting the consent row is what blocks MCP access: `assertMcpConnectionAuthorized`
+ * rejects tool calls on the next request. We also purge refresh tokens so the client
+ * cannot silently mint new access tokens without going through consent again.
  */
 export async function revokeOAuthConnection(
 	db: Db,
@@ -47,17 +44,9 @@ export async function revokeOAuthConnection(
 		throw new OAuthConsentForbiddenError();
 	}
 
-	// Purge tokens and consent atomically so a mid-operation failure can never
-	// leave the connection half-revoked (e.g. consent gone but tokens still live).
+	// Purge consent and refresh tokens atomically so a mid-operation failure can never
+	// leave the connection half-revoked (e.g. consent gone but refresh tokens still live).
 	await db.batch([
-		db
-			.delete(oauthAccessToken)
-			.where(
-				and(
-					eq(oauthAccessToken.clientId, consent.clientId),
-					eq(oauthAccessToken.userId, input.userId),
-				),
-			),
 		db
 			.delete(oauthRefreshToken)
 			.where(

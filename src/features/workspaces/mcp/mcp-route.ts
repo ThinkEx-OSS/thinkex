@@ -3,6 +3,7 @@ import { createMcpHandler } from "agents/mcp";
 
 import { isMcpRequestPath } from "#/features/workspaces/agent-routes";
 import { getMcpProtectedResourceMetadataUrl } from "#/lib/app-origin";
+import { assertMcpConnectionAuthorized } from "./mcp-authorization";
 import { type McpActor, McpAuthError, verifyMcpBearerToken } from "./mcp-auth";
 import { registerMcpTools } from "./mcp-tools";
 
@@ -33,6 +34,7 @@ export async function routeMcpRequest(
 
 	try {
 		actor = await verifyMcpBearerToken(request);
+		await assertMcpConnectionAuthorized(actor);
 	} catch (error) {
 		if (error instanceof McpAuthError) {
 			return Response.json(
