@@ -66,8 +66,15 @@ function OAuthConsentPage() {
 
 			if (result.url) {
 				setCompletedAction(accept ? "allow" : "deny");
-				window.location.assign(result.url);
-				return;
+				try {
+					window.location.assign(result.url);
+					return;
+				} catch (error) {
+					setCompletedAction(null);
+					toast.error(
+						getErrorMessage(error, "Unable to redirect after authorization. Please try again."),
+					);
+				}
 			}
 
 			toast.error("Authorization completed, but no redirect was returned.");
