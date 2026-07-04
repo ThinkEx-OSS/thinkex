@@ -1,6 +1,5 @@
 import { oauthProvider } from "@better-auth/oauth-provider";
 import { env as workerEnv } from "cloudflare:workers";
-import { APIError } from "better-auth/api";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { betterAuth } from "better-auth/minimal";
 import { anonymous, jwt } from "better-auth/plugins";
@@ -21,6 +20,7 @@ import {
 	getMcpResourceUrl,
 	getTrustedAppOrigins,
 } from "#/lib/app-origin";
+import { capturePostHogServerEvent } from "#/integrations/posthog/server";
 
 const isProduction = import.meta.env.PROD;
 
@@ -228,26 +228,31 @@ function createAuth(database: Db, env: AuthRuntimeEnv) {
 			}),
 			tanstackStartCookies(),
 		],
+		databaseHooks: {
+			user: {
+				create: {
+					// Fires once when a brand-new user row is inserted (first-ever
+					// signup), not on repeat logins. Guest sign-in is a dev-only
+					// convenience, so we skip anonymous users.
+					after: async (createdUser) => {
+						const isAnonymous = "isAnonymous" in createdUser && Boolean(createdUser.isAnonymous);
+
+						if (isAnonymous) {
+							return;
+						}
+
+						capturePostHogServerEvent({
+							distinctId: createdUser.id,
+							event: "user signed up",
+							properties: { method: "google" },
+						});
+					},
+				},
+			},
+		},
 		user: {
 			deleteUser: {
 				enabled: true,
-				sendDeleteAccountVerification: async ({ user, url }) => {
-					const result = await sendDeleteAccountVerificationEmail({
-						email: user.email,
-						url,
-					});
-
-					if (result.ok) {
-						return;
-					}
-
-					const message =
-						result.reason === "missing_binding"
-							? "Account deletion email is not configured."
-							: "Unable to send account deletion email right now.";
-
-					throw APIError.fromStatus("INTERNAL_SERVER_ERROR", { message });
-				},
 				beforeDelete: async (user) => {
 					await purgeUserAccountResources(user.id);
 				},

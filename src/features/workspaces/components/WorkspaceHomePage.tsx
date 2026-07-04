@@ -19,6 +19,8 @@ import {
 import { Input } from "#/components/ui/input";
 import CreateWorkspaceCard from "#/features/workspaces/components/CreateWorkspaceCard";
 import WorkspaceCard from "#/features/workspaces/components/WorkspaceCard";
+import { WorkspaceGrid } from "#/features/workspaces/components/WorkspaceGrid";
+import WorkspaceHomeEmptyState from "#/features/workspaces/components/WorkspaceHomeEmptyState";
 import {
 	getWorkspaceRootTabSearch,
 	getWorkspaceSessionTabSearch,
@@ -39,34 +41,45 @@ export function WorkspaceHomePage() {
 	const [workspaceSearch, setWorkspaceSearch] = useState("");
 	const filteredWorkspaces = filterWorkspaces(workspaces, workspaceSearch);
 	const hasWorkspaceSearch = workspaceSearch.trim().length > 0;
+	const hasWorkspaces = workspaces.length > 0;
+	const handleCreateWorkspace = () => createWorkspaceMutation.mutate({ id: crypto.randomUUID() });
 
 	return (
 		<AppShell
 			navbarControls={
-				<WorkspaceHomeNavbarControls
-					searchValue={workspaceSearch}
-					onSearchChange={setWorkspaceSearch}
-				/>
+				hasWorkspaces ? (
+					<WorkspaceHomeNavbarControls
+						searchValue={workspaceSearch}
+						onSearchChange={setWorkspaceSearch}
+					/>
+				) : undefined
 			}
 			siteControls={<WorkspaceHomeCommunityMenu />}
 		>
-			<div className="space-y-4 pb-8">
-				<section className="grid grid-cols-1 gap-3 sm:gap-5 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4">
-					<CreateWorkspaceCard
-						onCreate={() => createWorkspaceMutation.mutate()}
+			<div className="pb-8">
+				{hasWorkspaces ? (
+					<WorkspaceGrid>
+						<CreateWorkspaceCard
+							onCreate={handleCreateWorkspace}
+							pending={createWorkspaceMutation.isPending}
+						/>
+						{filteredWorkspaces.map((workspace) => (
+							<WorkspaceCard
+								key={workspace.id}
+								workspace={workspace}
+								search={getWorkspaceCardSearch(workspace.id, persistedStoresHydrated)}
+							/>
+						))}
+						{hasWorkspaceSearch && filteredWorkspaces.length === 0 ? (
+							<NoWorkspaceSearchResultsCard search={workspaceSearch} />
+						) : null}
+					</WorkspaceGrid>
+				) : (
+					<WorkspaceHomeEmptyState
+						onCreate={handleCreateWorkspace}
 						pending={createWorkspaceMutation.isPending}
 					/>
-					{filteredWorkspaces.map((workspace) => (
-						<WorkspaceCard
-							key={workspace.id}
-							workspace={workspace}
-							search={getWorkspaceCardSearch(workspace.id, persistedStoresHydrated)}
-						/>
-					))}
-					{hasWorkspaceSearch && filteredWorkspaces.length === 0 ? (
-						<NoWorkspaceSearchResultsCard search={workspaceSearch} />
-					) : null}
-				</section>
+				)}
 			</div>
 		</AppShell>
 	);

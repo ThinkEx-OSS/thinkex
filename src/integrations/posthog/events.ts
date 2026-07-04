@@ -2,7 +2,16 @@ import type { WorkspaceMembershipRole, WorkspaceSummary } from "#/features/works
 
 export type WorkspaceInviteType = "email" | "link";
 
+export type AuthMethod = "google" | "guest";
+
 export interface PostHogEventPropertiesByName {
+	auth_started: {
+		method: AuthMethod;
+		source: string;
+	};
+	"user signed up": {
+		method: AuthMethod;
+	};
 	workspace_created: {
 		workspace_id: string;
 		workspace_name: string;
@@ -66,7 +75,7 @@ export interface PostHogEventPropertiesByName {
 }
 
 export type PostHogEventName = keyof PostHogEventPropertiesByName;
-export type PostHogClientEventName = "workspace_invite_link_copied";
+export type PostHogClientEventName = "workspace_invite_link_copied" | "auth_started";
 export type PostHogServerEventName = Exclude<PostHogEventName, PostHogClientEventName>;
 
 export function buildWorkspaceCreatedEventProperties(

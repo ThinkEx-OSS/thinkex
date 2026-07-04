@@ -2,11 +2,14 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getRouteApi, notFound } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 
-import { seedWorkspaceCaches } from "#/features/workspaces/cache";
+import { upsertWorkspaceInList } from "#/features/workspaces/cache";
 import WorkspaceShellSkeleton from "#/features/workspaces/components/WorkspaceShellSkeleton";
 import { workspacePageQueryOptions } from "#/features/workspaces/query-options";
 import { useWorkspaceUiSession } from "#/features/workspaces/state/workspace-ui-store";
-import { useRecordWorkspaceOpenedMutation } from "#/features/workspaces/use-record-workspace-opened";
+import {
+	consumeInitialOpenRecordSkip,
+	useRecordWorkspaceOpenedMutation,
+} from "#/features/workspaces/use-record-workspace-opened";
 import { WorkspaceShell } from "./WorkspaceLayout";
 
 const routeApi = getRouteApi("/_protected/workspaces/$workspaceId");
@@ -31,11 +34,12 @@ export default function WorkspacePageRoute() {
 			return;
 		}
 
-		seedWorkspaceCaches(queryClient, {
-			workspace: page.workspace,
-			items: page.items,
-			revision: page.revision,
-		});
+		// Keep the workspace's list entry (name/color/lastOpened) in sync with the
+		// freshly loaded page. `update-existing` so we never fabricate a single-item
+		// list when the full list hasn't been fetched yet (that would make /home
+		// flash just this one workspace). The page cache is intentionally not
+		// re-seeded here: `page` already came from it.
+		upsertWorkspaceInList(queryClient, page.workspace, "update-existing");
 	}, [page, queryClient]);
 
 	useEffect(() => {
@@ -44,6 +48,13 @@ export default function WorkspacePageRoute() {
 		}
 
 		recordedWorkspaceIds.add(workspaceId);
+
+		// A workspace we just created is already stamped as opened by the server;
+		// recording again here would race the insert with a doomed request.
+		if (consumeInitialOpenRecordSkip(workspaceId)) {
+			return;
+		}
+
 		recordWorkspaceOpenedMutation.mutate({ workspaceId });
 	}, [page, recordWorkspaceOpenedMutation, recordedWorkspaceIds, workspaceId]);
 

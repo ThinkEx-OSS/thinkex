@@ -5,6 +5,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "#/components/ui/button";
+import { capturePostHogClientEvent } from "#/integrations/posthog/provider";
 import { authClient } from "#/lib/auth-client";
 import { signOutCurrentUser } from "#/lib/auth-sign-out";
 import { getErrorMessage } from "#/lib/error-message";
@@ -78,6 +79,8 @@ export default function AuthPanel({ callbackURL, showLegalNotice = true }: AuthP
 	// and surface a provider-specific error if it fails. On success the page
 	// either redirects (Google) or navigates (guest), so the component unmounts.
 	function signInWith(provider: SignInProvider, run: () => Promise<void>) {
+		capturePostHogClientEvent("auth_started", { method: provider, source: "auth_panel" });
+
 		void (async () => {
 			setPendingProvider(provider);
 			setErrorMessage(null);

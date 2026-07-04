@@ -13,6 +13,21 @@ interface RecordWorkspaceOpenedVariables {
 	workspaceId: string;
 }
 
+// A workspace created this session already has `lastOpenedAt` stamped by the
+// server at creation time. This one-shot handoff lets the create flow tell
+// WorkspacePageRoute to skip only its *initial* "record opened" call, which
+// would otherwise race the insert and fire a doomed request. Later reopens are
+// unaffected and still bump recency.
+const workspacesCreatedThisSession = new Set<string>();
+
+export function markWorkspaceCreatedThisSession(workspaceId: string) {
+	workspacesCreatedThisSession.add(workspaceId);
+}
+
+export function consumeInitialOpenRecordSkip(workspaceId: string) {
+	return workspacesCreatedThisSession.delete(workspaceId);
+}
+
 export function useRecordWorkspaceOpenedMutation() {
 	const recordWorkspaceOpened = useServerFn(recordWorkspaceOpenedFn);
 	const queryClient = useQueryClient();
