@@ -1,0 +1,36 @@
+---
+title: Collaboration
+description: Share a workspace with members and invite links.
+---
+
+ThinkEx workspaces can be shared with other members. Membership controls both content mutation and invite permissions.
+
+## Invite People
+
+<Steps>
+  <Step title="Open sharing">
+    Open the workspace share dialog.
+  </Step>
+  <Step title="Choose a role">
+    Pick the role for the invite. Members can only invite at their own role or below.
+  </Step>
+  <Step title="Send an email invite or copy a link">
+    Email invites are single-use. Invite links are role-specific and expire after seven days.
+  </Step>
+  <Step title="Manage members">
+    Owners and eligible admins can update member roles or remove members from the share dialog.
+  </Step>
+</Steps>
+
+## Role Rules
+
+| Rule | Behavior |
+| --- | --- |
+| Invite down | A member can only grant their role or lower |
+| No owner grants | Ownership is not granted through normal invites |
+| No accidental downgrade | Accepting an invite never lowers an existing member role |
+| Viewer mode | Viewers get read-only workspace access |
+
+<Note>
+  Email invites require the Cloudflare Email binding and sender configuration. Local development can still exercise most workspace flows without email delivery.
+</Note>

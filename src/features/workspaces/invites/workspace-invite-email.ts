@@ -4,7 +4,8 @@ import { buildInviteUrl } from "#/lib/app-origin";
 import {
 	escapeHtml,
 	getEmailSender,
-	getTransactionalFromEmail,
+	getSupportReplyToEmail,
+	getWorkspaceInviteFromEmail,
 	TRANSACTIONAL_FROM_NAME,
 } from "#/lib/transactional-email";
 
@@ -60,7 +61,8 @@ export async function sendWorkspaceInviteEmails(input: {
 		}));
 	}
 
-	const fromEmail = getTransactionalFromEmail();
+	const fromEmail = getWorkspaceInviteFromEmail();
+	const replyToEmail = getSupportReplyToEmail();
 
 	const sendResults = await Promise.all(
 		input.invites.map(async (invite) => {
@@ -79,6 +81,7 @@ export async function sendWorkspaceInviteEmails(input: {
 						email: fromEmail,
 						name: TRANSACTIONAL_FROM_NAME,
 					},
+					replyTo: replyToEmail,
 					subject: content.subject,
 					html: content.html,
 					text: content.text,

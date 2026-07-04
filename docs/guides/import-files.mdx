@@ -1,0 +1,46 @@
+---
+title: Import files
+description: Add PDFs, office documents, images, Markdown, code, and text to a workspace.
+---
+
+Use file import when you want source material to become part of a workspace.
+
+## Add Files
+
+<Steps>
+  <Step title="Open a workspace">
+    Go to the workspace where the source material belongs.
+  </Step>
+  <Step title="Drop or choose files">
+    Drag files into the workspace or use the workspace upload controls.
+  </Step>
+  <Step title="Review accepted files">
+    The upload intake accepts supported files and rejects unsupported files with a specific message.
+  </Step>
+  <Step title="Wait for processing">
+    Larger PDFs, office files, and images may need conversion, preview generation, or text extraction before every AI feature is available.
+  </Step>
+</Steps>
+
+## Supported Formats
+
+| Kind | Formats | Result |
+| --- | --- | --- |
+| PDF | `.pdf` | File item with PDF viewer, preview, and extraction |
+| Word | `.docx` | Converted to PDF file item |
+| PowerPoint | `.pptx` | Converted to PDF file item |
+| Image | `.png`, `.jpg`, `.jpeg`, `.webp` | Image file item |
+| iPhone image | `.heic`, `.heif` | Converted to JPEG image item |
+| Text-like files | CSV, TSV, Markdown, code, plain text | Document item |
+
+## Limits
+
+| Limit | Value |
+| --- | --- |
+| Files per selection | 50 |
+| Bytes per selection | 200 MB |
+| Upload concurrency | 5 |
+
+<Tip>
+  For AI-heavy work, upload only the sources you need for the current workspace. Smaller, well-named workspaces are easier to navigate and easier to ask about.
+</Tip>

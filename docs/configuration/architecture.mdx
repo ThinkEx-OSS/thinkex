@@ -1,0 +1,61 @@
+---
+title: Architecture
+description: Current ThinkEx runtime shape.
+---
+
+ThinkEx is a full-stack TypeScript app hosted as a Cloudflare Worker. The frontend is React, TanStack Start, Tailwind CSS, Tiptap, EmbedPDF/PDFium, Yjs, and AI SDK. The backend runs on Cloudflare Workers with Durable Objects, D1, R2, Workflows, Containers, Workers AI, Browser Rendering, and Email.
+
+## Runtime Ownership
+
+| Data or behavior | Source of truth |
+| --- | --- |
+| Auth, users, workspace directory, membership, invites | D1 through Drizzle |
+| Workspace items, shell files, events, revisions, presence | `WorkspaceKernel` Durable Object |
+| Large workspace file bytes | R2 `WORKSPACE_KERNEL_FILES` |
+| User AI thread directory | `UserAIStore` Durable Object |
+| AI conversation runtime | `AIThread` Agent / Durable Object |
+| Collaborative document sessions | `DocumentSession` Durable Object |
+| File extraction | Cloudflare Workflows plus configured providers |
+| Code execution and conversion | Cloudflare Containers |
+
+## Code Map
+
+| Area | Path |
+| --- | --- |
+| Workspace contracts and commands | `src/features/workspaces/contracts.ts`, `src/features/workspaces/operations/` |
+| Workspace kernel | `src/features/workspaces/kernel/` |
+| AI threads and tools | `src/features/workspaces/ai/` |
+| File upload and extraction | `src/features/workspaces/upload/`, `src/features/workspaces/extraction/` |
+| Document collaboration | `src/features/workspaces/documents/` |
+| Sharing and invites | `src/features/workspaces/members/`, `src/features/workspaces/invites/` |
+| Cloudflare bindings | `wrangler.jsonc` |
+
+## Deployment Shape
+
+The public landing page and product app are currently served by the same Worker. Production is routed to `thinkex.app`; staging is routed to `staging.thinkex.app`.
+
+## Public Routes
+
+| Route | Purpose |
+| --- | --- |
+| `/` | Public landing page, redirects signed-in users to `/home` |
+| `/login`, `/signup` | Authentication entry points |
+| `/home` | Protected workspace home |
+| `/workspaces/$workspaceId` | Protected workspace route |
+| `/settings` | Protected account settings |
+| `/invite/$token` | Workspace invite acceptance |
+| `/terms`, `/privacy`, `/cookies` | Public legal pages |
+
+## Integrations
+
+| Integration | Use |
+| --- | --- |
+| Better Auth | Sessions, Google sign-in, local guest sign-in |
+| AI Gateway / AI SDK | Chat models and title generation |
+| Firecrawl | Public web search and URL/PDF extraction |
+| LlamaCloud | Document extraction |
+| The Context Company | Agent observability export |
+| Autumn | AI usage analytics |
+| PostHog | Product analytics, feedback, and diagnostics |
+
+Do not run deploy, remote migration, legacy-data, or secret-management commands unless you are intentionally performing release or operations work.

@@ -1,0 +1,96 @@
+---
+title: Local development
+description: Run ThinkEx locally from the GitHub repository.
+---
+
+ThinkEx is a Cloudflare Worker app managed by Vite+. The repo pins Node 24 and expects the Vite+ managed environment for local work.
+
+## Prerequisites
+
+- Node.js 24 (`>=24.11.0 <25`) through Vite+ managed mode
+- pnpm 11
+- Docker, because local startup declares Cloudflare Container bindings
+- Infisical access for core team members, or a local `.dev.vars` file for contributors
+
+If `node`, `pnpm`, or Corepack resolve to unexpected versions, run:
+
+```bash
+vp env doctor
+```
+
+## Install
+
+```bash
+vp install --frozen-lockfile
+```
+
+## Run with Infisical
+
+Core team members with Infisical access can run:
+
+```bash
+pnpm dev
+```
+
+This injects `dev:/app` secrets and starts the dev server.
+
+## Run without Infisical
+
+Contributors can use a local `.dev.vars` file:
+
+```bash
+cp .dev.vars.example .dev.vars
+pnpm serve:dev
+```
+
+Only two variables are required to boot the app:
+
+```bash
+BETTER_AUTH_SECRET=local-development-secret
+BETTER_AUTH_URL=http://localhost:3000
+```
+
+The auth page shows **Continue as guest** in local development, so Google OAuth credentials are not required for normal UI testing.
+
+## Force Local Cloudflare Bindings
+
+Some bindings are remote by default. If you do not have Cloudflare credentials, run:
+
+```bash
+CLOUDFLARE_VITE_FORCE_LOCAL=true pnpm serve:dev
+```
+
+This disables remote-only features such as deployed AI chat, browser rendering, and email invite delivery, but core workspace, document, and auth flows still run locally.
+
+## Database
+
+Apply local D1 migrations before first auth or database use:
+
+```bash
+pnpm db:migrate:local
+```
+
+The local D1 state persists under `.wrangler/`.
+
+## Docker
+
+Docker must be running before the dev server starts because the Worker declares Cloudflare Containers for code execution and file conversion. The first startup may pull or build large images.
+
+## Validate Changes
+
+```bash
+pnpm verify
+```
+
+This runs Vite+ check, test, and build tasks with caching.
+
+For narrower local checks, use:
+
+```bash
+pnpm check
+pnpm test
+pnpm build
+pnpm doctor
+```
+
+`pnpm doctor` runs React Doctor against changed files. Use `pnpm doctor:full` when you intentionally want a full React scan.

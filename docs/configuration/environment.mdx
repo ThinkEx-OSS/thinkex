@@ -1,0 +1,48 @@
+---
+title: Environment
+description: Runtime variables, secrets, and optional services.
+---
+
+ThinkEx reads runtime configuration from Cloudflare bindings, environment variables, and local `.dev.vars` files. Infisical is the shared secret source for the core team, but it is not required to run the app locally.
+
+## Required to Run Locally
+
+| Variable | Purpose |
+| --- | --- |
+| `BETTER_AUTH_SECRET` | Signs auth sessions |
+| `BETTER_AUTH_URL` | Canonical local app origin, usually `http://localhost:3000` |
+
+## Optional Secrets
+
+| Variable | Feature |
+| --- | --- |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google sign-in |
+| `AI_GATEWAY_API_KEY` | AI chat and title generation |
+| `AUTUMN_SECRET_KEY` | AI usage analytics |
+| `FIRECRAWL_API_KEY` | Web search and URL/PDF extraction |
+| `TCC_API_KEY` | Agent observability export |
+| `LLAMA_CLOUD_API_KEY` | Document extraction |
+
+Declared but unset secrets do not stop local startup. The matching feature fails or stays disabled when invoked.
+
+## Secret Declaration
+
+`wrangler.jsonc` declares every Worker secret under `secrets.required`. In local development, only names declared there are loaded from `.dev.vars`, `.env`, or `process.env`.
+
+<Warning>
+  If you add a new secret, add its name to `wrangler.jsonc`; otherwise it may never reach the Worker in local development.
+</Warning>
+
+## Guest Sign-In
+
+Local development shows a **Continue as guest** button. Automation can create the same anonymous session directly:
+
+```bash
+curl -i -c .auth.cookies -b .auth.cookies \
+  -H "Content-Type: application/json" \
+  -X POST "$APP_ORIGIN/api/auth/sign-in/anonymous" -d '{}'
+```
+
+Reuse the cookie jar for follow-up requests.
+
+For the lower-level repo note, see [`ENVIRONMENT.md`](https://github.com/ThinkEx-OSS/thinkex/blob/main/docs/ENVIRONMENT.md).

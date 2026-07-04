@@ -1,0 +1,40 @@
+---
+title: AI chat
+description: Workspace-aware AI with explicit context.
+---
+
+ThinkEx AI chat is scoped to a workspace. It can reason about selected workspace context, inspect workspace items through tool calls, search the web when configured, and run private Python code in a Cloudflare Sandbox.
+
+## Context Is Explicit
+
+The intended workflow is to select the item, document passage, PDF region, or source material you want the AI to use, then ask your question. That keeps the model grounded in visible workspace context instead of relying on opaque retrieval.
+
+## Tools
+
+The AI tool surface is intentionally named and bounded:
+
+<AccordionGroup>
+  <Accordion title="Workspace tools">
+    Search, read, create, and update workspace content through workspace access checks and `WorkspaceKernel` commands.
+  </Accordion>
+  <Accordion title="Web tools">
+    Search the public web, read rendered pages as Markdown, and extract links through policy-checked public HTTP(S) URLs.
+  </Accordion>
+  <Accordion title="Research tools">
+    Discover and deepen research sources when the workspace task needs external literature or source discovery.
+  </Accordion>
+  <Accordion title="Compute">
+    Run private Python code for calculations, tables, charts, and data analysis in a per-thread Cloudflare Sandbox.
+  </Accordion>
+  <Accordion title="Time">
+    Use explicit time helpers when responses need concrete dates or current timestamps.
+  </Accordion>
+</AccordionGroup>
+
+## Threads
+
+Each chat thread belongs to a workspace and a user. Multiple threads can exist in one workspace so separate lines of inquiry do not need to share one transcript.
+
+## Optional Services
+
+AI behavior depends on configured services. For local development, missing optional secrets do not stop the app from booting, but the feature that needs that secret will fail or stay disabled when invoked. See [environment](/configuration/environment).

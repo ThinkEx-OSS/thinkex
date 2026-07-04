@@ -8,6 +8,7 @@ import {
 import { apiError, apiJson, getRequestId } from "#/lib/api/http";
 import {
 	getEmailSender,
+	getSupportReplyToEmail,
 	getTransactionalFromEmail,
 	TRANSACTIONAL_FROM_NAME,
 } from "#/lib/transactional-email";
@@ -89,6 +90,7 @@ async function handlePostHogSurveyFeedbackWebhook(request: Request) {
 				email: getTransactionalFromEmail(),
 				name: TRANSACTIONAL_FROM_NAME,
 			},
+			replyTo: getSupportReplyToEmail(),
 			subject: content.subject,
 			html: content.html,
 			text: content.text,

@@ -1,6 +1,7 @@
 import {
 	escapeHtml,
 	getEmailSender,
+	getSupportReplyToEmail,
 	getTransactionalFromEmail,
 	TRANSACTIONAL_FROM_NAME,
 } from "#/lib/transactional-email";
@@ -62,6 +63,7 @@ export async function sendDeleteAccountVerificationEmail(input: {
 				email: getTransactionalFromEmail(),
 				name: TRANSACTIONAL_FROM_NAME,
 			},
+			replyTo: getSupportReplyToEmail(),
 			subject: content.subject,
 			html: content.html,
 			text: content.text,

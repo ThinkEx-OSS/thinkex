@@ -1,0 +1,56 @@
+---
+title: Contributing
+description: How to work on ThinkEx safely.
+---
+
+ThinkEx is a production application, not a demo or template. Contributions should prioritize reliability, maintainability, and clear user value.
+
+## Local Setup
+
+```bash
+git clone https://github.com/ThinkEx-OSS/thinkex.git
+cd thinkex/web
+vp install --frozen-lockfile
+```
+
+Core team members with Infisical access can run:
+
+```bash
+pnpm dev
+```
+
+Contributors without Infisical should copy `.dev.vars.example` to `.dev.vars`, set `BETTER_AUTH_SECRET` and `BETTER_AUTH_URL`, and run:
+
+```bash
+pnpm serve:dev
+```
+
+The app runs at `http://localhost:3000`.
+
+## Pull Requests
+
+- Keep changes focused.
+- Explain what changed and why.
+- Include testing notes.
+- Do not include generated build output.
+- Do not run deploy, remote migration, legacy-data, or secret-management commands unless a maintainer asks for them.
+
+## Useful Commands
+
+```bash
+pnpm dev
+pnpm serve:dev
+pnpm check
+pnpm test
+pnpm build
+pnpm doctor
+pnpm doctor:full
+pnpm verify
+```
+
+Use `pnpm verify` before opening a pull request when possible.
+Use `pnpm doctor` for a React Doctor scan of changed files; pull requests also run the React Doctor workflow for inline React diagnostics.
+
+## Help
+
+Join the [ThinkEx Discord](https://discord.gg/dtPnzkqCcG) for setup help, contribution scope, and local development questions.

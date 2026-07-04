@@ -1,0 +1,43 @@
+---
+title: Workspace items
+description: Documents, files, folders, flashcards, and quizzes.
+---
+
+Every piece of workspace content is a workspace item. Items can be opened in tabs, renamed, moved, colored, deleted, selected for AI context, and organized into folders.
+
+## Item Types
+
+<AccordionGroup>
+  <Accordion title="Document">
+    A collaborative rich-text document backed by Tiptap, ProseMirror, and Yjs. Documents can be created directly, imported from text-like files, or produced by AI.
+  </Accordion>
+  <Accordion title="File">
+    Uploaded source material. ThinkEx currently stores PDF and image assets as file items, with office documents converted to PDF and HEIC/HEIF images converted to JPEG.
+  </Accordion>
+  <Accordion title="Folder">
+    A container for organizing related items. Folders are part of the workspace item tree and can be opened like any other workspace location.
+  </Accordion>
+  <Accordion title="Flashcards">
+    Study cards that can be created manually or generated from selected workspace context.
+  </Accordion>
+  <Accordion title="Quiz">
+    A study item for generated or manually authored questions.
+  </Accordion>
+</AccordionGroup>
+
+## Supported Uploads
+
+ThinkEx accepts these upload families today:
+
+| Family | Formats |
+| --- | --- |
+| PDFs | `.pdf` |
+| Office documents | `.docx`, `.pptx` converted to PDF |
+| Images | `.png`, `.jpg`, `.jpeg`, `.webp`, `.heic`, `.heif` |
+| Text documents | CSV, TSV, Markdown, code, and plain text imported as documents |
+
+Upload limits are currently 50 files or 200 MB per selection.
+
+## Extraction and Previews
+
+PDFs and images are routed through extraction and preview pipelines so the AI can read them and the UI can render usable previews. The current stack uses Cloudflare Workflows, R2, Workers AI, LlamaParse, and conversion containers depending on the file type and configured secrets.

@@ -1,0 +1,35 @@
+---
+title: Workspaces
+description: The shared container for source material, AI, and collaboration.
+---
+
+A workspace is a bounded collection of items shared with members. Each workspace has its own item tree, tabs, AI chat threads, membership, invites, and durable event history.
+
+Think of it as the place where the work happens: you keep the actual source material in view, open what you need, and ask AI against the context you choose.
+
+## What Lives in a Workspace
+
+| Surface | Purpose |
+| --- | --- |
+| Items | Documents, files, folders, flashcards, and quizzes |
+| Tabs | Open views for active items and workspace surfaces |
+| AI chat | Workspace-scoped chat threads and tools |
+| Members | Owner, Admin, Editor, and Viewer roles |
+| Invites | Email invites and expiring invite links |
+
+## Roles
+
+| Role | Summary |
+| --- | --- |
+| Owner | Full control, including delete and ownership-level administration |
+| Admin | Edits content and manages members below owner/admin level |
+| Editor | Edits workspace content and can invite at editor or viewer level |
+| Viewer | Read-only access to the workspace |
+
+<Note>
+  Viewers can inspect content but cannot mutate workspace items. The app shows view-only affordances when a viewer opens mutation controls.
+</Note>
+
+## Source of Truth
+
+The app stores workspace access and directory data in D1, large file bytes in R2, and workspace item state inside the `WorkspaceKernel` Durable Object. UI and AI operations go through workspace commands rather than writing directly to scattered client state.

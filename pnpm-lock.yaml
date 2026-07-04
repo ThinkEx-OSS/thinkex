@@ -359,8 +359,8 @@ importers:
         specifier: ^6.17.1
         version: 6.17.1
       react-doctor:
-        specifier: 0.5.7
-        version: 0.5.7(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)(eslint@9.39.4(jiti@2.7.0))(oxlint-tsgolint@0.24.0)
+        specifier: 0.6.0
+        version: 0.6.0(eslint@9.39.4(jiti@2.7.0))(oxlint-tsgolint@0.24.0)
       tsx:
         specifier: ^4.22.4
         version: 4.22.4
@@ -2664,19 +2664,9 @@ packages:
   '@oxc-project/types@0.138.0':
     resolution: {integrity: sha512-1a7ZKmrRTCoN1XMZ4L0PyyqrMnrNlLyPuOkdSX2MZg7IiIGRUyurNhAm73ptDOraoBcIordsIGKNPKUzy3ZmfA==}
 
-  '@oxc-resolver/binding-android-arm-eabi@11.19.1':
-    resolution: {integrity: sha512-aUs47y+xyXHUKlbhqHUjBABjvycq6YSD7bpxSW7vplUmdzAlJ93yXY6ZR0c1o1x5A/QKbENCvs3+NlY8IpIVzg==}
-    cpu: [arm]
-    os: [android]
-
   '@oxc-resolver/binding-android-arm-eabi@11.21.3':
     resolution: {integrity: sha512-eNU11A2WNizh04v3uyaJCootrHIaS0B9aHYXvAvVnPNk4xYSjMUjHnhQ6dewPN2MRYDskV85d1N0Aw0WNWhcyg==}
     cpu: [arm]
-    os: [android]
-
-  '@oxc-resolver/binding-android-arm64@11.19.1':
-    resolution: {integrity: sha512-oolbkRX+m7Pq2LNjr/kKgYeC7bRDMVTWPgxBGMjSpZi/+UskVo4jsMU3MLheZV55jL6c3rNelPl4oD60ggYmqA==}
-    cpu: [arm64]
     os: [android]
 
   '@oxc-resolver/binding-android-arm64@11.21.3':
@@ -2684,19 +2674,9 @@ packages:
     cpu: [arm64]
     os: [android]
 
-  '@oxc-resolver/binding-darwin-arm64@11.19.1':
-    resolution: {integrity: sha512-nUC6d2i3R5B12sUW4O646qD5cnMXf2oBGPLIIeaRfU9doJRORAbE2SGv4eW6rMqhD+G7nf2Y8TTJTLiiO3Q/dQ==}
-    cpu: [arm64]
-    os: [darwin]
-
   '@oxc-resolver/binding-darwin-arm64@11.21.3':
     resolution: {integrity: sha512-wkh0qKZGHXVUDxFw3oA1TXnU2BDYY/r775oJflGeIr8uDPPoN2pk8gijQIzYRT6hoql/lg3+Tx/SaTn9e2/aGg==}
     cpu: [arm64]
-    os: [darwin]
-
-  '@oxc-resolver/binding-darwin-x64@11.19.1':
-    resolution: {integrity: sha512-cV50vE5+uAgNcFa3QY1JOeKDSkM/9ReIcc/9wn4TavhW/itkDGrXhw9jaKnkQnGbjJ198Yh5nbX/Gr2mr4Z5jQ==}
-    cpu: [x64]
     os: [darwin]
 
   '@oxc-resolver/binding-darwin-x64@11.21.3':
@@ -2704,28 +2684,13 @@ packages:
     cpu: [x64]
     os: [darwin]
 
-  '@oxc-resolver/binding-freebsd-x64@11.19.1':
-    resolution: {integrity: sha512-xZOQiYGFxtk48PBKff+Zwoym7ScPAIVp4c14lfLxizO2LTTTJe5sx9vQNGrBymrf/vatSPNMD4FgsaaRigPkqw==}
-    cpu: [x64]
-    os: [freebsd]
-
   '@oxc-resolver/binding-freebsd-x64@11.21.3':
     resolution: {integrity: sha512-K6xNsTUPEUdfrn0+kbMq5nOUB5w1C5pavPQngt4TM2FpN91lP0PBe2srSpamb4d69O7h86oAi/qWX/kZNRSjkw==}
     cpu: [x64]
     os: [freebsd]
 
-  '@oxc-resolver/binding-linux-arm-gnueabihf@11.19.1':
-    resolution: {integrity: sha512-lXZYWAC6kaGe/ky2su94e9jN9t6M0/6c+GrSlCqL//XO1cxi5lpAhnJYdyrKfm0ZEr/c7RNyAx3P7FSBcBd5+A==}
-    cpu: [arm]
-    os: [linux]
-
   '@oxc-resolver/binding-linux-arm-gnueabihf@11.21.3':
     resolution: {integrity: sha512-VcFmOpcpWX1zoEy8M58tR2M9YxM+Z9RuQhqAx5q0CTmrruaP7Gveejg75hzd/5sg5nk9G3aLALEa3hE2FsmmTQ==}
-    cpu: [arm]
-    os: [linux]
-
-  '@oxc-resolver/binding-linux-arm-musleabihf@11.19.1':
-    resolution: {integrity: sha512-veG1kKsuK5+t2IsO9q0DErYVSw2azvCVvWHnfTOS73WE0STdLLB7Q1bB9WR+yHPQM76ASkFyRbogWo1GR1+WbQ==}
     cpu: [arm]
     os: [linux]
 
@@ -2734,23 +2699,11 @@ packages:
     cpu: [arm]
     os: [linux]
 
-  '@oxc-resolver/binding-linux-arm64-gnu@11.19.1':
-    resolution: {integrity: sha512-heV2+jmXyYnUrpUXSPugqWDRpnsQcDm2AX4wzTuvgdlZfoNYO0O3W2AVpJYaDn9AG4JdM6Kxom8+foE7/BcSig==}
-    cpu: [arm64]
-    os: [linux]
-    libc: [glibc]
-
   '@oxc-resolver/binding-linux-arm64-gnu@11.21.3':
     resolution: {integrity: sha512-X0AqNZgcD07Q4V3RDK18/vYOj/HQT/FnmEFGYS2jTWqY7JO13ryE3TEs3eAIgUJhBnNkpEaiXqz3VK8M7qQhWQ==}
     cpu: [arm64]
     os: [linux]
     libc: [glibc]
-
-  '@oxc-resolver/binding-linux-arm64-musl@11.19.1':
-    resolution: {integrity: sha512-jvo2Pjs1c9KPxMuMPIeQsgu0mOJF9rEb3y3TdpsrqwxRM+AN6/nDDwv45n5ZrUnQMsdBy5gIabioMKnQfWo9ew==}
-    cpu: [arm64]
-    os: [linux]
-    libc: [musl]
 
   '@oxc-resolver/binding-linux-arm64-musl@11.21.3':
     resolution: {integrity: sha512-YkaQnaKYdbuaXvRt5Qd0GpbihzVnyfR6z1SpYfIUC6RTu4NF7lDKPjVkYb+jRI2gedVO2rVpN35Y6akG6ud4Lw==}
@@ -2758,21 +2711,9 @@ packages:
     os: [linux]
     libc: [musl]
 
-  '@oxc-resolver/binding-linux-ppc64-gnu@11.19.1':
-    resolution: {integrity: sha512-vLmdNxWCdN7Uo5suays6A/+ywBby2PWBBPXctWPg5V0+eVuzsJxgAn6MMB4mPlshskYbppjpN2Zg83ArHze9gQ==}
-    cpu: [ppc64]
-    os: [linux]
-    libc: [glibc]
-
   '@oxc-resolver/binding-linux-ppc64-gnu@11.21.3':
     resolution: {integrity: sha512-gB9HwhrPiFqUzDeEq+y/CgAijz1YdI6BnXz5GaH2Pa9cWdutchlkGFAiAuGb/PjVQpiK6NFKzFuztxrweoit7A==}
     cpu: [ppc64]
-    os: [linux]
-    libc: [glibc]
-
-  '@oxc-resolver/binding-linux-riscv64-gnu@11.19.1':
-    resolution: {integrity: sha512-/b+WgR+VTSBxzgOhDO7TlMXC1ufPIMR6Vj1zN+/x+MnyXGW7prTLzU9eW85Aj7Th7CCEG9ArCbTeqxCzFWdg2w==}
-    cpu: [riscv64]
     os: [linux]
     libc: [glibc]
 
@@ -2782,33 +2723,15 @@ packages:
     os: [linux]
     libc: [glibc]
 
-  '@oxc-resolver/binding-linux-riscv64-musl@11.19.1':
-    resolution: {integrity: sha512-YlRdeWb9j42p29ROh+h4eg/OQ3dTJlpHSa+84pUM9+p6i3djtPz1q55yLJhgW9XfDch7FN1pQ/Vd6YP+xfRIuw==}
-    cpu: [riscv64]
-    os: [linux]
-    libc: [musl]
-
   '@oxc-resolver/binding-linux-riscv64-musl@11.21.3':
     resolution: {integrity: sha512-4UfsQvacV388y1zpXL7C1x1FNYaV52JtuNRiuzrfQA2z1z6ElVrsidkGsrvQ5EgeSq1Pj7kaKqrgGkvFuxJ/tw==}
     cpu: [riscv64]
     os: [linux]
     libc: [musl]
 
-  '@oxc-resolver/binding-linux-s390x-gnu@11.19.1':
-    resolution: {integrity: sha512-EDpafVOQWF8/MJynsjOGFThcqhRHy417sRyLfQmeiamJ8qVhSKAn2Dn2VVKUGCjVB9C46VGjhNo7nOPUi1x6uA==}
-    cpu: [s390x]
-    os: [linux]
-    libc: [glibc]
-
   '@oxc-resolver/binding-linux-s390x-gnu@11.21.3':
     resolution: {integrity: sha512-b5uH+HKH0MP5mNBYaK75SKsJbw52URqrx2LavYdq6wb0l3ExAG5niYRP9DWUNHdKilpaBVM2bXk9HNWrH3ew7Q==}
     cpu: [s390x]
-    os: [linux]
-    libc: [glibc]
-
-  '@oxc-resolver/binding-linux-x64-gnu@11.19.1':
-    resolution: {integrity: sha512-NxjZe+rqWhr+RT8/Ik+5ptA3oz7tUw361Wa5RWQXKnfqwSSHdHyrw6IdcTfYuml9dM856AlKWZIUXDmA9kkiBQ==}
-    cpu: [x64]
     os: [linux]
     libc: [glibc]
 
@@ -2818,56 +2741,25 @@ packages:
     os: [linux]
     libc: [glibc]
 
-  '@oxc-resolver/binding-linux-x64-musl@11.19.1':
-    resolution: {integrity: sha512-cM/hQwsO3ReJg5kR+SpI69DMfvNCp+A/eVR4b4YClE5bVZwz8rh2Nh05InhwI5HR/9cArbEkzMjcKgTHS6UaNw==}
-    cpu: [x64]
-    os: [linux]
-    libc: [musl]
-
   '@oxc-resolver/binding-linux-x64-musl@11.21.3':
     resolution: {integrity: sha512-QTBAb7JuHlZ7JUEyM8UiQi2f7m/L4swBhP2TNpYIDc9Wp/wRw1G/8sl6i13aIzQAXH7LKIm294LeOHd0lQR8zA==}
     cpu: [x64]
     os: [linux]
     libc: [musl]
 
-  '@oxc-resolver/binding-openharmony-arm64@11.19.1':
-    resolution: {integrity: sha512-QF080IowFB0+9Rh6RcD19bdgh49BpQHUW5TajG1qvWHvmrQznTZZjYlgE2ltLXyKY+qs4F/v5xuX1XS7Is+3qA==}
-    cpu: [arm64]
-    os: [openharmony]
-
   '@oxc-resolver/binding-openharmony-arm64@11.21.3':
     resolution: {integrity: sha512-4j1DFwjwv36ec9kds0jU/ucQ5Ha4ERO/H95BxR5JFf0kqUUAJ1kwII7XhTc1vZrkdJkvLGC9Q2MbpObpum8RBg==}
     cpu: [arm64]
     os: [openharmony]
-
-  '@oxc-resolver/binding-wasm32-wasi@11.19.1':
-    resolution: {integrity: sha512-w8UCKhX826cP/ZLokXDS6+milN8y4X7zidsAttEdWlVoamTNf6lhBJldaWr3ukTDiye7s4HRcuPEPOXNC432Vg==}
-    engines: {node: '>=14.0.0'}
-    cpu: [wasm32]
 
   '@oxc-resolver/binding-wasm32-wasi@11.21.3':
     resolution: {integrity: sha512-i8oluoel5kru/j1WNrjmQSiA3GQ7wvIYVR1IwIoZtKogAhya2iub+ZKIeSIkcJOrnzQ18Tzl/F+kL3fYOxZLvA==}
     engines: {node: '>=14.0.0'}
     cpu: [wasm32]
 
-  '@oxc-resolver/binding-win32-arm64-msvc@11.19.1':
-    resolution: {integrity: sha512-nJ4AsUVZrVKwnU/QRdzPCCrO0TrabBqgJ8pJhXITdZGYOV28TIYystV1VFLbQ7DtAcaBHpocT5/ZJnF78YJPtQ==}
-    cpu: [arm64]
-    os: [win32]
-
   '@oxc-resolver/binding-win32-arm64-msvc@11.21.3':
     resolution: {integrity: sha512-M/8dw8dD6aOs+NlPJax401CZB9I7Aut84isQLgALGGwke4Afvw+/7yYhZb94yXf6t2sPLhQLmSmtSV+2FhsOWg==}
     cpu: [arm64]
-    os: [win32]
-
-  '@oxc-resolver/binding-win32-ia32-msvc@11.19.1':
-    resolution: {integrity: sha512-EW+ND5q2Tl+a3pH81l1QbfgbF3HmqgwLfDfVithRFheac8OTcnbXt/JxqD2GbDkb7xYEqy1zNaVFRr3oeG8npA==}
-    cpu: [ia32]
-    os: [win32]
-
-  '@oxc-resolver/binding-win32-x64-msvc@11.19.1':
-    resolution: {integrity: sha512-6hIU3RQu45B+VNTY4Ru8ppFwjVS/S5qwYyGhBotmjxfEKk41I2DlGtRfGJndZ5+6lneE2pwloqunlOyZuX/XAw==}
-    cpu: [x64]
     os: [win32]
 
   '@oxc-resolver/binding-win32-x64-msvc@11.21.3':
@@ -4555,10 +4447,6 @@ packages:
   '@types/validate-npm-package-name@4.0.2':
     resolution: {integrity: sha512-lrpDziQipxCEeK5kWxvljWYhUvOiB2A9izZd9B2AFarYAkqZshb4lPbRs7zKEic6eGtH8V/2qJW+dPp9OtF6bw==}
 
-  '@typescript-eslint/types@8.60.0':
-    resolution: {integrity: sha512-AsE7x2XaAK+CVbeih0Fvbn+r1qHxtpLDJ3XUuFcIinT318T90yHMJC+Zgv+jUuDjQQd06HKwxnDu6sz1IcTilA==}
-    engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
-
   '@typescript-eslint/types@8.61.1':
     resolution: {integrity: sha512-G+CRlPqLv7Bz1IZVs03x5K59F1veqL0EJUROAdGhKsEq8qOiRiZbI+HUojPq5l0fEGOKModD9br6lObhB8zkoA==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
@@ -5637,8 +5525,8 @@ packages:
     resolution: {integrity: sha512-0je+qPKHEMohvfRTCEo3CrPG6cAzAYgmzKyxRiYSSDkS6eGJdyVJm7WaYA5ECaAD9wLB2T4EEeymA5aFVcYXCA==}
     engines: {node: '>=6'}
 
-  deslop-js@0.0.24:
-    resolution: {integrity: sha512-ygcRwJXCUedo+hN1L4Ysm7luo4VWOvKEz/kRKWMlFp5bAtTKeXo+8fk/hQaJKsJ/nfahiqkhlYTlrKIR/5nsQg==}
+  deslop-js@0.6.0:
+    resolution: {integrity: sha512-MAFw9r+5WUNthgy6J6HtVKdk6B7orqGMOTBiBYz3YMI7WJNM5nE8cfQgp+ZoS7gnD1DQalEW5GqqA/emUSmD8w==}
 
   detect-libc@2.1.2:
     resolution: {integrity: sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ==}
@@ -7260,9 +7148,6 @@ packages:
     resolution: {integrity: sha512-/DaPStu0s2zzNSRRniKyTPM6Z/o+DapOp2JYNKDL8AsgaBGPK2IdZyB87SQjVH+xeQPz+Qr9mrjglfkYgtbVRA==}
     engines: {node: ^20.19.0 || >=22.12.0}
 
-  oxc-resolver@11.19.1:
-    resolution: {integrity: sha512-qE/CIg/spwrTBFt5aKmwe3ifeDdLfA2NESN30E42X/lII5ClF8V7Wt6WIJhcGZjp0/Q+nQ+9vgxGk//xZNX2hg==}
-
   oxc-resolver@11.21.3:
     resolution: {integrity: sha512-2Mx3fKQz7+xgrBONjsxOgCGtMHOn38/HxMzW1I5efwXB5a4lRN0Vp40gYUJFBWJslcrvwoofTrqoTnLbwTd3pA==}
 
@@ -7279,8 +7164,8 @@ packages:
       vite-plus:
         optional: true
 
-  oxlint-plugin-react-doctor@0.5.7:
-    resolution: {integrity: sha512-LLOi7sQVMVPelbrds6R8po+S856Jc/y3AIiojSBc3x7Z6eeaYUlREJW2Fpfw//CSXpX0wq1XfStKIrFQFfL/ag==}
+  oxlint-plugin-react-doctor@0.6.0:
+    resolution: {integrity: sha512-oByEUczXDnxO5ZsevbOscpFlpmya7dnH6Nne5StYy02AJtyEDAiCSKkXj21GDMjDDkD42708LRfWXRAY32IL9w==}
     engines: {node: ^20.19.0 || >=22.13.0}
 
   oxlint-tsgolint@0.24.0:
@@ -7653,8 +7538,8 @@ packages:
   re2js@1.3.3:
     resolution: {integrity: sha512-s/I5zEAo79SUK0Qw4dpZKpiMwbQ6Gz0KU2NRr7eaO4x/p2g7Vvmn3hdeXDg8VsaUjfj/ora+e9oi27LX/C9+mw==}
 
-  react-doctor@0.5.7:
-    resolution: {integrity: sha512-m+HhlAvV7xkiJfjyIrB8ZzLPDzG9XylQQEnH1CPifAsp1OEAfU3jT/1DomVlGQYcbuUNHcDYpALtWm6I+qFAPQ==}
+  react-doctor@0.6.0:
+    resolution: {integrity: sha512-AqsoQqKQve8Zahxs48hXJuFgMcdY0AdV0fcO5eTdAKZQ/QICEoMCf0bTwxPKwN9Ix/4wWiAR+dNkBcm0ouFq+Q==}
     engines: {node: ^20.19.0 || >=22.13.0}
     hasBin: true
 
@@ -8254,10 +8139,6 @@ packages:
     resolution: {integrity: sha512-XleUoc9uwGXqjWwXaUTZAmzMcFZ5858QA2vvx1Ur5xIcixXIP+8LnFDgRplU30us6teqdlskFfu+ae4K79Ooew==}
     engines: {node: '>= 0.8.0'}
 
-  type-fest@5.6.0:
-    resolution: {integrity: sha512-8ZiHFm91orbSAe2PSAiSVBVko18pbhbiB3U9GglSzF/zCGkR+rxpHx6sEMCUm4kxY4LjDIUGgCfUMtwfZfjfUA==}
-    engines: {node: '>=20'}
-
   type-fest@5.7.0:
     resolution: {integrity: sha512-1URUxUqfHFM1c+zfSPsa3gnkO7Aq21qyH75SIduNYz4SzY964rn1X2vCMQaHSHhktiw+0kPa2iyb6PUpXqB6Vg==}
     engines: {node: '>=20'}
@@ -8269,6 +8150,11 @@ packages:
   typed-array-buffer@1.0.3:
     resolution: {integrity: sha512-nAYYwfY3qnzX30IkA6AQZjVbtK6duGontcQm1WSG1MD94YLqK0515GNApXkoxKOWMusVssAHWLh9SeaoefYFGw==}
     engines: {node: '>= 0.4'}
+
+  typescript@5.9.3:
+    resolution: {integrity: sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==}
+    engines: {node: '>=14.17'}
+    hasBin: true
 
   typescript@6.0.3:
     resolution: {integrity: sha512-y2TvuxSZPDyQakkFRPZHKFm+KKVqIisdg9/CZwm9ftvKXLP8NRWj38/ODjNbr43SsoXqNuAisEf1GdCxqWcdBw==}
@@ -10766,108 +10652,52 @@ snapshots:
 
   '@oxc-project/types@0.138.0': {}
 
-  '@oxc-resolver/binding-android-arm-eabi@11.19.1':
-    optional: true
-
   '@oxc-resolver/binding-android-arm-eabi@11.21.3':
-    optional: true
-
-  '@oxc-resolver/binding-android-arm64@11.19.1':
     optional: true
 
   '@oxc-resolver/binding-android-arm64@11.21.3':
     optional: true
 
-  '@oxc-resolver/binding-darwin-arm64@11.19.1':
-    optional: true
-
   '@oxc-resolver/binding-darwin-arm64@11.21.3':
-    optional: true
-
-  '@oxc-resolver/binding-darwin-x64@11.19.1':
     optional: true
 
   '@oxc-resolver/binding-darwin-x64@11.21.3':
     optional: true
 
-  '@oxc-resolver/binding-freebsd-x64@11.19.1':
-    optional: true
-
   '@oxc-resolver/binding-freebsd-x64@11.21.3':
-    optional: true
-
-  '@oxc-resolver/binding-linux-arm-gnueabihf@11.19.1':
     optional: true
 
   '@oxc-resolver/binding-linux-arm-gnueabihf@11.21.3':
     optional: true
 
-  '@oxc-resolver/binding-linux-arm-musleabihf@11.19.1':
-    optional: true
-
   '@oxc-resolver/binding-linux-arm-musleabihf@11.21.3':
-    optional: true
-
-  '@oxc-resolver/binding-linux-arm64-gnu@11.19.1':
     optional: true
 
   '@oxc-resolver/binding-linux-arm64-gnu@11.21.3':
     optional: true
 
-  '@oxc-resolver/binding-linux-arm64-musl@11.19.1':
-    optional: true
-
   '@oxc-resolver/binding-linux-arm64-musl@11.21.3':
-    optional: true
-
-  '@oxc-resolver/binding-linux-ppc64-gnu@11.19.1':
     optional: true
 
   '@oxc-resolver/binding-linux-ppc64-gnu@11.21.3':
     optional: true
 
-  '@oxc-resolver/binding-linux-riscv64-gnu@11.19.1':
-    optional: true
-
   '@oxc-resolver/binding-linux-riscv64-gnu@11.21.3':
-    optional: true
-
-  '@oxc-resolver/binding-linux-riscv64-musl@11.19.1':
     optional: true
 
   '@oxc-resolver/binding-linux-riscv64-musl@11.21.3':
     optional: true
 
-  '@oxc-resolver/binding-linux-s390x-gnu@11.19.1':
-    optional: true
-
   '@oxc-resolver/binding-linux-s390x-gnu@11.21.3':
-    optional: true
-
-  '@oxc-resolver/binding-linux-x64-gnu@11.19.1':
     optional: true
 
   '@oxc-resolver/binding-linux-x64-gnu@11.21.3':
     optional: true
 
-  '@oxc-resolver/binding-linux-x64-musl@11.19.1':
-    optional: true
-
   '@oxc-resolver/binding-linux-x64-musl@11.21.3':
     optional: true
 
-  '@oxc-resolver/binding-openharmony-arm64@11.19.1':
-    optional: true
-
   '@oxc-resolver/binding-openharmony-arm64@11.21.3':
-    optional: true
-
-  '@oxc-resolver/binding-wasm32-wasi@11.19.1(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)':
-    dependencies:
-      '@napi-rs/wasm-runtime': 1.1.6(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)
-    transitivePeerDependencies:
-      - '@emnapi/core'
-      - '@emnapi/runtime'
     optional: true
 
   '@oxc-resolver/binding-wasm32-wasi@11.21.3':
@@ -10877,16 +10707,7 @@ snapshots:
       '@napi-rs/wasm-runtime': 1.1.5(@emnapi/core@1.11.0)(@emnapi/runtime@1.11.0)
     optional: true
 
-  '@oxc-resolver/binding-win32-arm64-msvc@11.19.1':
-    optional: true
-
   '@oxc-resolver/binding-win32-arm64-msvc@11.21.3':
-    optional: true
-
-  '@oxc-resolver/binding-win32-ia32-msvc@11.19.1':
-    optional: true
-
-  '@oxc-resolver/binding-win32-x64-msvc@11.19.1':
     optional: true
 
   '@oxc-resolver/binding-win32-x64-msvc@11.21.3':
@@ -12330,10 +12151,7 @@ snapshots:
 
   '@types/validate-npm-package-name@4.0.2': {}
 
-  '@typescript-eslint/types@8.60.0': {}
-
-  '@typescript-eslint/types@8.61.1':
-    optional: true
+  '@typescript-eslint/types@8.61.1': {}
 
   '@ungap/structured-clone@1.3.1': {}
 
@@ -13348,17 +13166,14 @@ snapshots:
 
   dequal@2.0.3: {}
 
-  deslop-js@0.0.24(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0):
+  deslop-js@0.6.0:
     dependencies:
       '@oxc-project/types': 0.132.0
       fast-glob: 3.3.3
       minimatch: 10.2.5
       oxc-parser: 0.132.0
-      oxc-resolver: 11.19.1(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)
-      typescript: 6.0.3
-    transitivePeerDependencies:
-      - '@emnapi/core'
-      - '@emnapi/runtime'
+      oxc-resolver: 11.21.3
+      typescript: 5.9.3
 
   detect-libc@2.1.2: {}
 
@@ -13380,7 +13195,7 @@ snapshots:
 
   dot-prop@10.1.0:
     dependencies:
-      type-fest: 5.6.0
+      type-fest: 5.7.0
 
   dot-prop@5.3.0:
     dependencies:
@@ -15344,32 +15159,6 @@ snapshots:
       '@oxc-parser/binding-win32-ia32-msvc': 0.135.0
       '@oxc-parser/binding-win32-x64-msvc': 0.135.0
 
-  oxc-resolver@11.19.1(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0):
-    optionalDependencies:
-      '@oxc-resolver/binding-android-arm-eabi': 11.19.1
-      '@oxc-resolver/binding-android-arm64': 11.19.1
-      '@oxc-resolver/binding-darwin-arm64': 11.19.1
-      '@oxc-resolver/binding-darwin-x64': 11.19.1
-      '@oxc-resolver/binding-freebsd-x64': 11.19.1
-      '@oxc-resolver/binding-linux-arm-gnueabihf': 11.19.1
-      '@oxc-resolver/binding-linux-arm-musleabihf': 11.19.1
-      '@oxc-resolver/binding-linux-arm64-gnu': 11.19.1
-      '@oxc-resolver/binding-linux-arm64-musl': 11.19.1
-      '@oxc-resolver/binding-linux-ppc64-gnu': 11.19.1
-      '@oxc-resolver/binding-linux-riscv64-gnu': 11.19.1
-      '@oxc-resolver/binding-linux-riscv64-musl': 11.19.1
-      '@oxc-resolver/binding-linux-s390x-gnu': 11.19.1
-      '@oxc-resolver/binding-linux-x64-gnu': 11.19.1
-      '@oxc-resolver/binding-linux-x64-musl': 11.19.1
-      '@oxc-resolver/binding-openharmony-arm64': 11.19.1
-      '@oxc-resolver/binding-wasm32-wasi': 11.19.1(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)
-      '@oxc-resolver/binding-win32-arm64-msvc': 11.19.1
-      '@oxc-resolver/binding-win32-ia32-msvc': 11.19.1
-      '@oxc-resolver/binding-win32-x64-msvc': 11.19.1
-    transitivePeerDependencies:
-      - '@emnapi/core'
-      - '@emnapi/runtime'
-
   oxc-resolver@11.21.3:
     optionalDependencies:
       '@oxc-resolver/binding-android-arm-eabi': 11.21.3
@@ -15418,9 +15207,9 @@ snapshots:
       svelte: 5.56.3(@typescript-eslint/types@8.61.1)
       vite-plus: 0.2.2(@opentelemetry/api@1.9.1)(@types/node@26.0.1)(@voidzero-dev/vite-plus-core@0.2.2(@types/node@26.0.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(typescript@6.0.3)(yaml@2.9.0))(esbuild@0.28.1)(jiti@2.7.0)(jsdom@28.1.0(@noble/hashes@2.2.0))(msw@2.14.6(@types/node@26.0.1)(typescript@6.0.3))(svelte@5.56.3(@typescript-eslint/types@8.61.1))(tsx@4.22.4)(typescript@6.0.3)(yaml@2.9.0)
 
-  oxlint-plugin-react-doctor@0.5.7:
+  oxlint-plugin-react-doctor@0.6.0:
     dependencies:
-      '@typescript-eslint/types': 8.60.0
+      '@typescript-eslint/types': 8.61.1
       eslint-scope: 9.1.2
       eslint-visitor-keys: 5.0.1
       oxc-parser: 0.135.0
@@ -15861,27 +15650,26 @@ snapshots:
 
   re2js@1.3.3: {}
 
-  react-doctor@0.5.7(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)(eslint@9.39.4(jiti@2.7.0))(oxlint-tsgolint@0.24.0):
+  react-doctor@0.6.0(eslint@9.39.4(jiti@2.7.0))(oxlint-tsgolint@0.24.0):
     dependencies:
       '@babel/code-frame': 7.29.7
       '@sentry/node': 10.58.0
       agent-install: 0.0.5
       conf: 15.1.0
       confbox: 0.2.4
-      deslop-js: 0.0.24(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)
+      deslop-js: 0.6.0
       eslint-plugin-react-hooks: 7.1.1(eslint@9.39.4(jiti@2.7.0))
       jiti: 2.7.0
       magicast: 0.5.3
       oxlint: 1.66.0(oxlint-tsgolint@0.24.0)
-      oxlint-plugin-react-doctor: 0.5.7
+      oxlint-plugin-react-doctor: 0.6.0
       prompts: 2.4.2
-      typescript: 6.0.3
+      typescript: 5.9.3
       vscode-languageserver: 9.0.1
       vscode-languageserver-textdocument: 1.0.12
       vscode-uri: 3.1.0
+      yaml: 2.9.0
     transitivePeerDependencies:
-      - '@emnapi/core'
-      - '@emnapi/runtime'
       - '@opentelemetry/exporter-trace-otlp-http'
       - eslint
       - oxlint-tsgolint
@@ -16658,14 +16446,9 @@ snapshots:
     dependencies:
       prelude-ls: 1.2.1
 
-  type-fest@5.6.0:
-    dependencies:
-      tagged-tag: 1.0.0
-
   type-fest@5.7.0:
     dependencies:
       tagged-tag: 1.0.0
-    optional: true
 
   type-is@2.1.0:
     dependencies:
@@ -16678,6 +16461,8 @@ snapshots:
       call-bound: 1.0.4
       es-errors: 1.3.0
       is-typed-array: 1.1.15
+
+  typescript@5.9.3: {}
 
   typescript@6.0.3: {}
 

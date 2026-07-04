@@ -37,7 +37,6 @@
 	},
 	"vars": {
 		"FIRECRAWL_API_URL": "https://api.firecrawl.dev",
-		"WORKSPACE_INVITE_FROM_EMAIL": "invites@thinkex.app",
 	},
 	"send_email": [
 		{
@@ -166,7 +165,6 @@
 			// Provision dedicated staging resources before the first deploy.
 			"vars": {
 				"FIRECRAWL_API_URL": "https://api.firecrawl.dev",
-				"WORKSPACE_INVITE_FROM_EMAIL": "invites@thinkex.app",
 			},
 			"secrets": {
 				"required": [
@@ -280,7 +278,6 @@
 			],
 			"vars": {
 				"FIRECRAWL_API_URL": "https://api.firecrawl.dev",
-				"WORKSPACE_INVITE_FROM_EMAIL": "invites@thinkex.app",
 			},
 			"secrets": {
 				"required": [

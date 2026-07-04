@@ -1,0 +1,63 @@
+{
+	"$schema": "https://mintlify.com/docs.json",
+	"name": "ThinkEx",
+	"description": "A workspace for source-heavy study, research, and creation.",
+	"theme": "mint",
+	"logo": {
+		"light": "/assets/thinkex-logo-wordmark-light.svg",
+		"dark": "/assets/thinkex-logo-wordmark-dark.svg",
+		"href": "https://thinkex.app"
+	},
+	"favicon": "/assets/favicon.svg",
+	"colors": {
+		"primary": "#5C8BD6",
+		"light": "#73BF7A",
+		"dark": "#0A0D0D"
+	},
+	"icons": {
+		"library": "lucide"
+	},
+	"navbar": {
+		"primary": {
+			"type": "button",
+			"label": "Open app",
+			"href": "https://thinkex.app"
+		}
+	},
+	"footer": {
+		"socials": {
+			"github": "https://github.com/ThinkEx-OSS/thinkex",
+			"x": "https://x.com/trythinkex",
+			"discord": "https://discord.gg/dtPnzkqCcG"
+		}
+	},
+	"navigation": {
+		"groups": [
+			{
+				"group": "Start",
+				"pages": ["index", "quickstart"]
+			},
+			{
+				"group": "Product",
+				"pages": ["concepts/workspaces", "concepts/items", "concepts/ai-chat"]
+			},
+			{
+				"group": "Guides",
+				"pages": ["guides/import-files", "guides/collaboration"]
+			},
+			{
+				"group": "Configuration",
+				"pages": [
+					"configuration/local-development",
+					"configuration/environment",
+					"configuration/architecture",
+					"configuration/deployments"
+				]
+			},
+			{
+				"group": "Project",
+				"pages": ["project/contributing", "project/supporters"]
+			}
+		]
+	}
+}

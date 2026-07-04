@@ -1,0 +1,55 @@
+---
+title: Deployments
+description: CI, staging, and production deployment shape.
+---
+
+ThinkEx deploys from GitHub Actions to Cloudflare Workers. Deploy, migration, and secret-management commands are operational actions and should not be run casually from a local checkout.
+
+## Branches and Environments
+
+| Environment | URL | Worker | Trigger |
+| --- | --- | --- | --- |
+| Production | `https://thinkex.app` | `thinkex` | Successful CI run on `main`, or manual workflow dispatch from `main` |
+| Staging | `https://staging.thinkex.app` | `thinkex-staging` | Push to `staging`, or manual workflow dispatch |
+
+## CI
+
+The `CI` workflow runs on pull requests, pushes to `main`, and manual dispatch. It installs with Vite+ and runs:
+
+```bash
+vp run verify
+```
+
+`verify` runs the repo's check, test, and build tasks using Vite Task caching.
+
+The separate `React Doctor` workflow runs on pull requests and pushes to `main`. It scans changed React files on pull requests, posts inline diagnostics, and records the React Doctor score without folding those comments into the main Vite+ verification job.
+
+## Production Deploy
+
+The production workflow checks out the successful `main` commit, installs dependencies, runs quality gates, builds the production bundle, applies remote D1 migrations, and deploys the production Worker.
+
+```bash
+vp run check && vp run test
+vp run build:production
+vp run db:migrate
+vp run deploy:worker
+```
+
+## Staging Deploy
+
+The staging workflow follows the same shape against staging bindings and routes:
+
+```bash
+vp run check && vp run test
+vp run build:staging
+vp run db:migrate:staging
+vp run deploy:worker:staging
+```
+
+<Warning>
+  Remote migrations and deploy commands affect shared environments. Run them only when you are intentionally doing release work.
+</Warning>
+
+## Secrets
+
+Runtime and deploy secrets are synced into GitHub Actions secrets from Infisical. Production and staging workflows require Cloudflare credentials, PostHog variables, and the runtime secrets declared by the Worker configuration.

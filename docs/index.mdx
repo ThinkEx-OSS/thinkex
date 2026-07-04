@@ -1,0 +1,49 @@
+---
+title: ThinkEx
+description: A workspace for source-heavy study, research, and creation.
+---
+
+ThinkEx is a workspace for source-heavy work. Keep PDFs, documents, images, folders, and AI chat in the same place, then choose exactly what the AI should use.
+
+<Frame>
+  <img src="/assets/landing-workspace-screenshot.webp" alt="ThinkEx workspace with documents, folders, and AI assistant" />
+</Frame>
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="zap" href="/quickstart">
+    Create a workspace, add sources, and ask AI about selected context.
+  </Card>
+  <Card title="Workspaces" icon="layout-dashboard" href="/concepts/workspaces">
+    Learn how ThinkEx organizes source material and collaboration.
+  </Card>
+  <Card title="Workspace items" icon="blocks" href="/concepts/items">
+    Understand documents, files, folders, flashcards, and quizzes.
+  </Card>
+  <Card title="Local development" icon="terminal" href="/configuration/local-development">
+    Run the Cloudflare Worker app locally without production secrets.
+  </Card>
+</CardGroup>
+
+## When a Chat Thread Is Not Enough
+
+ThinkEx is not a file dump behind a chat box. The sources stay visible and usable while you work:
+
+- Open PDFs, documents, images, and folders in a workspace.
+- Arrange sources side by side while you read, compare, or write.
+- Ask AI about the exact items or selected passages you choose.
+- Share workspaces with other members when the work is collaborative.
+
+## How It Is Different
+
+| Compared with | What they are good at | Where ThinkEx differs |
+| --- | --- | --- |
+| ChatGPT, Claude, Gemini | Fast AI conversations | Chat is part of the workspace, next to sources and docs |
+| NotebookLM | Asking questions over uploaded sources | Sources stay open, arrangeable, editable, and shareable |
+| Obsidian | Markdown files and local knowledge bases | PDFs, images, docs, AI chat, and sharing are first-class |
+| Google Drive, Dropbox | Storing and sharing files | Files become source material with docs and AI beside them |
+
+## Built On Cloudflare
+
+ThinkEx is a full-stack TypeScript app hosted on Cloudflare Workers. It uses Durable Objects for workspace, document, AI, sandbox, and conversion coordination; D1 for relational app data; R2 for workspace file storage; Workflows for extraction; Containers for code execution and file conversion; Workers AI, Browser Rendering, and Email for product features.
+
+For repository-level setup details, see the [README](https://github.com/ThinkEx-OSS/thinkex) and [local development](/configuration/local-development) guide.
