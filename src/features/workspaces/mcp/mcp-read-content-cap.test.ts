@@ -110,6 +110,29 @@ describe("capMcpReadItemsContent", () => {
 		});
 	});
 
+	it("does not split a surrogate pair at the truncation boundary", () => {
+		// "ab" then a rocket emoji (astral char = one surrogate pair). Budget of 3
+		// would cut between the high and low surrogate without the guard.
+		const content = `ab${"\u{1F680}"}cd`;
+		const result = createReadResult([
+			{
+				path: "/emoji",
+				status: "ready",
+				type: "document",
+				content,
+			},
+		]);
+
+		const capped = capMcpReadItemsContent(result, 3);
+		const cappedContent = capped.items[0]?.content;
+
+		expect(capped.items[0]?.truncated).toBe(true);
+		expect(cappedContent).toBe(`ab${MCP_READ_CONTENT_TRUNCATION_NOTICE}`);
+		// No lone surrogate should remain in the kept text.
+		const keptText = cappedContent!.slice(0, -MCP_READ_CONTENT_TRUNCATION_NOTICE.length);
+		expect(keptText).not.toMatch(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/);
+	});
+
 	it("leaves items without content untouched", () => {
 		const result = createReadResult([
 			{

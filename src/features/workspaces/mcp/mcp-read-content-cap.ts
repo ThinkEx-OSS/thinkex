@@ -17,6 +17,19 @@ export interface McpReadItemsResult extends WorkspaceReadItemsResult {
 	truncated?: boolean;
 }
 
+// Avoid slicing through a UTF-16 surrogate pair: if the last kept unit is a
+// high surrogate, its low half sits just past the budget, so drop it to prevent
+// emitting a lone (malformed) surrogate.
+function safeTruncationLength(content: string, budget: number): number {
+	const lastUnit = content.charCodeAt(budget - 1);
+
+	if (lastUnit >= 0xd800 && lastUnit <= 0xdbff) {
+		return budget - 1;
+	}
+
+	return budget;
+}
+
 export function capMcpReadItemsContent(
 	result: WorkspaceReadItemsResult,
 	maxTotalChars = MCP_READ_MAX_TOTAL_CONTENT_CHARS,
@@ -45,7 +58,8 @@ export function capMcpReadItemsContent(
 
 		responseTruncated = true;
 		const truncatedContent =
-			item.content.slice(0, remainingBudget) + MCP_READ_CONTENT_TRUNCATION_NOTICE;
+			item.content.slice(0, safeTruncationLength(item.content, remainingBudget)) +
+			MCP_READ_CONTENT_TRUNCATION_NOTICE;
 		remainingBudget = 0;
 
 		return {
