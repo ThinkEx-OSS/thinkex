@@ -130,17 +130,15 @@ describe("verifyMcpBearerToken", () => {
 		expect(actor.clientId).toBeNull();
 	});
 
-	it("throws 401 invalid_token when scope claim is absent from a rejected token", async () => {
-		vi.mocked(verifyAccessToken).mockRejectedValueOnce(
-			new APIError("FORBIDDEN", { message: "invalid scope workspace:read" }),
-		);
+	it("returns an actor with empty grantedScopes when the resolved token has no scope claim", async () => {
+		vi.mocked(verifyAccessToken).mockResolvedValueOnce({
+			sub: "user-3",
+		} as never);
 
-		await expect(
-			verifyMcpBearerToken(makeRequest("Bearer valid.no-scope.token")),
-		).rejects.toMatchObject({
-			status: 403,
-			code: "insufficient_scope",
-		});
+		const actor = await verifyMcpBearerToken(makeRequest("Bearer valid.no-scope.token"));
+
+		expect(actor.userId).toBe("user-3");
+		expect(actor.grantedScopes).toEqual(new Set());
 	});
 
 	it("errors are McpAuthError instances", async () => {
