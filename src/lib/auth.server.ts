@@ -11,7 +11,6 @@ import {
 	transferLinkedAccountResources,
 } from "#/features/workspaces/durable-object-lifecycle";
 import { MCP_SUPPORTED_SCOPES } from "#/features/workspaces/mcp/mcp-scopes";
-import { sendDeleteAccountVerificationEmail } from "#/features/account/account-deletion-email";
 import * as schema from "#/db/schema";
 import { createDbContext } from "#/db/server";
 import {
