@@ -219,6 +219,10 @@ function createAuth(database: Db, env: AuthRuntimeEnv) {
 			oauthProvider({
 				loginPage: "/login",
 				consentPage: "/oauth/consent",
+				// Bounds how long a revoked connection can keep working: MCP bearer
+				// verification is offline, so a live access token stays valid until it
+				// expires. Revoke purges refresh tokens, so this window is the ceiling.
+				accessTokenExpiresIn: 1200,
 				scopes: [...MCP_SUPPORTED_SCOPES],
 				clientRegistrationAllowedScopes: [...MCP_SUPPORTED_SCOPES],
 				clientRegistrationDefaultScopes: [...MCP_SUPPORTED_SCOPES],

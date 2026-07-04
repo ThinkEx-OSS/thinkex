@@ -130,12 +130,6 @@ export async function getOAuthClientPublic(clientId: string): Promise<OAuthClien
 	});
 }
 
-export async function deleteOAuthConsent(consentId: string): Promise<void> {
-	await authPost("/api/auth/oauth2/delete-consent", {
-		id: consentId,
-	});
-}
-
 export async function submitOAuthConsent(input: {
 	accept: boolean;
 	scope?: string;

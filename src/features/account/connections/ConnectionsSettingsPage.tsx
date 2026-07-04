@@ -41,11 +41,8 @@ import {
 	getMcpServerUrl,
 } from "#/features/account/connections/mcp-setup";
 import { formatOAuthScopes } from "#/features/account/connections/oauth-scope-labels";
-import {
-	deleteOAuthConsent,
-	getOAuthClient,
-	getOAuthConsents,
-} from "#/features/account/connections/oauth-api";
+import { revokeOAuthConnectionFn } from "#/features/account/connections/oauth-connections.functions";
+import { getOAuthClient, getOAuthConsents } from "#/features/account/connections/oauth-api";
 import { useCopyToClipboard } from "#/hooks/use-copy-to-clipboard";
 import { getErrorMessage } from "#/lib/error-message";
 
@@ -236,7 +233,7 @@ function AuthorizedConnectionsSection() {
 	});
 
 	const revokeMutation = useMutation({
-		mutationFn: deleteOAuthConsent,
+		mutationFn: (consentId: string) => revokeOAuthConnectionFn({ data: { consentId } }),
 		onSuccess: async () => {
 			await queryClient.invalidateQueries({ queryKey: oauthConsentsQueryKey });
 			toast.success("Access revoked");
