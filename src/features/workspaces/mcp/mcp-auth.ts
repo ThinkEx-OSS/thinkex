@@ -11,6 +11,10 @@ import {
 	type WorkspaceAccessContext,
 	type WorkspaceAccessScope,
 } from "#/features/workspaces/operations/workspace-access-context";
+import {
+	MCP_SUPPORTED_SCOPES,
+	MCP_WORKSPACE_READ_SCOPE,
+} from "#/features/workspaces/mcp/mcp-scopes";
 import { getAuthBaseURL, getAppOrigin, getMcpResourceUrl } from "#/lib/app-origin";
 
 export interface McpActor {
@@ -89,7 +93,7 @@ export async function verifyMcpBearerToken(request: Request): Promise<McpActor> 
 	try {
 		payload = await verifyAccessToken(token, {
 			jwksUrl: `${jwksBaseUrl}/api/auth/jwks`,
-			scopes: ["workspace:read"],
+			scopes: [...MCP_SUPPORTED_SCOPES],
 			verifyOptions: {
 				issuer,
 				audience: getMcpResourceUrl(),
@@ -117,7 +121,7 @@ export async function verifyMcpBearerToken(request: Request): Promise<McpActor> 
 export function buildMcpAccountContext(actor: McpActor): AccountAccessContext {
 	const scopes: AccountAccessScope[] = [];
 
-	if (actor.grantedScopes.has("workspace:read")) {
+	if (actor.grantedScopes.has(MCP_WORKSPACE_READ_SCOPE)) {
 		scopes.push("workspaces:read");
 	}
 
@@ -133,7 +137,7 @@ export function buildMcpWorkspaceContext(
 ): WorkspaceAccessContext {
 	const scopes: WorkspaceAccessScope[] = [];
 
-	if (actor.grantedScopes.has("workspace:read")) {
+	if (actor.grantedScopes.has(MCP_WORKSPACE_READ_SCOPE)) {
 		scopes.push("workspace:read");
 	}
 

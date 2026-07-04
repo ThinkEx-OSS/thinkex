@@ -11,6 +11,7 @@ import {
 	purgeUserAccountResources,
 	transferLinkedAccountResources,
 } from "#/features/workspaces/durable-object-lifecycle";
+import { MCP_SUPPORTED_SCOPES } from "#/features/workspaces/mcp/mcp-scopes";
 import { sendDeleteAccountVerificationEmail } from "#/features/account/account-deletion-email";
 import * as schema from "#/db/schema";
 import { createDbContext } from "#/db/server";
@@ -218,9 +219,9 @@ function createAuth(database: Db, env: AuthRuntimeEnv) {
 			oauthProvider({
 				loginPage: "/login",
 				consentPage: "/oauth/consent",
-				scopes: ["workspace:read"],
-				clientRegistrationAllowedScopes: ["workspace:read"],
-				clientRegistrationDefaultScopes: ["workspace:read"],
+				scopes: [...MCP_SUPPORTED_SCOPES],
+				clientRegistrationAllowedScopes: [...MCP_SUPPORTED_SCOPES],
+				clientRegistrationDefaultScopes: [...MCP_SUPPORTED_SCOPES],
 				allowDynamicClientRegistration: true,
 				allowUnauthenticatedClientRegistration: true,
 				validAudiences: [getAppOrigin(), getMcpResourceUrl()],
