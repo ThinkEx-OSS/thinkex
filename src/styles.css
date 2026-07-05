@@ -12,9 +12,10 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * Metric-matched fallback for Geist. Generated from the Geist latin woff2 with
- * @capsizecss/core (see scripts/gen-geist-fallback.mjs). Reshapes Arial to
- * occupy the same space as Geist so the font swap causes no layout shift.
+ * Metric-matched fallback for Geist. Reshapes Arial to occupy the same space
+ * as Geist so the font swap causes no layout shift. Values are generated from
+ * the Geist latin woff2 with Capsize; regenerate via scripts/gen-geist-fallback.mjs
+ * (see that file's header for the one-off install) whenever Geist is updated.
  */
 @font-face {
 	font-family: "Geist Variable Fallback";
