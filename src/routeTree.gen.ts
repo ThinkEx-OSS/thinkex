@@ -10,14 +10,19 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TermsRouteImport } from './routes/terms'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as CookiesRouteImport } from './routes/cookies'
+import { Route as BlogRouteImport } from './routes/blog'
 import { Route as AccountDeletedRouteImport } from './routes/account-deleted'
 import { Route as ProtectedRouteImport } from './routes/_protected'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as BlogIndexRouteImport } from './routes/blog.index'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
+import { Route as BlogRssRouteImport } from './routes/blog.rss'
+import { Route as BlogSlugRouteImport } from './routes/blog.$slug'
 import { Route as ProtectedSettingsRouteImport } from './routes/_protected/settings'
 import { Route as ProtectedHomeRouteImport } from './routes/_protected/home'
 import { Route as ApiV1WorkspacesRouteImport } from './routes/api/v1/workspaces'
@@ -32,6 +37,11 @@ import { Route as ApiV1WorkspacesWorkspaceIdFilesItemIdContentRouteImport } from
 const TermsRoute = TermsRouteImport.update({
   id: '/terms',
   path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SignupRoute = SignupRouteImport.update({
@@ -54,6 +64,11 @@ const CookiesRoute = CookiesRouteImport.update({
   path: '/cookies',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BlogRoute = BlogRouteImport.update({
+  id: '/blog',
+  path: '/blog',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AccountDeletedRoute = AccountDeletedRouteImport.update({
   id: '/account-deleted',
   path: '/account-deleted',
@@ -68,10 +83,25 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BlogIndexRoute = BlogIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => BlogRoute,
+} as any)
 const InviteTokenRoute = InviteTokenRouteImport.update({
   id: '/invite/$token',
   path: '/invite/$token',
   getParentRoute: () => rootRouteImport,
+} as any)
+const BlogRssRoute = BlogRssRouteImport.update({
+  id: '/rss',
+  path: '/rss',
+  getParentRoute: () => BlogRoute,
+} as any)
+const BlogSlugRoute = BlogSlugRouteImport.update({
+  id: '/$slug',
+  path: '/$slug',
+  getParentRoute: () => BlogRoute,
 } as any)
 const ProtectedSettingsRoute = ProtectedSettingsRouteImport.update({
   id: '/settings',
@@ -133,14 +163,19 @@ const ApiV1WorkspacesWorkspaceIdFilesItemIdContentRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/account-deleted': typeof AccountDeletedRoute
+  '/blog': typeof BlogRouteWithChildren
   '/cookies': typeof CookiesRoute
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
   '/signup': typeof SignupRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
   '/home': typeof ProtectedHomeRoute
   '/settings': typeof ProtectedSettingsRoute
+  '/blog/$slug': typeof BlogSlugRoute
+  '/blog/rss': typeof BlogRssRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/blog/': typeof BlogIndexRoute
   '/workspaces/$workspaceId': typeof ProtectedWorkspacesWorkspaceIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/posthog/survey-feedback': typeof ApiPosthogSurveyFeedbackRoute
@@ -157,10 +192,14 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
   '/signup': typeof SignupRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
   '/home': typeof ProtectedHomeRoute
   '/settings': typeof ProtectedSettingsRoute
+  '/blog/$slug': typeof BlogSlugRoute
+  '/blog/rss': typeof BlogRssRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/blog': typeof BlogIndexRoute
   '/workspaces/$workspaceId': typeof ProtectedWorkspacesWorkspaceIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/posthog/survey-feedback': typeof ApiPosthogSurveyFeedbackRoute
@@ -175,14 +214,19 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_protected': typeof ProtectedRouteWithChildren
   '/account-deleted': typeof AccountDeletedRoute
+  '/blog': typeof BlogRouteWithChildren
   '/cookies': typeof CookiesRoute
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
   '/signup': typeof SignupRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
   '/_protected/home': typeof ProtectedHomeRoute
   '/_protected/settings': typeof ProtectedSettingsRoute
+  '/blog/$slug': typeof BlogSlugRoute
+  '/blog/rss': typeof BlogRssRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/blog/': typeof BlogIndexRoute
   '/_protected/workspaces/$workspaceId': typeof ProtectedWorkspacesWorkspaceIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/posthog/survey-feedback': typeof ApiPosthogSurveyFeedbackRoute
@@ -197,14 +241,19 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/account-deleted'
+    | '/blog'
     | '/cookies'
     | '/login'
     | '/privacy'
     | '/signup'
+    | '/sitemap.xml'
     | '/terms'
     | '/home'
     | '/settings'
+    | '/blog/$slug'
+    | '/blog/rss'
     | '/invite/$token'
+    | '/blog/'
     | '/workspaces/$workspaceId'
     | '/api/auth/$'
     | '/api/posthog/survey-feedback'
@@ -221,10 +270,14 @@ export interface FileRouteTypes {
     | '/login'
     | '/privacy'
     | '/signup'
+    | '/sitemap.xml'
     | '/terms'
     | '/home'
     | '/settings'
+    | '/blog/$slug'
+    | '/blog/rss'
     | '/invite/$token'
+    | '/blog'
     | '/workspaces/$workspaceId'
     | '/api/auth/$'
     | '/api/posthog/survey-feedback'
@@ -238,14 +291,19 @@ export interface FileRouteTypes {
     | '/'
     | '/_protected'
     | '/account-deleted'
+    | '/blog'
     | '/cookies'
     | '/login'
     | '/privacy'
     | '/signup'
+    | '/sitemap.xml'
     | '/terms'
     | '/_protected/home'
     | '/_protected/settings'
+    | '/blog/$slug'
+    | '/blog/rss'
     | '/invite/$token'
+    | '/blog/'
     | '/_protected/workspaces/$workspaceId'
     | '/api/auth/$'
     | '/api/posthog/survey-feedback'
@@ -260,10 +318,12 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ProtectedRoute: typeof ProtectedRouteWithChildren
   AccountDeletedRoute: typeof AccountDeletedRoute
+  BlogRoute: typeof BlogRouteWithChildren
   CookiesRoute: typeof CookiesRoute
   LoginRoute: typeof LoginRoute
   PrivacyRoute: typeof PrivacyRoute
   SignupRoute: typeof SignupRoute
+  SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   TermsRoute: typeof TermsRoute
   InviteTokenRoute: typeof InviteTokenRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
@@ -278,6 +338,13 @@ declare module '@tanstack/react-router' {
       path: '/terms'
       fullPath: '/terms'
       preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/signup': {
@@ -308,6 +375,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CookiesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/blog': {
+      id: '/blog'
+      path: '/blog'
+      fullPath: '/blog'
+      preLoaderRoute: typeof BlogRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/account-deleted': {
       id: '/account-deleted'
       path: '/account-deleted'
@@ -329,12 +403,33 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/blog/': {
+      id: '/blog/'
+      path: '/'
+      fullPath: '/blog/'
+      preLoaderRoute: typeof BlogIndexRouteImport
+      parentRoute: typeof BlogRoute
+    }
     '/invite/$token': {
       id: '/invite/$token'
       path: '/invite/$token'
       fullPath: '/invite/$token'
       preLoaderRoute: typeof InviteTokenRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/blog/rss': {
+      id: '/blog/rss'
+      path: '/rss'
+      fullPath: '/blog/rss'
+      preLoaderRoute: typeof BlogRssRouteImport
+      parentRoute: typeof BlogRoute
+    }
+    '/blog/$slug': {
+      id: '/blog/$slug'
+      path: '/$slug'
+      fullPath: '/blog/$slug'
+      preLoaderRoute: typeof BlogSlugRouteImport
+      parentRoute: typeof BlogRoute
     }
     '/_protected/settings': {
       id: '/_protected/settings'
@@ -425,6 +520,20 @@ const ProtectedRouteWithChildren = ProtectedRoute._addFileChildren(
   ProtectedRouteChildren,
 )
 
+interface BlogRouteChildren {
+  BlogSlugRoute: typeof BlogSlugRoute
+  BlogRssRoute: typeof BlogRssRoute
+  BlogIndexRoute: typeof BlogIndexRoute
+}
+
+const BlogRouteChildren: BlogRouteChildren = {
+  BlogSlugRoute: BlogSlugRoute,
+  BlogRssRoute: BlogRssRoute,
+  BlogIndexRoute: BlogIndexRoute,
+}
+
+const BlogRouteWithChildren = BlogRoute._addFileChildren(BlogRouteChildren)
+
 interface ApiV1WorkspacesRouteChildren {
   ApiV1WorkspacesWorkspaceIdChatAttachmentNormalizationRoute: typeof ApiV1WorkspacesWorkspaceIdChatAttachmentNormalizationRoute
   ApiV1WorkspacesWorkspaceIdFileUploadRoute: typeof ApiV1WorkspacesWorkspaceIdFileUploadRoute
@@ -451,10 +560,12 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ProtectedRoute: ProtectedRouteWithChildren,
   AccountDeletedRoute: AccountDeletedRoute,
+  BlogRoute: BlogRouteWithChildren,
   CookiesRoute: CookiesRoute,
   LoginRoute: LoginRoute,
   PrivacyRoute: PrivacyRoute,
   SignupRoute: SignupRoute,
+  SitemapDotxmlRoute: SitemapDotxmlRoute,
   TermsRoute: TermsRoute,
   InviteTokenRoute: InviteTokenRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,

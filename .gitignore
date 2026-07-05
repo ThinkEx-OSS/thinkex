@@ -9,6 +9,7 @@ dist-ssr
 .env.*.local
 .nitro
 .tanstack
+.content-collections/
 .wrangler
 .tmp
 tmp

@@ -99,6 +99,7 @@ export default defineConfig(({ command }) => {
 				{ default: babel },
 				{ cloudflare },
 				{ default: tailwindcss },
+				{ default: contentCollections },
 				{ devtools },
 				{ tanstackStart },
 				viteReactModule,
@@ -109,6 +110,7 @@ export default defineConfig(({ command }) => {
 				import("@rolldown/plugin-babel"),
 				import("@cloudflare/vite-plugin"),
 				import("@tailwindcss/vite"),
+				import("@content-collections/vite"),
 				import("@tanstack/devtools-vite"),
 				import("@tanstack/react-start/plugin/vite"),
 				import("@vitejs/plugin-react"),
@@ -130,10 +132,18 @@ export default defineConfig(({ command }) => {
 						]
 					: []),
 				...(command === "build" ? [createPostHogBuildPlugin(posthog)].filter(Boolean) : []),
+				contentCollections(),
 				agents(),
 				cloudflare({ viteEnvironment: { name: "ssr" } }),
 				tailwindcss(),
 				tanstackStart({
+					pages: [{ path: "/blog" }],
+					prerender: {
+						enabled: true,
+						autoStaticPathsDiscovery: false,
+						crawlLinks: true,
+						filter: (page) => page.path === "/blog" || page.path.startsWith("/blog/"),
+					},
 					importProtection: {
 						behavior: "error",
 						client: {

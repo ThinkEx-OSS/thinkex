@@ -190,6 +190,98 @@
 		background: radial-gradient(circle at top right, transparent 18px, var(--background) 18px);
 	}
 
+	.blog-prose {
+		color: var(--foreground);
+		font-size: 1rem;
+		line-height: 1.8;
+	}
+
+	.blog-prose > * + * {
+		margin-top: 1.25rem;
+	}
+
+	.blog-prose h2,
+	.blog-prose h3 {
+		color: var(--foreground);
+		font-weight: 500;
+		letter-spacing: 0;
+		scroll-margin-top: 6rem;
+		text-wrap: balance;
+	}
+
+	.blog-prose h2 {
+		margin-top: 2.75rem;
+		font-size: clamp(1.75rem, 3vw, 2.25rem);
+		line-height: 1.15;
+	}
+
+	.blog-prose h3 {
+		margin-top: 2rem;
+		font-size: 1.35rem;
+		line-height: 1.25;
+	}
+
+	.blog-prose p,
+	.blog-prose li {
+		color: var(--foreground);
+	}
+
+	.blog-prose strong {
+		color: var(--foreground);
+		font-weight: 600;
+	}
+
+	.blog-prose a {
+		color: var(--foreground);
+		text-decoration: underline;
+		text-underline-offset: 0.2em;
+	}
+
+	.blog-prose .blog-heading-anchor {
+		color: inherit;
+		text-decoration: none;
+	}
+
+	.blog-prose ul,
+	.blog-prose ol {
+		padding-left: 1.4rem;
+	}
+
+	.blog-prose ul {
+		list-style: disc;
+	}
+
+	.blog-prose ol {
+		list-style: decimal;
+	}
+
+	.blog-prose blockquote {
+		border-left: 1px solid var(--border);
+		padding-left: 1rem;
+		color: var(--muted-foreground);
+	}
+
+	.blog-prose code {
+		border-radius: var(--radius-sm);
+		background: var(--muted);
+		padding: 0.125rem 0.3rem;
+		color: var(--foreground);
+		font-size: 0.9em;
+	}
+
+	.blog-prose pre {
+		overflow-x: auto;
+		border-radius: var(--radius-md);
+		border: 1px solid var(--border);
+		background: var(--muted);
+		padding: 1rem;
+	}
+
+	.blog-prose pre code {
+		background: transparent;
+		padding: 0;
+	}
+
 	.workspace-ask-selection-button {
 		animation: workspace-ask-selection-button-in 100ms ease-out 120ms both;
 	}

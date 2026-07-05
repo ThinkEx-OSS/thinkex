@@ -1,4 +1,5 @@
 export const seo = {
+	siteUrl: "https://thinkex.app",
 	siteName: "ThinkEx",
 	defaultTitle: "ThinkEx",
 	defaultDescription:
@@ -12,6 +13,14 @@ type PublicMetaOptions = {
 	openGraphType?: "website" | "article";
 	openGraphImageAlt?: string;
 };
+
+export function getAbsoluteUrl(path: string) {
+	if (path.startsWith("http://") || path.startsWith("https://")) {
+		return path;
+	}
+
+	return `${seo.siteUrl}${path.startsWith("/") ? path : `/${path}`}`;
+}
 
 export function getPageTitle(title?: string) {
 	if (!title || title === seo.defaultTitle) {
@@ -47,7 +56,7 @@ export function buildPublicMeta({
 		},
 		{
 			property: "og:image",
-			content: seo.openGraphImagePath,
+			content: getAbsoluteUrl(seo.openGraphImagePath),
 		},
 		{
 			property: "og:image:width",
@@ -83,7 +92,7 @@ export function buildPublicMeta({
 		},
 		{
 			name: "twitter:image",
-			content: seo.openGraphImagePath,
+			content: getAbsoluteUrl(seo.openGraphImagePath),
 		},
 	];
 }
