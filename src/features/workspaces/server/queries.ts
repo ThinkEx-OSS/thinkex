@@ -3,7 +3,11 @@ import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
 import { workspaceMembers, workspaces } from "#/db/schema";
 import { createDbContext } from "#/db/server";
 import type { WorkspacePage, WorkspaceSummary } from "#/features/workspaces/contracts";
-import { getWorkspaceKernelPage } from "#/features/workspaces/kernel/workspace-kernel-access";
+import {
+	getWorkspaceKernelHistoryPage,
+	getWorkspaceKernelPage,
+} from "#/features/workspaces/kernel/workspace-kernel-access";
+import type { WorkspaceHistoryPage } from "#/features/workspaces/model/workspace-history";
 import { mapWorkspaceDetailRow, mapWorkspaceRow } from "#/features/workspaces/server/mappers";
 import { getCurrentUserId } from "#/features/workspaces/server/permissions";
 
@@ -88,4 +92,19 @@ export async function getWorkspacePageForCurrentUser(
 	} finally {
 		await dbContext.dispose();
 	}
+}
+
+export async function getWorkspaceHistoryPageForCurrentUser(input: {
+	workspaceId: string;
+	beforeRevision?: number;
+	limit?: number;
+}): Promise<WorkspaceHistoryPage> {
+	const userId = await getCurrentUserId();
+
+	return getWorkspaceKernelHistoryPage({
+		workspaceId: input.workspaceId,
+		userId,
+		beforeRevision: input.beforeRevision,
+		limit: input.limit,
+	});
 }

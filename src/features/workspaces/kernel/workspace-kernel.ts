@@ -24,6 +24,7 @@ import type {
 	DeleteWorkspaceKernelItemsArgs,
 	DeleteWorkspaceKernelItemsResult,
 	ListWorkspaceKernelEventsArgs,
+	ListWorkspaceKernelHistoryArgs,
 	ListWorkspaceKernelItemRelationsArgs,
 	ListWorkspaceKernelItemsArgs,
 	MoveWorkspaceKernelItemsArgs,
@@ -37,6 +38,7 @@ import type {
 	WorkspaceKernelPage,
 	WriteWorkspaceKernelItemArgs,
 } from "#/features/workspaces/kernel/workspace-kernel-types";
+import type { WorkspaceHistoryPage } from "#/features/workspaces/model/workspace-history";
 import type {
 	WorkspaceCommandResult,
 	WorkspaceConnectionState,
@@ -200,6 +202,10 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 		limit = 100,
 	}: ListWorkspaceKernelEventsArgs): Promise<WorkspaceRealtimeEvent[]> {
 		return this.events.getEventsSince({ afterRevision, limit });
+	}
+
+	async listEventsPage(input: ListWorkspaceKernelHistoryArgs = {}): Promise<WorkspaceHistoryPage> {
+		return this.events.listEventsPage(input);
 	}
 
 	async purgeForDeletion(): Promise<void> {

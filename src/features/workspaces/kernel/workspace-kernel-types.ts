@@ -190,3 +190,8 @@ export interface ListWorkspaceKernelEventsArgs {
 	afterRevision: number;
 	limit?: number;
 }
+
+export interface ListWorkspaceKernelHistoryArgs {
+	beforeRevision?: number;
+	limit?: number;
+}
