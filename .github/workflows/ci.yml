@@ -18,6 +18,8 @@ jobs:
   validate:
     runs-on: blacksmith-2vcpu-ubuntu-2404
     timeout-minutes: 30
+    env:
+      CLOUDFLARE_VITE_FORCE_LOCAL: "true"
 
     steps:
       - uses: actions/checkout@v7
