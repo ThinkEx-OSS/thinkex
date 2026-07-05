@@ -108,7 +108,7 @@
 		"agents": "^0.17.3",
 		"ai": "^6.0.208",
 		"autumn-js": "^1.2.34",
-		"better-auth": "^1.6.19",
+		"better-auth": "^1.6.23",
 		"class-variance-authority": "^0.7.1",
 		"clsx": "^2.1.1",
 		"drizzle-kit": "^0.31.9",
