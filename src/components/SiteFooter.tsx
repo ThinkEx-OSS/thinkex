@@ -52,6 +52,12 @@ export default function SiteFooter() {
 					<div className="mt-14 flex flex-col items-center gap-2 text-center text-xs text-muted-foreground/55 sm:mt-16 sm:text-sm">
 						<div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 sm:gap-x-5">
 							<Link
+								to="/blog"
+								className="underline-offset-4 transition-colors hover:text-foreground hover:underline"
+							>
+								Blog
+							</Link>
+							<Link
 								to="/terms"
 								className="underline-offset-4 transition-colors hover:text-foreground hover:underline"
 							>

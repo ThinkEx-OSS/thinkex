@@ -2,6 +2,7 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import { Menu } from "lucide-react";
 
 import { ModeToggle } from "#/components/mode-toggle";
+import { PublicNavLinks } from "#/components/PublicNavLinks";
 import SiteFooter from "#/components/SiteFooter";
 import ThinkExLogo from "#/components/ThinkExLogo";
 import { Button } from "#/components/ui/button";
@@ -43,7 +44,7 @@ export default function LandingPage() {
 			className="flex h-screen flex-col overflow-hidden bg-background text-foreground dark:bg-black"
 		>
 			<header className="z-40 shrink-0 border-b border-border bg-background dark:bg-black">
-				<div className="mx-auto flex h-14 w-full max-w-7xl items-center gap-3 px-6">
+				<div className="relative mx-auto flex h-14 w-full max-w-7xl items-center gap-3 px-6">
 					<Link
 						to="/"
 						onClick={handleHomeLogoClick}
@@ -53,7 +54,14 @@ export default function LandingPage() {
 						<span className="text-xl font-semibold tracking-tight sm:text-2xl">ThinkEx</span>
 					</Link>
 
-					<nav className="hidden flex-1 items-center justify-end gap-3 sm:flex" aria-label="Site">
+					<nav
+						className="pointer-events-none absolute inset-x-48 hidden justify-center lg:flex"
+						aria-label="Primary"
+					>
+						<PublicNavLinks className="pointer-events-auto flex items-center gap-6" />
+					</nav>
+
+					<nav className="ml-auto hidden items-center gap-3 lg:flex" aria-label="Account">
 						<ModeToggle className="size-9" />
 						<Button
 							nativeButton={false}
@@ -67,7 +75,7 @@ export default function LandingPage() {
 							Get started
 						</Button>
 					</nav>
-					<div className="ml-auto sm:hidden">
+					<div className="ml-auto lg:hidden">
 						<Sheet>
 							<SheetTrigger
 								render={<Button variant="outline" size="icon" aria-label="Open site menu" />}
@@ -89,6 +97,10 @@ export default function LandingPage() {
 									<span className="text-xl font-semibold tracking-tight">ThinkEx</span>
 								</Link>
 								<div className="mx-auto grid w-full max-w-sm gap-3">
+									<PublicNavLinks
+										className="grid gap-3 py-1 text-center"
+										linkClassName="mx-auto inline-flex h-9 items-center justify-center text-base"
+									/>
 									<Button
 										nativeButton={false}
 										render={<Link to="/login" />}
