@@ -20,6 +20,7 @@ import type {
 	CreateWorkspaceKernelFileFromUploadArgs,
 	CreateWorkspaceKernelRelationArgs,
 	DeleteWorkspaceKernelItemsResult,
+	ListWorkspaceKernelHistoryArgs,
 	ListWorkspaceKernelItemRelationsArgs,
 	MoveWorkspaceKernelItemsResult,
 	ReadWorkspaceKernelFilePreviewResult,
@@ -30,6 +31,7 @@ import type {
 	WorkspaceKernelNameConflictPolicy,
 } from "#/features/workspaces/kernel/workspace-kernel-types";
 import type { WorkspaceFileAssetKind } from "#/features/workspaces/model/workspace-file";
+import type { WorkspaceHistoryPage } from "#/features/workspaces/model/workspace-history";
 import type { WorkspaceCommandResult } from "#/features/workspaces/realtime/messages";
 import {
 	assertCanMutateWorkspace,
@@ -123,6 +125,7 @@ export interface WorkspaceKernelClient {
 		actorUserId?: string | null;
 		clientMutationId?: string | null;
 	}): Promise<WorkspaceCommandResult<WorkspaceItemSummary>>;
+	listEventsPage(input: ListWorkspaceKernelHistoryArgs): Promise<WorkspaceHistoryPage>;
 	purgeForDeletion(): Promise<void>;
 }
 
@@ -177,6 +180,27 @@ export async function getWorkspaceKernelPage(input: {
 			items: page.items,
 			revision: page.revision,
 		};
+	} finally {
+		await dbContext.dispose();
+	}
+}
+
+export async function getWorkspaceKernelHistoryPage(input: {
+	workspaceId: string;
+	userId: string;
+	beforeRevision?: number;
+	limit?: number;
+}): Promise<WorkspaceHistoryPage> {
+	const dbContext = await createDbContext();
+
+	try {
+		await assertCanReadWorkspace(dbContext.db, input);
+		const kernel = await getWorkspaceKernel(input.workspaceId);
+
+		return await kernel.listEventsPage({
+			beforeRevision: input.beforeRevision,
+			limit: input.limit,
+		});
 	} finally {
 		await dbContext.dispose();
 	}

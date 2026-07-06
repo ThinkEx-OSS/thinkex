@@ -28,6 +28,7 @@ import WorkspaceMobileBreadcrumbOverflow from "#/features/workspaces/components/
 import { WorkspaceSearchDialog } from "#/features/workspaces/components/WorkspaceSearchDialog";
 import WorkspaceSettingsDialog from "#/features/workspaces/components/WorkspaceSettingsDialog";
 import { WorkspaceShareDialog } from "#/features/workspaces/components/WorkspaceShareDialog";
+import { WorkspaceVersionHistoryDialog } from "#/features/workspaces/components/WorkspaceVersionHistoryDialog";
 import { WorkspaceToolbarGroup } from "#/features/workspaces/components/WorkspaceToolbar";
 import {
 	renderWorkspaceMenuActions,
@@ -74,6 +75,7 @@ export default function WorkspaceContextBar({
 	const [searchOpen, setSearchOpen] = useState(false);
 	const [shareOpen, setShareOpen] = useState(false);
 	const [settingsOpen, setSettingsOpen] = useState(false);
+	const [historyOpen, setHistoryOpen] = useState(false);
 	const breadcrumbs = getWorkspaceBreadcrumbItems(activeItem, itemsById);
 	const mobileOverflowBreadcrumbs = breadcrumbs.slice(0, -1);
 	const createParentId = getWorkspaceBrowseParentId(activeItem);
@@ -117,6 +119,7 @@ export default function WorkspaceContextBar({
 							) : (
 								<WorkspaceRootActionsMenu
 									capabilities={capabilities}
+									onOpenHistory={() => setHistoryOpen(true)}
 									onOpenSettings={() => setSettingsOpen(true)}
 									onOpenShare={() => setShareOpen(true)}
 									trigger={
@@ -215,17 +218,24 @@ export default function WorkspaceContextBar({
 				workspaceId={workspace.id}
 				workspaceName={workspace.name}
 			/>
+			<WorkspaceVersionHistoryDialog
+				open={historyOpen}
+				onOpenChange={setHistoryOpen}
+				workspaceId={workspace.id}
+			/>
 		</>
 	);
 }
 
 function WorkspaceRootActionsMenu({
 	capabilities,
+	onOpenHistory,
 	onOpenSettings,
 	onOpenShare,
 	trigger,
 }: {
 	capabilities: ReturnType<typeof useWorkspaceMutationAccess>["capabilities"];
+	onOpenHistory: () => void;
 	onOpenSettings: () => void;
 	onOpenShare: () => void;
 	trigger: ReactElement;
@@ -237,6 +247,7 @@ function WorkspaceRootActionsMenu({
 				{renderWorkspaceMenuActions(
 					getWorkspaceRootMenuActions({
 						canOpenSettings: capabilities.canMutateContent,
+						onOpenHistory,
 						onOpenSettings,
 						onOpenShare,
 					}),
@@ -249,6 +260,7 @@ function WorkspaceRootActionsMenu({
 
 function getWorkspaceRootMenuActions(input: {
 	canOpenSettings: boolean;
+	onOpenHistory: () => void;
 	onOpenSettings: () => void;
 	onOpenShare: () => void;
 }): WorkspaceMenuAction[] {
@@ -265,8 +277,7 @@ function getWorkspaceRootMenuActions(input: {
 			id: "version-history",
 			label: "Version history",
 			leading: <Clock3 className="size-4" />,
-			trailing: "Soon",
-			disabled: true,
+			onSelect: input.onOpenHistory,
 		},
 		{
 			kind: "item",

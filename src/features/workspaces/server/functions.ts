@@ -24,14 +24,22 @@ import {
 	recordWorkspaceOpenedForCurrentUser,
 	updateWorkspaceForCurrentUser,
 } from "#/features/workspaces/server/mutations";
+import { workspaceHistoryMaxPageSize } from "#/features/workspaces/model/workspace-history";
 import { getCurrentUserId } from "#/features/workspaces/server/permissions";
 import {
+	getWorkspaceHistoryPageForCurrentUser,
 	getWorkspacePageForCurrentUser,
 	listWorkspacesForCurrentUser,
 } from "#/features/workspaces/server/queries";
 
 const workspaceIdInputSchema = z.object({
 	workspaceId: z.string().min(1),
+});
+
+const workspaceHistoryPageInputSchema = z.object({
+	workspaceId: z.string().min(1),
+	beforeRevision: z.number().int().positive().optional(),
+	limit: z.number().int().min(1).max(workspaceHistoryMaxPageSize).optional(),
 });
 
 export const listWorkspacesFn = createServerFn({ method: "GET" }).handler(async () =>
@@ -41,6 +49,10 @@ export const listWorkspacesFn = createServerFn({ method: "GET" }).handler(async 
 export const getWorkspacePageFn = createServerFn({ method: "GET" })
 	.validator(workspaceIdInputSchema)
 	.handler(async ({ data }) => getWorkspacePageForCurrentUser(data.workspaceId));
+
+export const getWorkspaceHistoryPageFn = createServerFn({ method: "GET" })
+	.validator(workspaceHistoryPageInputSchema)
+	.handler(async ({ data }) => getWorkspaceHistoryPageForCurrentUser(data));
 
 export const createWorkspaceFn = createServerFn({ method: "POST" })
 	.validator(createWorkspaceInputSchema)
