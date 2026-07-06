@@ -1,134 +1,29 @@
-import { Link, useRouterState } from "@tanstack/react-router";
-import { Menu } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 
-import { ModeToggle } from "#/components/mode-toggle";
-import { PublicNavLinks } from "#/components/PublicNavLinks";
+import { PublicHeader } from "#/components/PublicHeader";
 import SiteFooter from "#/components/SiteFooter";
-import ThinkExLogo from "#/components/ThinkExLogo";
 import { Button } from "#/components/ui/button";
 import { CyclingWord } from "#/components/ui/cycling-word";
-import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogTitle,
-	DialogTrigger,
-} from "#/components/ui/dialog";
-import { Sheet, SheetContent, SheetTrigger } from "#/components/ui/sheet";
-import { smoothScrollViewportTop } from "#/lib/smooth-scroll";
+import { BottomCtaSection } from "#/components/landing/BottomCtaSection";
+import { FeatureGridSection } from "#/components/landing/FeatureGridSection";
+import { LatestBlogSection } from "#/components/landing/LatestBlogSection";
+import { PricingSection } from "#/components/landing/PricingSection";
+import { useLandingSectionScroll } from "#/components/landing/useLandingSectionScroll";
 
 export default function LandingPage() {
-	const pathname = useRouterState({ select: (s) => s.location.pathname });
-
-	function handleHomeLogoClick(event: React.MouseEvent<HTMLAnchorElement>) {
-		if (
-			event.defaultPrevented ||
-			event.button !== 0 ||
-			event.metaKey ||
-			event.ctrlKey ||
-			event.shiftKey ||
-			event.altKey
-		) {
-			return;
-		}
-
-		if (pathname === "/") {
-			event.preventDefault();
-			smoothScrollViewportTop();
-		}
-	}
+	const scrollRootRef = useLandingSectionScroll();
 
 	return (
 		<div
 			data-app-shell
 			className="flex h-screen flex-col overflow-hidden bg-background text-foreground dark:bg-black"
 		>
-			<header className="z-40 shrink-0 border-b border-border bg-background dark:bg-black">
-				<div className="relative mx-auto flex h-14 w-full max-w-7xl items-center gap-3 px-6">
-					<Link
-						to="/"
-						onClick={handleHomeLogoClick}
-						className="flex items-center gap-3 rounded-md text-foreground no-underline outline-none focus-visible:ring-2 focus-visible:ring-ring"
-					>
-						<ThinkExLogo size={28} />
-						<span className="text-xl font-semibold tracking-tight sm:text-2xl">ThinkEx</span>
-					</Link>
+			<PublicHeader />
 
-					<nav
-						className="pointer-events-none absolute inset-x-48 hidden justify-center lg:flex"
-						aria-label="Primary"
-					>
-						<PublicNavLinks className="pointer-events-auto flex items-center gap-6" />
-					</nav>
-
-					<nav className="ml-auto hidden items-center gap-3 lg:flex" aria-label="Account">
-						<ModeToggle className="size-9" />
-						<Button
-							nativeButton={false}
-							render={<Link to="/login" />}
-							variant="outline"
-							size="default"
-						>
-							Sign in
-						</Button>
-						<Button nativeButton={false} render={<Link to="/login" />} size="default">
-							Get started
-						</Button>
-					</nav>
-					<div className="ml-auto lg:hidden">
-						<Sheet>
-							<SheetTrigger
-								render={<Button variant="outline" size="icon" aria-label="Open site menu" />}
-							>
-								<Menu className="size-4" />
-							</SheetTrigger>
-							<SheetContent
-								side="top"
-								animated={false}
-								aria-label="Site menu"
-								className="min-h-[17rem] gap-0 bg-background px-4 pt-16 pb-5 dark:bg-black"
-							>
-								<Link
-									to="/"
-									onClick={handleHomeLogoClick}
-									className="absolute top-0 left-6 flex h-14 items-center gap-3 rounded-md text-foreground no-underline outline-none focus-visible:ring-2 focus-visible:ring-ring"
-								>
-									<ThinkExLogo size={28} />
-									<span className="text-xl font-semibold tracking-tight">ThinkEx</span>
-								</Link>
-								<div className="mx-auto grid w-full max-w-sm gap-3">
-									<PublicNavLinks
-										className="grid gap-3 py-1 text-center"
-										linkClassName="mx-auto inline-flex h-9 items-center justify-center text-base"
-									/>
-									<Button
-										nativeButton={false}
-										render={<Link to="/login" />}
-										variant="outline"
-										size="lg"
-										className="h-12"
-									>
-										Sign in
-									</Button>
-									<Button
-										nativeButton={false}
-										render={<Link to="/login" />}
-										size="lg"
-										className="h-12"
-									>
-										Get started
-									</Button>
-								</div>
-							</SheetContent>
-						</Sheet>
-					</div>
-				</div>
-			</header>
-
-			<div data-scroll-root className="min-h-0 flex-1 overflow-y-auto">
+			<div ref={scrollRootRef} data-scroll-root className="min-h-0 flex-1 overflow-y-auto">
 				<main>
-					<section className="border-b border-border">
-						<div className="mx-auto w-full max-w-7xl px-4 py-12 sm:px-6 sm:py-16 lg:py-20">
+					<section>
+						<div className="mx-auto w-full max-w-7xl px-4 pt-12 pb-0 sm:px-6 sm:pt-16 lg:pt-20">
 							<div className="max-w-3xl">
 								<h1 className="text-4xl font-medium tracking-tight text-balance sm:text-6xl lg:text-7xl">
 									The workspace built for how you{" "}
@@ -149,42 +44,23 @@ export default function LandingPage() {
 								</div>
 							</div>
 
-							<Dialog>
-								<DialogTrigger
-									className="mt-10 block w-full cursor-zoom-in overflow-hidden rounded-md border border-border bg-card text-left shadow-xl outline-none focus-visible:ring-3 focus-visible:ring-ring/50 sm:mt-16 sm:shadow-2xl"
-									aria-label="Open enlarged ThinkEx workspace preview"
-								>
-									<span className="relative block">
-										<img
-											src="/landing-workspace-screenshot.webp"
-											alt="ThinkEx workspace with documents, folders, and AI assistant"
-											className="block h-auto w-full"
-											width={2936}
-											height={1664}
-											loading="eager"
-											decoding="async"
-											fetchPriority="high"
-										/>
-									</span>
-								</DialogTrigger>
-								<DialogContent
-									showCloseButton={false}
-									className="max-h-[calc(100dvh-2rem)] max-w-[calc(100vw-1rem)] gap-0 overflow-auto bg-transparent p-0 ring-0 sm:max-w-6xl"
-								>
-									<DialogTitle className="sr-only">ThinkEx workspace preview</DialogTitle>
-									<DialogDescription className="sr-only">
-										Enlarged ThinkEx workspace screenshot.
-									</DialogDescription>
-									<img
-										src="/landing-workspace-screenshot.webp"
-										alt="ThinkEx workspace with documents, folders, and AI assistant"
-										className="block h-auto w-full min-w-[720px] rounded-md"
-										width={2936}
-										height={1664}
-										decoding="async"
-									/>
-								</DialogContent>
-							</Dialog>
+							<div className="mt-10 overflow-hidden rounded-md border border-border bg-background dark:bg-black sm:mt-16">
+								<img
+									src="/landing-workspace-screenshot.webp"
+									alt="ThinkEx workspace with documents, folders, and AI assistant"
+									className="block h-auto w-full"
+									width={2936}
+									height={1664}
+									loading="eager"
+									decoding="async"
+									fetchPriority="high"
+								/>
+							</div>
+
+							<FeatureGridSection />
+							<PricingSection />
+							<LatestBlogSection />
+							<BottomCtaSection />
 						</div>
 					</section>
 				</main>

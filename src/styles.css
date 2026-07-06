@@ -172,6 +172,62 @@
 		--shimmer-color: color-mix(in oklch, var(--foreground) 55%, transparent);
 	}
 
+	.collaboration-cursor-float {
+		animation: collaboration-cursor-float 3.6s ease-in-out infinite;
+	}
+
+	.landing-send-pulse {
+		animation: landing-send-breathe 1.75s ease-in-out infinite;
+	}
+
+	.landing-send-pulse::after {
+		position: absolute;
+		z-index: -1;
+		inset: -5px;
+		border-radius: 9999px;
+		background: color-mix(in oklch, var(--color-blue-600) 26%, transparent);
+		content: "";
+		animation: landing-send-ring 1.75s ease-out infinite;
+		pointer-events: none;
+	}
+
+	@keyframes collaboration-cursor-float {
+		0%,
+		100% {
+			transform: translate3d(0, 0, 0);
+		}
+
+		50% {
+			transform: translate3d(4px, -5px, 0);
+		}
+	}
+
+	@keyframes landing-send-breathe {
+		0%,
+		100% {
+			filter: brightness(1);
+			transform: scale(1);
+		}
+
+		45% {
+			filter: brightness(1.1);
+			transform: scale(1.055);
+		}
+	}
+
+	@keyframes landing-send-ring {
+		0% {
+			opacity: 0.58;
+			transform: scale(0.9);
+		}
+
+		70%,
+		100% {
+			opacity: 0;
+			transform: scale(1.22);
+		}
+	}
+
 	.workspace-tab-active {
 		position: relative;
 		z-index: 1;
