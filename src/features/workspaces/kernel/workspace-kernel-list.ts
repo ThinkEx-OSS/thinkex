@@ -1,6 +1,5 @@
 import type { WorkspaceItemSummary, WorkspaceItemType } from "#/features/workspaces/contracts";
 import {
-	buildWorkspaceKernelTree,
 	joinWorkspacePathSegment,
 	resolveWorkspaceKernelCwd,
 	WorkspaceKernelPathError,
@@ -28,20 +27,6 @@ export interface ListWorkspaceKernelItemsFailure {
 interface WorkspaceKernelListedItems {
 	items: ListWorkspaceKernelItem[];
 	truncated: boolean;
-}
-
-export function listWorkspaceKernelPageItems(input: {
-	items: WorkspaceItemSummary[];
-	path?: string;
-	recursive?: boolean;
-	limit?: number;
-}): ListWorkspaceKernelItemsResult {
-	return listWorkspaceKernelTreeItems({
-		tree: buildWorkspaceKernelTree(input.items),
-		path: input.path,
-		recursive: input.recursive,
-		limit: input.limit,
-	});
 }
 
 export function listWorkspaceKernelTreeItems(input: {

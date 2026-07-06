@@ -54,6 +54,27 @@ export const getAttachmentLabel = (data: AttachmentData): string => {
 	return data.filename || (category === "image" ? "Image" : "Attachment");
 };
 
+export function getFileAttachmentData(part: FileUIPart): FileAttachmentData {
+	return {
+		filename: part.filename,
+		id: getFileAttachmentId(part),
+		mediaType: part.mediaType,
+		status: "ready",
+		type: "file",
+		url: part.url,
+	};
+}
+
+export function getSourceDocumentAttachmentData(
+	part: SourceDocumentUIPart,
+): SourceDocumentUIPart & { id: string } {
+	return { ...part, id: part.sourceId };
+}
+
+function getFileAttachmentId(part: FileUIPart): string {
+	return part.url;
+}
+
 export function toSendableFileParts(files: readonly FileAttachmentData[]): FileUIPart[] {
 	return files
 		.filter(

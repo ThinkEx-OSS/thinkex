@@ -178,7 +178,9 @@ function WorkspaceHomeCommunityMenu() {
 					{orderedCommunityLinks.map(({ href, label, icon: Icon }) => (
 						<DropdownMenuItem
 							key={href}
-							render={<a href={href} target="_blank" rel="noopener noreferrer" />}
+							render={
+								<a href={href} target="_blank" rel="noopener noreferrer" aria-label={label} />
+							}
 						>
 							<Icon className={label === "Twitter / X" ? "size-[15px]" : "size-4"} />
 							{label}

@@ -67,17 +67,6 @@ interface LinkedUserAIStore {
 
 export const AIThread = createAIThreadClass(() => UserAIStore);
 
-export function transferUserAIThreadsOnAccountLink(input: {
-	anonymousUserId: string;
-	env: Cloudflare.Env;
-	newUserId: string;
-}) {
-	const store = getAgentByName(input.env[userAIAgentName], input.newUserId) as unknown as {
-		mergeLinkedAnonymousUser(input: { anonymousUserId: string }): Promise<void>;
-	};
-	return store.mergeLinkedAnonymousUser({ anonymousUserId: input.anonymousUserId });
-}
-
 export class UserAIStore extends Agent<Cloudflare.Env, UserAIStoreState> {
 	static options = { sendIdentityOnConnect: false };
 

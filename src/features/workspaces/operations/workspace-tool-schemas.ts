@@ -10,7 +10,6 @@ import { renameWorkspaceItemFailureCodes } from "#/features/workspaces/operation
 import {
 	workspaceItemTypeSchema,
 	workspaceRelationKindSchema,
-	workspaceSummarySchema,
 } from "#/features/workspaces/contracts";
 import { documentMarkdownEditSchema } from "#/features/workspaces/documents/document-markdown-edits";
 
@@ -57,10 +56,6 @@ function createWorkspaceItemsResultSchema<
 		failed: z.array(input.failureSchema),
 	});
 }
-
-export const accountListWorkspacesOutputSchema = z.object({
-	workspaces: z.array(workspaceSummarySchema),
-});
 
 export const workspaceReadPagesSchema = z.object({
 	requested: z.string().describe("Requested page range."),

@@ -1,6 +1,5 @@
 import {
 	assertAccessScope,
-	type AccessActor,
 	createAccessActor,
 	type ScopedAccessContext,
 } from "#/features/workspaces/operations/access-context";
@@ -8,8 +7,6 @@ import {
 export const workspaceAccessScopes = ["workspace:read", "workspace:write"] as const;
 
 export type WorkspaceAccessScope = (typeof workspaceAccessScopes)[number];
-
-export type WorkspaceAccessActor = AccessActor<WorkspaceAccessScope>;
 
 export interface WorkspaceAccessContext extends ScopedAccessContext<WorkspaceAccessScope> {
 	workspaceId: string;

@@ -1,9 +1,16 @@
 {
 	"$schema": "https://unpkg.com/knip@6/schema.json",
-	"entry": ["src/client.tsx", "src/router.tsx", "src/routes/**/*.{ts,tsx}"],
+	"entry": [
+		"content-collections.ts",
+		"drizzle.config.ts",
+		"src/client.tsx",
+		"src/router.tsx",
+		"src/routes/**/*.{ts,tsx}"
+	],
 	"project": ["src/**/*.{ts,tsx}"],
 	"ignoreFiles": ["src/components/ui/**"],
 	"ignoreIssues": {
+		"src/db/schema.ts": ["exports"],
 		"src/components/ui/**": ["exports", "types", "enumMembers"],
 		"src/components/ai-elements/**": ["exports", "types"]
 	},
@@ -11,11 +18,13 @@
 	"ignoreBinaries": ["infisical"],
 	"ignoreDependencies": [
 		"@babel/plugin-proposal-decorators",
+		"@cloudflare/vitest-pool-workers",
 		"@tailwindcss/typography",
 		"@tanstack/devtools-event-client",
 		"@tanstack/router-plugin",
 		"@voidzero-dev/vite-plus-core",
 		"cloudflare",
+		"content-collections",
 		"shadcn",
 		"tailwindcss",
 		"tw-animate-css"

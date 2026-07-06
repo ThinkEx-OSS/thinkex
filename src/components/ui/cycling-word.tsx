@@ -1,5 +1,5 @@
 import { useReducedMotion } from "motion/react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useReducer } from "react";
 
 import { cn } from "#/lib/utils";
 
@@ -27,12 +27,52 @@ function paletteFor(length: number): string[] {
 }
 
 interface SweepState {
+	/** Word this state was initialized for. */
+	target: string;
 	/** Index of the cursor; equals word length once fully resolved. */
 	head: number;
 	/** Per-character logo colors for the current word. */
 	colors: string[];
 	/** True briefly after the word resolves, to show a trailing cursor. */
 	endCursor: boolean;
+}
+
+function createSweepState(target: string, active: boolean): SweepState {
+	return {
+		target,
+		head: active ? 0 : target.length,
+		colors: paletteFor(target.length),
+		endCursor: false,
+	};
+}
+
+type SweepAction =
+	| { type: "reset"; target: string; active: boolean }
+	| { type: "set-head"; target: string; head: number }
+	| { type: "set-end-cursor"; target: string; endCursor: boolean };
+
+function sweepReducer(state: SweepState, action: SweepAction): SweepState {
+	if (action.type === "reset") {
+		if (
+			state.target === action.target &&
+			state.head === (action.active ? 0 : action.target.length) &&
+			state.endCursor === false
+		) {
+			return state;
+		}
+
+		return createSweepState(action.target, action.active);
+	}
+
+	if (state.target !== action.target) {
+		return state;
+	}
+
+	if (action.type === "set-head") {
+		return state.head === action.head ? state : { ...state, head: action.head };
+	}
+
+	return state.endCursor === action.endCursor ? state : { ...state, endCursor: action.endCursor };
 }
 
 /**
@@ -43,44 +83,67 @@ interface SweepState {
  * while `active` is false (reduced motion).
  */
 function useSweep(target: string, active: boolean): SweepState {
-	const [head, setHead] = useState(target.length);
-	const [endCursor, setEndCursor] = useState(false);
-	const colorsRef = useRef<string[]>(paletteFor(target.length));
-	const rafRef = useRef<number | null>(null);
+	const [sweep, dispatch] = useReducer(sweepReducer, target, (initialTarget) =>
+		createSweepState(initialTarget, false),
+	);
+	const currentSweep = sweep.target === target ? sweep : createSweepState(target, active);
 
 	useEffect(() => {
-		colorsRef.current = paletteFor(target.length);
-		setEndCursor(false);
+		let rafId: number | null = null;
+		let cursorRafId: number | null = null;
 
 		if (!active) {
-			setHead(target.length);
+			dispatch({ type: "reset", target, active: false });
 			return;
 		}
 
 		const length = target.length;
 		let frame = 0;
-		setHead(0);
+		dispatch({ type: "reset", target, active: true });
 
 		const tickFrame = () => {
 			const next = Math.floor(frame / FRAMES_PER_CHAR);
-			setHead(Math.min(next, length));
+			dispatch({ type: "set-head", target, head: Math.min(next, length) });
 			if (next >= length) {
 				// Show the cursor solid for one frame, then start the fade.
-				setEndCursor(true);
-				rafRef.current = requestAnimationFrame(() => setEndCursor(false));
+				dispatch({ type: "set-end-cursor", target, endCursor: true });
+				cursorRafId = requestAnimationFrame(() => {
+					dispatch({ type: "set-end-cursor", target, endCursor: false });
+				});
 				return;
 			}
 			frame++;
-			rafRef.current = requestAnimationFrame(tickFrame);
+			rafId = requestAnimationFrame(tickFrame);
 		};
 		tickFrame();
 
 		return () => {
-			if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+			if (rafId !== null) cancelAnimationFrame(rafId);
+			if (cursorRafId !== null) cancelAnimationFrame(cursorRafId);
 		};
 	}, [target, active]);
 
-	return { head, colors: colorsRef.current, endCursor };
+	return currentSweep;
+}
+
+interface CycleState {
+	index: number;
+	hasAdvanced: boolean;
+	pulse: boolean;
+}
+
+type CycleAction = { type: "advance"; wordCount: number } | { type: "clear-pulse" };
+
+function cycleReducer(state: CycleState, action: CycleAction): CycleState {
+	if (action.type === "clear-pulse") {
+		return state.pulse ? { ...state, pulse: false } : state;
+	}
+
+	return {
+		index: (state.index + 1) % action.wordCount,
+		hasAdvanced: true,
+		pulse: true,
+	};
 }
 
 interface CyclingWordProps {
@@ -101,47 +164,46 @@ export function CyclingWord({ words, className }: CyclingWordProps) {
 	const reduceMotion = useReducedMotion();
 	const animate = !reduceMotion;
 
-	const [index, setIndex] = useState(0);
-	const [hasAdvanced, setHasAdvanced] = useState(false);
-	// Brief horizontal nudge fired on each advance (auto or click).
-	const [pulse, setPulse] = useState(false);
-	const pulseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-	const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-	const advance = useCallback(() => {
-		setHasAdvanced(true);
-		setIndex((i) => (i + 1) % words.length);
-		setPulse(true);
-		if (pulseTimer.current) clearTimeout(pulseTimer.current);
-		pulseTimer.current = setTimeout(() => setPulse(false), 130);
-	}, [words.length]);
-
-	// (Re)start the auto-cycle; called on mount and after each manual advance
-	// so a click resets the countdown rather than letting it fire right after.
-	const restartTimer = useCallback(() => {
-		if (intervalRef.current) clearInterval(intervalRef.current);
-		if (!animate) return;
-		intervalRef.current = setInterval(advance, CYCLE_MS);
-	}, [advance, animate]);
+	const [cycle, advance] = useReducer(cycleReducer, {
+		index: 0,
+		hasAdvanced: false,
+		pulse: false,
+	});
 
 	useEffect(() => {
-		restartTimer();
-		return () => {
-			if (intervalRef.current) clearInterval(intervalRef.current);
-			if (pulseTimer.current) clearTimeout(pulseTimer.current);
-		};
-	}, [restartTimer]);
+		if (!animate) {
+			return;
+		}
 
-	const handleClick = useCallback(() => {
-		advance();
-		restartTimer();
-	}, [advance, restartTimer]);
+		const intervalId = setInterval(() => {
+			advance({ type: "advance", wordCount: words.length });
+		}, CYCLE_MS);
 
-	const word = words[index];
-	const { head, colors, endCursor } = useSweep(word, animate && hasAdvanced);
+		return () => clearInterval(intervalId);
+	}, [animate, cycle.index, words.length]);
+
+	useEffect(() => {
+		if (!cycle.pulse) {
+			return;
+		}
+
+		const pulseTimerId = setTimeout(() => advance({ type: "clear-pulse" }), 130);
+
+		return () => clearTimeout(pulseTimerId);
+	}, [cycle.pulse]);
+
+	const handleClick = () => advance({ type: "advance", wordCount: words.length });
+
+	const word = words[cycle.index];
+	const { head, colors, endCursor } = useSweep(word, animate && cycle.hasAdvanced);
 	const longest = words.reduce((a, b) => (b.length > a.length ? b : a), "");
-	const letters = [...word];
+	const letterCounts = new Map<string, number>();
+	const letters = [...word].map((ch) => {
+		const count = letterCounts.get(ch) ?? 0;
+		letterCounts.set(ch, count + 1);
+
+		return { ch, id: `${word}:${ch}:${count}` };
+	});
 
 	return (
 		<button
@@ -151,7 +213,7 @@ export function CyclingWord({ words, className }: CyclingWordProps) {
 			className={cn(
 				"relative inline-block cursor-pointer rounded-sm text-left align-baseline outline-none",
 				"transition-transform duration-150 ease-out",
-				pulse && "-translate-x-[3px]",
+				cycle.pulse && "-translate-x-[3px]",
 				"focus-visible:ring-2 focus-visible:ring-ring",
 				className,
 			)}
@@ -163,7 +225,7 @@ export function CyclingWord({ words, className }: CyclingWordProps) {
 
 			{/* Live word, overlaid on the sizer, left-aligned. */}
 			<span aria-hidden className="absolute inset-y-0 left-0 whitespace-nowrap">
-				{letters.map((ch, i) => {
+				{letters.map(({ ch, id }, i) => {
 					if (i === head) {
 						// Cursor: a color block sized to the real letter (kept
 						// invisible underneath) so following letters never shift.
@@ -182,7 +244,7 @@ export function CyclingWord({ words, className }: CyclingWordProps) {
 					// Right of it: un-revealed letters glowing a logo color.
 					const color = i < head ? undefined : colors[i];
 					return (
-						<span key={i} style={{ color }}>
+						<span key={id} style={{ color }}>
 							{ch}
 						</span>
 					);

@@ -77,6 +77,7 @@ export function WorkspacePdfPageControl({ documentId }: { documentId: string }) 
 				</label>
 				<input
 					id={`${documentId}-pdf-page-number`}
+					aria-label="Page number"
 					inputMode="numeric"
 					max={totalPages}
 					min={1}

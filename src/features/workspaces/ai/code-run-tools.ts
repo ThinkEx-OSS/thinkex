@@ -1,9 +1,22 @@
-import { getSandbox, type Sandbox } from "@cloudflare/sandbox";
+import {
+	getSandbox,
+	isPlatformTransientError,
+	type Sandbox,
+	type SandboxOptions,
+} from "@cloudflare/sandbox";
 import type { ToolSet } from "ai";
 import { tool } from "ai";
 import { z } from "zod";
 
 const COMPUTE_LANGUAGE = "python" as const;
+const COMPUTE_RUN_TIMEOUT_MS = 120_000;
+const AI_THREAD_SANDBOX_OPTIONS = {
+	sleepAfter: "30m",
+	containerTimeouts: {
+		instanceGetTimeoutMS: 60_000,
+		portReadyTimeoutMS: 180_000,
+	},
+} satisfies SandboxOptions;
 
 const codeRunInputSchema = z.object({
 	code: z.string().min(1).describe("Python code to execute in the private code sandbox."),
@@ -26,6 +39,14 @@ type CodeRunInput = z.output<typeof codeRunInputSchema>;
 
 type CodeRunResult = Awaited<ReturnType<Sandbox["runCode"]>>;
 type CodeRunResultItem = CodeRunResult["results"][number];
+type SerializedCodeRunError = {
+	name: string;
+	message: string;
+	traceback: string[];
+	line_number?: number;
+	code?: string;
+	retryable?: boolean;
+};
 
 export function createAIThreadCodeRunTools(input: {
 	env: Cloudflare.Env;
@@ -40,12 +61,22 @@ export function createAIThreadCodeRunTools(input: {
 			strict: true,
 			execute: async (args) => {
 				const { code } = args as CodeRunInput;
-				const sandbox = getSandbox(input.env.CODE_SANDBOX, input.sandboxId);
-				const result = await sandbox.runCode(code, {
-					language: COMPUTE_LANGUAGE,
-				});
 
-				return serializeCodeRunResult(result);
+				try {
+					const sandbox = getSandbox(
+						input.env.CODE_SANDBOX,
+						input.sandboxId,
+						AI_THREAD_SANDBOX_OPTIONS,
+					);
+					const result = await sandbox.runCode(code, {
+						language: COMPUTE_LANGUAGE,
+						timeout: COMPUTE_RUN_TIMEOUT_MS,
+					});
+
+					return serializeCodeRunResult(result);
+				} catch (error) {
+					return serializeCodeRunFailure(error);
+				}
 			},
 		}),
 	};
@@ -82,4 +113,49 @@ function serializeCodeRunResultItem(item: CodeRunResultItem) {
 		chart: item.chart,
 		data: item.data,
 	};
+}
+
+function serializeCodeRunFailure(error: unknown) {
+	const details = getCodeRunFailureDetails(error);
+
+	return {
+		language: COMPUTE_LANGUAGE,
+		logs: {
+			stdout: [],
+			stderr: [],
+		},
+		results: [],
+		error: {
+			name: details.name,
+			message: details.message,
+			traceback: details.traceback,
+			line_number: undefined,
+			code: details.code,
+			retryable: details.retryable,
+		},
+	};
+}
+
+function getCodeRunFailureDetails(error: unknown) {
+	if (error instanceof Error) {
+		return {
+			name: error.name || "SandboxError",
+			message: error.message,
+			traceback: [],
+			code: getSandboxErrorCode(error),
+			retryable: isPlatformTransientError(error),
+		} satisfies SerializedCodeRunError;
+	}
+
+	return {
+		name: "SandboxError",
+		message: "The private code sandbox failed before Python execution could start.",
+		traceback: [],
+		code: undefined,
+		retryable: false,
+	} satisfies SerializedCodeRunError;
+}
+
+function getSandboxErrorCode(error: Error) {
+	return "code" in error && typeof error.code === "string" ? error.code : undefined;
 }

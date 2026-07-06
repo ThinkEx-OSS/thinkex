@@ -1,4 +1,3 @@
-import type { FileUIPart, SourceDocumentUIPart } from "ai";
 import {
 	FileTextIcon,
 	GlobeIcon,
@@ -63,27 +62,6 @@ export function AiChatAttachmentItem({
 			<AiChatAttachmentRemoveAction data={data} onRemove={onRemove} />
 		</Attachment>
 	);
-}
-
-export function getFileAttachmentData(part: FileUIPart): FileAttachmentData {
-	return {
-		filename: part.filename,
-		id: getFileAttachmentId(part),
-		mediaType: part.mediaType,
-		status: "ready",
-		type: "file",
-		url: part.url,
-	};
-}
-
-export function getSourceDocumentAttachmentData(
-	part: SourceDocumentUIPart,
-): SourceDocumentUIPart & { id: string } {
-	return { ...part, id: part.sourceId };
-}
-
-function getFileAttachmentId(part: FileUIPart): string {
-	return part.url;
 }
 
 function isPreviewableImageAttachment(
@@ -168,7 +146,12 @@ function AiChatAttachmentMedia({ data }: { data: AttachmentData }) {
 		return (
 			<AttachmentMedia>
 				{/* Thumbnail-only tile — controls omitted intentionally (40 px square). */}
-				<video className="size-full object-cover" muted src={data.url} />
+				<video
+					aria-label={`Video preview: ${getAttachmentLabel(data)}`}
+					className="size-full object-cover"
+					muted
+					src={data.url}
+				/>
 			</AttachmentMedia>
 		);
 	}

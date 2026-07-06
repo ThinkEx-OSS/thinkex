@@ -37,6 +37,7 @@
 	},
 	"vars": {
 		"FIRECRAWL_API_URL": "https://api.firecrawl.dev",
+		"SANDBOX_TRANSPORT": "rpc",
 	},
 	"send_email": [
 		{
@@ -74,8 +75,7 @@
 		{
 			"class_name": "Sandbox",
 			"image": "./containers/sandbox/Dockerfile",
-			"instance_type": "lite",
-			"max_instances": 1,
+			"instance_type": "basic",
 		},
 		{
 			"class_name": "OfficePdfConverter",
@@ -165,6 +165,7 @@
 			// Provision dedicated staging resources before the first deploy.
 			"vars": {
 				"FIRECRAWL_API_URL": "https://api.firecrawl.dev",
+				"SANDBOX_TRANSPORT": "rpc",
 			},
 			"secrets": {
 				"required": [
@@ -215,8 +216,7 @@
 				{
 					"class_name": "Sandbox",
 					"image": "./containers/sandbox/Dockerfile",
-					"instance_type": "lite",
-					"max_instances": 1,
+					"instance_type": "basic",
 				},
 				{
 					"class_name": "OfficePdfConverter",
@@ -278,6 +278,7 @@
 			],
 			"vars": {
 				"FIRECRAWL_API_URL": "https://api.firecrawl.dev",
+				"SANDBOX_TRANSPORT": "rpc",
 			},
 			"secrets": {
 				"required": [
@@ -328,8 +329,7 @@
 				{
 					"class_name": "Sandbox",
 					"image": "./containers/sandbox/Dockerfile",
-					"instance_type": "lite",
-					"max_instances": 1,
+					"instance_type": "basic",
 				},
 				{
 					"class_name": "OfficePdfConverter",

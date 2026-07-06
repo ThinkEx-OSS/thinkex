@@ -3,9 +3,16 @@ import { eq } from "drizzle-orm";
 
 import { workspaces } from "#/db/schema";
 import { createDbContext } from "#/db/server";
-import { userAIAgentName } from "#/features/workspaces/agent-routes";
-import { transferUserAIThreadsOnAccountLink } from "#/features/workspaces/ai/user-ai-agents";
-import { getWorkspaceKernel } from "#/features/workspaces/kernel/workspace-kernel-access";
+import { userAIAgentName, workspaceKernelAgentName } from "#/features/workspaces/agent-routes";
+
+interface UserAIStoreLifecycleAgent {
+	mergeLinkedAnonymousUser(input: { anonymousUserId: string }): Promise<void>;
+	purgeForDeletion(): Promise<void>;
+}
+
+interface WorkspaceKernelLifecycleAgent {
+	purgeForDeletion(): Promise<void>;
+}
 
 async function listOwnedWorkspaceIds(userId: string) {
 	const dbContext = await createDbContext();
@@ -26,9 +33,7 @@ async function purgeUserAIStore(userId: string) {
 	const { env } = await import("cloudflare:workers");
 
 	try {
-		const store = getAgentByName(env[userAIAgentName], userId) as unknown as {
-			purgeForDeletion(): Promise<void>;
-		};
+		const store = getUserAIStoreLifecycleAgent(env, userId);
 		await store.purgeForDeletion();
 	} catch (error) {
 		console.warn("[DurableObjectLifecycle] UserAIStore purge failed", { userId, error });
@@ -44,13 +49,16 @@ export async function transferLinkedAccountResources(input: {
 	}
 
 	const { env } = await import("cloudflare:workers");
+	const store = getUserAIStoreLifecycleAgent(env, input.newUserId);
 
-	await transferUserAIThreadsOnAccountLink({ ...input, env });
+	await store.mergeLinkedAnonymousUser({ anonymousUserId: input.anonymousUserId });
 }
 
 export async function purgeWorkspaceResources(workspaceId: string) {
+	const { env } = await import("cloudflare:workers");
+
 	try {
-		const kernel = await getWorkspaceKernel(workspaceId);
+		const kernel = getWorkspaceKernelLifecycleAgent(env, workspaceId);
 		await kernel.purgeForDeletion();
 	} catch (error) {
 		console.warn("[DurableObjectLifecycle] WorkspaceKernel purge failed", { workspaceId, error });
@@ -64,4 +72,15 @@ export async function purgeUserAccountResources(userId: string) {
 		purgeUserAIStore(userId),
 		...ownedWorkspaceIds.map((workspaceId) => purgeWorkspaceResources(workspaceId)),
 	]);
+}
+
+function getUserAIStoreLifecycleAgent(env: Cloudflare.Env, userId: string) {
+	return getAgentByName(env[userAIAgentName], userId) as unknown as UserAIStoreLifecycleAgent;
+}
+
+function getWorkspaceKernelLifecycleAgent(env: Cloudflare.Env, workspaceId: string) {
+	return getAgentByName(
+		env[workspaceKernelAgentName],
+		workspaceId,
+	) as unknown as WorkspaceKernelLifecycleAgent;
 }

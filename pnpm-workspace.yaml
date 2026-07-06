@@ -3,6 +3,9 @@ packages:
 
 minimumReleaseAge: 1440
 minimumReleaseAgeStrict: true
+trustPolicy: no-downgrade
+trustPolicyExclude:
+  - semver@6.3.1
 
 overrides:
   vite: npm:@voidzero-dev/vite-plus-core@0.2.2

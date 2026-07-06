@@ -12,10 +12,6 @@ import type {
 	WorkspaceItemSummary,
 	WorkspacePage,
 } from "#/features/workspaces/contracts";
-import {
-	type ListWorkspaceKernelItemsResult,
-	listWorkspaceKernelPageItems,
-} from "#/features/workspaces/kernel/workspace-kernel-list";
 import type {
 	CreateWorkspaceKernelFileFromUploadArgs,
 	CreateWorkspaceKernelRelationArgs,
@@ -35,14 +31,6 @@ import {
 	assertCanMutateWorkspace,
 	assertCanReadWorkspace,
 } from "#/features/workspaces/server/permissions";
-
-export interface ListWorkspaceKernelItemsInput {
-	workspaceId: string;
-	userId: string;
-	path?: string;
-	recursive?: boolean;
-	limit?: number;
-}
 
 interface DeleteWorkspaceItemsResult {
 	itemIds: string[];
@@ -177,31 +165,6 @@ export async function getWorkspaceKernelPage(input: {
 			items: page.items,
 			revision: page.revision,
 		};
-	} finally {
-		await dbContext.dispose();
-	}
-}
-
-export async function listWorkspaceKernelItems({
-	workspaceId,
-	userId,
-	path = "/",
-	recursive = false,
-	limit,
-}: ListWorkspaceKernelItemsInput): Promise<ListWorkspaceKernelItemsResult> {
-	const dbContext = await createDbContext();
-
-	try {
-		await assertCanReadWorkspace(dbContext.db, { workspaceId, userId });
-		const kernel = await getWorkspaceKernel(workspaceId);
-		const page = await kernel.getPage();
-
-		return listWorkspaceKernelPageItems({
-			items: page.items,
-			path,
-			recursive,
-			limit,
-		});
 	} finally {
 		await dbContext.dispose();
 	}

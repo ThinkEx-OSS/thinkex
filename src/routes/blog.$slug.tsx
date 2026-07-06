@@ -55,5 +55,11 @@ export const Route = createFileRoute("/blog/$slug")({
 			],
 		};
 	},
-	component: () => <BlogPostPage post={Route.useLoaderData()} />,
+	component: BlogPostRoute,
 });
+
+function BlogPostRoute() {
+	const post = Route.useLoaderData();
+
+	return <BlogPostPage post={post} />;
+}

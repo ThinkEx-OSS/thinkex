@@ -16,7 +16,7 @@ import type { WorkspaceMenuRenderer } from "#/features/workspaces/components/wor
 
 export const workspaceDropdownMenuRenderer: WorkspaceMenuRenderer = {
 	item: ({ id, children, ...props }) => (
-		<DropdownMenuItem key={id} {...props}>
+		<DropdownMenuItem {...props} key={id}>
 			{children}
 		</DropdownMenuItem>
 	),
@@ -37,7 +37,7 @@ export const workspaceDropdownMenuRenderer: WorkspaceMenuRenderer = {
 
 export const workspaceContextMenuRenderer: WorkspaceMenuRenderer = {
 	item: ({ id, children, ...props }) => (
-		<ContextMenuItem key={id} {...props}>
+		<ContextMenuItem {...props} key={id}>
 			{children}
 		</ContextMenuItem>
 	),

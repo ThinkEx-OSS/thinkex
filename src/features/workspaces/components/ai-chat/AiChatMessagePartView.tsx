@@ -4,9 +4,11 @@ import { LinkIcon } from "lucide-react";
 import {
 	AiChatAttachmentGroup,
 	AiChatAttachmentItem,
+} from "#/features/workspaces/components/ai-chat/AiChatAttachmentItem";
+import {
 	getFileAttachmentData,
 	getSourceDocumentAttachmentData,
-} from "#/features/workspaces/components/ai-chat/AiChatAttachmentItem";
+} from "#/features/workspaces/components/ai-chat/ai-chat-attachments";
 import type { AiChatToolGroupPart } from "#/features/workspaces/components/ai-chat/ai-chat-display-state";
 import { AiChatMessageResponse } from "#/features/workspaces/components/ai-chat/AiChatMessageResponse";
 import { AiChatToolActivityRow } from "#/features/workspaces/components/ai-chat/AiChatToolActivityRow";

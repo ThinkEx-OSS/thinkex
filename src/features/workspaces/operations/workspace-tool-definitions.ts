@@ -196,5 +196,3 @@ export const workspaceToolDefinitions = [
 		},
 	}),
 ] as const;
-
-export type WorkspaceToolName = (typeof workspaceToolDefinitions)[number]["name"];
