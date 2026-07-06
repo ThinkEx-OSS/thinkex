@@ -87,9 +87,16 @@ export class WorkspaceKernelEventBus {
 
 			// The payload came from JSON.parse, so it is JSON by construction.
 			return { ...event, payload: event.payload as unknown as WorkspaceHistoryEvent["payload"] };
-		} catch {
+		} catch (error) {
 			// Malformed payloads must never break the history view; realtime sync
 			// keeps its strict parsing.
+			console.warn("[WorkspaceKernel] Unable to map history event payload", {
+				eventId: row.id,
+				revision: row.revision,
+				type: row.type,
+				error,
+			});
+
 			return {
 				id: row.id,
 				revision: row.revision,

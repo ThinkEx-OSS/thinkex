@@ -9,7 +9,7 @@ import {
 	Plus,
 	Trash2,
 } from "lucide-react";
-import type { ComponentType } from "react";
+import { type ComponentType, useMemo } from "react";
 
 import { Button } from "#/components/ui/button";
 import {
@@ -54,11 +54,15 @@ export function WorkspaceVersionHistoryDialog({
 		...getWorkspaceMembersQueryOptions(workspaceId),
 		enabled: open,
 	});
-	const actorNamesById = new Map(
-		(membersQuery.data ?? []).map((member) => [member.userId, member.name]),
+	const members = membersQuery.data;
+	const actorNamesById = useMemo(
+		() => (members ? new Map(members.map((member) => [member.userId, member.name])) : null),
+		[members],
 	);
-	const entries = mapWorkspaceHistoryEvents(
-		(historyQuery.data?.pages ?? []).flatMap((page) => page.events),
+	const historyPages = historyQuery.data?.pages;
+	const entries = useMemo(
+		() => mapWorkspaceHistoryEvents((historyPages ?? []).flatMap((page) => page.events)),
+		[historyPages],
 	);
 
 	return (
@@ -100,8 +104,14 @@ function useWorkspaceHistoryQuery(workspaceId: string, open: boolean) {
 	});
 }
 
-function resolveActorName(actorUserId: string | null, actorNamesById: Map<string, string>) {
+function resolveActorName(actorUserId: string | null, actorNamesById: Map<string, string> | null) {
 	if (actorUserId === null) {
+		return "Someone";
+	}
+
+	// Until the member list has loaded, stay neutral instead of wrongly
+	// labeling current members as former ones.
+	if (!actorNamesById) {
 		return "Someone";
 	}
 
