@@ -1,3 +1,5 @@
+import type { TurnContext } from "@cloudflare/think";
+
 import {
 	DEFAULT_WORKSPACE_AI_CHAT_MODEL_ID,
 	getWorkspaceAiChatModelById,
@@ -144,4 +146,118 @@ function getStandardTierRouteTarget(modelId: WorkspaceAiChatModelId) {
 	}
 
 	return model;
+}
+
+const EMPTY_WORKSPACE_AI_ROUTING_SIGNALS: WorkspaceAiRoutingSignals = {
+	attachmentCount: 0,
+	hasCodeSignals: false,
+	lastUserTextChars: 0,
+	messageCount: 0,
+	priorToolCallCount: 0,
+	totalTextChars: 0,
+	workspaceReferenceCount: 0,
+};
+
+// Lightweight markers that the user is doing code or data work. These bias
+// toward the tool-following model; misses simply keep the default route, so
+// the list favors precision over recall.
+const WORKSPACE_AI_CODE_SIGNAL_PATTERNS: readonly RegExp[] = [
+	/```/,
+	/\b(?:function|const|class |def |import |export |return|async|await)\b/,
+	/\b(?:SELECT|INSERT|UPDATE|DELETE)\b.+\b(?:FROM|INTO|SET|WHERE)\b/,
+	/\.(?:py|ts|tsx|js|jsx|json|csv|sql|sh|ya?ml)\b/i,
+	/\b(?:stack ?trace|traceback|regex|refactor|typescript|javascript|python)\b/i,
+];
+
+export function extractWorkspaceAiRoutingSignals(ctx: TurnContext): WorkspaceAiRoutingSignals {
+	try {
+		const messages: unknown[] = Array.isArray(ctx.messages) ? ctx.messages : [];
+		let attachmentCount = 0;
+		let priorToolCallCount = 0;
+		let totalTextChars = 0;
+		let lastUserText = "";
+
+		for (const message of messages) {
+			const record = asRecord(message);
+
+			if (!record) {
+				continue;
+			}
+
+			const text = getMessageText(record.content);
+			totalTextChars += text.length;
+
+			if (record.role === "user") {
+				attachmentCount += countParts(record.content, ["file", "image"]);
+				lastUserText = text;
+			} else if (record.role === "assistant") {
+				priorToolCallCount += countParts(record.content, ["tool-call"]);
+			}
+		}
+
+		return {
+			attachmentCount,
+			hasCodeSignals: WORKSPACE_AI_CODE_SIGNAL_PATTERNS.some((pattern) =>
+				pattern.test(lastUserText),
+			),
+			lastUserTextChars: lastUserText.length,
+			messageCount: messages.length,
+			priorToolCallCount,
+			totalTextChars,
+			workspaceReferenceCount: countWorkspaceReferences(ctx.body?.workspaceAiContext),
+		};
+	} catch {
+		// Routing signals are best-effort: a malformed turn falls back to the
+		// default route instead of failing the turn.
+		return EMPTY_WORKSPACE_AI_ROUTING_SIGNALS;
+	}
+}
+
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+	return typeof value === "object" && value !== null
+		? (value as Record<string, unknown>)
+		: undefined;
+}
+
+function getMessageText(content: unknown): string {
+	if (typeof content === "string") {
+		return content;
+	}
+
+	if (!Array.isArray(content)) {
+		return "";
+	}
+
+	return content
+		.map((part) => {
+			const record = asRecord(part);
+			return record?.type === "text" && typeof record.text === "string" ? record.text : "";
+		})
+		.join("");
+}
+
+function countParts(content: unknown, types: readonly string[]): number {
+	if (!Array.isArray(content)) {
+		return 0;
+	}
+
+	return content.filter((part) => {
+		const type = asRecord(part)?.type;
+		return typeof type === "string" && types.includes(type);
+	}).length;
+}
+
+function countWorkspaceReferences(workspaceAiContext: unknown): number {
+	const snapshot = asRecord(workspaceAiContext);
+
+	if (!snapshot) {
+		return 0;
+	}
+
+	const selectedItems = Array.isArray(snapshot.selectedItems) ? snapshot.selectedItems.length : 0;
+	const selectedQuotes = Array.isArray(snapshot.selectedQuotes)
+		? snapshot.selectedQuotes.length
+		: 0;
+
+	return selectedItems + selectedQuotes;
 }

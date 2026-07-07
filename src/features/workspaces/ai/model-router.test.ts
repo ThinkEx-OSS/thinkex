@@ -1,12 +1,25 @@
+import type { TurnContext } from "@cloudflare/think";
 import { describe, expect, it } from "vitest";
 
 import {
+	extractWorkspaceAiRoutingSignals,
 	routeWorkspaceAiAutoModel,
 	WORKSPACE_AI_AUTO_ROUTING_THRESHOLDS,
 	type WorkspaceAiAutoRoutingRule,
 	type WorkspaceAiRoutingSignals,
 } from "#/features/workspaces/ai/model-router";
 import type { WorkspaceAiChatModelId } from "#/features/workspaces/ai/models";
+
+function buildTurnContext(overrides: Partial<TurnContext> = {}): TurnContext {
+	return {
+		continuation: false,
+		messages: [],
+		model: "test-model",
+		system: "",
+		tools: {},
+		...overrides,
+	} as TurnContext;
+}
 
 function buildSignals(
 	overrides: Partial<WorkspaceAiRoutingSignals> = {},
@@ -168,6 +181,99 @@ describe("workspace AI auto model routing", () => {
 			gatewayModel: "moonshotai/kimi-k2.6",
 			modelId: "auto",
 			reason: "fallback-unavailable",
+		});
+	});
+});
+
+describe("workspace AI routing signal extraction", () => {
+	it("extracts text, attachment, and tool-call signals from turn messages", () => {
+		const signals = extractWorkspaceAiRoutingSignals(
+			buildTurnContext({
+				messages: [
+					{ role: "user", content: "Summarize this photo" },
+					{
+						role: "assistant",
+						content: [
+							{ type: "text", text: "Sure." },
+							{ type: "tool-call", toolCallId: "call-1", toolName: "compute", input: {} },
+						],
+					},
+					{
+						role: "user",
+						content: [
+							{ type: "text", text: "What about this one?" },
+							{ type: "image", image: "data:image/png;base64,AAAA" },
+							{ type: "file", data: "AAAA", mediaType: "image/png" },
+						],
+					},
+				],
+			} as Partial<TurnContext>),
+		);
+
+		expect(signals).toEqual({
+			attachmentCount: 2,
+			hasCodeSignals: false,
+			lastUserTextChars: "What about this one?".length,
+			messageCount: 3,
+			priorToolCallCount: 1,
+			totalTextChars: ("Summarize this photo" + "Sure." + "What about this one?").length,
+			workspaceReferenceCount: 0,
+		});
+	});
+
+	it("detects code signals in the latest user message", () => {
+		const signals = extractWorkspaceAiRoutingSignals(
+			buildTurnContext({
+				messages: [{ role: "user", content: "Fix this:\n```ts\nconst a = 1\n```" }],
+			} as Partial<TurnContext>),
+		);
+
+		expect(signals.hasCodeSignals).toBe(true);
+	});
+
+	it("counts workspace references from the request body", () => {
+		const signals = extractWorkspaceAiRoutingSignals(
+			buildTurnContext({
+				body: {
+					workspaceAiContext: {
+						selectedItems: [{ id: "a" }, { id: "b" }],
+						selectedQuotes: [{ text: "quoted" }],
+					},
+				},
+			}),
+		);
+
+		expect(signals.workspaceReferenceCount).toBe(3);
+	});
+
+	it("returns zero signals for missing or malformed turn data", () => {
+		expect(
+			extractWorkspaceAiRoutingSignals(
+				buildTurnContext({
+					body: { workspaceAiContext: "garbage" },
+					messages: [null, 42, { role: "user", content: { nested: true } }],
+				} as unknown as Partial<TurnContext>),
+			),
+		).toEqual({
+			attachmentCount: 0,
+			hasCodeSignals: false,
+			lastUserTextChars: 0,
+			messageCount: 3,
+			priorToolCallCount: 0,
+			totalTextChars: 0,
+			workspaceReferenceCount: 0,
+		});
+
+		expect(
+			extractWorkspaceAiRoutingSignals({ messages: undefined } as unknown as TurnContext),
+		).toEqual({
+			attachmentCount: 0,
+			hasCodeSignals: false,
+			lastUserTextChars: 0,
+			messageCount: 0,
+			priorToolCallCount: 0,
+			totalTextChars: 0,
+			workspaceReferenceCount: 0,
 		});
 	});
 });
