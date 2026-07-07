@@ -57,3 +57,6 @@ minimumReleaseAgeExclude:
   - "@voidzero-dev/vite-plus-win32-arm64-msvc@0.2.2"
   - "@voidzero-dev/vite-plus-win32-x64-msvc@0.2.2"
   - vite-plus@0.2.2
+
+patchedDependencies:
+  "@embedpdf/plugin-zoom@2.14.4": patches/@embedpdf__plugin-zoom@2.14.4.patch

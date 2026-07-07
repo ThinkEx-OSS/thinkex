@@ -1,0 +1,13 @@
+diff --git a/dist/react/index.js b/dist/react/index.js
+index 0b7c4488a543a94690e8f6674cbe70e1420b2d9b..aad0a28deee3f8e2a204d924d4452cf1d93349f6 100755
+--- a/dist/react/index.js
++++ b/dist/react/index.js
+@@ -185,7 +185,7 @@ function setupZoomGestures({
+     } else {
+       clearTimeout(wheelZoomTimeout);
+     }
+-    const zoomFactor = 1 - e.deltaY * 0.01;
++    const zoomFactor = Math.exp(-e.deltaY * 0.01);
+     accumulatedWheelScale *= zoomFactor;
+     accumulatedWheelScale = Math.max(0.1, Math.min(10, accumulatedWheelScale));
+     updateTransform(accumulatedWheelScale);
