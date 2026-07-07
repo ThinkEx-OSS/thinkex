@@ -12,7 +12,7 @@ import {
 } from "#/features/workspaces/ai/ai-tool-presentation";
 import { getFinishedToolReceipt } from "#/features/workspaces/components/ai-chat/ai-chat-tool-receipts";
 
-export type AssistantPendingKind = "thinking" | "recovering";
+export type AssistantPendingKind = "thinking" | "working" | "recovering";
 export interface AiChatToolChildActivity {
 	summary: string;
 	toolName: string;
@@ -75,14 +75,16 @@ export function deriveAiChatPresentation(
 	const hasAssistantTail = lastMessage?.role === "assistant";
 	const assistantTailIsEmpty =
 		lastMessage?.role === "assistant" && getDisplayableParts(lastMessage).length === 0;
+	const hasVisibleAssistantTail = hasAssistantTail && !assistantTailIsEmpty;
 	const tailPending = isRecovering
-		? hasAssistantTail && !assistantTailIsEmpty
-			? null
+		? hasVisibleAssistantTail
+			? "working"
 			: "recovering"
-		: !isToolContinuation &&
-			  (awaitingFirstToken || (isBusy && (!hasAssistantTail || assistantTailIsEmpty)))
-			? "thinking"
-			: null;
+		: !isBusy
+			? null
+			: awaitingFirstToken || !hasVisibleAssistantTail
+				? "thinking"
+				: "working";
 
 	return {
 		isBusy,

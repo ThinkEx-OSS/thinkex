@@ -8,6 +8,7 @@ export type AiChatToolPart = ToolUIPart | DynamicToolUIPart;
 export type AiChatModelId = WorkspaceAiChatModelId;
 
 export interface AiChatSendMessage {
+	id: string;
 	role: "user";
 	parts: AiChatMessagePart[];
 }

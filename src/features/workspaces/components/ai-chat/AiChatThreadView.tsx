@@ -1,4 +1,5 @@
-import { useEffect } from "react";
+import { generateId } from "ai";
+import { useEffect, useState } from "react";
 
 import type { PromptInputMessage } from "#/features/workspaces/components/ai-chat/ai-chat-prompt-input";
 import type { AIInspectorSnapshot } from "#/features/workspaces/ai/ai-inspector";
@@ -36,6 +37,7 @@ export default function AiChatThreadView({
 	threadId: string;
 }) {
 	const chat = useWorkspaceAiChat({ modelId, threadId });
+	const [sentMessageAnimationId, setSentMessageAnimationId] = useState<string | null>(null);
 	const {
 		connectionError,
 		error,
@@ -69,7 +71,7 @@ export default function AiChatThreadView({
 	});
 
 	const sendMessage = (message: PromptInputMessage) => {
-		const chatMessage = getChatMessageFromPrompt(message);
+		const chatMessage = getChatMessageFromPrompt(message, generateId());
 
 		if (!chatMessage) {
 			return false;
@@ -82,6 +84,7 @@ export default function AiChatThreadView({
 		});
 
 		if (didSend) {
+			setSentMessageAnimationId(chatMessage.id);
 			clearDraftArtifacts(context.workspaceId);
 		}
 
@@ -94,6 +97,7 @@ export default function AiChatThreadView({
 				assistantError={assistantError}
 				messages={messages}
 				presentation={presentation}
+				sentMessageAnimationId={sentMessageAnimationId}
 				workspaceId={context.workspaceId}
 				onRegenerateLastResponse={regenerate}
 			/>
@@ -118,7 +122,10 @@ export default function AiChatThreadView({
 	);
 }
 
-function getChatMessageFromPrompt(message: PromptInputMessage): AiChatSendMessage | null {
+function getChatMessageFromPrompt(
+	message: PromptInputMessage,
+	id: string,
+): AiChatSendMessage | null {
 	const trimmedText = message.text.trim();
 	const parts = [
 		...(trimmedText ? [{ type: "text" as const, text: trimmedText }] : []),
@@ -129,7 +136,7 @@ function getChatMessageFromPrompt(message: PromptInputMessage): AiChatSendMessag
 		return null;
 	}
 
-	return { role: "user", parts };
+	return { id, role: "user", parts };
 }
 
 function getAssistantErrorState(input: {

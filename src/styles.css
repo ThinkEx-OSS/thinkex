@@ -358,13 +358,46 @@
 	}
 
 	.thinkex-thinking-mark {
+		--thinkex-thinking-cycle: 2.2s;
 		overflow: visible;
 	}
 
 	.thinkex-thinking-block {
-		animation: thinkex-thinking-block 2.3s ease-in-out infinite both;
+		animation: thinkex-thinking-block-loop var(--thinkex-thinking-cycle) ease-in-out infinite both;
 		opacity: 0;
 		will-change: opacity;
+	}
+
+	.thinkex-thinking-block--red-left {
+		animation-delay: 840ms;
+	}
+
+	.thinkex-thinking-block--top-left {
+		animation-delay: 0ms;
+	}
+
+	.thinkex-thinking-block--top-middle {
+		animation-delay: 120ms;
+	}
+
+	.thinkex-thinking-block--top-right {
+		animation-delay: 240ms;
+	}
+
+	.thinkex-thinking-block--right-middle {
+		animation-delay: 360ms;
+	}
+
+	.thinkex-thinking-block--bottom-right {
+		animation-delay: 480ms;
+	}
+
+	.thinkex-thinking-block--center {
+		animation-delay: 600ms;
+	}
+
+	.thinkex-thinking-block--bottom-left {
+		animation-delay: 720ms;
 	}
 
 	@media (prefers-reduced-motion: reduce) {
@@ -390,27 +423,21 @@
 		}
 	}
 
-	@keyframes thinkex-thinking-block {
+	/* One traveling segment with a brief full-logo beat, then a quiet gap before the next loop. */
+	@keyframes thinkex-thinking-block-loop {
 		0% {
 			opacity: 0;
 		}
 
-		12% {
-			opacity: 0;
-		}
-
-		24% {
+		7% {
 			opacity: 1;
 		}
 
-		68% {
+		54% {
 			opacity: 1;
 		}
 
-		82% {
-			opacity: 0;
-		}
-
+		64%,
 		100% {
 			opacity: 0;
 		}
