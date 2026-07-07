@@ -228,6 +228,8 @@ export function createAIThreadClass(getUserAIStore: () => typeof UserAIStore) {
 			await this.telemetry.recordTurnStarted({
 				ctx,
 				modelId,
+				requestedModelId,
+				routingReason: route?.reason,
 				system,
 				thread,
 				tools: activeTools,

@@ -45,6 +45,8 @@ export class AIThreadInspectorRecorder {
 	async recordTurnStarted(input: {
 		ctx: TurnContext;
 		modelId: string;
+		requestedModelId: string;
+		routingReason?: string;
 		system: string;
 		thread: AIThreadContext;
 		tools: unknown;
@@ -56,6 +58,8 @@ export class AIThreadInspectorRecorder {
 			continuation: input.ctx.continuation,
 			messages: summarizeInspectorMessages(input.ctx.messages),
 			modelId: input.modelId,
+			requestedModelId: input.requestedModelId,
+			routingReason: input.routingReason,
 			system: input.system,
 			thread: input.thread,
 			tools: await summarizeInspectorTools(input.tools),

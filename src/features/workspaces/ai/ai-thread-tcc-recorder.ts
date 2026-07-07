@@ -78,6 +78,8 @@ export class AIThreadTccRecorder {
 		ctx: TurnContext;
 		env: Cloudflare.Env;
 		modelId: WorkspaceAiChatModelId;
+		requestedModelId: WorkspaceAiChatModelId;
+		routingReason?: string;
 		system: string;
 		thread: AIThreadContext;
 		tools?: unknown;
@@ -94,6 +96,8 @@ export class AIThreadTccRecorder {
 		const metadata = createTccMetadata({
 			gatewayModel,
 			modelId: input.modelId,
+			requestedModelId: input.requestedModelId,
+			routingReason: input.routingReason,
 			thread: input.thread,
 		});
 
@@ -454,6 +458,8 @@ function getTccApiKey(env: Cloudflare.Env) {
 function createTccMetadata(input: {
 	gatewayModel: string;
 	modelId: WorkspaceAiChatModelId;
+	requestedModelId: WorkspaceAiChatModelId;
+	routingReason?: string;
 	thread: AIThreadContext;
 }) {
 	return {
@@ -466,6 +472,8 @@ function createTccMetadata(input: {
 		gateway_model: input.gatewayModel,
 		model_id: input.modelId,
 		mutation_mode: input.thread.promptScope.canMutate ? "mutate" : "view",
+		requested_model_id: input.requestedModelId,
+		...(input.routingReason ? { routing_reason: input.routingReason } : {}),
 		workspace_id: input.thread.workspaceId,
 	} satisfies Record<string, string>;
 }
