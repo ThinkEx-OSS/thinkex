@@ -1,4 +1,5 @@
 export type AiToolVisibility = "hidden" | "visible";
+export type AiToolActivityIconKind = "code" | "edit" | "file" | "search" | "web";
 
 interface AiToolPresentation {
 	title?: string;
@@ -10,22 +11,22 @@ const defaultToolPresentation = {
 } as const satisfies AiToolPresentation;
 
 const aiToolPresentationByName: Readonly<Record<string, AiToolPresentation>> = {
-	compute: { title: "Computing", visibility: "visible" },
+	compute: { title: "Python", visibility: "visible" },
 	orchestrate: { title: "Working", visibility: "visible" },
-	research_deepen: { title: "Researching sources", visibility: "visible" },
-	research_discover: { title: "Researching sources", visibility: "visible" },
+	research_deepen: { title: "Research", visibility: "visible" },
+	research_discover: { title: "Research", visibility: "visible" },
 	sandbox_bash: { visibility: "hidden" },
-	web_links: { title: "Reading the web", visibility: "visible" },
-	web_markdown: { title: "Reading the web", visibility: "visible" },
-	web_search: { title: "Reading the web", visibility: "visible" },
-	workspace_create_items: { title: "Updating workspace", visibility: "visible" },
-	workspace_delete_items: { title: "Updating workspace", visibility: "visible" },
-	workspace_edit_item: { title: "Updating workspace", visibility: "visible" },
+	web_links: { title: "Web links", visibility: "visible" },
+	web_markdown: { title: "Web page", visibility: "visible" },
+	web_search: { title: "Web search", visibility: "visible" },
+	workspace_create_items: { title: "Workspace", visibility: "visible" },
+	workspace_delete_items: { title: "Workspace", visibility: "visible" },
+	workspace_edit_item: { title: "Workspace", visibility: "visible" },
 	workspace_link_items: { visibility: "hidden" },
-	workspace_list_items: { title: "Reading workspace", visibility: "visible" },
-	workspace_move_items: { title: "Updating workspace", visibility: "visible" },
-	workspace_read_items: { title: "Reading workspace", visibility: "visible" },
-	workspace_rename_item: { title: "Updating workspace", visibility: "visible" },
+	workspace_list_items: { title: "Workspace", visibility: "visible" },
+	workspace_move_items: { title: "Workspace", visibility: "visible" },
+	workspace_read_items: { title: "Workspace", visibility: "visible" },
+	workspace_rename_item: { title: "Workspace", visibility: "visible" },
 };
 
 export function getAiToolPresentation(toolName: string): AiToolPresentation {
@@ -44,6 +45,22 @@ export function getAiToolActivityTitle(input: { title?: string; toolName: string
 	}
 
 	return getAiToolPresentation(input.toolName).title ?? humanizeToolName(input.toolName);
+}
+
+export function getAiToolActivityIconKind(toolName: string): AiToolActivityIconKind {
+	if (toolName === "compute" || toolName === "orchestrate") {
+		return "code";
+	}
+
+	if (toolName.startsWith("web_") || toolName.startsWith("research_")) {
+		return toolName.includes("search") || toolName.includes("discover") ? "search" : "web";
+	}
+
+	if (toolName.startsWith("workspace_")) {
+		return toolName.includes("read") || toolName.includes("list") ? "file" : "edit";
+	}
+
+	return "web";
 }
 
 function humanizeToolName(value: string) {

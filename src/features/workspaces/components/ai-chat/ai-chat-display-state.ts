@@ -10,7 +10,10 @@ import {
 	getAiToolActivityTitle,
 	getAiToolPresentation,
 } from "#/features/workspaces/ai/ai-tool-presentation";
-import { getFinishedToolReceipt } from "#/features/workspaces/components/ai-chat/ai-chat-tool-receipts";
+import {
+	getFinishedToolReceipt,
+	getRunningToolReceipt,
+} from "#/features/workspaces/components/ai-chat/ai-chat-tool-receipts";
 
 export type AssistantPendingKind = "thinking" | "working" | "recovering";
 export interface AiChatToolChildActivity {
@@ -70,8 +73,8 @@ export function deriveAiChatPresentation(
 ): AiChatPresentation {
 	const lastMessage = messages.at(-1);
 	const lastAssistantMessageId = lastMessage?.role === "assistant" ? lastMessage.id : undefined;
-	const isBusy = isRecovering || isStreaming || isServerStreaming;
 	const awaitingFirstToken = status === "submitted" && !isToolContinuation;
+	const isBusy = isRecovering || isStreaming || isServerStreaming || status === "submitted";
 	const hasAssistantTail = lastMessage?.role === "assistant";
 	const assistantTailIsEmpty =
 		lastMessage?.role === "assistant" && getDisplayableParts(lastMessage).length === 0;
@@ -80,11 +83,13 @@ export function deriveAiChatPresentation(
 		? hasVisibleAssistantTail
 			? "working"
 			: "recovering"
-		: !isBusy
-			? null
-			: awaitingFirstToken || !hasVisibleAssistantTail
-				? "thinking"
-				: "working";
+		: awaitingFirstToken
+			? "thinking"
+			: !isBusy
+				? null
+				: !hasVisibleAssistantTail
+					? "thinking"
+					: "working";
 
 	return {
 		isBusy,
@@ -217,7 +222,7 @@ export function getToolActivityForPart(part: AiChatToolPart): AiChatToolActivity
 
 	const toolName = getToolPartName(part);
 	const title = getToolActivityTitle(part, toolName);
-	const receipt = getToolActivityReceipt(part, toolName, title);
+	const receipt = getToolActivityReceipt(part, toolName);
 
 	return {
 		children: [],
@@ -248,7 +253,6 @@ function getToolActivityTitle(part: AiChatToolPart, toolName: string) {
 function getToolActivityReceipt(
 	part: AiChatToolPart,
 	toolName: string,
-	title: string,
 ): { status: AiChatToolActivity["status"]; summary: string } {
 	switch (part.state) {
 		case "output-available":
@@ -269,7 +273,10 @@ function getToolActivityReceipt(
 		default:
 			return {
 				status: "running",
-				summary: title,
+				summary: getRunningToolReceipt({
+					toolInput: part.input,
+					toolName,
+				}).summary,
 			};
 	}
 }

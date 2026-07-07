@@ -1,6 +1,6 @@
 import type { ChatErrorClassification, ChatErrorContext } from "@cloudflare/think";
 import { AlertCircle, RotateCcw } from "lucide-react";
-import { motion, useReducedMotion } from "motion/react";
+import { LazyMotion, domAnimation, m, useReducedMotion } from "motion/react";
 import type { HTMLMotionProps } from "motion/react";
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
@@ -148,28 +148,30 @@ export default function AiChatMessageList({
 							aria-busy={isStreamActive}
 							className={aiChatMessageScrollerContentClassName}
 						>
-							{rows.map((row) => (
-								<AiChatMessageScrollerItem
-									key={row.key}
-									entryAnimation={
-										shouldReduceMotion
-											? null
-											: getAiChatRowEntryAnimation(row, sentMessageAnimationId)
-									}
-									enableLayoutMotion={!shouldReduceMotion}
-									messageId={getAiChatRowMessageId(row)}
-									scrollAnchor={isAiChatRowScrollAnchor(row)}
-								>
-									<AiChatListRowView
-										canRetry={Boolean(onRegenerateLastResponse)}
-										hasAssistantContent={hasAssistantContent}
-										lastAssistantMessageId={lastAssistantMessageId}
-										row={row}
-										status={status}
-										onRegenerateLastResponse={onRegenerateLastResponse}
-									/>
-								</AiChatMessageScrollerItem>
-							))}
+							<LazyMotion features={domAnimation}>
+								{rows.map((row) => (
+									<AiChatMessageScrollerItem
+										key={row.key}
+										entryAnimation={
+											shouldReduceMotion
+												? null
+												: getAiChatRowEntryAnimation(row, sentMessageAnimationId)
+										}
+										enableLayoutMotion={!shouldReduceMotion}
+										messageId={getAiChatRowMessageId(row)}
+										scrollAnchor={isAiChatRowScrollAnchor(row)}
+									>
+										<AiChatListRowView
+											canRetry={Boolean(onRegenerateLastResponse)}
+											hasAssistantContent={hasAssistantContent}
+											lastAssistantMessageId={lastAssistantMessageId}
+											row={row}
+											status={status}
+											onRegenerateLastResponse={onRegenerateLastResponse}
+										/>
+									</AiChatMessageScrollerItem>
+								))}
+							</LazyMotion>
 						</MessageScrollerContent>
 					</MessageScrollerViewport>
 					<MessageScrollerButton className={aiChatMessageScrollerButtonClassName} />
@@ -219,13 +221,13 @@ function AiChatMessageScrollerItem({
 
 	return (
 		<MessageScrollerItem messageId={messageId} scrollAnchor={scrollAnchor}>
-			<motion.div
+			<m.div
 				layout={enableLayoutMotion ? "position" : false}
 				className="min-w-0"
 				{...animationProps}
 			>
 				{children}
-			</motion.div>
+			</m.div>
 		</MessageScrollerItem>
 	);
 }
