@@ -32,6 +32,10 @@ import {
 	getWorkspaceAiLanguageModel,
 } from "#/features/workspaces/ai/ai-thread-runtime";
 import {
+	extractWorkspaceAiRoutingSignals,
+	routeWorkspaceAiAutoModel,
+} from "#/features/workspaces/ai/model-router";
+import {
 	DEFAULT_WORKSPACE_AI_CHAT_MODEL_ID,
 	getWorkspaceAiChatModel,
 	resolveWorkspaceAiChatModelId,
@@ -69,7 +73,11 @@ type AIThreadRunSettlement =
 	  };
 
 interface AIThreadUsageContext {
+	/** Model actually run and metered; equals requestedModelId unless Auto routed. */
 	modelId: WorkspaceAiChatModelId;
+	/** Model the user picked; "auto" when the router chose modelId. */
+	requestedModelId: WorkspaceAiChatModelId;
+	routingReason?: string;
 	thread: AIThreadContext;
 }
 
@@ -173,9 +181,14 @@ export function createAIThreadClass(getUserAIStore: () => typeof UserAIStore) {
 				void this.keepAliveWhile(() => this._maybeGenerateThreadTitle());
 			}
 
-			const modelId = resolveWorkspaceAiChatModelId(ctx.body?.modelId);
+			const requestedModelId = resolveWorkspaceAiChatModelId(ctx.body?.modelId);
+			const route = this._resolveAutoModelRoute(requestedModelId, ctx);
+			const modelId = route?.modelId ?? requestedModelId;
 
 			if (!ctx.continuation) {
+				// Enforcement is currently disabled inside this check. When it lands
+				// it must gate on the routed model's billing tier (modelId here), not
+				// the requested picker id, so Auto turns cannot dodge premium gating.
 				const access = await checkWorkspaceAiMessageAccess({
 					env: this.env,
 					modelId,
@@ -188,6 +201,8 @@ export function createAIThreadClass(getUserAIStore: () => typeof UserAIStore) {
 
 				this.activeUsageContext = {
 					modelId,
+					requestedModelId,
+					routingReason: route?.reason,
 					thread,
 				};
 			}
@@ -291,6 +306,39 @@ export function createAIThreadClass(getUserAIStore: () => typeof UserAIStore) {
 
 		getInspectorSnapshot(): AIInspectorSnapshot {
 			return this.telemetry.getInspectorSnapshot(this.name);
+		}
+
+		// Auto resolves to a concrete standard-tier model at turn time; every
+		// other picker id passes through untouched. Continuation turns reuse the
+		// id routed when the run started so a run never switches models
+		// mid-flight; if that state is gone (e.g. recovery), we route again from
+		// the current turn's signals.
+		private _resolveAutoModelRoute(
+			requestedModelId: WorkspaceAiChatModelId,
+			ctx: TurnContext,
+		): { modelId: WorkspaceAiChatModelId; reason: string } | undefined {
+			if (requestedModelId !== "auto") {
+				return undefined;
+			}
+
+			const activeContext = ctx.continuation ? this.activeUsageContext : undefined;
+
+			if (activeContext && activeContext.requestedModelId !== "auto") {
+				// The run started from an explicit picker choice; a continuation
+				// whose body lost the selection must not be re-routed.
+				return undefined;
+			}
+
+			if (activeContext) {
+				return {
+					modelId: activeContext.modelId,
+					reason: activeContext.routingReason ?? "turn-continuation",
+				};
+			}
+
+			const routed = routeWorkspaceAiAutoModel(extractWorkspaceAiRoutingSignals(ctx));
+
+			return { modelId: routed.modelId, reason: routed.reason };
 		}
 
 		private async _getThreadContext() {
