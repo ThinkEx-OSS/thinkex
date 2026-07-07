@@ -24,14 +24,15 @@ export const WORKSPACE_AI_CHAT_MODELS = [
 	{
 		id: "auto",
 		name: "Auto",
-		// ThinkEx's own "let us pick for you" option. For now "Auto" is Kimi K2.6
-		// under the hood until we build or adopt a real router; the slug can
-		// change without affecting the user-facing choice.
+		// ThinkEx's own "let us pick for you" option. Each turn is routed to a
+		// standard-tier model by the task router (see model-router.ts); this
+		// gateway slug is the router's default and fallback, and also serves
+		// non-chat paths (base model, compaction) that resolve the "auto" id.
 		gatewayModel: "moonshotai/kimi-k2.6",
 		provider: "auto",
-		tagline: "Picks a good fit for you",
+		tagline: "Picks a model per message",
 		description:
-			"ThinkEx picks the model for you. It stays quick for simple things and uses a stronger model when the task is harder.",
+			"ThinkEx picks a model for each message. Quick questions get a fast model, big documents and images get one that reads a lot, and harder tasks get a stronger one.",
 		bestFor: "Most tasks",
 		intelligence: 3,
 		speed: 3,
