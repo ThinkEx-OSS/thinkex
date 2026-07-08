@@ -4,15 +4,13 @@ import { useEffect, useState } from "react";
 import type { PromptInputMessage } from "#/features/workspaces/components/ai-chat/ai-chat-prompt-input";
 import type { AIInspectorSnapshot } from "#/features/workspaces/ai/ai-inspector";
 import type { AIThreadSummary } from "#/features/workspaces/ai/user-ai-agents";
-import AiChatMessageList, {
-	type AiChatAssistantErrorState,
-} from "#/features/workspaces/components/ai-chat/AiChatMessageList";
+import AiChatMessageList from "#/features/workspaces/components/ai-chat/AiChatMessageList";
 import AiChatPromptInput from "#/features/workspaces/components/ai-chat/AiChatPromptInput";
+import { deriveAiChatAssistantErrorState } from "#/features/workspaces/components/ai-chat/ai-chat-error-state";
 import { aiChatComposerRailClassName } from "#/features/workspaces/components/ai-chat/ai-chat-layout";
 import type {
 	AiChatModelId,
 	AiChatSendMessage,
-	AiChatStatus,
 } from "#/features/workspaces/components/ai-chat/types";
 import { useWorkspaceAiChat } from "#/features/workspaces/components/ai-chat/useWorkspaceAiChat";
 import type { WorkspaceAiContextScope } from "#/features/workspaces/model/workspace-ai-context";
@@ -40,7 +38,6 @@ export default function AiChatThreadView({
 	const [sentMessageAnimationId, setSentMessageAnimationId] = useState<string | null>(null);
 	const {
 		connectionError,
-		error,
 		inputStatus,
 		messages,
 		presentation,
@@ -63,9 +60,8 @@ export default function AiChatThreadView({
 		};
 	}, [onRecoveringChange, presentation.isRecovering]);
 
-	const assistantError = getAssistantErrorState({
+	const assistantError = deriveAiChatAssistantErrorState({
 		hasConnectionError: Boolean(connectionError),
-		hasLiveError: Boolean(error),
 		inputStatus,
 		threadSummary,
 	});
@@ -137,39 +133,4 @@ function getChatMessageFromPrompt(
 	}
 
 	return { id, role: "user", parts };
-}
-
-function getAssistantErrorState(input: {
-	hasConnectionError: boolean;
-	hasLiveError: boolean;
-	inputStatus: AiChatStatus;
-	threadSummary?: AIThreadSummary;
-}): AiChatAssistantErrorState | null {
-	if (input.inputStatus !== "ready") {
-		return null;
-	}
-
-	if (input.hasConnectionError) {
-		return {
-			kind: "connection",
-		};
-	}
-
-	if (input.hasLiveError) {
-		return {
-			classification: input.threadSummary?.lastErrorClassification,
-			kind: "assistant",
-			stage: input.threadSummary?.lastErrorStage,
-		};
-	}
-
-	if (input.threadSummary?.lastRunResult === "error") {
-		return {
-			classification: input.threadSummary.lastErrorClassification,
-			kind: "assistant",
-			stage: input.threadSummary.lastErrorStage,
-		};
-	}
-
-	return null;
 }

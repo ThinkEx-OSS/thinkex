@@ -20,6 +20,8 @@ interface UseWorkspaceAiChatOptions {
 	threadId: string;
 }
 
+const AI_CHAT_RENDER_THROTTLE_MS = 100;
+
 export function useWorkspaceAiChat({ modelId, threadId }: UseWorkspaceAiChatOptions) {
 	const agent = useAgent({
 		agent: userAIAgentName,
@@ -32,11 +34,11 @@ export function useWorkspaceAiChat({ modelId, threadId }: UseWorkspaceAiChatOpti
 			modelId,
 			timeZone: getClientTimeZone(),
 		}),
+		experimental_throttle: AI_CHAT_RENDER_THROTTLE_MS,
 	});
 	const {
 		clearError,
 		connectionError,
-		error,
 		isRecovering,
 		isServerStreaming,
 		isStreaming,
@@ -85,7 +87,6 @@ export function useWorkspaceAiChat({ modelId, threadId }: UseWorkspaceAiChatOpti
 
 	return {
 		connectionError,
-		error,
 		inputStatus,
 		messages,
 		presentation,
