@@ -8,6 +8,9 @@ overrides:
   vite: npm:@voidzero-dev/vite-plus-core@0.2.2
   vitest: 4.1.9
 
+patchedDependencies:
+  '@embedpdf/plugin-zoom@2.14.4': 0510267c484dfeaac9d1f5321c6991b3d8103d39e26182e94e2838e2e9867a39
+
 importers:
 
   .:
@@ -104,7 +107,7 @@ importers:
         version: 2.14.4(@embedpdf/core@2.14.4(preact@10.29.2)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(svelte@5.56.3(@typescript-eslint/types@8.61.1))(vue@3.5.38(typescript@6.0.3)))(preact@10.29.2)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(svelte@5.56.3(@typescript-eslint/types@8.61.1))(vue@3.5.38(typescript@6.0.3))
       '@embedpdf/plugin-zoom':
         specifier: ^2.14.4
-        version: 2.14.4(bcf63ab56c515258ce407a3684f47512)
+        version: 2.14.4(patch_hash=0510267c484dfeaac9d1f5321c6991b3d8103d39e26182e94e2838e2e9867a39)(bcf63ab56c515258ce407a3684f47512)
       '@fontsource-variable/geist':
         specifier: 5.2.9
         version: 5.2.9
@@ -9637,7 +9640,7 @@ snapshots:
       svelte: 5.56.3(@typescript-eslint/types@8.61.1)
       vue: 3.5.38(typescript@6.0.3)
 
-  '@embedpdf/plugin-zoom@2.14.4(bcf63ab56c515258ce407a3684f47512)':
+  '@embedpdf/plugin-zoom@2.14.4(patch_hash=0510267c484dfeaac9d1f5321c6991b3d8103d39e26182e94e2838e2e9867a39)(bcf63ab56c515258ce407a3684f47512)':
     dependencies:
       '@embedpdf/core': 2.14.4(preact@10.29.2)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(svelte@5.56.3(@typescript-eslint/types@8.61.1))(vue@3.5.38(typescript@6.0.3))
       '@embedpdf/models': 2.14.4
