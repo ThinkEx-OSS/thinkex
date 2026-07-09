@@ -15,6 +15,7 @@ import {
 	normalizeCodeLanguage,
 	type SupportedCodeLanguage,
 } from "#/features/workspaces/documents/code-block-shiki/highlighter";
+import { AiChatMermaidDiagram } from "#/features/workspaces/components/ai-chat/AiChatMermaidDiagram";
 import { cn } from "#/lib/utils.ts";
 
 export {
@@ -386,9 +387,14 @@ export const MarkdownCodeBlock = ({
 
 	const rawLanguage =
 		getLanguageFromClassName(className) ?? getLanguageFromClassName(node?.properties?.className);
+	const code = getTextContent(children).replace(/\n$/, "");
+
+	if (rawLanguage?.toLowerCase() === "mermaid") {
+		return <AiChatMermaidDiagram source={code} />;
+	}
+
 	const language = normalizeChatCodeLanguage(rawLanguage);
 	const label = language === "text" ? (rawLanguage ?? "text") : getCodeLanguageLabel(language);
-	const code = getTextContent(children).replace(/\n$/, "");
 
 	return (
 		<CodeBlock className="my-4" code={code} language={language} showLineNumbers {...props}>

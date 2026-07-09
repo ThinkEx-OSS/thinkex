@@ -117,6 +117,7 @@
 		"katex": "^0.17.0",
 		"lucide-react": "^1.23.0",
 		"matter-js": "^0.20.0",
+		"mermaid": "11.15.0",
 		"motion": "^12.42.2",
 		"nanoid": "^5.1.16",
 		"papaparse": "^5.5.4",
