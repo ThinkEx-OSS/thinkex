@@ -14,18 +14,16 @@ import type { MessageScrollerRefs } from "./use-message-scroller-refs";
 // live apart from the policy that decides when to run them. Each command resolves
 // a target scrollTop and returns false when the viewport is not mounted yet.
 function useMessageScrollerCommands({
-	anchorScrollBehavior = "auto",
 	refs,
 	commitScrollState,
 	scheduleStateCommit,
 }: {
-	anchorScrollBehavior?: ScrollBehavior;
 	refs: MessageScrollerRefs;
 	commitScrollState: () => void;
 	scheduleStateCommit: () => void;
 }) {
 	const {
-		streamingTurnRef,
+		anchoredMessageRef,
 		autoScrollRef,
 		autoscrollingRef,
 		autoscrollingTimeoutRef,
@@ -130,13 +128,13 @@ function useMessageScrollerCommands({
 			}
 
 			setTailSpacerHeight(0);
-			streamingTurnRef.current = null;
+			anchoredMessageRef.current = null;
 			modeRef.current = "free-scrolling";
 			scrollToPosition(0, { behavior });
 
 			return true;
 		},
-		[modeRef, scrollToPosition, setTailSpacerHeight, streamingTurnRef, viewportRef],
+		[anchoredMessageRef, modeRef, scrollToPosition, setTailSpacerHeight, viewportRef],
 	);
 
 	const scrollToEnd = React.useCallback(
@@ -148,7 +146,7 @@ function useMessageScrollerCommands({
 			}
 
 			setTailSpacerHeight(0);
-			streamingTurnRef.current = null;
+			anchoredMessageRef.current = null;
 			modeRef.current = autoScrollRef.current ? "following-bottom" : "free-scrolling";
 			scrollToPosition(getMaxScrollTop(viewport), {
 				autoscrolling: behavior === "smooth",
@@ -157,7 +155,14 @@ function useMessageScrollerCommands({
 
 			return true;
 		},
-		[autoScrollRef, modeRef, scrollToPosition, setTailSpacerHeight, streamingTurnRef, viewportRef],
+		[
+			anchoredMessageRef,
+			autoScrollRef,
+			modeRef,
+			scrollToPosition,
+			setTailSpacerHeight,
+			viewportRef,
+		],
 	);
 
 	const scrollToElement = React.useCallback(
@@ -207,13 +212,14 @@ function useMessageScrollerCommands({
 			};
 
 			modeRef.current = keepPreviousPeek ? "anchored-to-message" : "settling-jump";
-			streamingTurnRef.current = keepPreviousPeek ? element : null;
+			anchoredMessageRef.current = keepPreviousPeek ? { behavior, element } : null;
 
 			scrollToPosition(scrollTop, { behavior });
 
 			return true;
 		},
 		[
+			anchoredMessageRef,
 			contentRef,
 			modeRef,
 			prependRestoreRef,
@@ -222,26 +228,25 @@ function useMessageScrollerCommands({
 			scrollToPosition,
 			setTailSpacerHeight,
 			spacerRef,
-			streamingTurnRef,
 			viewportRef,
 		],
 	);
 
 	const reanchorToAnchoredMessage = React.useCallback(() => {
-		const element = streamingTurnRef.current;
+		const anchor = anchoredMessageRef.current;
 
-		if (!element || !element.isConnected || modeRef.current !== "anchored-to-message") {
+		if (!anchor || !anchor.element.isConnected || modeRef.current !== "anchored-to-message") {
 			return false;
 		}
 
 		// Re-run the placement so the tail spacer is recomputed for the new content
 		// height and the turn is held at the reading line.
 		return scrollToElement(
-			element,
-			{ align: "start", behavior: anchorScrollBehavior },
+			anchor.element,
+			{ align: "start", behavior: anchor.behavior },
 			{ keepPreviousPeek: true },
 		);
-	}, [anchorScrollBehavior, modeRef, scrollToElement, streamingTurnRef]);
+	}, [anchoredMessageRef, modeRef, scrollToElement]);
 
 	return {
 		reanchorToAnchoredMessage,

@@ -4,14 +4,19 @@ import { areScrollStatesEqual, createMessageScrollerStore } from "./stores";
 import { EMPTY_MESSAGE_SCROLLER_SCROLLABLE } from "./types";
 import type { MessageScrollerMode, MessageScrollerScrollable, MessageScrollerStore } from "./types";
 
+type AnchoredMessage = {
+	behavior: ScrollBehavior;
+	element: HTMLElement;
+};
+
 // Shared mutable ref bag for one MessageScroller, closed over by both the
 // controller and the commands so writes are visible across them without prop
 // threading. stateStore fans scrollability changes out to the button.
 type MessageScrollerRefs = {
+	anchoredMessageRef: React.RefObject<AnchoredMessage | null>;
 	autoScrollRef: React.RefObject<boolean>;
 	autoscrollingRef: React.RefObject<boolean>;
 	autoscrollingTimeoutRef: React.RefObject<number | null>;
-	streamingTurnRef: React.RefObject<HTMLElement | null>;
 	contentRef: React.RefObject<HTMLDivElement | null>;
 	defaultScrollPositionAppliedRef: React.RefObject<boolean>;
 	firstItemRef: React.RefObject<HTMLElement | null>;
@@ -47,6 +52,9 @@ function useMessageScrollerRefs({
 	scrollMargin: number;
 	scrollPreviousItemPeek: number;
 }): MessageScrollerRefs {
+	// The message held at the reading line, together with the transition chosen
+	// when it became the active anchor.
+	const anchoredMessageRef = React.useRef<AnchoredMessage | null>(null);
 	const autoScrollRef = React.useRef(autoScroll);
 	const autoscrollingRef = React.useRef(false);
 	const contentRef = React.useRef<HTMLDivElement | null>(null);
@@ -63,9 +71,6 @@ function useMessageScrollerRefs({
 		element: HTMLElement;
 		viewportTop: number;
 	} | null>(null);
-	// The turn held at the reading line so a reply streaming in below it can re-pin
-	// it instead of letting scrollTop clamp it loose.
-	const streamingTurnRef = React.useRef<HTMLElement | null>(null);
 	const scrollPreviousItemPeekRef = React.useRef(scrollPreviousItemPeek);
 	const preserveScrollOnPrependRef = React.useRef(true);
 	const rootRef = React.useRef<HTMLDivElement | null>(null);
@@ -90,10 +95,10 @@ function useMessageScrollerRefs({
 	}, [autoScroll, scrollEdgeThreshold, scrollMargin, scrollPreviousItemPeek]);
 
 	return {
+		anchoredMessageRef,
 		autoScrollRef,
 		autoscrollingRef,
 		autoscrollingTimeoutRef,
-		streamingTurnRef,
 		contentRef,
 		defaultScrollPositionAppliedRef,
 		firstItemRef,
