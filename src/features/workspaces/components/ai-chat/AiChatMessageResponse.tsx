@@ -4,6 +4,7 @@ import type { ComponentProps } from "react";
 import { Streamdown, type StreamdownProps } from "streamdown";
 import "katex/dist/katex.min.css";
 import { MarkdownCodeBlock } from "#/features/workspaces/components/ai-chat/ai-chat-code-block";
+import { cn } from "#/lib/utils";
 
 type AiChatMessageResponseProps = ComponentProps<typeof Streamdown> & {
 	isStreaming?: boolean;
@@ -32,7 +33,7 @@ export function AiChatMessageResponse({
 	return (
 		<Streamdown
 			animated={streamdownAnimation}
-			className={className}
+			className={cn("[&>ol]:pl-2 [&>ul]:pl-2", className)}
 			components={{ ...streamdownComponents, ...components }}
 			isAnimating={isStreaming}
 			linkSafety={{ enabled: false }}
