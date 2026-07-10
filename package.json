@@ -102,7 +102,7 @@
 		"@tiptap/extension-underline": "^3.27.1",
 		"@tiptap/markdown": "^3.27.1",
 		"@tiptap/pm": "^3.27.1",
-		"@tiptap/react": "^3.27.1",
+		"@tiptap/react": "^3.27.3",
 		"@tiptap/starter-kit": "^3.27.1",
 		"@tiptap/y-tiptap": "^3.0.6",
 		"agents": "^0.17.3",
