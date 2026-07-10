@@ -79,13 +79,6 @@ export function createAIThreadClass(getUserAIStore: () => typeof UserAIStore) {
 			noProgressTimeoutMs: AI_THREAD_CHAT_RECOVERY_NO_PROGRESS_TIMEOUT_MS,
 			terminalMessage: AI_THREAD_CHAT_RECOVERY_TERMINAL_MESSAGE,
 			onExhausted: (ctx: ChatRecoveryExhaustedContext) => {
-				console.warn("[AIThread] Chat recovery exhausted", {
-					incidentId: ctx.incidentId,
-					reason: ctx.reason,
-					recoveryKind: ctx.recoveryKind,
-					requestId: ctx.requestId,
-				});
-
 				return this.keepAliveWhile(() => this._handleChatRecoveryExhausted(ctx));
 			},
 		} satisfies Exclude<ChatRecoveryConfig, boolean>;
@@ -137,7 +130,6 @@ export function createAIThreadClass(getUserAIStore: () => typeof UserAIStore) {
 				)
 				.compactAfter(100_000)
 				.onCompactionError((error) => {
-					console.warn("[AIThread] Session compaction failed", error);
 					void this.keepAliveWhile(() =>
 						this._recordAuxiliaryError({
 							error,
@@ -470,7 +462,6 @@ export function createAIThreadClass(getUserAIStore: () => typeof UserAIStore) {
 
 				await directory.recordGeneratedThreadTitle(this.name, titleResult?.title);
 			} catch (error) {
-				console.warn("[AIThread] Failed to generate title", error);
 				await this._recordAuxiliaryError({
 					error,
 					feature: "thread-title",
@@ -488,7 +479,6 @@ export function createAIThreadClass(getUserAIStore: () => typeof UserAIStore) {
 			try {
 				await this.session.refreshSystemPrompt();
 			} catch (error) {
-				console.warn("[AIThread] Failed to refresh session prompt", error);
 				await this._recordAuxiliaryError({
 					error,
 					feature: "session-prompt-refresh",
