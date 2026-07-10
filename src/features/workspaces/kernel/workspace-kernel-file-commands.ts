@@ -86,12 +86,6 @@ export class WorkspaceKernelFileCommands {
 		const now = Date.now();
 		const itemId = crypto.randomUUID();
 		const requestedName = normalizeWorkspaceUploadFileName(input.fileName, descriptor);
-		const name = this.store.resolveItemName({
-			itemId,
-			type: "file",
-			parentId,
-			requestedName,
-		});
 		const shellPath = getWorkspaceKernelFileShellPath({
 			itemId,
 			extension: getWorkspaceFileShellExtension({
@@ -110,6 +104,19 @@ export class WorkspaceKernelFileCommands {
 
 		await this.workspace.writeFileBytes(shellPath, bytes, contentType);
 		await this.r2.delete(input.objectKey);
+
+		// Resolve the collision-free name and INSERT in the same synchronous turn.
+		// The workspace kernel is a Durable Object, so concurrent uploads only
+		// interleave at `await` points; keeping name resolution and the insert
+		// adjacent (no `await` between them) prevents two simultaneous uploads of
+		// the same filename from both resolving to the same name and colliding on
+		// the partial unique index (kernel_items.name). See resolveItemName below.
+		const name = this.store.resolveItemName({
+			itemId,
+			type: "file",
+			parentId,
+			requestedName,
+		});
 
 		this.sql`
 			INSERT INTO kernel_items (
