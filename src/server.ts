@@ -3,8 +3,9 @@ import handler from "@tanstack/react-start/server-entry";
 import { routeUserAIRequest } from "#/features/workspaces/ai/auth";
 import { routeDocumentSessionRequest } from "#/features/workspaces/documents/document-session-auth";
 import { routeWorkspaceKernelRequest } from "#/features/workspaces/kernel/workspace-kernel-auth";
+import { recordOperationalFailure } from "#/integrations/observability/operational-events";
 import { posthogHost, posthogHostOrigin, posthogProjectToken } from "#/integrations/posthog/config";
-import { capturePostHogServerException } from "#/integrations/posthog/server";
+import { getTelemetryRequestDetails } from "#/integrations/posthog/server-context";
 
 export { CodemodeRuntime } from "@cloudflare/codemode";
 export { Sandbox } from "@cloudflare/sandbox";
@@ -126,20 +127,13 @@ export default {
 
 			return withSecurityHeaders(workspaceKernelResponse ?? (await handler.fetch(request)));
 		} catch (error) {
-			const url = new URL(request.url);
-
-			capturePostHogServerException({
+			recordOperationalFailure({
 				error,
-				properties: {
+				event: "worker_request",
+				fields: {
 					handled_by: "worker.fetch",
 				},
-				request: {
-					headers: request.headers,
-					method: request.method,
-					path: url.pathname,
-					source: "worker.fetch",
-					url: request.url,
-				},
+				request: getTelemetryRequestDetails(request, "worker.fetch"),
 			});
 
 			throw error;

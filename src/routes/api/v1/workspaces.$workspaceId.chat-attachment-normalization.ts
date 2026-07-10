@@ -14,7 +14,7 @@ import {
 	assertCanReadWorkspace,
 	WorkspaceForbiddenError,
 } from "#/features/workspaces/server/permissions";
-import { apiError, getRequestId } from "#/lib/api/http";
+import { apiError, apiFailure, getRequestId } from "#/lib/api/http";
 import { getSessionFromRequest } from "#/lib/auth-queries.server";
 import { fileMatchesAccept } from "#/lib/file-accept";
 
@@ -103,18 +103,26 @@ async function handleWorkspaceChatAttachmentNormalization(request: Request, work
 		}
 
 		if (error instanceof WorkspaceFileConversionError) {
-			return apiError(requestId, 422, "CONVERSION_FAILED", error.userMessage, {
-				message: error.message,
+			return apiFailure({
+				cause: error,
+				code: "CONVERSION_FAILED",
+				fields: { workspace_id: workspaceId },
+				message: error.userMessage,
+				request,
+				requestId,
+				status: 422,
 			});
 		}
 
-		return apiError(
+		return apiFailure({
+			cause: error,
+			code: "ATTACHMENT_NORMALIZATION_FAILED",
+			fields: { workspace_id: workspaceId },
+			message: "Unable to prepare this attachment right now.",
+			request,
 			requestId,
-			500,
-			"ATTACHMENT_NORMALIZATION_FAILED",
-			"Unable to prepare this attachment right now.",
-			error instanceof Error ? { message: error.message } : undefined,
-		);
+			status: 500,
+		});
 	}
 }
 

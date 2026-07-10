@@ -5,7 +5,7 @@ import {
 	createAccountAccessContext,
 } from "#/features/workspaces/operations/account-access-context";
 import { listAccountWorkspacesOperation } from "#/features/workspaces/operations/list-workspaces";
-import { apiError, apiJson, getRequestId } from "#/lib/api/http";
+import { apiError, apiFailure, apiJson, getRequestId } from "#/lib/api/http";
 import { getAuthenticatedRequestUser } from "#/lib/auth-queries.server";
 
 async function handleListWorkspaces(request: Request) {
@@ -26,13 +26,14 @@ async function handleListWorkspaces(request: Request) {
 		);
 		return apiJson(result, requestId);
 	} catch (error) {
-		return apiError(
+		return apiFailure({
+			cause: error,
+			code: "INTERNAL_ERROR",
+			message: "Unable to load workspaces right now.",
+			request,
 			requestId,
-			500,
-			"INTERNAL_ERROR",
-			"Unable to load workspaces right now.",
-			error instanceof Error ? { message: error.message } : undefined,
-		);
+			status: 500,
+		});
 	}
 }
 

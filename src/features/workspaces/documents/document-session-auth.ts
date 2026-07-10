@@ -5,6 +5,8 @@ import {
 	isDocumentSessionRequestPath,
 } from "#/features/workspaces/agent-routes";
 import { canReadWorkspace, WorkspaceAuthError } from "#/features/workspaces/server/permissions";
+import { recordOperationalFailure } from "#/integrations/observability/operational-events";
+import { getTelemetryRequestDetails } from "#/integrations/posthog/server-context";
 import { getSessionFromRequest } from "#/lib/auth-queries.server";
 
 export async function routeDocumentSessionRequest(request: Request, env: Env) {
@@ -50,7 +52,15 @@ export async function routeDocumentSessionRequest(request: Request, env: Env) {
 			return new Response("Unauthorized", { status: 401 });
 		}
 
-		console.error("Document session auth failed", error);
+		recordOperationalFailure({
+			error,
+			event: "document_session_route",
+			fields: {
+				status_code: 503,
+				workspace_id: params.workspaceId,
+			},
+			request: getTelemetryRequestDetails(request, "document_session_route"),
+		});
 		return new Response("Document session unavailable", { status: 503 });
 	}
 }

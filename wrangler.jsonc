@@ -6,6 +6,9 @@
 	"compatibility_date": "2026-03-24",
 	"compatibility_flags": ["nodejs_compat"],
 	"main": "src/server.ts",
+	"version_metadata": {
+		"binding": "CF_VERSION_METADATA",
+	},
 	"workers_dev": true,
 	"preview_urls": true,
 	"observability": {
@@ -156,6 +159,9 @@
 	"env": {
 		"staging": {
 			"name": "thinkex-staging",
+			"version_metadata": {
+				"binding": "CF_VERSION_METADATA",
+			},
 			"routes": [
 				{
 					"pattern": "staging.thinkex.app",
@@ -270,6 +276,9 @@
 		},
 		"production": {
 			"name": "thinkex",
+			"version_metadata": {
+				"binding": "CF_VERSION_METADATA",
+			},
 			"routes": [
 				{
 					"pattern": "thinkex.app",

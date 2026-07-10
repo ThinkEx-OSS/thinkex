@@ -14,18 +14,22 @@ export function schedulePostHogCapture({
 	task,
 }: SchedulePostHogCaptureInput) {
 	const handledTask = task.catch((error) => {
-		console.error("PostHog capture failed.", {
+		console.error({
+			event: "posthog_delivery",
+			outcome: "error",
 			...context,
-			error,
+			error_type: error instanceof Error ? error.name : "UnknownError",
 		});
 	});
 
 	try {
 		schedule(handledTask);
 	} catch (error) {
-		console.warn("PostHog capture could not be scheduled.", {
+		console.warn({
+			event: "posthog_scheduling",
+			outcome: "error",
 			...context,
-			error,
+			error_type: error instanceof Error ? error.name : "UnknownError",
 		});
 		void handledTask;
 	}

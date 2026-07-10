@@ -22,7 +22,7 @@ import {
 	type WorkspaceUploadPlan,
 } from "#/features/workspaces/upload/workspace-upload-intake";
 import { prepareWorkspaceFileUpload } from "#/features/workspaces/upload/workspace-file-upload-normalization";
-import { apiError, apiJson, getRequestId } from "#/lib/api/http";
+import { apiError, apiFailure, apiJson, getRequestId } from "#/lib/api/http";
 import { getSessionFromRequest } from "#/lib/auth-queries.server";
 
 const fileFormKey = "file";
@@ -129,19 +129,13 @@ async function handleWorkspaceFileUpload(request: Request, workspaceId: string) 
 				descriptor: upload.descriptor,
 			}) === "markdown_extraction"
 		) {
-			try {
-				await requestWorkspaceFileExtraction({
-					workspaceId,
-					itemId: command.result.id,
-					actorUserId: session.user.id,
-					assetKind: upload.descriptor.assetKind,
-				});
-			} catch (error) {
-				console.warn(
-					"[WorkspaceFileUpload] Uploaded file, but extraction could not be queued",
-					error,
-				);
-			}
+			await requestWorkspaceFileExtraction({
+				workspaceId,
+				itemId: command.result.id,
+				actorUserId: session.user.id,
+				assetKind: upload.descriptor.assetKind,
+				requestId,
+			});
 		}
 
 		return apiJson(command, requestId);
@@ -160,18 +154,26 @@ async function handleWorkspaceFileUpload(request: Request, workspaceId: string) 
 		}
 
 		if (error instanceof WorkspaceFileConversionError) {
-			return apiError(requestId, 422, "CONVERSION_FAILED", error.userMessage, {
-				message: error.message,
+			return apiFailure({
+				cause: error,
+				code: "CONVERSION_FAILED",
+				fields: { workspace_id: workspaceId },
+				message: error.userMessage,
+				request,
+				requestId,
+				status: 422,
 			});
 		}
 
-		return apiError(
+		return apiFailure({
+			cause: error,
+			code: "UPLOAD_FAILED",
+			fields: { workspace_id: workspaceId },
+			message: "Unable to upload file right now.",
+			request,
 			requestId,
-			500,
-			"UPLOAD_FAILED",
-			"Unable to upload file right now.",
-			error instanceof Error ? { message: error.message } : undefined,
-		);
+			status: 500,
+		});
 	} finally {
 		if (objectKey) {
 			await env.WORKSPACE_KERNEL_FILES.delete(objectKey);

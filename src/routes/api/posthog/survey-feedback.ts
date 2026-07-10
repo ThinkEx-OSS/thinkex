@@ -5,7 +5,7 @@ import {
 	buildPostHogSurveyFeedbackEmailContent,
 	parsePostHogSurveyFeedbackPayload,
 } from "#/integrations/posthog/survey-feedback-email";
-import { apiError, apiJson, getRequestId } from "#/lib/api/http";
+import { apiError, apiFailure, apiJson, getRequestId } from "#/lib/api/http";
 import {
 	getEmailSender,
 	getSupportReplyToEmail,
@@ -96,13 +96,14 @@ async function handlePostHogSurveyFeedbackWebhook(request: Request) {
 			text: content.text,
 		});
 	} catch (error) {
-		const message = error instanceof Error ? error.message : "Unknown send error";
-		console.warn("[PostHogSurveyFeedback] Email send failed", {
+		return apiFailure({
+			cause: error,
+			code: "EMAIL_SEND_FAILED",
+			message: "Unable to send feedback email.",
+			request,
 			requestId,
-			message,
+			status: 502,
 		});
-
-		return apiError(requestId, 502, "EMAIL_SEND_FAILED", "Unable to send feedback email.");
 	}
 
 	return apiJson({ ok: true }, requestId);

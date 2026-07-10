@@ -8,6 +8,7 @@ import {
 	type WorkspaceAiChatModelId,
 	type WorkspaceAiChatModelBillingTier,
 } from "#/features/workspaces/ai/models";
+import { recordOperationalFailure } from "#/integrations/observability/operational-events";
 
 export const WORKSPACE_AI_MESSAGE_FEATURE_IDS = {
 	standard: "standard_messages",
@@ -68,12 +69,6 @@ export async function trackWorkspaceAiMessageUsage(input: TrackWorkspaceAiMessag
 	const autumn = getAutumnClient(input.env);
 
 	if (!autumn) {
-		console.info("[Autumn] Skipping workspace AI usage tracking: AUTUMN_SECRET_KEY is unset", {
-			modelId: input.modelId,
-			threadId: input.threadId,
-			userId: input.userId,
-			workspaceId: input.workspaceId,
-		});
 		return;
 	}
 
@@ -81,15 +76,6 @@ export async function trackWorkspaceAiMessageUsage(input: TrackWorkspaceAiMessag
 	const featureId = WORKSPACE_AI_MESSAGE_FEATURE_IDS[model.billingTier];
 
 	try {
-		console.info("[Autumn] Tracking workspace AI message usage", {
-			featureId,
-			modelBillingTier: model.billingTier,
-			modelId: model.id,
-			threadId: input.threadId,
-			userId: input.userId,
-			workspaceId: input.workspaceId,
-		});
-
 		const customerFields = await getAutumnCustomerFields(input.userId);
 
 		await autumn.customers.getOrCreate({
@@ -97,7 +83,7 @@ export async function trackWorkspaceAiMessageUsage(input: TrackWorkspaceAiMessag
 			...customerFields,
 		});
 
-		const response = await autumn.track({
+		await autumn.track({
 			customerId: input.userId,
 			featureId,
 			value: 1,
@@ -114,25 +100,19 @@ export async function trackWorkspaceAiMessageUsage(input: TrackWorkspaceAiMessag
 			},
 			async: true,
 		});
-
-		console.info("[Autumn] Tracked workspace AI message usage", {
-			featureId,
-			modelBillingTier: model.billingTier,
-			modelId: model.id,
-			response,
-			threadId: input.threadId,
-			userId: input.userId,
-			workspaceId: input.workspaceId,
-		});
 	} catch (error) {
-		console.warn("[Autumn] Failed to track workspace AI message usage", {
+		recordOperationalFailure({
+			distinctId: input.userId,
 			error,
-			featureId,
-			modelBillingTier: model.billingTier,
-			modelId: input.modelId,
-			threadId: input.threadId,
-			userId: input.userId,
-			workspaceId: input.workspaceId,
+			event: "workspace_ai_usage_tracking",
+			fields: {
+				feature_id: featureId,
+				model_billing_tier: model.billingTier,
+				model_id: input.modelId,
+				thread_id: input.threadId,
+				user_id: input.userId,
+				workspace_id: input.workspaceId,
+			},
 		});
 	}
 }
@@ -183,9 +163,10 @@ async function getAutumnCustomerFields(userId: string): Promise<AutumnCustomerFi
 			},
 		};
 	} catch (error) {
-		console.warn("[Autumn] Failed to load customer fields", {
+		recordOperationalFailure({
+			distinctId: userId,
 			error,
-			userId,
+			event: "autumn_customer_fields",
 		});
 
 		return DEFAULT_AUTUMN_CUSTOMER_FIELDS;

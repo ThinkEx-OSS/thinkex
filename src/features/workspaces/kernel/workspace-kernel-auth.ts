@@ -8,6 +8,8 @@ import {
 } from "#/features/workspaces/agent-routes";
 import { setWorkspaceKernelUserHeaders } from "#/features/workspaces/kernel/workspace-kernel";
 import { canReadWorkspace, WorkspaceAuthError } from "#/features/workspaces/server/permissions";
+import { recordOperationalFailure } from "#/integrations/observability/operational-events";
+import { getTelemetryRequestDetails } from "#/integrations/posthog/server-context";
 import { getSessionFromRequest } from "#/lib/auth-queries.server";
 
 export async function routeWorkspaceKernelRequest(request: Request, env: Env) {
@@ -58,7 +60,15 @@ export async function routeWorkspaceKernelRequest(request: Request, env: Env) {
 			return new Response("Unauthorized", { status: 401 });
 		}
 
-		console.error("Workspace kernel auth failed", error);
+		recordOperationalFailure({
+			error,
+			event: "workspace_kernel_route",
+			fields: {
+				status_code: 503,
+				workspace_id: workspaceId,
+			},
+			request: getTelemetryRequestDetails(request, "workspace_kernel_route"),
+		});
 		return new Response("Workspace kernel unavailable", { status: 503 });
 	}
 }

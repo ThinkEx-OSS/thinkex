@@ -32,7 +32,10 @@ import {
 	capturePostHogServerEvent,
 	capturePostHogServerException,
 } from "#/integrations/posthog/server";
-import { emptyTelemetryRequestContext } from "#/integrations/posthog/server-context";
+import {
+	getTelemetryRuntimeContext,
+	type TelemetryRequestContext,
+} from "#/integrations/posthog/server-context";
 import type { PostHogTelemetryScheduler } from "#/integrations/posthog/scheduler";
 
 function parseGatewayModel(gatewayModel: string) {
@@ -118,7 +121,7 @@ interface AIThreadPostHogRecorderOptions {
 }
 
 interface AgentPostHogRuntime {
-	requestContext: typeof emptyTelemetryRequestContext;
+	requestContext: TelemetryRequestContext;
 	schedule?: PostHogTelemetryScheduler;
 }
 
@@ -130,7 +133,7 @@ export class AIThreadPostHogRecorder {
 	constructor(options: AIThreadPostHogRecorderOptions = {}) {
 		this.schedule = options.schedule;
 		this.serverEventRuntime = {
-			requestContext: emptyTelemetryRequestContext,
+			requestContext: getTelemetryRuntimeContext(),
 			schedule: options.schedule,
 		};
 	}
