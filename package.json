@@ -93,7 +93,7 @@
 		"@tiptap/extension-collaboration-caret": "^3.27.1",
 		"@tiptap/extension-highlight": "^3.27.1",
 		"@tiptap/extension-horizontal-rule": "^3.27.1",
-		"@tiptap/extension-link": "^3.27.1",
+		"@tiptap/extension-link": "^3.27.3",
 		"@tiptap/extension-list": "^3.27.1",
 		"@tiptap/extension-mathematics": "^3.27.1",
 		"@tiptap/extension-placeholder": "^3.27.1",
