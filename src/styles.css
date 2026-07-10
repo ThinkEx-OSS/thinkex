@@ -172,6 +172,10 @@
 		--shimmer-color: color-mix(in oklch, var(--foreground) 55%, transparent);
 	}
 
+	.ai-dictation-mic-pulse {
+		animation: ai-dictation-mic-pulse 1.4s ease-in-out infinite;
+	}
+
 	.collaboration-cursor-float {
 		animation: collaboration-cursor-float 3.6s ease-in-out infinite;
 	}
@@ -189,6 +193,17 @@
 		content: "";
 		animation: landing-send-ring 1.75s ease-out infinite;
 		pointer-events: none;
+	}
+
+	@keyframes ai-dictation-mic-pulse {
+		0%,
+		100% {
+			transform: scale(1);
+		}
+
+		50% {
+			transform: scale(1.04);
+		}
 	}
 
 	@keyframes collaboration-cursor-float {

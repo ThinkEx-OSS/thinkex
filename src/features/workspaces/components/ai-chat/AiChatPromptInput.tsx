@@ -1,4 +1,4 @@
-import { Bug, Plus } from "lucide-react";
+import { Bug, Mic, Plus } from "lucide-react";
 import { lazy, Suspense, useRef, useState } from "react";
 
 import {
@@ -24,6 +24,7 @@ import {
 } from "#/features/workspaces/components/ai-chat/constants";
 import type { AiChatModelId, AiChatStatus } from "#/features/workspaces/components/ai-chat/types";
 import { useAiChatAttachmentIntake } from "#/features/workspaces/components/ai-chat/useAiChatAttachmentIntake";
+import { useAiChatDictation } from "#/features/workspaces/components/ai-chat/useAiChatDictation";
 import { useTypeToFocusPrompt } from "#/features/workspaces/components/ai-chat/useTypeToFocusPrompt";
 import { WorkspaceFileIntakeReviewDialog } from "#/features/workspaces/components/WorkspaceFileIntakeReviewDialog";
 import { useWorkspaceFileUpload } from "#/features/workspaces/components/WorkspaceFileUploadProvider";
@@ -98,6 +99,7 @@ export default function AiChatPromptInput({
 	const [input, setInput] = useState("");
 	const [isInspectorOpen, setIsInspectorOpen] = useState(false);
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
+	const dictation = useAiChatDictation({ input, setInput });
 	const draftFiles = useWorkspaceAiComposerDraftFiles(context.workspaceId);
 	const attachmentsReady =
 		draftFiles.length === 0 || draftFiles.every((file) => file.status === "ready");
@@ -140,6 +142,7 @@ export default function AiChatPromptInput({
 			return false;
 		}
 
+		dictation.cancel();
 		setInput("");
 		return true;
 	};
@@ -165,6 +168,7 @@ export default function AiChatPromptInput({
 					<PromptInputTextarea
 						ref={textareaRef}
 						name="message"
+						readOnly={dictation.isActive}
 						value={input}
 						placeholder="Ask anything"
 						onChange={(event) => setInput(event.currentTarget.value)}
@@ -193,6 +197,21 @@ export default function AiChatPromptInput({
 					</PromptInputTools>
 
 					<WorkspaceToolbarGroup className="ml-auto">
+						{dictation.isSupported ? (
+							<WorkspaceToolbarIconButton
+								aria-label={dictation.isActive ? "Stop dictation" : "Start dictation"}
+								aria-pressed={dictation.isActive}
+								className={cn(
+									"rounded-full",
+									dictation.isActive &&
+										"bg-destructive/10 text-destructive hover:bg-destructive/20 hover:text-destructive",
+								)}
+								disabled={!canType && !dictation.isActive}
+								onClick={dictation.toggle}
+							>
+								<Mic className={dictation.isListening ? "ai-dictation-mic-pulse" : undefined} />
+							</WorkspaceToolbarIconButton>
+						) : null}
 						<AiChatPromptSubmit
 							attachmentsReady={attachmentsReady}
 							input={input}
