@@ -18,6 +18,7 @@ import type {
 	DeleteWorkspaceKernelItemsResult,
 	ListWorkspaceKernelItemRelationsArgs,
 	MoveWorkspaceKernelItemsResult,
+	ReadWorkspaceKernelFileContentStreamResult,
 	ReadWorkspaceKernelFilePreviewResult,
 	ReadWorkspaceKernelFileProjectionArgs,
 	ReadWorkspaceKernelFileProjectionResult,
@@ -100,6 +101,9 @@ export interface WorkspaceKernelClient {
 		fileName: string;
 		sizeBytes: number;
 	}>;
+	readFileContentStream(input: {
+		itemId: string;
+	}): Promise<ReadWorkspaceKernelFileContentStreamResult>;
 	readFilePreview(input: { itemId: string }): Promise<ReadWorkspaceKernelFilePreviewResult | null>;
 	upsertFileProjection(input: UpsertWorkspaceKernelFileProjectionArgs): Promise<void>;
 	readFileProjection(
@@ -114,7 +118,7 @@ export interface WorkspaceKernelClient {
 	purgeForDeletion(): Promise<void>;
 }
 
-export async function readWorkspaceKernelFileContent(input: {
+export async function readWorkspaceKernelFileContentStream(input: {
 	workspaceId: string;
 	userId: string;
 	itemId: string;
@@ -125,7 +129,7 @@ export async function readWorkspaceKernelFileContent(input: {
 		await assertCanReadWorkspace(dbContext.db, input);
 		const kernel = await getWorkspaceKernel(input.workspaceId);
 
-		return await kernel.readFileContent({ itemId: input.itemId });
+		return await kernel.readFileContentStream({ itemId: input.itemId });
 	} finally {
 		await dbContext.dispose();
 	}

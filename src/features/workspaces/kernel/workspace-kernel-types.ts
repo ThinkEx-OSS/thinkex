@@ -105,6 +105,13 @@ export interface ReadWorkspaceKernelFileContentResult {
 	sizeBytes: number;
 }
 
+export interface ReadWorkspaceKernelFileContentStreamResult {
+	stream: ReadableStream<Uint8Array>;
+	contentType: string;
+	fileName: string;
+	sizeBytes: number | null;
+}
+
 export type WorkspaceKernelFileProjectionFormat = "pages" | "preview";
 
 export type WorkspaceKernelFileProjectionStatus =
