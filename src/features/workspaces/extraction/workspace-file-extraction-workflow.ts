@@ -1,6 +1,7 @@
 import { WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from "cloudflare:workers";
 
 import { sha256Base64Url } from "#/features/workspaces/extraction/binary";
+import { recordWorkspaceFileExtractionOutcome } from "#/features/workspaces/extraction/workspace-file-extraction-observability";
 import {
 	joinMarkdownProjectionPages,
 	parseMarkdownPagesProjection,
@@ -25,6 +26,7 @@ export class WorkspaceFileExtractionWorkflow extends WorkflowEntrypoint<
 	) {
 		const params = assertWorkflowParams(event.payload);
 		const artifactKey = getExtractionArtifactKey(event.instanceId);
+		const schedule = (task: Promise<void>) => this.ctx.waitUntil(task);
 
 		await step.do("mark extraction processing", async () => {
 			const kernel = await getWorkspaceKernelFromEnv(this.env, params.workspaceId);
@@ -140,6 +142,22 @@ export class WorkspaceFileExtractionWorkflow extends WorkflowEntrypoint<
 				return { deleted: extraction.artifactKey };
 			});
 
+			await step.do("record extraction outcome", async () => {
+				recordWorkspaceFileExtractionOutcome({
+					durationMs: Date.now() - event.timestamp.getTime(),
+					instanceId: event.instanceId,
+					outcome: "success",
+					pageCount: extraction.pageCount,
+					params,
+					provider: extraction.provider,
+					providerMode: extraction.providerMode,
+					routeReason: extraction.routeReason,
+					schedule,
+				});
+
+				return { outcome: "success" };
+			});
+
 			return result;
 		} catch (error) {
 			await step.do("mark extraction failed", async () => {
@@ -154,6 +172,19 @@ export class WorkspaceFileExtractionWorkflow extends WorkflowEntrypoint<
 				});
 
 				return { status: "failed", errorMessage };
+			});
+
+			await step.do("record extraction failure", async () => {
+				recordWorkspaceFileExtractionOutcome({
+					durationMs: Date.now() - event.timestamp.getTime(),
+					error,
+					instanceId: event.instanceId,
+					outcome: "error",
+					params,
+					schedule,
+				});
+
+				return { outcome: "error" };
 			});
 
 			throw error;
@@ -183,6 +214,7 @@ function assertWorkflowParams(
 		itemId: value.itemId,
 		actorUserId: value.actorUserId ?? null,
 		assetKind: value.assetKind,
+		requestId: value.requestId ?? null,
 	};
 }
 

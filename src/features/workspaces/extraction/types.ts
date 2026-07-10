@@ -20,6 +20,7 @@ export interface WorkspaceFileExtractionWorkflowParams {
 	itemId: string;
 	actorUserId: string | null;
 	assetKind: WorkspaceFileAssetKind;
+	requestId: string | null;
 }
 
 export interface MarkdownExtractionInput {

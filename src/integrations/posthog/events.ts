@@ -72,6 +72,21 @@ export interface PostHogEventPropertiesByName {
 		messages_persisted: boolean | null;
 		request_id: string | null;
 	};
+	workspace_file_extraction_completed: {
+		actor_user_id: string | null;
+		asset_kind: string;
+		duration_ms: number;
+		error_type: string | null;
+		item_id: string;
+		outcome: "error" | "success";
+		page_count: number | null;
+		provider: string | null;
+		provider_mode: string | null;
+		request_id: string | null;
+		route_reason: string | null;
+		workflow_id: string;
+		workspace_id: string;
+	};
 }
 
 export type PostHogEventName = keyof PostHogEventPropertiesByName;
