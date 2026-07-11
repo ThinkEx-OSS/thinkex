@@ -1,7 +1,7 @@
 import { Container, getRandom } from "@cloudflare/containers";
 
 import type { MarkdownProjectionPage } from "#/features/workspaces/extraction/page-markdown-projection";
-import { parseLiteParsePages } from "#/features/workspaces/extraction/providers/liteparse-response";
+import { parseLiteParseMarkdownProjection } from "#/features/workspaces/extraction/providers/liteparse-response";
 
 const liteParsePort = 8080;
 const liteParsePoolSize = 2;
@@ -25,7 +25,7 @@ export async function extractPdfWithLiteParse(
 	const formData = new FormData();
 	formData.set(
 		"file",
-		new File([input.bytes.slice().buffer], input.fileName, { type: "application/pdf" }),
+		new File([input.bytes as BlobPart], input.fileName, { type: "application/pdf" }),
 		input.fileName,
 	);
 	const response = await extractor.fetch(
@@ -40,7 +40,7 @@ export async function extractPdfWithLiteParse(
 	}
 
 	const payload: unknown = await response.json();
-	const pages = parseLiteParsePages(payload);
+	const pages = parseLiteParseMarkdownProjection(payload);
 
 	if (!pages.some((page) => page.markdown.trim().length > 0)) {
 		throw new Error("LiteParse did not extract usable page Markdown.");

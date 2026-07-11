@@ -108,6 +108,6 @@ async function validatePreparedWorkspaceFileUpload(input: PreparedWorkspaceFileU
 		return;
 	}
 
-	const bytes = input.body instanceof File ? await input.body.arrayBuffer() : input.body;
+	const bytes = input.body instanceof File ? await input.body.arrayBuffer() : input.body.slice(0);
 	await assertReadablePdfUpload(bytes);
 }

@@ -3,6 +3,7 @@ import type { WorkflowStep } from "cloudflare:workers";
 import { sha256Base64Url } from "#/features/workspaces/extraction/binary";
 import {
 	joinMarkdownProjectionPages,
+	parseMarkdownPagesProjection,
 	serializeMarkdownPagesProjection,
 } from "#/features/workspaces/extraction/page-markdown-projection";
 import { extractPdfWithLiteParse } from "#/features/workspaces/extraction/providers/liteparse";
@@ -39,7 +40,8 @@ export async function publishLiteParseProjection(
 					fileName: source.fileName,
 				});
 				const content = serializeMarkdownPagesProjection(pages);
-				const markdownLength = joinMarkdownProjectionPages(pages).length;
+				const projectionPages = parseMarkdownPagesProjection(content);
+				const markdownLength = joinMarkdownProjectionPages(projectionPages).length;
 
 				await kernel.upsertFileProjection({
 					itemId: params.itemId,
@@ -51,7 +53,7 @@ export async function publishLiteParseProjection(
 					sourceHash,
 					metadataJson: {
 						markdownLength,
-						pageCount: pages.length,
+						pageCount: projectionPages.length,
 						provisional: true,
 					},
 					actorUserId: params.actorUserId,
@@ -61,7 +63,7 @@ export async function publishLiteParseProjection(
 					durationMs: Date.now() - startedAt,
 					markdownLength,
 					outcome: "success" as const,
-					pageCount: pages.length,
+					pageCount: projectionPages.length,
 				};
 			},
 		);

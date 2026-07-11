@@ -1,29 +1,26 @@
 import { describe, expect, it } from "vitest";
 
-import { parseLiteParsePages } from "#/features/workspaces/extraction/providers/liteparse-response";
+import { parseLiteParseMarkdownProjection } from "#/features/workspaces/extraction/providers/liteparse-response";
 
 describe("LiteParse response parsing", () => {
-	it("accepts canonical per-page Markdown", () => {
+	it("accepts rendered document Markdown", () => {
 		expect(
-			parseLiteParsePages({
-				pages: [
-					{ markdown: "# First", pageNumber: 1 },
-					{ markdown: "Second", pageNumber: 2 },
-				],
+			parseLiteParseMarkdownProjection({
+				markdown: "  # First\n\nSecond  ",
 			}),
-		).toEqual([
-			{ markdown: "# First", pageNumber: 1 },
-			{ markdown: "Second", pageNumber: 2 },
-		]);
+		).toEqual([{ markdown: "# First\n\nSecond", pageNumber: 1 }]);
 	});
 
-	it.each([
-		undefined,
-		{},
-		{ pages: "invalid" },
-		{ pages: [{ markdown: "Text", pageNumber: 0 }] },
-		{ pages: [{ markdown: 123, pageNumber: 1 }] },
-	])("rejects malformed container responses", (payload) => {
-		expect(() => parseLiteParsePages(payload)).toThrow("LiteParse returned an invalid");
+	it("returns no projection pages for blank Markdown", () => {
+		expect(parseLiteParseMarkdownProjection({ markdown: " \n\t" })).toEqual([]);
 	});
+
+	it.each([undefined, {}, { markdown: 123 }, { pages: [{ markdown: "Text", pageNumber: 1 }] }])(
+		"rejects malformed container responses",
+		(payload) => {
+			expect(() => parseLiteParseMarkdownProjection(payload)).toThrow(
+				"LiteParse returned an invalid",
+			);
+		},
+	);
 });

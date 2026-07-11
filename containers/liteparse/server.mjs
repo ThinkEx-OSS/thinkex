@@ -9,6 +9,7 @@ const parser = new LiteParse({
 	outputFormat: "markdown",
 	quiet: true,
 });
+const parseTimeoutMs = 90_000;
 
 createServer(async (request, response) => {
 	const startedAt = Date.now();
@@ -40,14 +41,10 @@ createServer(async (request, response) => {
 
 		const bytes = new Uint8Array(await file.arrayBuffer());
 		inputBytes = bytes.byteLength;
-		const result = await parser.parse(bytes);
-		const pages = result.pages.map((page) => ({
-			markdown: page.markdown ?? page.text ?? "",
-			pageNumber: page.pageNum,
-		}));
-		pageCount = pages.length;
+		const result = await withTimeout(parser.parse(bytes), parseTimeoutMs);
+		pageCount = result.pages.length;
 		status = 200;
-		return sendJson(response, status, { pages });
+		return sendJson(response, status, { markdown: result.text });
 	} catch (error) {
 		errorType = error instanceof Error ? error.name : "UnknownError";
 		errorMessage = error instanceof Error ? error.message : String(error);
@@ -73,4 +70,17 @@ createServer(async (request, response) => {
 function sendJson(response, status, body) {
 	response.writeHead(status, { "content-type": "application/json" });
 	response.end(JSON.stringify(body));
+}
+
+function withTimeout(promise, timeoutMs) {
+	let timeout;
+	const timeoutPromise = new Promise((_, reject) => {
+		timeout = setTimeout(() => {
+			reject(new Error(`LiteParse parsing timed out after ${timeoutMs}ms.`));
+		}, timeoutMs);
+	});
+
+	return Promise.race([promise, timeoutPromise]).finally(() => {
+		clearTimeout(timeout);
+	});
 }

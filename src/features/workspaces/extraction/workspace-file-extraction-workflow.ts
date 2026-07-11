@@ -43,9 +43,16 @@ export class WorkspaceFileExtractionWorkflow extends WorkflowEntrypoint<
 
 		const liteParse = await publishLiteParseProjection(this.env, step, params);
 		const enhancementStartedAt = Date.now();
+		let extraction: StagedPageExtractionResult;
+		let result: {
+			pageCount: number;
+			provider: MarkdownExtractionProviderId;
+			providerMode: MarkdownExtractionProviderMode;
+			status: "ready";
+		};
 
 		try {
-			const extraction = await step.do(
+			extraction = await step.do(
 				"extract page markdown with provider",
 				{
 					retries: {
@@ -92,7 +99,7 @@ export class WorkspaceFileExtractionWorkflow extends WorkflowEntrypoint<
 				},
 			);
 
-			const result = await step.do(
+			result = await step.do(
 				"write extracted projections",
 				{
 					retries: {
@@ -132,42 +139,13 @@ export class WorkspaceFileExtractionWorkflow extends WorkflowEntrypoint<
 					});
 
 					return {
-						status: "ready",
+						status: "ready" as const,
 						provider: extraction.provider,
 						providerMode: extraction.providerMode,
 						pageCount: extraction.pageCount,
 					};
 				},
 			);
-
-			await step.do("delete staged extraction artifact", async () => {
-				await this.env.WORKSPACE_KERNEL_FILES.delete(extraction.artifactKey);
-
-				return { deleted: extraction.artifactKey };
-			});
-
-			await step.do("record extraction outcome", async () => {
-				recordWorkspaceFileExtractionOutcome({
-					durationMs: Date.now() - event.timestamp.getTime(),
-					enhancement: {
-						durationMs: Date.now() - enhancementStartedAt,
-						outcome: "success",
-					},
-					instanceId: event.instanceId,
-					liteParse,
-					outcome: "success",
-					pageCount: extraction.pageCount,
-					params,
-					provider: extraction.provider,
-					providerMode: extraction.providerMode,
-					routeReason: extraction.routeReason,
-					schedule,
-				});
-
-				return { outcome: "success" };
-			});
-
-			return result;
 		} catch (error) {
 			if (liteParse.outcome === "success") {
 				await step.do("record partial extraction outcome", async () => {
@@ -235,6 +213,41 @@ export class WorkspaceFileExtractionWorkflow extends WorkflowEntrypoint<
 
 			throw error;
 		}
+
+		await step.do("delete staged extraction artifact", async () => {
+			try {
+				await this.env.WORKSPACE_KERNEL_FILES.delete(extraction.artifactKey);
+				return { deleted: extraction.artifactKey };
+			} catch (error) {
+				return {
+					deleted: null,
+					errorType: error instanceof Error ? error.name : "UnknownError",
+				};
+			}
+		});
+
+		await step.do("record extraction outcome", async () => {
+			recordWorkspaceFileExtractionOutcome({
+				durationMs: Date.now() - event.timestamp.getTime(),
+				enhancement: {
+					durationMs: Date.now() - enhancementStartedAt,
+					outcome: "success",
+				},
+				instanceId: event.instanceId,
+				liteParse,
+				outcome: "success",
+				pageCount: extraction.pageCount,
+				params,
+				provider: extraction.provider,
+				providerMode: extraction.providerMode,
+				routeReason: extraction.routeReason,
+				schedule,
+			});
+
+			return { outcome: "success" };
+		});
+
+		return result;
 	}
 }
 

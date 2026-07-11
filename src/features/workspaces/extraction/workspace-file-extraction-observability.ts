@@ -72,8 +72,7 @@ export function recordWorkspaceFileExtractionOutcome(input: WorkspaceFileExtract
 		workspace_id: input.params.workspaceId,
 		enhancement_error_type:
 			input.enhancement.outcome === "error" ? getErrorType(input.enhancement.error) : null,
-		enhancement_error_message:
-			input.enhancement.outcome === "error" ? getErrorMessage(input.enhancement.error) : null,
+		enhancement_error_message: null,
 		enhancement_outcome: input.enhancement.outcome,
 		enhancement_duration_ms: input.enhancement.durationMs,
 		liteparse_duration_ms: input.liteParse.durationMs,
@@ -114,8 +113,4 @@ export function recordWorkspaceFileExtractionOutcome(input: WorkspaceFileExtract
 
 function getErrorType(error: unknown) {
 	return error instanceof Error ? error.name : "UnknownError";
-}
-
-function getErrorMessage(error: unknown) {
-	return error instanceof Error ? error.message : String(error);
 }

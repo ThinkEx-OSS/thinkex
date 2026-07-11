@@ -7,6 +7,8 @@ RUN npm ci --omit=dev && npm cache clean --force
 
 COPY server.mjs ./
 
+USER node
+
 EXPOSE 8080
 
 CMD ["node", "server.mjs"]
