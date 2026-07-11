@@ -45,6 +45,8 @@ export interface PostHogEventPropertiesByName {
 		workspace_id: string;
 		trace_id: string;
 		model_id: string;
+		requested_model_id: string;
+		routing_reason: string | null;
 		continuation: boolean;
 	};
 	ai_turn_completed: {

@@ -62,7 +62,14 @@ function RunSummary({ run }: { run: AIInspectorRunView }) {
 				</span>
 				{run.modelId ? (
 					<Badge variant="outline" className="rounded-full font-normal">
-						{run.modelId}
+						{run.requestedModelId && run.requestedModelId !== run.modelId
+							? `${run.requestedModelId} → ${run.modelId}`
+							: run.modelId}
+					</Badge>
+				) : null}
+				{run.routingReason ? (
+					<Badge variant="outline" className="rounded-full font-normal text-muted-foreground">
+						{run.routingReason}
 					</Badge>
 				) : null}
 			</div>

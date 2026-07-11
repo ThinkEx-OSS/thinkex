@@ -60,6 +60,8 @@ function buildRunView(runId: string, events: AIInspectorEvent[]) {
 			case "turn.started":
 				run.startedAt = event.createdAt;
 				run.modelId = getString(payload.modelId);
+				run.requestedModelId = getString(payload.requestedModelId);
+				run.routingReason = getString(payload.routingReason);
 				run.system = getString(payload.system);
 				run.thread = payload.thread;
 				run.body = payload.body;

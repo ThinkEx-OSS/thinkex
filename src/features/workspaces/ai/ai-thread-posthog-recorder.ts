@@ -142,6 +142,8 @@ export class AIThreadPostHogRecorder {
 	recordTurnStarted(input: {
 		ctx: TurnContext;
 		modelId: WorkspaceAiChatModelId;
+		requestedModelId: WorkspaceAiChatModelId;
+		routingReason?: string;
 		thread: AIThreadContext;
 		tools?: unknown;
 	}) {
@@ -170,6 +172,8 @@ export class AIThreadPostHogRecorder {
 			properties: {
 				...turnTelemetryProperties(turn),
 				model_id: input.modelId,
+				requested_model_id: input.requestedModelId,
+				routing_reason: input.routingReason ?? null,
 				continuation: Boolean(input.ctx.continuation),
 			},
 			...this.serverEventRuntime,

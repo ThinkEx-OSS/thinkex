@@ -41,7 +41,11 @@ export class AIThreadTelemetryRecorder {
 
 	async recordTurnStarted(input: {
 		ctx: TurnContext;
+		/** Model the turn actually runs on (the routed model for Auto turns). */
 		modelId: WorkspaceAiChatModelId;
+		/** Model the user picked; "auto" when the router chose modelId. */
+		requestedModelId: WorkspaceAiChatModelId;
+		routingReason?: string;
 		system: string;
 		thread: AIThreadContext;
 		tools: unknown;
