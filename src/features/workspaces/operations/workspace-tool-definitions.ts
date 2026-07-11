@@ -40,6 +40,13 @@ import type {
 	WorkspaceAccessScope,
 } from "#/features/workspaces/operations/workspace-access-context";
 import { workspaceAccessScopes } from "#/features/workspaces/operations/workspace-access-context";
+import {
+	observeWorkspaceOperation,
+	summarizeWorkspaceAppliedResult,
+	summarizeWorkspaceCollectionResult,
+	summarizeWorkspaceItemResult,
+	type WorkspaceOperationSummary,
+} from "#/features/workspaces/operations/workspace-operation-observability";
 
 const workspaceReadScopes = ["workspace:read"] as const satisfies readonly WorkspaceAccessScope[];
 const workspaceWriteScopes = workspaceAccessScopes;
@@ -59,15 +66,43 @@ export type WorkspaceToolDefinition<
 	mutating: boolean;
 	name: TName;
 	outputSchema: TOutputSchema;
+	summarizeResult: (result: z.output<TOutputSchema>) => WorkspaceOperationSummary;
 	scopes: readonly WorkspaceAccessScope[];
+};
+
+type RegisteredWorkspaceToolDefinition<
+	TName extends string,
+	TInputSchema extends z.ZodTypeAny,
+	TOutputSchema extends z.ZodTypeAny,
+> = WorkspaceToolDefinition<TName, TInputSchema, TOutputSchema> & {
+	summarizeOutput: (output: unknown) => WorkspaceOperationSummary | null;
 };
 
 function defineWorkspaceTool<
 	TName extends string,
 	TInputSchema extends z.ZodTypeAny,
 	TOutputSchema extends z.ZodTypeAny,
->(definition: WorkspaceToolDefinition<TName, TInputSchema, TOutputSchema>) {
-	return definition;
+>(
+	definition: WorkspaceToolDefinition<TName, TInputSchema, TOutputSchema>,
+): RegisteredWorkspaceToolDefinition<TName, TInputSchema, TOutputSchema> {
+	return {
+		...definition,
+		execute: async (
+			args: z.output<TInputSchema>,
+			context: WorkspaceAccessContext,
+		): Promise<z.output<TOutputSchema>> =>
+			observeWorkspaceOperation({
+				context,
+				mutating: definition.mutating,
+				operation: definition.name,
+				run: () => definition.execute(args, context),
+				summarize: definition.summarizeResult,
+			}),
+		summarizeOutput: (output) => {
+			const parsed = definition.outputSchema.safeParse(output);
+			return parsed.success ? definition.summarizeResult(parsed.data) : null;
+		},
+	};
 }
 
 export const workspaceToolDefinitions = [
@@ -77,6 +112,7 @@ export const workspaceToolDefinitions = [
 		inputSchema: workspaceListItemsInputSchema,
 		inputExamples: workspaceListItemsInputExamples,
 		outputSchema: workspaceListItemsOutputSchema,
+		summarizeResult: summarizeWorkspaceCollectionResult,
 		scopes: workspaceReadScopes,
 		mutating: false,
 		execute: async ({ limit, path, recursive }, context) => {
@@ -94,6 +130,7 @@ export const workspaceToolDefinitions = [
 		inputSchema: workspaceReadItemsInputSchema,
 		inputExamples: workspaceReadItemsInputExamples,
 		outputSchema: workspaceReadItemsOutputSchema,
+		summarizeResult: summarizeWorkspaceCollectionResult,
 		scopes: workspaceReadScopes,
 		mutating: false,
 		execute: async ({ pages, paths }, context) => {
@@ -110,6 +147,7 @@ export const workspaceToolDefinitions = [
 		inputSchema: workspaceRenameItemInputSchema,
 		inputExamples: workspaceRenameItemInputExamples,
 		outputSchema: workspaceRenameItemOutputSchema,
+		summarizeResult: summarizeWorkspaceItemResult,
 		scopes: workspaceWriteScopes,
 		mutating: true,
 		execute: async ({ name, path }, context) => {
@@ -126,6 +164,7 @@ export const workspaceToolDefinitions = [
 		inputSchema: workspaceMoveItemsInputSchema,
 		inputExamples: workspaceMoveItemsInputExamples,
 		outputSchema: workspaceMoveItemsOutputSchema,
+		summarizeResult: summarizeWorkspaceCollectionResult,
 		scopes: workspaceWriteScopes,
 		mutating: true,
 		execute: async ({ destinationPath, paths }, context) => {
@@ -141,6 +180,7 @@ export const workspaceToolDefinitions = [
 		inputSchema: workspaceCreateItemsInputSchema,
 		inputExamples: workspaceCreateItemsInputExamples,
 		outputSchema: workspaceCreateItemsOutputSchema,
+		summarizeResult: summarizeWorkspaceCollectionResult,
 		scopes: workspaceWriteScopes,
 		mutating: true,
 		execute: async ({ items }, context) => {
@@ -155,6 +195,7 @@ export const workspaceToolDefinitions = [
 		inputSchema: workspaceDeleteItemsInputSchema,
 		inputExamples: workspaceDeleteItemsInputExamples,
 		outputSchema: workspaceDeleteItemsOutputSchema,
+		summarizeResult: summarizeWorkspaceCollectionResult,
 		scopes: workspaceWriteScopes,
 		mutating: true,
 		execute: async ({ paths }, context) => {
@@ -169,6 +210,7 @@ export const workspaceToolDefinitions = [
 		inputSchema: workspaceEditItemInputSchema,
 		inputExamples: workspaceEditItemInputExamples,
 		outputSchema: workspaceEditItemOutputSchema,
+		summarizeResult: summarizeWorkspaceAppliedResult,
 		scopes: workspaceWriteScopes,
 		mutating: true,
 		execute: async ({ path, edits, relations }, context) => {
@@ -186,6 +228,7 @@ export const workspaceToolDefinitions = [
 		inputSchema: workspaceLinkItemsInputSchema,
 		inputExamples: workspaceLinkItemsInputExamples,
 		outputSchema: workspaceLinkItemsOutputSchema,
+		summarizeResult: summarizeWorkspaceItemResult,
 		scopes: workspaceWriteScopes,
 		mutating: true,
 		execute: async ({ path, relations }, context) => {
@@ -196,3 +239,16 @@ export const workspaceToolDefinitions = [
 		},
 	}),
 ] as const;
+
+export function getWorkspaceToolDefinition(name: string) {
+	return workspaceToolDefinitions.find((definition) => definition.name === name) ?? null;
+}
+
+export function summarizeWorkspaceToolOutput(name: string, output: unknown) {
+	const definition = getWorkspaceToolDefinition(name);
+	if (!definition) {
+		return null;
+	}
+
+	return definition.summarizeOutput(output);
+}

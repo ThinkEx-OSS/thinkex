@@ -22,7 +22,11 @@ import {
 	type WorkspaceUploadPlan,
 } from "#/features/workspaces/upload/workspace-upload-intake";
 import { prepareWorkspaceFileUpload } from "#/features/workspaces/upload/workspace-file-upload-normalization";
-import { apiError, apiFailure, apiJson, getRequestId } from "#/lib/api/http";
+import {
+	observeWorkspaceFileIntake,
+	type WorkspaceFileIntakeObservation,
+} from "#/features/workspaces/upload/workspace-file-intake-observability";
+import { apiError, apiJson, getRequestId } from "#/lib/api/http";
 import { getSessionFromRequest } from "#/lib/auth-queries.server";
 
 const fileFormKey = "file";
@@ -31,6 +35,21 @@ const clientMutationIdFormKey = "clientMutationId";
 
 async function handleWorkspaceFileUpload(request: Request, workspaceId: string) {
 	const requestId = getRequestId(request);
+	return observeWorkspaceFileIntake({
+		kind: "workspace_file",
+		request,
+		requestId,
+		run: (observation) => executeWorkspaceFileUpload(request, workspaceId, requestId, observation),
+		workspaceId,
+	});
+}
+
+async function executeWorkspaceFileUpload(
+	request: Request,
+	workspaceId: string,
+	requestId: string,
+	observation: WorkspaceFileIntakeObservation,
+) {
 	let objectKey: string | null = null;
 
 	try {
@@ -44,6 +63,7 @@ async function handleWorkspaceFileUpload(request: Request, workspaceId: string) 
 				"You must be signed in to upload workspace files.",
 			);
 		}
+		observation.userId = session.user.id;
 
 		const dbContext = await createDbContext();
 
@@ -62,6 +82,7 @@ async function handleWorkspaceFileUpload(request: Request, workspaceId: string) 
 		if (!(file instanceof File)) {
 			return apiError(requestId, 400, "INVALID_UPLOAD", "File upload is missing a file.");
 		}
+		observation.inputBytes = file.size;
 
 		const uploadValidation = validateWorkspaceUpload({
 			fileName: file.name,
@@ -81,6 +102,7 @@ async function handleWorkspaceFileUpload(request: Request, workspaceId: string) 
 		const parentId = getNullableString(formData.get(parentIdFormKey));
 		const clientMutationId = getNullableString(formData.get(clientMutationIdFormKey));
 		const uploadPlan = uploadValidation.plan;
+		observation.plan = uploadPlan.kind;
 
 		if (uploadPlan.kind === "document") {
 			const command = await createWorkspaceDocumentFromUpload({
@@ -92,6 +114,8 @@ async function handleWorkspaceFileUpload(request: Request, workspaceId: string) 
 				workspaceId,
 			});
 
+			observation.itemId = command.result.id;
+			observation.outputBytes = file.size;
 			return apiJson(command, requestId);
 		}
 
@@ -100,6 +124,9 @@ async function handleWorkspaceFileUpload(request: Request, workspaceId: string) 
 			env,
 			file,
 		});
+		observation.assetKind = upload.descriptor.assetKind;
+		observation.conversion = upload.source?.conversion;
+		observation.outputBytes = upload.fileSize;
 
 		objectKey = getWorkspaceFileUploadObjectKey(workspaceId);
 		await env.WORKSPACE_KERNEL_FILES.put(objectKey, upload.body, {
@@ -122,6 +149,7 @@ async function handleWorkspaceFileUpload(request: Request, workspaceId: string) 
 		});
 
 		objectKey = null;
+		observation.itemId = command.result.id;
 		if (
 			resolveWorkspaceFileAiReadStrategy({
 				fileName: upload.fileName,
@@ -140,7 +168,9 @@ async function handleWorkspaceFileUpload(request: Request, workspaceId: string) 
 
 		return apiJson(command, requestId);
 	} catch (error) {
+		observation.error = error;
 		if (error instanceof WorkspaceForbiddenError) {
+			observation.error = undefined;
 			return apiError(
 				requestId,
 				403,
@@ -150,30 +180,15 @@ async function handleWorkspaceFileUpload(request: Request, workspaceId: string) 
 		}
 
 		if (error instanceof WorkspaceFileUploadError) {
+			observation.error = undefined;
 			return apiError(requestId, error.status, error.code, error.message);
 		}
 
 		if (error instanceof WorkspaceFileConversionError) {
-			return apiFailure({
-				cause: error,
-				code: "CONVERSION_FAILED",
-				fields: { workspace_id: workspaceId },
-				message: error.userMessage,
-				request,
-				requestId,
-				status: 422,
-			});
+			return apiError(requestId, 422, "CONVERSION_FAILED", error.userMessage);
 		}
 
-		return apiFailure({
-			cause: error,
-			code: "UPLOAD_FAILED",
-			fields: { workspace_id: workspaceId },
-			message: "Unable to upload file right now.",
-			request,
-			requestId,
-			status: 500,
-		});
+		return apiError(requestId, 500, "UPLOAD_FAILED", "Unable to upload file right now.");
 	} finally {
 		if (objectKey) {
 			await env.WORKSPACE_KERNEL_FILES.delete(objectKey);

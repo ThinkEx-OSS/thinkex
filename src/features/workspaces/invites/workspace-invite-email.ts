@@ -87,16 +87,7 @@ export async function sendWorkspaceInviteEmails(input: {
 					text: content.text,
 				});
 				return null;
-			} catch (error) {
-				const message = error instanceof Error ? error.message : "Unknown send error";
-				const code = error instanceof Error && "code" in error ? String(error.code) : undefined;
-
-				console.warn("[WorkspaceInviteEmail] Send failed", {
-					email: invite.email,
-					code,
-					message,
-				});
-
+			} catch {
 				return {
 					email: invite.email,
 					reason: "send_failed",

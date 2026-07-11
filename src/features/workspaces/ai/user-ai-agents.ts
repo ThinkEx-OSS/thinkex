@@ -9,6 +9,7 @@ import {
 	isAIInspectorEnabled,
 } from "#/features/workspaces/ai/ai-inspector";
 import { createAIThreadClass } from "#/features/workspaces/ai/ai-thread";
+import type { ResourcePurgeResult } from "#/features/workspaces/resource-purge-result";
 import {
 	deleteThreadMeta,
 	deleteLinkedThreadImport,
@@ -62,7 +63,7 @@ interface LinkedAIThreadSnapshot {
 
 interface LinkedUserAIStore {
 	exportForAccountLinking(): Promise<LinkedAIThreadSnapshot[]>;
-	purgeForDeletion(): Promise<void>;
+	purgeForDeletion(): Promise<ResourcePurgeResult>;
 }
 
 export const AIThread = createAIThreadClass(() => UserAIStore);
@@ -242,24 +243,25 @@ export class UserAIStore extends Agent<Cloudflare.Env, UserAIStoreState> {
 	}
 
 	@callable()
-	async purgeForDeletion(): Promise<void> {
-		for (const thread of this._getActiveThreadMetaRows()) {
+	async purgeForDeletion(): Promise<ResourcePurgeResult> {
+		const threads = this._getActiveThreadMetaRows();
+		let failed = 0;
+
+		for (const thread of threads) {
 			try {
 				if (this.hasSubAgent(AIThread, thread.id)) {
 					await this.deleteSubAgent(AIThread, thread.id);
 				}
 
 				deleteThreadMeta(this, thread.id);
-			} catch (error) {
-				console.warn("[UserAIStore] Failed to purge chat thread during deletion", {
-					threadId: thread.id,
-					error,
-				});
+			} catch {
+				failed += 1;
 			}
 		}
 
 		this._refreshState();
 		await this.ctx.storage.deleteAll();
+		return { attempted: threads.length + 1, failed };
 	}
 
 	async mergeLinkedAnonymousUser(input: { anonymousUserId: string }): Promise<void> {

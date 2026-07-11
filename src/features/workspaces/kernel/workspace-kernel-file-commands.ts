@@ -36,6 +36,7 @@ import {
 	resolveWorkspaceFileContentType,
 } from "#/features/workspaces/model/workspace-file/policy";
 import type { WorkspaceCommandResult } from "#/features/workspaces/realtime/messages";
+import { recordOperationalOutcome } from "#/integrations/observability/operational-events";
 
 export class WorkspaceKernelFileCommands {
 	private readonly events: WorkspaceKernelEventBus;
@@ -43,6 +44,7 @@ export class WorkspaceKernelFileCommands {
 	private readonly sql: WorkspaceKernelSql;
 	private readonly store: WorkspaceKernelStore;
 	private readonly workspace: ShellWorkspace;
+	private readonly workspaceId: () => string;
 
 	constructor(input: {
 		events: WorkspaceKernelEventBus;
@@ -50,12 +52,14 @@ export class WorkspaceKernelFileCommands {
 		sql: WorkspaceKernelSql;
 		store: WorkspaceKernelStore;
 		workspace: ShellWorkspace;
+		workspaceId: () => string;
 	}) {
 		this.events = input.events;
 		this.r2 = input.r2;
 		this.sql = input.sql;
 		this.store = input.store;
 		this.workspace = input.workspace;
+		this.workspaceId = input.workspaceId;
 	}
 
 	async createFileFromUpload(
@@ -152,6 +156,7 @@ export class WorkspaceKernelFileCommands {
 
 		if (previewGenerator) {
 			await this.tryCreateUploadPreview({
+				actorUserId: input.actorUserId ?? null,
 				bytes,
 				generate: previewGenerator,
 				itemId,
@@ -376,14 +381,24 @@ export class WorkspaceKernelFileCommands {
 	}
 
 	private async tryCreateUploadPreview(input: {
+		actorUserId: string | null;
 		bytes: Uint8Array;
 		generate: (bytes: Uint8Array) => Promise<{ bytes: Uint8Array; width: number; height: number }>;
 		itemId: string;
 		label: string;
 		now: number;
 	}) {
+		const startedAt = Date.now();
+		let failure: unknown;
+		let previewMetrics: { height: number; outputBytes: number; width: number } | undefined;
+
 		try {
 			const preview = await input.generate(input.bytes);
+			previewMetrics = {
+				height: preview.height,
+				outputBytes: preview.bytes.byteLength,
+				width: preview.width,
+			};
 			const sourceHash = await sha256Base64Url(input.bytes);
 
 			await this.writeProjectionRow({
@@ -403,7 +418,7 @@ export class WorkspaceKernelFileCommands {
 				},
 			});
 		} catch (error) {
-			console.warn(`[WorkspaceKernel] Unable to generate ${input.label} preview`, error);
+			failure = error;
 
 			await this.writeProjectionRow({
 				itemId: input.itemId,
@@ -413,6 +428,23 @@ export class WorkspaceKernelFileCommands {
 					format: "preview",
 					status: "failed",
 					errorMessage: getErrorMessage(error),
+				},
+			});
+		} finally {
+			recordOperationalOutcome({
+				distinctId: input.actorUserId ?? undefined,
+				error: failure,
+				event: "workspace_file_preview",
+				fields: {
+					asset_kind: input.label,
+					duration_ms: Date.now() - startedAt,
+					height: previewMetrics?.height,
+					input_bytes: input.bytes.byteLength,
+					item_id: input.itemId,
+					output_bytes: previewMetrics?.outputBytes,
+					user_id: input.actorUserId,
+					width: previewMetrics?.width,
+					workspace_id: this.workspaceId(),
 				},
 			});
 		}

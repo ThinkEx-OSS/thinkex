@@ -1,4 +1,5 @@
 import { WORKSPACE_ITEM_SORT_STEP } from "#/features/workspaces/defaults";
+import { recordOperationalFailure } from "#/integrations/observability/operational-events";
 
 export const workspaceRevisionKey = "workspace_revision";
 export const workspaceItemSortStep = WORKSPACE_ITEM_SORT_STEP;
@@ -98,6 +99,10 @@ function createSiblingNameIndexes(sql: WorkspaceKernelSql) {
 			WHERE parent_id IS NOT NULL AND deleted_at IS NULL
 		`;
 	} catch (error) {
-		console.warn("[WorkspaceKernel] Unable to create sibling name indexes", error);
+		recordOperationalFailure({
+			error,
+			event: "workspace_kernel_initialization",
+			fields: { operation: "create_sibling_name_indexes" },
+		});
 	}
 }

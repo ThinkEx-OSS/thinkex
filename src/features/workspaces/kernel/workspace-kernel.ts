@@ -3,6 +3,7 @@ import { Agent, type Connection, type ConnectionContext } from "agents";
 
 import type { WorkspaceItemSummary } from "#/features/workspaces/contracts";
 import { getDocumentSessionFromEnv } from "#/features/workspaces/document-session-access";
+import type { ResourcePurgeResult } from "#/features/workspaces/resource-purge-result";
 import { WorkspaceKernelEventBus } from "#/features/workspaces/kernel/workspace-kernel-events";
 import { WorkspaceKernelFileCommands } from "#/features/workspaces/kernel/workspace-kernel-file-commands";
 import { WorkspaceKernelItemCommands } from "#/features/workspaces/kernel/workspace-kernel-item-commands";
@@ -43,6 +44,7 @@ import type {
 	WorkspaceRealtimeEvent,
 	WorkspaceRealtimeServerMessage,
 } from "#/features/workspaces/realtime/messages";
+import { recordOperationalOutcome } from "#/integrations/observability/operational-events";
 
 const workspaceKernelInlineThresholdBytes = 1_500_000;
 
@@ -83,6 +85,7 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 		sql: this.kernelSql,
 		store: this.store,
 		workspace: this.workspace,
+		workspaceId: () => this.name,
 	});
 
 	onStart() {
@@ -136,7 +139,7 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 	async createItem(
 		input: CreateWorkspaceKernelItemArgs,
 	): Promise<WorkspaceCommandResult<WorkspaceItemSummary>> {
-		return await this.itemCommands.createItem(input);
+		return this.runMutation("create_item", input, 1, () => this.itemCommands.createItem(input));
 	}
 
 	async createFileFromUpload(
@@ -164,25 +167,31 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 	async renameItem(
 		input: RenameWorkspaceKernelItemArgs,
 	): Promise<WorkspaceCommandResult<WorkspaceItemSummary>> {
-		return await this.itemCommands.renameItem(input);
+		return this.runMutation("rename_item", input, 1, () => this.itemCommands.renameItem(input));
 	}
 
 	async moveItems(
 		input: MoveWorkspaceKernelItemsArgs,
 	): Promise<WorkspaceCommandResult<MoveWorkspaceKernelItemsResult>> {
-		return await this.itemCommands.moveItems(input);
+		return this.runMutation("move_items", input, input.items.length, () =>
+			this.itemCommands.moveItems(input),
+		);
 	}
 
 	async updateItemColor(
 		input: UpdateWorkspaceKernelItemColorArgs,
 	): Promise<WorkspaceCommandResult<WorkspaceItemSummary>> {
-		return await this.itemCommands.updateItemColor(input);
+		return this.runMutation("update_item_color", input, 1, () =>
+			this.itemCommands.updateItemColor(input),
+		);
 	}
 
 	async deleteItems(
 		input: DeleteWorkspaceKernelItemsArgs,
 	): Promise<WorkspaceCommandResult<DeleteWorkspaceKernelItemsResult>> {
-		return await this.itemCommands.deleteItems(input);
+		return this.runMutation("delete_items", input, input.itemIds.length, () =>
+			this.itemCommands.deleteItems(input),
+		);
 	}
 
 	async readItem(input: ReadWorkspaceKernelItemArgs) {
@@ -192,7 +201,38 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 	async writeItem(
 		input: WriteWorkspaceKernelItemArgs,
 	): Promise<WorkspaceCommandResult<WorkspaceItemSummary>> {
-		return await this.itemCommands.writeItem(input);
+		return this.runMutation("write_item", input, 1, () => this.itemCommands.writeItem(input));
+	}
+
+	private async runMutation<T>(
+		operation: string,
+		input: { actorUserId?: string | null; clientMutationId?: string | null },
+		requestedCount: number,
+		run: () => Promise<T>,
+	): Promise<T> {
+		const startedAt = Date.now();
+		let failure: unknown;
+
+		try {
+			return await run();
+		} catch (error) {
+			failure = error;
+			throw error;
+		} finally {
+			recordOperationalOutcome({
+				distinctId: input.actorUserId ?? undefined,
+				error: failure,
+				event: "workspace_mutation",
+				fields: {
+					duration_ms: Date.now() - startedAt,
+					operation,
+					operation_id: input.clientMutationId,
+					requested_count: requestedCount,
+					user_id: input.actorUserId,
+					workspace_id: this.name,
+				},
+			});
+		}
 	}
 
 	async getEventsSince({
@@ -202,9 +242,10 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 		return this.events.getEventsSince({ afterRevision, limit });
 	}
 
-	async purgeForDeletion(): Promise<void> {
+	async purgeForDeletion(): Promise<ResourcePurgeResult> {
 		const workspaceId = this.name;
 		const documentItemIds = this.store.getAllDocumentItemIds();
+		let failed = 0;
 
 		for (const itemId of documentItemIds) {
 			try {
@@ -212,12 +253,8 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 					workspaceId,
 					itemId,
 				}).purgeForDeletion();
-			} catch (error) {
-				console.warn("[WorkspaceKernel] DocumentSession purge failed", {
-					workspaceId,
-					itemId,
-					error,
-				});
+			} catch {
+				failed += 1;
 			}
 		}
 
@@ -227,6 +264,7 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 		]);
 
 		await this.ctx.storage.deleteAll();
+		return { attempted: documentItemIds.length + 1, failed };
 	}
 
 	private async deleteR2Prefix(prefix: string) {

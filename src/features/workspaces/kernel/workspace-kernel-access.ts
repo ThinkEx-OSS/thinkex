@@ -2,6 +2,7 @@ import { getAgentByName } from "agents";
 
 import { createDbContext } from "#/db/server";
 import { workspaceKernelAgentName } from "#/features/workspaces/agent-routes";
+import type { ResourcePurgeResult } from "#/features/workspaces/resource-purge-result";
 import type {
 	CreateWorkspaceItemInput,
 	DeleteWorkspaceItemsInput,
@@ -111,7 +112,7 @@ export interface WorkspaceKernelClient {
 		actorUserId?: string | null;
 		clientMutationId?: string | null;
 	}): Promise<WorkspaceCommandResult<WorkspaceItemSummary>>;
-	purgeForDeletion(): Promise<void>;
+	purgeForDeletion(): Promise<ResourcePurgeResult>;
 }
 
 export async function readWorkspaceKernelFileContent(input: {

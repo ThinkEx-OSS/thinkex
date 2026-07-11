@@ -69,7 +69,7 @@ export async function renameWorkspaceItemOperation(
 			name: input.name,
 			onNameConflict: "error",
 			actorUserId: accessContext.actor.userId,
-			clientMutationId: null,
+			clientMutationId: accessContext.operationId,
 		});
 
 		return {

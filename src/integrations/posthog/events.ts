@@ -87,6 +87,20 @@ export interface PostHogEventPropertiesByName {
 		workflow_id: string;
 		workspace_id: string;
 	};
+	workspace_file_intake_completed: {
+		asset_kind: string | null;
+		conversion: string | null;
+		duration_ms: number;
+		error_code: string | null;
+		input_bytes: number | null;
+		intake_kind: "chat_attachment" | "workspace_file";
+		item_id: string | null;
+		outcome: "error" | "rejected" | "success";
+		output_bytes: number | null;
+		plan_kind: "document" | "file" | null;
+		status_code: number;
+		workspace_id: string;
+	};
 }
 
 export type PostHogEventName = keyof PostHogEventPropertiesByName;

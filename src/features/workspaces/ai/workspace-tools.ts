@@ -26,12 +26,12 @@ function createWorkspaceThreadTool(input: WorkspaceThreadToolConfig) {
 		inputExamples: definition.inputExamples,
 		outputSchema: definition.outputSchema,
 		strict: true,
-		execute: async (args) => {
+		execute: async (args, { toolCallId }) => {
 			const thread = await requireThreadContext(input.getThreadContext);
 
 			return await definition.execute(
 				args,
-				createThreadWorkspaceAccessContext(thread, definition.scopes),
+				createThreadWorkspaceAccessContext(thread, definition.scopes, toolCallId),
 			);
 		},
 	});
@@ -64,8 +64,10 @@ async function requireThreadContext(getThreadContext: () => Promise<AIThreadCont
 function createThreadWorkspaceAccessContext(
 	thread: AIThreadContext,
 	scopes: readonly WorkspaceAccessScope[],
+	operationId: string,
 ): WorkspaceAccessContext {
 	return createWorkspaceAccessContext({
+		operationId,
 		scopes,
 		userId: thread.userId,
 		workspaceId: thread.workspaceId,

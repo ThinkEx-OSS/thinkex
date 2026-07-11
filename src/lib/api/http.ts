@@ -2,11 +2,12 @@ import { apiErrorSchema } from "#/lib/api/contracts";
 import { recordOperationalFailure } from "#/integrations/observability/operational-events";
 import { getTelemetryRequestDetails } from "#/integrations/posthog/server-context";
 
-function respond(body: unknown, status: number, requestId: string) {
+function respond(body: unknown, status: number, requestId: string, errorCode?: string) {
 	return new Response(JSON.stringify(body), {
 		status,
 		headers: {
 			"content-type": "application/json; charset=utf-8",
+			...(errorCode ? { "x-error-code": errorCode } : {}),
 			"x-request-id": requestId,
 		},
 	});
@@ -34,7 +35,7 @@ export function apiError(
 		details,
 	});
 
-	return respond(payload, status, requestId);
+	return respond(payload, status, requestId, code);
 }
 
 interface ApiFailureInput {

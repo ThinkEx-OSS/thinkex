@@ -7,13 +7,13 @@ import {
 } from "#/integrations/posthog/server-context";
 import type { PostHogTelemetryScheduler } from "#/integrations/posthog/scheduler";
 
-type OperationalEventValue = boolean | null | number | string | undefined;
+type OperationalEventValue = boolean | null | number | string | readonly string[] | undefined;
 type OperationalEventFields = Record<string, OperationalEventValue>;
 
 interface OperationalEventInput {
 	event: string;
 	fields?: OperationalEventFields;
-	outcome: "error" | "success";
+	outcome: "error" | "partial" | "rejected" | "success";
 	requestContext?: TelemetryRequestContext;
 }
 
@@ -26,6 +26,14 @@ interface OperationalFailureInput {
 	requestContext?: TelemetryRequestContext;
 	schedule?: PostHogTelemetryScheduler;
 }
+
+type OperationalOutcomeInput = Omit<OperationalEventInput, "outcome"> & {
+	distinctId?: string;
+	error?: unknown;
+	outcome?: OperationalEventInput["outcome"];
+	request?: TelemetryRequestDetails;
+	schedule?: PostHogTelemetryScheduler;
+};
 
 export function logOperationalEvent(input: OperationalEventInput) {
 	const payload = buildOperationalEvent(input);
@@ -63,6 +71,32 @@ export function recordOperationalFailure(input: OperationalFailureInput) {
 		},
 		requestContext,
 		schedule: input.schedule,
+	});
+}
+
+export function recordOperationalOutcome(input: OperationalOutcomeInput) {
+	if (input.error !== undefined) {
+		recordOperationalFailure({
+			distinctId: input.distinctId,
+			error: input.error,
+			event: input.event,
+			fields: input.fields,
+			request: input.request,
+			requestContext: input.requestContext,
+			schedule: input.schedule,
+		});
+		return;
+	}
+
+	const requestContext =
+		input.requestContext ??
+		(input.request ? getTelemetryRequestContext(input.request) : getTelemetryRuntimeContext());
+
+	logOperationalEvent({
+		event: input.event,
+		fields: input.fields,
+		outcome: input.outcome ?? "success",
+		requestContext,
 	});
 }
 

@@ -14,15 +14,34 @@ import {
 	assertCanReadWorkspace,
 	WorkspaceForbiddenError,
 } from "#/features/workspaces/server/permissions";
-import { apiError, apiFailure, getRequestId } from "#/lib/api/http";
+import { apiError, getRequestId } from "#/lib/api/http";
 import { getSessionFromRequest } from "#/lib/auth-queries.server";
 import { fileMatchesAccept } from "#/lib/file-accept";
+import {
+	observeWorkspaceFileIntake,
+	type WorkspaceFileIntakeObservation,
+} from "#/features/workspaces/upload/workspace-file-intake-observability";
 
 const fileFormKey = "file";
 
 async function handleWorkspaceChatAttachmentNormalization(request: Request, workspaceId: string) {
 	const requestId = getRequestId(request);
+	return observeWorkspaceFileIntake({
+		kind: "chat_attachment",
+		request,
+		requestId,
+		run: (observation) =>
+			executeWorkspaceChatAttachmentNormalization(request, workspaceId, requestId, observation),
+		workspaceId,
+	});
+}
 
+async function executeWorkspaceChatAttachmentNormalization(
+	request: Request,
+	workspaceId: string,
+	requestId: string,
+	observation: WorkspaceFileIntakeObservation,
+) {
 	try {
 		const session = await getSessionFromRequest(request);
 
@@ -34,6 +53,7 @@ async function handleWorkspaceChatAttachmentNormalization(request: Request, work
 				"You must be signed in to add chat attachments.",
 			);
 		}
+		observation.userId = session.user.id;
 
 		const dbContext = await createDbContext();
 
@@ -52,6 +72,8 @@ async function handleWorkspaceChatAttachmentNormalization(request: Request, work
 		if (!(file instanceof File)) {
 			return apiError(requestId, 400, "INVALID_ATTACHMENT", "Attachment is missing a file.");
 		}
+		observation.inputBytes = file.size;
+		observation.plan = "file";
 
 		if (!Number.isInteger(file.size) || file.size <= 0) {
 			return apiError(requestId, 400, "INVALID_ATTACHMENT", "Attachment is empty.");
@@ -75,6 +97,7 @@ async function handleWorkspaceChatAttachmentNormalization(request: Request, work
 			contentType: file.type,
 		};
 		const conversion = resolveWorkspaceUploadConversion(hint);
+		observation.conversion = conversion ?? undefined;
 		const format = resolveWorkspaceUploadFormat(hint);
 		const normalized =
 			conversion === "heic_to_jpeg"
@@ -84,6 +107,7 @@ async function handleWorkspaceChatAttachmentNormalization(request: Request, work
 						contentType: file.type || format?.mime || "application/octet-stream",
 						fileName: file.name,
 					};
+		observation.outputBytes = normalized.bytes.byteLength;
 
 		return new Response(normalized.bytes, {
 			headers: {
@@ -93,7 +117,9 @@ async function handleWorkspaceChatAttachmentNormalization(request: Request, work
 			},
 		});
 	} catch (error) {
+		observation.error = error;
 		if (error instanceof WorkspaceForbiddenError) {
+			observation.error = undefined;
 			return apiError(
 				requestId,
 				403,
@@ -103,26 +129,15 @@ async function handleWorkspaceChatAttachmentNormalization(request: Request, work
 		}
 
 		if (error instanceof WorkspaceFileConversionError) {
-			return apiFailure({
-				cause: error,
-				code: "CONVERSION_FAILED",
-				fields: { workspace_id: workspaceId },
-				message: error.userMessage,
-				request,
-				requestId,
-				status: 422,
-			});
+			return apiError(requestId, 422, "CONVERSION_FAILED", error.userMessage);
 		}
 
-		return apiFailure({
-			cause: error,
-			code: "ATTACHMENT_NORMALIZATION_FAILED",
-			fields: { workspace_id: workspaceId },
-			message: "Unable to prepare this attachment right now.",
-			request,
+		return apiError(
 			requestId,
-			status: 500,
-		});
+			500,
+			"ATTACHMENT_NORMALIZATION_FAILED",
+			"Unable to prepare this attachment right now.",
+		);
 	}
 }
 

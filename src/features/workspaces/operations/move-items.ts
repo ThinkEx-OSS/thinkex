@@ -147,7 +147,7 @@ export async function moveWorkspaceItemsOperation(
 				parentId: destination.parentId,
 				onNameConflict: "error",
 				actorUserId: accessContext.actor.userId,
-				clientMutationId: null,
+				clientMutationId: accessContext.operationId,
 			});
 			const pendingItemsById = new Map<string, (typeof pendingItems)[number]>();
 
