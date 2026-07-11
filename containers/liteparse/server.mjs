@@ -42,9 +42,13 @@ createServer(async (request, response) => {
 		const bytes = new Uint8Array(await file.arrayBuffer());
 		inputBytes = bytes.byteLength;
 		const result = await withTimeout(parser.parse(bytes), parseTimeoutMs);
-		pageCount = result.pages.length;
+		const pages = result.pages.map((page) => ({
+			markdown: page.markdown,
+			pageNumber: page.pageNum,
+		}));
+		pageCount = pages.length;
 		status = 200;
-		return sendJson(response, status, { markdown: result.text });
+		return sendJson(response, status, { pages });
 	} catch (error) {
 		errorType = error instanceof Error ? error.name : "UnknownError";
 		errorMessage = error instanceof Error ? error.message : String(error);
