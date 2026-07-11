@@ -142,6 +142,7 @@
 		"tw-animate-css": "^1.3.6",
 		"unified": "^11.0.5",
 		"unist-util-visit": "^5.1.0",
+		"unpdf": "1.6.2",
 		"y-partyserver": "^2.2.0",
 		"y-protocols": "^1.0.7",
 		"yjs": "^13.6.31",

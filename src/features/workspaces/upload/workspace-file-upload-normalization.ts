@@ -9,6 +9,7 @@ import {
 	type WorkspaceUploadConversion,
 	workspaceFileUploadLimits,
 } from "#/features/workspaces/model/workspace-file";
+import { assertReadablePdfUpload } from "#/features/workspaces/upload/pdf-upload-validation";
 
 export interface PreparedWorkspaceFileUpload {
 	body: ArrayBuffer | File;
@@ -44,17 +45,29 @@ export async function prepareWorkspaceFileUpload(input: {
 		fileName: input.file.name,
 		contentType: input.file.type,
 	});
+	const prepared = conversion
+		? await prepareConvertedWorkspaceFileUpload(input, conversion)
+		: {
+				body: input.file,
+				contentType: input.file.type || "application/octet-stream",
+				descriptor: input.descriptor,
+				fileName: input.file.name,
+				fileSize: input.file.size,
+			};
 
-	if (!conversion) {
-		return {
-			body: input.file,
-			contentType: input.file.type || "application/octet-stream",
-			descriptor: input.descriptor,
-			fileName: input.file.name,
-			fileSize: input.file.size,
-		};
-	}
+	await validatePreparedWorkspaceFileUpload(prepared);
+	return prepared;
+}
 
+async function prepareConvertedWorkspaceFileUpload(
+	input: {
+		converters?: Record<WorkspaceUploadConversion, WorkspaceUploadConverter>;
+		descriptor: WorkspaceFileTypeDescriptor;
+		env: Cloudflare.Env;
+		file: File;
+	},
+	conversion: WorkspaceUploadConversion,
+): Promise<PreparedWorkspaceFileUpload> {
 	const converters = input.converters ?? defaultConverters;
 	const converted = await converters[conversion](input.env, {
 		file: input.file,
@@ -88,4 +101,13 @@ export async function prepareWorkspaceFileUpload(input: {
 			sizeBytes: input.file.size,
 		},
 	};
+}
+
+async function validatePreparedWorkspaceFileUpload(input: PreparedWorkspaceFileUpload) {
+	if (input.descriptor.assetKind !== "pdf") {
+		return;
+	}
+
+	const bytes = input.body instanceof File ? await input.body.arrayBuffer() : input.body.slice(0);
+	await assertReadablePdfUpload(bytes);
 }

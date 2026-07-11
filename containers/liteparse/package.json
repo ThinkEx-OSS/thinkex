@@ -1,0 +1,8 @@
+{
+	"name": "thinkex-liteparse-container",
+	"private": true,
+	"type": "module",
+	"dependencies": {
+		"@llamaindex/liteparse": "2.5.1"
+	}
+}

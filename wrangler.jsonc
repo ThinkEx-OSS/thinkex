@@ -92,6 +92,12 @@
 			"instance_type": "lite",
 			"max_instances": 1,
 		},
+		{
+			"class_name": "LiteParsePdfExtractor",
+			"image": "./containers/liteparse/Dockerfile",
+			"instance_type": "standard-2",
+			"max_instances": 2,
+		},
 	],
 	"upload_source_maps": true,
 	"durable_objects": {
@@ -120,6 +126,10 @@
 				"name": "IMAGE_FILE_CONVERTER",
 				"class_name": "ImageFileConverter",
 			},
+			{
+				"name": "LITEPARSE_PDF_EXTRACTOR",
+				"class_name": "LiteParsePdfExtractor",
+			},
 		],
 	},
 	"migrations": [
@@ -146,6 +156,10 @@
 		{
 			"tag": "v7_image_file_converter",
 			"new_sqlite_classes": ["ImageFileConverter"],
+		},
+		{
+			"tag": "v8_liteparse_pdf_extractor",
+			"new_sqlite_classes": ["LiteParsePdfExtractor"],
 		},
 	],
 	"d1_databases": [
@@ -236,6 +250,12 @@
 					"instance_type": "basic",
 					"max_instances": 1,
 				},
+				{
+					"class_name": "LiteParsePdfExtractor",
+					"image": "./containers/liteparse/Dockerfile",
+					"instance_type": "standard-2",
+					"max_instances": 2,
+				},
 			],
 			"durable_objects": {
 				"bindings": [
@@ -262,6 +282,10 @@
 					{
 						"name": "IMAGE_FILE_CONVERTER",
 						"class_name": "ImageFileConverter",
+					},
+					{
+						"name": "LITEPARSE_PDF_EXTRACTOR",
+						"class_name": "LiteParsePdfExtractor",
 					},
 				],
 			},
@@ -352,6 +376,12 @@
 					"instance_type": "basic",
 					"max_instances": 1,
 				},
+				{
+					"class_name": "LiteParsePdfExtractor",
+					"image": "./containers/liteparse/Dockerfile",
+					"instance_type": "standard-2",
+					"max_instances": 2,
+				},
 			],
 			"durable_objects": {
 				"bindings": [
@@ -378,6 +408,10 @@
 					{
 						"name": "IMAGE_FILE_CONVERTER",
 						"class_name": "ImageFileConverter",
+					},
+					{
+						"name": "LITEPARSE_PDF_EXTRACTOR",
+						"class_name": "LiteParsePdfExtractor",
 					},
 				],
 			},

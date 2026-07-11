@@ -1,6 +1,7 @@
 import { WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from "cloudflare:workers";
 
 import { sha256Base64Url } from "#/features/workspaces/extraction/binary";
+import { publishLiteParseProjection } from "#/features/workspaces/extraction/liteparse-projection";
 import { recordWorkspaceFileExtractionOutcome } from "#/features/workspaces/extraction/workspace-file-extraction-observability";
 import {
 	joinMarkdownProjectionPages,
@@ -40,8 +41,18 @@ export class WorkspaceFileExtractionWorkflow extends WorkflowEntrypoint<
 			return { status: "processing" };
 		});
 
+		const liteParse = await publishLiteParseProjection(this.env, step, params);
+		const enhancementStartedAt = Date.now();
+		let extraction: StagedPageExtractionResult;
+		let result: {
+			pageCount: number;
+			provider: MarkdownExtractionProviderId;
+			providerMode: MarkdownExtractionProviderMode;
+			status: "ready";
+		};
+
 		try {
-			const extraction = await step.do(
+			extraction = await step.do(
 				"extract page markdown with provider",
 				{
 					retries: {
@@ -88,7 +99,7 @@ export class WorkspaceFileExtractionWorkflow extends WorkflowEntrypoint<
 				},
 			);
 
-			const result = await step.do(
+			result = await step.do(
 				"write extracted projections",
 				{
 					retries: {
@@ -128,38 +139,45 @@ export class WorkspaceFileExtractionWorkflow extends WorkflowEntrypoint<
 					});
 
 					return {
-						status: "ready",
+						status: "ready" as const,
 						provider: extraction.provider,
 						providerMode: extraction.providerMode,
 						pageCount: extraction.pageCount,
 					};
 				},
 			);
+		} catch (error) {
+			if (liteParse.outcome === "success") {
+				await step.do("record partial extraction outcome", async () => {
+					recordWorkspaceFileExtractionOutcome({
+						durationMs: Date.now() - event.timestamp.getTime(),
+						enhancement: {
+							durationMs: Date.now() - enhancementStartedAt,
+							error,
+							outcome: "error",
+						},
+						instanceId: event.instanceId,
+						liteParse,
+						outcome: "partial",
+						pageCount: liteParse.pageCount,
+						params,
+						provider: "liteparse",
+						providerMode: "fast",
+						routeReason: "LiteParse projection retained after enhancement failed.",
+						schedule,
+					});
 
-			await step.do("delete staged extraction artifact", async () => {
-				await this.env.WORKSPACE_KERNEL_FILES.delete(extraction.artifactKey);
-
-				return { deleted: extraction.artifactKey };
-			});
-
-			await step.do("record extraction outcome", async () => {
-				recordWorkspaceFileExtractionOutcome({
-					durationMs: Date.now() - event.timestamp.getTime(),
-					instanceId: event.instanceId,
-					outcome: "success",
-					pageCount: extraction.pageCount,
-					params,
-					provider: extraction.provider,
-					providerMode: extraction.providerMode,
-					routeReason: extraction.routeReason,
-					schedule,
+					return { outcome: "partial" };
 				});
 
-				return { outcome: "success" };
-			});
+				return {
+					pageCount: liteParse.pageCount,
+					provider: "liteparse",
+					providerMode: "fast",
+					status: "ready",
+				};
+			}
 
-			return result;
-		} catch (error) {
 			await step.do("mark extraction failed", async () => {
 				const kernel = await getWorkspaceKernelFromEnv(this.env, params.workspaceId);
 				const errorMessage = getErrorMessage(error);
@@ -177,8 +195,14 @@ export class WorkspaceFileExtractionWorkflow extends WorkflowEntrypoint<
 			await step.do("record extraction failure", async () => {
 				recordWorkspaceFileExtractionOutcome({
 					durationMs: Date.now() - event.timestamp.getTime(),
+					enhancement: {
+						durationMs: Date.now() - enhancementStartedAt,
+						error,
+						outcome: "error",
+					},
 					error,
 					instanceId: event.instanceId,
+					liteParse,
 					outcome: "error",
 					params,
 					schedule,
@@ -189,6 +213,41 @@ export class WorkspaceFileExtractionWorkflow extends WorkflowEntrypoint<
 
 			throw error;
 		}
+
+		await step.do("delete staged extraction artifact", async () => {
+			try {
+				await this.env.WORKSPACE_KERNEL_FILES.delete(extraction.artifactKey);
+				return { deleted: extraction.artifactKey };
+			} catch (error) {
+				return {
+					deleted: null,
+					errorType: error instanceof Error ? error.name : "UnknownError",
+				};
+			}
+		});
+
+		await step.do("record extraction outcome", async () => {
+			recordWorkspaceFileExtractionOutcome({
+				durationMs: Date.now() - event.timestamp.getTime(),
+				enhancement: {
+					durationMs: Date.now() - enhancementStartedAt,
+					outcome: "success",
+				},
+				instanceId: event.instanceId,
+				liteParse,
+				outcome: "success",
+				pageCount: extraction.pageCount,
+				params,
+				provider: extraction.provider,
+				providerMode: extraction.providerMode,
+				routeReason: extraction.routeReason,
+				schedule,
+			});
+
+			return { outcome: "success" };
+		});
+
+		return result;
 	}
 }
 
