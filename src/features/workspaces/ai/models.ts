@@ -24,15 +24,14 @@ export const WORKSPACE_AI_CHAT_MODELS = [
 	{
 		id: "auto",
 		name: "Auto",
-		// ThinkEx's own "let us pick for you" option. For now "Auto" is Kimi K2.6
-		// under the hood until we build or adopt a real router; the slug can
-		// change without affecting the user-facing choice.
-		gatewayModel: "moonshotai/kimi-k2.6",
+		// Keep this a stable product choice while the server owns its availability
+		// policy and fallback chain.
+		gatewayModel: "openai/gpt-5.4-mini",
 		provider: "auto",
-		tagline: "Picks a good fit for you",
+		tagline: "Fast and capable by default",
 		description:
-			"ThinkEx picks the model for you. It stays quick for simple things and uses a stronger model when the task is harder.",
-		bestFor: "Most tasks",
+			"ThinkEx picks the model for you. It stays quick for simple things and strong when the task is harder.",
+		bestFor: "Everyday work",
 		intelligence: 3,
 		speed: 3,
 		cost: 1,

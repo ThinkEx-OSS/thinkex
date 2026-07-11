@@ -396,6 +396,10 @@ export function createAIThreadClass(getUserAIStore: () => typeof UserAIStore) {
 						this.env,
 						this.sessionAffinity,
 					),
+					providerOptions: getWorkspaceAiGatewayProviderOptions({
+						modelId: DEFAULT_WORKSPACE_AI_CHAT_MODEL_ID,
+						tags: ["task:compaction"],
+					}),
 					prompt,
 				});
 			} catch (error) {

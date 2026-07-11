@@ -10,6 +10,10 @@ import type {
 	AIThreadPromptScope,
 } from "#/features/workspaces/ai/ai-thread-metadata";
 import {
+	getAIThreadTitleGatewayRoutingOptions,
+	getWorkspaceAiGatewayRoutingOptions,
+} from "#/features/workspaces/ai/ai-gateway-routing";
+import {
 	DEFAULT_WORKSPACE_AI_CHAT_MODEL_ID,
 	getWorkspaceAiChatModel,
 	type resolveWorkspaceAiChatModelId,
@@ -25,7 +29,6 @@ import { formatWorkspaceAiContextForPrompt } from "#/features/workspaces/model/w
 const thinkPromptSectionDivider = "══════════════════════════════════════════════";
 
 const AI_THREAD_TITLE_GATEWAY_MODEL = "google/gemini-2.5-flash-lite";
-const AI_THREAD_TITLE_FALLBACK_MODELS = ["openai/gpt-4.1-nano"] as const;
 
 type WorkspaceAiProviderOptions = NonNullable<
 	Parameters<typeof generateText>[0]["providerOptions"]
@@ -392,33 +395,6 @@ export function getWorkspaceAiGatewayProviderOptions(input?: {
 	} as unknown as WorkspaceAiProviderOptions;
 }
 
-function getWorkspaceAiGatewayRoutingOptions(
-	modelId: ReturnType<typeof resolveWorkspaceAiChatModelId>,
-) {
-	switch (modelId) {
-		case "claude-sonnet":
-			return {
-				order: ["bedrock", "vertex"],
-				models: ["google/gemini-3-flash", "openai/gpt-5.4-mini"],
-				sort: "ttft",
-			};
-		case "gemini":
-			return {
-				order: ["google", "vertex"],
-				models: ["openai/gpt-5.4-mini"],
-				sort: "ttft",
-			};
-		case "chatgpt":
-			return {
-				order: ["openai", "azure"],
-				models: ["google/gemini-3-flash", "openai/gpt-5.4-mini"],
-				sort: "ttft",
-			};
-		default:
-			return {};
-	}
-}
-
 function getWorkspaceAiReasoningOptions(modelId: ReturnType<typeof resolveWorkspaceAiChatModelId>) {
 	switch (modelId) {
 		case "claude-sonnet":
@@ -478,9 +454,7 @@ export async function generateAIThreadTitle(input: { env: Cloudflare.Env; messag
 		providerOptions: {
 			gateway: {
 				...getWorkspaceAiGatewayTransportOptions(),
-				order: ["google", "vertex"],
-				models: [...AI_THREAD_TITLE_FALLBACK_MODELS],
-				sort: "ttft",
+				...getAIThreadTitleGatewayRoutingOptions(),
 				tags: [
 					"app:thinkex",
 					"feature:workspace-chat",
