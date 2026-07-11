@@ -55,11 +55,20 @@ export interface WorkspaceFileUploadValidationError {
 	status: 400 | 413;
 }
 
-export class WorkspaceFileUploadError extends Error {
-	readonly code: WorkspaceFileUploadValidationError["code"];
-	readonly status: WorkspaceFileUploadValidationError["status"];
+export type WorkspaceFileUploadErrorCode =
+	| WorkspaceFileUploadValidationErrorCode
+	| "INVALID_PDF"
+	| "PASSWORD_PROTECTED_PDF";
 
-	constructor(validationError: WorkspaceFileUploadValidationError) {
+export class WorkspaceFileUploadError extends Error {
+	readonly code: WorkspaceFileUploadErrorCode;
+	readonly status: 400 | 413 | 422;
+
+	constructor(validationError: {
+		code: WorkspaceFileUploadErrorCode;
+		message: string;
+		status: 400 | 413 | 422;
+	}) {
 		super(validationError.message);
 		this.name = "WorkspaceFileUploadError";
 		this.code = validationError.code;
