@@ -23,6 +23,16 @@ export interface WorkspaceFileExtractionWorkflowParams {
 	requestId: string | null;
 }
 
+export type LiteParseStageOutcome =
+	| { durationMs: number; outcome: "skipped" }
+	| { durationMs: number; errorType: string; outcome: "error" }
+	| {
+			durationMs: number;
+			markdownLength: number;
+			outcome: "success";
+			pageCount: number;
+	  };
+
 export interface MarkdownExtractionInput {
 	workspaceId: string;
 	itemId: string;

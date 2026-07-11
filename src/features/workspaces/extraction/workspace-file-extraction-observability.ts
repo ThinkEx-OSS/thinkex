@@ -1,4 +1,5 @@
 import type {
+	LiteParseStageOutcome,
 	MarkdownExtractionProviderId,
 	MarkdownExtractionProviderMode,
 	WorkspaceFileExtractionWorkflowParams,
@@ -14,8 +15,12 @@ import type { PostHogTelemetryScheduler } from "#/integrations/posthog/scheduler
 interface WorkspaceFileExtractionOutcomeBase {
 	durationMs: number;
 	instanceId: string;
+	liteParse: LiteParseStageOutcome;
 	params: WorkspaceFileExtractionWorkflowParams;
 	schedule: PostHogTelemetryScheduler;
+	enhancement:
+		| { durationMs: number; outcome: "success" }
+		| { durationMs: number; error: unknown; outcome: "error" };
 }
 
 type WorkspaceFileExtractionOutcome = WorkspaceFileExtractionOutcomeBase &
@@ -25,9 +30,9 @@ type WorkspaceFileExtractionOutcome = WorkspaceFileExtractionOutcomeBase &
 				outcome: "error";
 		  }
 		| {
-				outcome: "success";
+				outcome: "partial" | "success";
 				pageCount: number;
-				provider: MarkdownExtractionProviderId;
+				provider: MarkdownExtractionProviderId | "liteparse";
 				providerMode: MarkdownExtractionProviderMode;
 				routeReason: string;
 		  }
@@ -41,7 +46,7 @@ export function recordWorkspaceFileExtractionOutcome(input: WorkspaceFileExtract
 	}
 
 	const outcomeFields =
-		input.outcome === "success"
+		input.outcome !== "error"
 			? {
 					error_type: null,
 					page_count: input.pageCount,
@@ -65,6 +70,18 @@ export function recordWorkspaceFileExtractionOutcome(input: WorkspaceFileExtract
 		request_id: input.params.requestId,
 		workflow_id: input.instanceId,
 		workspace_id: input.params.workspaceId,
+		enhancement_error_type:
+			input.enhancement.outcome === "error" ? getErrorType(input.enhancement.error) : null,
+		enhancement_error_message:
+			input.enhancement.outcome === "error" ? getErrorMessage(input.enhancement.error) : null,
+		enhancement_outcome: input.enhancement.outcome,
+		enhancement_duration_ms: input.enhancement.durationMs,
+		liteparse_duration_ms: input.liteParse.durationMs,
+		liteparse_error_type: input.liteParse.outcome === "error" ? input.liteParse.errorType : null,
+		liteparse_markdown_length:
+			input.liteParse.outcome === "success" ? input.liteParse.markdownLength : null,
+		liteparse_outcome: input.liteParse.outcome,
+		liteparse_page_count: input.liteParse.outcome === "success" ? input.liteParse.pageCount : null,
 		...outcomeFields,
 	};
 
@@ -81,7 +98,7 @@ export function recordWorkspaceFileExtractionOutcome(input: WorkspaceFileExtract
 		logOperationalEvent({
 			event: "workspace_file_extraction",
 			fields,
-			outcome: "success",
+			outcome: input.outcome,
 			requestContext,
 		});
 	}
@@ -93,4 +110,12 @@ export function recordWorkspaceFileExtractionOutcome(input: WorkspaceFileExtract
 		requestContext,
 		schedule: input.schedule,
 	});
+}
+
+function getErrorType(error: unknown) {
+	return error instanceof Error ? error.name : "UnknownError";
+}
+
+function getErrorMessage(error: unknown) {
+	return error instanceof Error ? error.message : String(error);
 }
