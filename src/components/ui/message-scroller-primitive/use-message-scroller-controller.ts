@@ -78,6 +78,7 @@ function useMessageScrollerController({
 	} = refs;
 
 	const previousDefaultScrollPositionRef = React.useRef(defaultScrollPosition);
+	const resizeFrameRef = React.useRef<number | null>(null);
 
 	React.useLayoutEffect(() => {
 		if (previousDefaultScrollPositionRef.current !== defaultScrollPosition) {
@@ -369,7 +370,7 @@ function useMessageScrollerController({
 		spacerRef,
 	]);
 
-	const handleResize = React.useCallback(() => {
+	const reconcileResize = React.useCallback(() => {
 		if (modeRef.current === "following-bottom" && autoScrollRef.current) {
 			scrollToEnd({ behavior: "auto" });
 			return;
@@ -382,8 +383,19 @@ function useMessageScrollerController({
 			return;
 		}
 
-		scheduleStateCommit();
-	}, [autoScrollRef, modeRef, reanchorToAnchoredMessage, scheduleStateCommit, scrollToEnd]);
+		commitScrollState();
+	}, [autoScrollRef, commitScrollState, modeRef, reanchorToAnchoredMessage, scrollToEnd]);
+
+	const handleResize = React.useCallback(() => {
+		if (resizeFrameRef.current !== null) {
+			return;
+		}
+
+		resizeFrameRef.current = window.requestAnimationFrame(() => {
+			resizeFrameRef.current = null;
+			reconcileResize();
+		});
+	}, [reconcileResize]);
 
 	const userScrollIntent = React.useCallback(() => {
 		if (
@@ -485,6 +497,11 @@ function useMessageScrollerController({
 			if (stateFrameRef.current !== null) {
 				window.cancelAnimationFrame(stateFrameRef.current);
 				stateFrameRef.current = null;
+			}
+
+			if (resizeFrameRef.current !== null) {
+				window.cancelAnimationFrame(resizeFrameRef.current);
+				resizeFrameRef.current = null;
 			}
 
 			if (autoscrollingTimeoutRef.current !== null) {
