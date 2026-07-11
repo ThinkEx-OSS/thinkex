@@ -6,7 +6,7 @@ import { WorkspaceFileConversionError } from "#/features/workspaces/conversion/e
 const gotenbergPort = 3000;
 const gotenbergLibreOfficeConvertPath = "/forms/libreoffice/convert";
 const pdfContentType = "application/pdf";
-const converterPoolSize = 1;
+const converterPoolSize = 2;
 
 export class OfficePdfConverter extends Container {
 	defaultPort = gotenbergPort;
