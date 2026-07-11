@@ -30,7 +30,7 @@ export const WORKSPACE_AI_CHAT_MODELS = [
 		provider: "auto",
 		tagline: "Fast and capable by default",
 		description:
-			"ThinkEx uses a fast, capable default model and keeps fallback options available when needed.",
+			"ThinkEx picks the model for you. It stays quick for simple things and strong when the task is harder.",
 		bestFor: "Everyday work",
 		intelligence: 3,
 		speed: 3,
