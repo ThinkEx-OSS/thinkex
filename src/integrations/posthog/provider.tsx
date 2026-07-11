@@ -77,6 +77,22 @@ export function capturePostHogClientException(error: Error, properties?: Record<
 	posthog.captureException(error, properties);
 }
 
+// Chromium surfaces these as global "error" events with no real Error attached.
+// They are benign layout-timing warnings, not exceptions worth tracking, and a
+// single chat session can emit hundreds of them — enough to bury real errors.
+const BENIGN_BROWSER_ERROR_PATTERNS = [
+	"ResizeObserver loop completed with undelivered notifications",
+	"ResizeObserver loop limit exceeded",
+];
+
+function isBenignBrowserError(message: string | undefined) {
+	if (!message) {
+		return false;
+	}
+
+	return BENIGN_BROWSER_ERROR_PATTERNS.some((pattern) => message.includes(pattern));
+}
+
 function normalizeBrowserError(value: unknown, fallbackMessage: string) {
 	if (value instanceof Error) {
 		return value;
@@ -140,6 +156,10 @@ function PostHogAuthSync() {
 function PostHogGlobalErrorCapture() {
 	useEffect(() => {
 		const handleError = (event: ErrorEvent) => {
+			if (isBenignBrowserError(event.message)) {
+				return;
+			}
+
 			capturePostHogClientException(
 				normalizeBrowserError(event.error ?? event.message, "Unhandled browser error"),
 				{

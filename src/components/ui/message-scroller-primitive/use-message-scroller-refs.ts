@@ -27,6 +27,7 @@ type MessageScrollerRefs = {
 		viewportTop: number;
 	} | null>;
 	preserveScrollOnPrependRef: React.RefObject<boolean>;
+	resizeFrameRef: React.RefObject<number | null>;
 	rootRef: React.RefObject<HTMLDivElement | null>;
 	scrollEdgeThresholdRef: React.RefObject<number>;
 	scrollMarginRef: React.RefObject<number>;
@@ -73,6 +74,10 @@ function useMessageScrollerRefs({
 	} | null>(null);
 	const scrollPreviousItemPeekRef = React.useRef(scrollPreviousItemPeek);
 	const preserveScrollOnPrependRef = React.useRef(true);
+	// Coalesces ResizeObserver-driven scroll corrections onto a frame so the
+	// scrollTop write lands outside the observer callback (avoids the benign
+	// "ResizeObserver loop" warning that layout-in-callback triggers).
+	const resizeFrameRef = React.useRef<number | null>(null);
 	const rootRef = React.useRef<HTMLDivElement | null>(null);
 	const scrollMarginRef = React.useRef(scrollMargin);
 	const spacerGapRef = React.useRef(0);
@@ -106,6 +111,7 @@ function useMessageScrollerRefs({
 		modeRef,
 		prependRestoreRef,
 		preserveScrollOnPrependRef,
+		resizeFrameRef,
 		rootRef,
 		scrollEdgeThresholdRef,
 		scrollMarginRef,

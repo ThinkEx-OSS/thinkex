@@ -68,6 +68,7 @@ function useMessageScrollerController({
 		modeRef,
 		prependRestoreRef,
 		preserveScrollOnPrependRef,
+		resizeFrameRef,
 		rootRef,
 		scrollEdgeThresholdRef,
 		spacerGapRef,
@@ -370,20 +371,40 @@ function useMessageScrollerController({
 	]);
 
 	const handleResize = React.useCallback(() => {
-		if (modeRef.current === "following-bottom" && autoScrollRef.current) {
-			scrollToEnd({ behavior: "auto" });
+		// Defer the scroll correction out of the ResizeObserver callback. Writing
+		// scrollTop synchronously here mutates layout inside the same delivery, which
+		// the browser reports as "ResizeObserver loop completed with undelivered
+		// notifications" — benign, but it fires on every frame of a streaming reply.
+		// Coalesce bursts of resize notifications onto a single frame.
+		if (resizeFrameRef.current !== null) {
 			return;
 		}
 
-		// Hold the anchored turn in place as content below it resizes (a reply
-		// streaming in, or a transient marker collapsing) — otherwise the shrinking
-		// content lets the browser clamp scrollTop and the turn drops.
-		if (reanchorToAnchoredMessage()) {
-			return;
-		}
+		resizeFrameRef.current = window.requestAnimationFrame(() => {
+			resizeFrameRef.current = null;
 
-		scheduleStateCommit();
-	}, [autoScrollRef, modeRef, reanchorToAnchoredMessage, scheduleStateCommit, scrollToEnd]);
+			if (modeRef.current === "following-bottom" && autoScrollRef.current) {
+				scrollToEnd({ behavior: "auto" });
+				return;
+			}
+
+			// Hold the anchored turn in place as content below it resizes (a reply
+			// streaming in, or a transient marker collapsing) — otherwise the shrinking
+			// content lets the browser clamp scrollTop and the turn drops.
+			if (reanchorToAnchoredMessage()) {
+				return;
+			}
+
+			scheduleStateCommit();
+		});
+	}, [
+		autoScrollRef,
+		modeRef,
+		reanchorToAnchoredMessage,
+		resizeFrameRef,
+		scheduleStateCommit,
+		scrollToEnd,
+	]);
 
 	const userScrollIntent = React.useCallback(() => {
 		if (
@@ -487,12 +508,17 @@ function useMessageScrollerController({
 				stateFrameRef.current = null;
 			}
 
+			if (resizeFrameRef.current !== null) {
+				window.cancelAnimationFrame(resizeFrameRef.current);
+				resizeFrameRef.current = null;
+			}
+
 			if (autoscrollingTimeoutRef.current !== null) {
 				window.clearTimeout(autoscrollingTimeoutRef.current);
 				autoscrollingTimeoutRef.current = null;
 			}
 		};
-	}, [autoscrollingTimeoutRef, stateFrameRef]);
+	}, [autoscrollingTimeoutRef, resizeFrameRef, stateFrameRef]);
 
 	React.useLayoutEffect(() => {
 		if (autoScroll && modeRef.current === "following-bottom" && itemCountRef.current > 0) {
