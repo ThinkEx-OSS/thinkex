@@ -11,6 +11,7 @@ import type {
 } from "@cloudflare/think";
 
 import type { AIThreadContext } from "#/features/workspaces/ai/ai-thread-metadata";
+import type { AIToolOutcome } from "#/features/workspaces/ai/ai-tool-outcome";
 import {
 	buildAiTelemetryInputFromPrompt,
 	buildAiTelemetryInputFromStep,
@@ -196,7 +197,7 @@ export class AIThreadPostHogRecorder {
 		});
 	}
 
-	recordToolFinished(ctx: ToolCallResultContext) {
+	recordToolFinished(ctx: ToolCallResultContext, outcome: AIToolOutcome) {
 		const turn = this.turn;
 		if (!turn) {
 			return;
@@ -219,10 +220,14 @@ export class AIThreadPostHogRecorder {
 			inputState: ctx.input,
 			outputState: ctx.success ? ctx.output : undefined,
 			latencySeconds: ctx.durationMs / 1000,
-			isError: !ctx.success,
+			isError: outcome.status !== "success",
 			error: ctx.success ? undefined : ctx.error,
 			properties: {
 				...turnTelemetryProperties(turn),
+				failure_codes: outcome.failureCodes,
+				failure_count: outcome.failedCount,
+				outcome: outcome.status,
+				runtime_success: ctx.success,
 				tool_call_id: ctx.toolCallId,
 				step_number: ctx.stepNumber,
 			},
@@ -235,7 +240,11 @@ export class AIThreadPostHogRecorder {
 			properties: {
 				...turnTelemetryProperties(turn),
 				tool_name: ctx.toolName,
-				success: ctx.success,
+				failure_codes: outcome.failureCodes,
+				failure_count: outcome.failedCount,
+				outcome: outcome.status,
+				runtime_success: ctx.success,
+				success: outcome.status === "success",
 				duration_ms: ctx.durationMs,
 			},
 			...this.serverEventRuntime,

@@ -61,6 +61,10 @@ export interface PostHogEventPropertiesByName {
 		tool_name: string;
 		success: boolean;
 		duration_ms: number;
+		failure_codes: string[];
+		failure_count: number;
+		outcome: "error" | "partial" | "success";
+		runtime_success: boolean;
 	};
 	ai_turn_failed: {
 		thread_id: string;

@@ -42,6 +42,7 @@ import {
 	checkWorkspaceAiMessageAccess,
 	trackWorkspaceAiMessageUsage,
 } from "#/integrations/autumn/workspace-ai-usage";
+import { recordOperationalFailure } from "#/integrations/observability/operational-events";
 
 const AI_THREAD_CHAT_RECOVERY_NO_PROGRESS_TIMEOUT_MS = 90_000;
 const AI_THREAD_CHAT_RECOVERY_TERMINAL_MESSAGE =
@@ -241,25 +242,18 @@ export function createAIThreadClass(getUserAIStore: () => typeof UserAIStore) {
 				return;
 			}
 
-			await this._settleActiveRun({ kind: "finished", result }, (error) => {
-				console.warn("[AIThread] Failed to update directory", error);
-			});
+			await this._settleActiveRun({ kind: "finished", result });
 		}
 
 		override onChatError(error: unknown, ctx?: ChatErrorContext) {
 			this.telemetry.recordTurnError(error, ctx);
 			void this.keepAliveWhile(async () => {
-				await this._settleActiveRun(
-					{
-						error,
-						errorClassification: ctx?.classification,
-						errorStage: ctx?.stage,
-						kind: "failed",
-					},
-					(metadataError) => {
-						console.warn("[AIThread] Failed to clear directory run status", metadataError);
-					},
-				);
+				await this._settleActiveRun({
+					error,
+					errorClassification: ctx?.classification,
+					errorStage: ctx?.stage,
+					kind: "failed",
+				});
 			});
 
 			return super.onChatError(error, ctx);
@@ -309,10 +303,7 @@ export function createAIThreadClass(getUserAIStore: () => typeof UserAIStore) {
 			return startedAt;
 		}
 
-		private async _settleActiveRun(
-			settlement: AIThreadRunSettlement,
-			onError: (error: unknown) => void,
-		) {
+		private async _settleActiveRun(settlement: AIThreadRunSettlement) {
 			try {
 				const startedAt = await this._getActiveRunStartedAt();
 
@@ -341,7 +332,18 @@ export function createAIThreadClass(getUserAIStore: () => typeof UserAIStore) {
 				this.activeRunStartedAt = undefined;
 				this.activeUsageContext = undefined;
 			} catch (error) {
-				onError(error);
+				const thread = this.activeUsageContext?.thread;
+				recordOperationalFailure({
+					distinctId: thread?.userId,
+					error,
+					event: "ai_directory_settlement",
+					fields: {
+						settlement_kind: settlement.kind,
+						thread_id: this.name,
+						user_id: thread?.userId,
+						workspace_id: thread?.workspaceId,
+					},
+				});
 			} finally {
 				await this._refreshSessionPromptIfNeeded();
 			}
@@ -375,21 +377,11 @@ export function createAIThreadClass(getUserAIStore: () => typeof UserAIStore) {
 				error: new Error(errorMessage),
 				feature: "chat-recovery",
 			});
-			await this._settleActiveRun(
-				{
-					error: errorMessage,
-					errorStage: "recovery",
-					kind: "failed",
-				},
-				(error) => {
-					console.warn("[AIThread] Failed to record recovery exhaustion", error, {
-						incidentId: ctx.incidentId,
-						reason: ctx.reason,
-						recoveryKind: ctx.recoveryKind,
-						requestId: ctx.requestId,
-					});
-				},
-			);
+			await this._settleActiveRun({
+				error: errorMessage,
+				errorStage: "recovery",
+				kind: "failed",
+			});
 		}
 
 		private async _summarizeCompactionPrompt(prompt: string) {

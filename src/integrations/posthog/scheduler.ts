@@ -25,7 +25,7 @@ export function schedulePostHogCapture({
 	try {
 		schedule(handledTask);
 	} catch (error) {
-		console.warn({
+		console.error({
 			event: "posthog_scheduling",
 			outcome: "error",
 			...context,

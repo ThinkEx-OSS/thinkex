@@ -11,10 +11,12 @@ import type {
 import { configure, sendRun, type StepInput, type ToolCallInput } from "@contextcompany/custom";
 
 import type { AIThreadContext } from "#/features/workspaces/ai/ai-thread-metadata";
+import type { AIToolOutcome } from "#/features/workspaces/ai/ai-tool-outcome";
 import {
 	getWorkspaceAiChatModel,
 	type WorkspaceAiChatModelId,
 } from "#/features/workspaces/ai/models";
+import { recordOperationalFailure } from "#/integrations/observability/operational-events";
 import {
 	getInspectorErrorPayload,
 	sanitizeInspectorValue,
@@ -139,7 +141,7 @@ export class AIThreadTccRecorder {
 		});
 	}
 
-	recordToolFinished(ctx: ToolCallResultContext) {
+	recordToolFinished(ctx: ToolCallResultContext, outcome: AIToolOutcome) {
 		const turn = this.turn;
 		if (!turn) {
 			return;
@@ -160,8 +162,13 @@ export class AIThreadTccRecorder {
 				? toTccRecord(sanitizeInspectorValue(ctx.output))
 				: toTccRecord(getInspectorErrorPayload(ctx.error)),
 			startTime: activeToolCall.startTime,
-			statusCode: ctx.success ? 0 : 2,
-			statusMessage: ctx.success ? undefined : getErrorMessage(ctx.error),
+			statusCode: outcome.status === "success" ? 0 : 2,
+			statusMessage:
+				outcome.status === "success"
+					? undefined
+					: ctx.success
+						? `${outcome.status} tool result`
+						: getErrorMessage(ctx.error),
 			toolCallId: ctx.toolCallId,
 		});
 	}
@@ -326,7 +333,17 @@ export class AIThreadTccRecorder {
 			thread: input.thread,
 			tokens: input.tokens,
 		}).catch((error: unknown) => {
-			console.warn("[AIThread] TCC auxiliary telemetry export failed", error);
+			recordOperationalFailure({
+				distinctId: input.thread.userId,
+				error,
+				event: "telemetry_delivery",
+				fields: {
+					provider: "tcc",
+					run_kind: "auxiliary",
+					thread_id: input.thread.id,
+					workspace_id: input.thread.workspaceId,
+				},
+			});
 		});
 
 		if (this.schedule) {
@@ -346,7 +363,17 @@ export class AIThreadTccRecorder {
 		},
 	) {
 		const task = sendTccRun(input).catch((error: unknown) => {
-			console.warn("[AIThread] TCC telemetry export failed", error);
+			recordOperationalFailure({
+				distinctId: input.metadata["tcc.userId"],
+				error,
+				event: "telemetry_delivery",
+				fields: {
+					provider: "tcc",
+					run_kind: "turn",
+					thread_id: input.sessionId,
+					workspace_id: input.metadata.workspace_id,
+				},
+			});
 		});
 
 		if (this.schedule) {

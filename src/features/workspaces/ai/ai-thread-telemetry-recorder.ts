@@ -15,6 +15,7 @@ import {
 	type AIThreadInspectorHost,
 } from "#/features/workspaces/ai/ai-thread-inspector-recorder";
 import type { AIThreadContext } from "#/features/workspaces/ai/ai-thread-metadata";
+import { getAIToolOutcome } from "#/features/workspaces/ai/ai-tool-outcome";
 import { AIThreadPostHogRecorder } from "#/features/workspaces/ai/ai-thread-posthog-recorder";
 import { AIThreadTccRecorder } from "#/features/workspaces/ai/ai-thread-tcc-recorder";
 import type { WorkspaceAiChatModelId } from "#/features/workspaces/ai/models";
@@ -88,9 +89,10 @@ export class AIThreadTelemetryRecorder {
 	}
 
 	recordToolFinished(ctx: ToolCallResultContext) {
+		const outcome = getAIToolOutcome(ctx);
 		this.inspector.recordToolFinished(ctx);
-		this.posthog.recordToolFinished(ctx);
-		this.tcc.recordToolFinished(ctx);
+		this.posthog.recordToolFinished(ctx, outcome);
+		this.tcc.recordToolFinished(ctx, outcome);
 	}
 
 	recordStepFinished(ctx: StepContext) {
