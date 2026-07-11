@@ -1,0 +1,53 @@
+diff --git a/dist/chat/react.js b/dist/chat/react.js
+index 39996ae6af91fd7f9da14230d80f147183bbe211..c3fe91c17bc9f507e4d281b2315424ac18f4d3a6 100644
+--- a/dist/chat/react.js
++++ b/dist/chat/react.js
+@@ -1204,6 +1204,8 @@ function useAgentChat(options) {
+ 					break;
+ 				case "cf_agent_stream_resume_none":
+ 					customTransport.handleStreamResumeNone();
++					streamStateRef.current = { status: "idle" };
++					setIsServerStreaming(false);
+ 					break;
+ 				case "cf_agent_stream_pending":
+ 					customTransport.handleStreamPending();
+@@ -1279,7 +1281,7 @@ function useAgentChat(options) {
+ 					}
+ 					let chunkData;
+ 					if (data.replay && streamStateRef.current.status !== "observing" && !pendingReplayResumeRequestIdsRef.current.has(data.id)) return;
+-					if (data.body?.trim()) try {
++					if (!data.error && data.body?.trim()) try {
+ 						chunkData = JSON.parse(data.body);
+ 						if (data.replay && !data.continuation && !resumingToolContinuationRef.current && observedToolContinuationRequestIdRef.current !== data.id && typeof chunkData.messageId === "string" && chunkData.type === "start") {
+ 							pendingReplayResumeRequestIdsRef.current.delete(data.id);
+@@ -1319,13 +1321,14 @@ function useAgentChat(options) {
+ 		const fallbackAckedResumeRequestIds = fallbackAckedResumeRequestIdsRef.current;
+ 		function onAgentClose() {
+ 			fallbackAckedResumeRequestIds.clear();
+ 		}
+ 		function onAgentOpen() {
+ 			if (!hasConnectedOnceRef.current) {
+ 				hasConnectedOnceRef.current = true;
+ 				return;
+ 			}
+-			if (!resume || statusRef.current !== "ready" || resumingToolContinuationRef.current || resumeInFlightRef.current || customTransport.isAwaitingResume()) return;
++			const canResume = statusRef.current === "ready" || statusRef.current === "error";
++			if (!resume || !canResume || resumingToolContinuationRef.current || resumeInFlightRef.current || customTransport.isAwaitingResume()) return;
+ 			const resumeStreamFn = resumeStreamRef.current;
+ 			if (!resumeStreamFn) return;
+ 			resumeInFlightRef.current = true;
+diff --git a/dist/wire-types-nflOzNuU.js b/dist/wire-types-nflOzNuU.js
+index 1ee35475b0edaa4dd05859e54f254b8f1cb710e7..0c73e1630e22cdef41a002ae5d61ce4cbb9e0812 100644
+--- a/dist/wire-types-nflOzNuU.js
++++ b/dist/wire-types-nflOzNuU.js
+@@ -145,6 +145,10 @@ function transition(state, event) {
+ 			};
+ 		}
+ 		case "response": {
++			if (event.error && event.done && state.status === "idle") return {
++				state,
++				isStreaming: false
++			};
+ 			let accumulator;
+ 			const isReplayedStart = event.replay === true && event.chunkData?.type === "start";
+ 			if (state.status === "idle" || state.streamId !== event.streamId || isReplayedStart) {

@@ -1,0 +1,47 @@
+diff --git a/dist/think.js b/dist/think.js
+index 6a0f2161761952d21c2efdce7a81d102d7214eda..9e82aa1747a2c802679fd60c13d06070ae920516 100644
+--- a/dist/think.js
++++ b/dist/think.js
+@@ -5733,7 +5733,10 @@ var Think = class Think extends Agent {
+ 							continuation: true
+ 						}));
+ 						if (result) {
+-							const streamResult = await this._streamResult(requestId, result, abortSignal, { continuation: true });
++							const streamResult = await this._streamResult(requestId, result, abortSignal, {
++								continuation: true,
++								appendToExistingAssistant: options?.appendToExistingAssistant
++							});
+ 							status = streamResult.status;
+ 							error = streamResult.error;
+ 						}
+@@ -6564,7 +6567,13 @@ var Think = class Think extends Agent {
+ 			this._continuation.activatePending();
+ 			this._continuation.flushAwaitingConnections((c) => this._notifyStreamResuming(c));
+ 		}
+-		const accumulator = new StreamAccumulator({ messageId: crypto.randomUUID() });
++		const continuationAssistant = options?.appendToExistingAssistant ? this.messages.findLast((message) => message.role === "assistant") : void 0;
++		const accumulator = new StreamAccumulator({
++			messageId: continuationAssistant?.id ?? crypto.randomUUID(),
++			continuation: options?.appendToExistingAssistant,
++			existingParts: continuationAssistant?.parts,
++			existingMetadata: continuationAssistant?.metadata
++		});
+ 		this._streamingAssistant = accumulator;
+ 		let doneSent = false;
+ 		let streamAborted = false;
+@@ -8006,10 +8015,11 @@ var Think = class Think extends Agent {
+ 				return;
+ 			}
+ 			this._applyRecoveredRequestContext(data);
+-			const result = await this.continueLastTurn(void 0, controller ? {
+-				signal: controller.signal,
+-				trigger: "recovery-continue"
+-			} : { trigger: "recovery-continue" });
++			const result = await this.continueLastTurn(void 0, {
++				trigger: "recovery-continue",
++				appendToExistingAssistant: true,
++				...controller && { signal: controller.signal }
++			});
+ 			await this._updateChatRecoveryIncident(data?.incidentId, result.status === "completed" ? "completed" : result.status === "skipped" ? "skipped" : "failed", result.error);
+ 			if (data?.recoveredRequestId) await this._completeRecoveredSubmission(data.recoveredRequestId, result.status, result.requestId || null, result.status === "completed" ? null : result.error ?? `Recovery ${result.status}.`);
+ 		} catch (error) {
