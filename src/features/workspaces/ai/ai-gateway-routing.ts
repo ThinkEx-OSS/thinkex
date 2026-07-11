@@ -1,10 +1,12 @@
 import type { WorkspaceAiChatModelId } from "#/features/workspaces/ai/models";
 
 type GatewayRoutingOptions = {
-	models: readonly string[];
-	order: readonly string[];
+	models: string[];
+	order: string[];
 	sort: "ttft";
 };
+
+const GOOGLE_GATEWAY_PROVIDER_ORDER = ["google", "vertex"];
 
 // Keep the policy server-side and independent from picker copy. Each order
 // puts ThinkEx's configured BYOK providers first. It is intentionally a
@@ -37,12 +39,12 @@ const workspaceAiGatewayRouting: Record<WorkspaceAiChatModelId, GatewayRoutingOp
 		sort: "ttft",
 	},
 	"gemini-pro": {
-		order: ["vertex"],
+		order: GOOGLE_GATEWAY_PROVIDER_ORDER,
 		models: ["openai/gpt-5.4", "anthropic/claude-sonnet-4.6"],
 		sort: "ttft",
 	},
 	gemini: {
-		order: ["vertex"],
+		order: GOOGLE_GATEWAY_PROVIDER_ORDER,
 		models: ["openai/gpt-5.4-mini", "anthropic/claude-haiku-4.5"],
 		sort: "ttft",
 	},
@@ -54,7 +56,7 @@ export function getWorkspaceAiGatewayRoutingOptions(modelId: WorkspaceAiChatMode
 
 export function getAIThreadTitleGatewayRoutingOptions() {
 	return {
-		order: ["vertex"],
+		order: GOOGLE_GATEWAY_PROVIDER_ORDER,
 		models: ["openai/gpt-4.1-nano"],
 		sort: "ttft" as const,
 	};
