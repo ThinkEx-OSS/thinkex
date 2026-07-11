@@ -54,8 +54,8 @@ export function WorkspaceClipboardIntakeDialog({
 									source={intake.document.source}
 								/>
 							) : null}
-							{intake.files.map((file) => (
-								<WorkspaceClipboardFileRow file={file} key={getFileKey(file)} />
+							{intake.files.map((file, index) => (
+								<WorkspaceClipboardFileRow file={file} key={getFileKey(file, index)} />
 							))}
 						</ul>
 					</section>
@@ -152,8 +152,8 @@ function getConfirmLabel(input: { documentCount: number; fileCount: number }) {
 	return total > 1 ? `Create ${total} items` : "Create item";
 }
 
-function getFileKey(file: File) {
-	return `${file.name}-${file.type}-${file.size}-${file.lastModified}`;
+function getFileKey(file: File, index: number) {
+	return `${index}-${file.name}-${file.type}-${file.size}-${file.lastModified}`;
 }
 
 function isBrowserPreviewableImage(file: File) {

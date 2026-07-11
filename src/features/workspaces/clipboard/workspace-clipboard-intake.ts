@@ -8,14 +8,23 @@ export interface WorkspaceClipboardIntake {
 	files: File[];
 }
 
+interface WorkspaceClipboardData {
+	files: Iterable<File>;
+	getData(format: string): string;
+	items: Iterable<Pick<DataTransferItem, "getAsFile" | "kind">>;
+}
+
 export function createWorkspaceClipboardIntake(
-	data: DataTransfer,
+	data: WorkspaceClipboardData,
 ): WorkspaceClipboardIntake | null {
 	const files = getClipboardFiles(data);
-	const document = createWorkspaceClipboardDocumentCandidate({
-		html: data.getData("text/html"),
-		plainText: data.getData("text/plain"),
-	});
+	const document =
+		files.length === 0
+			? createWorkspaceClipboardDocumentCandidate({
+					html: data.getData("text/html"),
+					plainText: data.getData("text/plain"),
+				})
+			: null;
 
 	if (!document && files.length === 0) {
 		return null;
@@ -24,11 +33,11 @@ export function createWorkspaceClipboardIntake(
 	return { document, files };
 }
 
-function getClipboardFiles(data: DataTransfer) {
-	const files = new Map<string, File>();
+function getClipboardFiles(data: WorkspaceClipboardData) {
+	const files = Array.from(data.files);
 
-	for (const file of Array.from(data.files)) {
-		files.set(getClipboardFileKey(file), file);
+	if (files.length > 0) {
+		return files;
 	}
 
 	for (const item of Array.from(data.items)) {
@@ -39,13 +48,9 @@ function getClipboardFiles(data: DataTransfer) {
 		const file = item.getAsFile();
 
 		if (file) {
-			files.set(getClipboardFileKey(file), file);
+			files.push(file);
 		}
 	}
 
-	return [...files.values()];
-}
-
-function getClipboardFileKey(file: File) {
-	return [file.name, file.type, file.size, file.lastModified].join(":");
+	return files;
 }

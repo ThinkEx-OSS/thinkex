@@ -57,9 +57,9 @@ export function createWorkspaceClipboardDocumentCandidate(input: {
 		}
 	}
 
-	const plainText = input.plainText?.trim();
+	const plainText = input.plainText;
 
-	if (!plainText) {
+	if (!plainText?.trim()) {
 		return null;
 	}
 
