@@ -13,11 +13,8 @@ const jpegQuality = 92;
 const maxOutputBytes = 1024 * 1024;
 const outputProfiles = [
 	{ dimension: 2048, quality: 85 },
-	{ dimension: 1600, quality: 80 },
 	{ dimension: 1280, quality: 75 },
-	{ dimension: 1024, quality: 70 },
 	{ dimension: 768, quality: 65 },
-	{ dimension: 512, quality: 60 },
 	{ dimension: 384, quality: 55 },
 ];
 
