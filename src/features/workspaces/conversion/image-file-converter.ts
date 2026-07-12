@@ -5,6 +5,7 @@ import { WorkspaceFileConversionError } from "#/features/workspaces/conversion/e
 
 const imageConverterPort = 8080;
 const imageConverterPath = "/convert/jpeg";
+const chatImageConverterPath = "/convert/chat-jpeg";
 const jpegContentType = "image/jpeg";
 const converterPoolSize = 1;
 
@@ -37,6 +38,21 @@ export async function convertImageFileToJpeg(
 	env: Cloudflare.Env,
 	input: ConvertImageFileToJpegInput,
 ): Promise<ConvertImageFileToJpegResult> {
+	return convertImageFileToJpegAtPath(env, input, imageConverterPath);
+}
+
+export async function convertImageFileToChatJpeg(
+	env: Cloudflare.Env,
+	input: ConvertImageFileToJpegInput,
+): Promise<ConvertImageFileToJpegResult> {
+	return convertImageFileToJpegAtPath(env, input, chatImageConverterPath);
+}
+
+async function convertImageFileToJpegAtPath(
+	env: Cloudflare.Env,
+	input: ConvertImageFileToJpegInput,
+	path: string,
+): Promise<ConvertImageFileToJpegResult> {
 	const converter = await getRandom(env.IMAGE_FILE_CONVERTER, converterPoolSize);
 	const bytes = await convertFileWithContainer({
 		container: converter,
@@ -45,7 +61,7 @@ export async function convertImageFileToJpeg(
 		file: input.file,
 		fileName: input.fileName,
 		formFieldName: "file",
-		url: `http://image-file-converter${imageConverterPath}`,
+		url: `http://image-file-converter${path}`,
 	});
 
 	return {
