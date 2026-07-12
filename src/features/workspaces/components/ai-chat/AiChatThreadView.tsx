@@ -81,7 +81,7 @@ export default function AiChatThreadView({
 
 		if (didSend) {
 			setSentMessageAnimationId(chatMessage.id);
-			clearDraftArtifacts(context.workspaceId);
+			clearDraftArtifacts(context.workspaceId, threadId);
 		}
 
 		return didSend;

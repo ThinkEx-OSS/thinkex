@@ -10,6 +10,13 @@ const execFileAsync = promisify(execFile);
 const port = 8080;
 const maxInputBytes = 200 * 1024 * 1024;
 const jpegQuality = 92;
+const maxOutputBytes = 1024 * 1024;
+const outputProfiles = [
+	{ dimension: 2048, quality: 85 },
+	{ dimension: 1280, quality: 75 },
+	{ dimension: 768, quality: 65 },
+	{ dimension: 384, quality: 55 },
+];
 
 createServer(async (request, response) => {
 	if (request.method === "GET" && request.url === "/health") {
@@ -17,13 +24,16 @@ createServer(async (request, response) => {
 		return;
 	}
 
-	if (request.method !== "POST" || request.url !== "/convert/jpeg") {
+	const isStandardConversion = request.method === "POST" && request.url === "/convert/jpeg";
+	const isChatConversion = request.method === "POST" && request.url === "/convert/chat-jpeg";
+
+	if (!isStandardConversion && !isChatConversion) {
 		send(response, 404, "Not found.");
 		return;
 	}
 
 	try {
-		const jpeg = await convertRequestImageToJpeg(request);
+		const jpeg = await convertRequestImageToJpeg(request, { bounded: isChatConversion });
 		response.writeHead(200, {
 			"Content-Length": String(jpeg.byteLength),
 			"Content-Type": "image/jpeg",
@@ -35,7 +45,7 @@ createServer(async (request, response) => {
 	}
 }).listen(port, "0.0.0.0");
 
-async function convertRequestImageToJpeg(incomingMessage) {
+async function convertRequestImageToJpeg(incomingMessage, options) {
 	const contentLength = Number(incomingMessage.headers["content-length"] ?? 0);
 
 	if (!Number.isFinite(contentLength) || contentLength <= 0) {
@@ -65,28 +75,37 @@ async function convertRequestImageToJpeg(incomingMessage) {
 		throw new ConversionError(400, "Missing image upload.");
 	}
 
-	return convertImageBytesToJpeg(inputBytes);
+	return convertImageBytesToJpeg(inputBytes, options);
 }
 
-async function convertImageBytesToJpeg(inputBytes) {
+async function convertImageBytesToJpeg(inputBytes, options) {
 	const tempDir = await mkdtemp(join(tmpdir(), "thinkex-image-"));
 
 	try {
 		const inputPath = join(tempDir, "input.heic");
-		const outputPath = join(tempDir, "output.jpg");
 
 		await writeFile(inputPath, inputBytes);
-		await execFileAsync("vips", ["autorot", inputPath, `${outputPath}[Q=${jpegQuality}]`], {
-			timeout: 60_000,
-		});
-
-		const outputBytes = await readFile(outputPath);
-
-		if (outputBytes.byteLength === 0) {
-			throw new ConversionError(422, "Image conversion returned an empty JPEG.");
+		if (!options.bounded) {
+			const outputPath = join(tempDir, "output.jpg");
+			await execFileAsync("vips", ["autorot", inputPath, `${outputPath}[Q=${jpegQuality}]`], {
+				timeout: 60_000,
+			});
+			return requireImageOutput(await readFile(outputPath));
 		}
 
-		return outputBytes;
+		for (const [index, profile] of outputProfiles.entries()) {
+			const outputPath = join(tempDir, `output-${index}.jpg`);
+			await createJpegThumbnail(inputPath, outputPath, profile);
+			const outputBytes = await readFile(outputPath);
+
+			requireImageOutput(outputBytes);
+
+			if (outputBytes.byteLength <= maxOutputBytes) {
+				return outputBytes;
+			}
+		}
+
+		throw new ConversionError(422, "Image conversion did not produce an output.");
 	} catch (error) {
 		if (error instanceof ConversionError) {
 			throw error;
@@ -97,6 +116,32 @@ async function convertImageBytesToJpeg(inputBytes) {
 	} finally {
 		await rm(tempDir, { force: true, recursive: true });
 	}
+}
+
+function requireImageOutput(outputBytes) {
+	if (outputBytes.byteLength === 0) {
+		throw new ConversionError(422, "Image conversion returned an empty JPEG.");
+	}
+
+	return outputBytes;
+}
+
+async function createJpegThumbnail(inputPath, outputPath, profile) {
+	await execFileAsync(
+		"vips",
+		[
+			"thumbnail",
+			inputPath,
+			`${outputPath}[Q=${profile.quality},strip]`,
+			String(profile.dimension),
+			"--height",
+			String(profile.dimension),
+			"--size",
+			"down",
+			"--auto-rotate",
+		],
+		{ timeout: 60_000 },
+	);
 }
 
 function send(response, status, message) {

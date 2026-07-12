@@ -1,20 +1,34 @@
-import { readFileAsDataUrl } from "#/lib/read-file-as-data-url";
-
 export interface NormalizedChatAttachmentFile {
 	fileName: string;
 	mediaType: string;
 	url: string;
 }
 
-export async function normalizeWorkspaceAiChatAttachmentFile(input: {
+let normalizationQueue = Promise.resolve();
+
+export function normalizeWorkspaceAiChatAttachmentFile(input: {
 	file: File;
+	threadId: string;
 	workspaceId: string;
 }): Promise<NormalizedChatAttachmentFile> {
+	const result = normalizationQueue.then(() => uploadWorkspaceAiChatAttachmentFile(input));
+	normalizationQueue = result.then(
+		() => undefined,
+		() => undefined,
+	);
+	return result;
+}
+
+async function uploadWorkspaceAiChatAttachmentFile(input: {
+	file: File;
+	threadId: string;
+	workspaceId: string;
+}) {
 	const formData = new FormData();
 	formData.set("file", input.file, input.file.name);
 
 	const response = await fetch(
-		`/api/v1/workspaces/${input.workspaceId}/chat-attachment-normalization`,
+		`/api/v1/workspaces/${encodeURIComponent(input.workspaceId)}/ai-threads/${encodeURIComponent(input.threadId)}/attachments`,
 		{
 			body: formData,
 			method: "POST",
@@ -25,14 +39,15 @@ export async function normalizeWorkspaceAiChatAttachmentFile(input: {
 		throw new Error(await getChatAttachmentNormalizationError(response));
 	}
 
-	const blob = await response.blob();
-	const encodedFileName = response.headers.get("x-attachment-filename");
+	return response.json<NormalizedChatAttachmentFile>();
+}
 
-	return {
-		fileName: encodedFileName ? decodeURIComponent(encodedFileName) : input.file.name,
-		mediaType: blob.type || response.headers.get("content-type") || "image/jpeg",
-		url: await readFileAsDataUrl(blob),
-	};
+export async function deleteWorkspaceAiChatAttachment(url: string): Promise<void> {
+	const response = await fetch(url, { method: "DELETE" });
+
+	if (!response.ok && response.status !== 404) {
+		throw new Error("Could not discard the chat attachment.");
+	}
 }
 
 async function getChatAttachmentNormalizationError(response: Response) {

@@ -13,7 +13,7 @@ interface UseAiChatAttachmentIntakeInput {
 	activeItem?: WorkspaceItem;
 	addDraftFiles: (
 		files: File[] | FileList,
-		options?: {
+		options: {
 			accept?: string;
 			maxFileSize?: number;
 			maxFiles?: number;

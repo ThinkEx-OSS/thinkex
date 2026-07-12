@@ -20,6 +20,7 @@ import { createCompactFunction } from "agents/experimental/memory/utils";
 import { generateText, type LanguageModel, type ToolSet } from "ai";
 
 import type { AIInspectorSnapshot } from "#/features/workspaces/ai/ai-inspector";
+import { resolveChatAttachmentModelMessages } from "#/features/workspaces/ai/chat-attachment-model";
 import type { AIThreadContext } from "#/features/workspaces/ai/ai-thread-metadata";
 import { AIThreadTelemetryRecorder } from "#/features/workspaces/ai/ai-thread-telemetry-recorder";
 import {
@@ -210,8 +211,16 @@ export function createAIThreadClass(getUserAIStore: () => typeof UserAIStore) {
 				thread,
 				tools: activeTools,
 			});
+			const messages = await resolveChatAttachmentModelMessages({
+				bucket: this.env.WORKSPACE_KERNEL_FILES,
+				messages: ctx.messages,
+				threadId: thread.id,
+				userId: thread.userId,
+				workspaceId: thread.workspaceId,
+			});
 
 			return {
+				messages,
 				model: getWorkspaceAiLanguageModel(modelId, this.env, this.sessionAffinity),
 				providerOptions: getWorkspaceAiGatewayProviderOptions({
 					modelId,
