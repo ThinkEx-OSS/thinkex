@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { getAgentByName } from "agents";
 
-import type { UserAIStore } from "#/features/workspaces/ai/user-ai-agents";
+import type { PutChatAttachmentInput, UserAIStore } from "#/features/workspaces/ai/user-ai-agents";
 import { apiError, getRequestId } from "#/lib/api/http";
 import { getSessionFromRequest } from "#/lib/auth-queries.server";
 
@@ -11,6 +11,7 @@ interface ChatAttachmentScope {
 }
 
 interface AuthorizedChatAttachmentRequest {
+	directory: { putChatAttachment(input: PutChatAttachmentInput): Promise<void> };
 	requestId: string;
 	userId: string;
 }
@@ -36,5 +37,5 @@ export async function authorizeChatAttachmentRequest(
 		return apiError(requestId, 404, "THREAD_NOT_FOUND", "Chat thread not found.");
 	}
 
-	return { requestId, userId: session.user.id };
+	return { directory, requestId, userId: session.user.id };
 }

@@ -38,6 +38,10 @@ export async function resolveChatAttachmentModelMessages(input: {
 			if (part.type !== "file" || typeof part.data !== "string") {
 				continue;
 			}
+			if (remainingBytes <= 0 && parseChatAttachmentContentUrl(part.data)) {
+				content[partIndex] = omitChatAttachmentPart(part);
+				continue;
+			}
 
 			const resolved = await resolveChatAttachmentPart(part, input, remainingBytes);
 			content[partIndex] = resolved.part;
@@ -82,13 +86,7 @@ async function resolveChatAttachmentPart(
 		object.size > WORKSPACE_AI_CHAT_ATTACHMENT_POLICY.maxNormalizedFileSize ||
 		object.size > remainingBytes
 	) {
-		return {
-			bytes: 0,
-			part: {
-				text: `[Earlier image omitted from model context: ${part.filename ?? "attachment"}]`,
-				type: "text",
-			},
-		};
+		return { bytes: 0, part: omitChatAttachmentPart(part) };
 	}
 
 	return {
@@ -98,5 +96,12 @@ async function resolveChatAttachmentPart(
 			data: new Uint8Array(await object.arrayBuffer()),
 			mediaType: object.httpMetadata?.contentType ?? part.mediaType,
 		},
+	};
+}
+
+function omitChatAttachmentPart(part: FilePart): TextPart {
+	return {
+		text: `[Earlier image omitted from model context: ${part.filename ?? "attachment"}]`,
+		type: "text",
 	};
 }

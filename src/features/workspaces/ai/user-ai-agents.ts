@@ -13,6 +13,7 @@ import type { ResourcePurgeResult } from "#/features/workspaces/resource-purge-r
 import {
 	copyChatAttachmentsForThread,
 	deleteChatAttachmentsForThread,
+	getChatAttachmentObjectKey,
 	rebindChatAttachmentMessageUrls,
 } from "#/features/workspaces/ai/chat-attachment-storage";
 import {
@@ -69,6 +70,14 @@ interface LinkedAIThreadSnapshot {
 interface LinkedUserAIStore {
 	exportForAccountLinking(): Promise<LinkedAIThreadSnapshot[]>;
 	purgeForDeletion(): Promise<ResourcePurgeResult>;
+}
+
+export interface PutChatAttachmentInput {
+	attachmentId: string;
+	bytes: ArrayBuffer;
+	contentType: string;
+	threadId: string;
+	workspaceId: string;
 }
 
 export const AIThread = createAIThreadClass(() => UserAIStore);
@@ -251,24 +260,46 @@ export class UserAIStore extends Agent<Cloudflare.Env, UserAIStoreState> {
 
 		for (const thread of threads) {
 			try {
-				if (this.hasSubAgent(AIThread, thread.id)) {
-					await this.deleteSubAgent(AIThread, thread.id);
-				}
-
-				deleteThreadMeta(this, thread.id);
 				await deleteChatAttachmentsForThread(this.env.WORKSPACE_KERNEL_FILES, {
 					threadId: thread.id,
 					userId: this.name,
 					workspaceId: thread.workspace_id,
 				});
+
+				if (this.hasSubAgent(AIThread, thread.id)) {
+					await this.deleteSubAgent(AIThread, thread.id);
+				}
+
+				deleteThreadMeta(this, thread.id);
 			} catch {
 				failed += 1;
 			}
 		}
 
 		this._refreshState();
-		await this.ctx.storage.deleteAll();
+		if (failed === 0) {
+			await this.ctx.storage.deleteAll();
+		}
 		return { attempted: threads.length + 1, failed };
+	}
+
+	@callable()
+	async putChatAttachment(input: PutChatAttachmentInput): Promise<void> {
+		const thread = await this._requireThreadMeta(input.threadId);
+		if (thread.workspace_id !== input.workspaceId) {
+			throw new AIThreadForbiddenError();
+		}
+
+		await this.env.WORKSPACE_KERNEL_FILES.put(
+			getChatAttachmentObjectKey({
+				attachmentId: input.attachmentId,
+				threadId: input.threadId,
+				userId: this.name,
+				workspaceId: input.workspaceId,
+			}),
+			input.bytes,
+			{ httpMetadata: { contentType: input.contentType } },
+		);
 	}
 
 	async mergeLinkedAnonymousUser(input: { anonymousUserId: string }): Promise<void> {

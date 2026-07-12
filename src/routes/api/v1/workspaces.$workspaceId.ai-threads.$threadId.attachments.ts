@@ -91,8 +91,12 @@ async function executeChatAttachmentUpload(
 		const attachmentId = crypto.randomUUID();
 		const identity = { attachmentId, threadId, workspaceId };
 		objectKey = getChatAttachmentObjectKey({ ...identity, userId: authorized.userId });
-		await env.WORKSPACE_KERNEL_FILES.put(objectKey, normalized.bytes, {
-			httpMetadata: { contentType: normalized.contentType },
+		await authorized.directory.putChatAttachment({
+			attachmentId,
+			bytes: normalized.bytes,
+			contentType: normalized.contentType,
+			threadId,
+			workspaceId,
 		});
 
 		const response = apiJson(
