@@ -101,7 +101,7 @@ Programs and platforms supporting ThinkEx with credits, tools, and infrastructur
 
 ## Contributing
 
-If you want to run or contribute the ThinkEx web app, start with:
+If you want to run or contribute to the ThinkEx web app, start with:
 
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) for contribution expectations.
 - [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md) for local setup.
