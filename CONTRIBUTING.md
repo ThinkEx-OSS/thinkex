@@ -31,7 +31,7 @@ Prerequisites:
 
 ```bash
 git clone https://github.com/ThinkEx-OSS/thinkex.git
-cd thinkex/web
+cd thinkex
 vp install --frozen-lockfile
 ```
 
