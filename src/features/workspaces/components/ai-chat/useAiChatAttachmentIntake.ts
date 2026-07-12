@@ -18,12 +18,10 @@ interface UseAiChatAttachmentIntakeInput {
 			maxFileSize?: number;
 			maxFiles?: number;
 			onError?: (error: { message: string }) => void;
-			threadId: string;
 		},
 	) => void;
 	canUploadToWorkspace: boolean;
 	currentChatFileCount: number;
-	threadId: string;
 	uploadWorkspaceFiles: (files: Iterable<File>, parentId: string | null) => void;
 }
 
@@ -38,7 +36,6 @@ export function useAiChatAttachmentIntake({
 	addDraftFiles,
 	canUploadToWorkspace,
 	currentChatFileCount,
-	threadId,
 	uploadWorkspaceFiles,
 }: UseAiChatAttachmentIntakeInput) {
 	const [reviewState, setReviewState] = useState<ChatAttachmentReviewState | null>(null);
@@ -54,7 +51,6 @@ export function useAiChatAttachmentIntake({
 				addDraftFiles(review.chatAccepted, {
 					...WORKSPACE_AI_CHAT_ATTACHMENT_POLICY,
 					onError: (error) => toast.error(error.message),
-					threadId,
 				});
 			}
 
@@ -71,7 +67,7 @@ export function useAiChatAttachmentIntake({
 				}));
 			}
 		},
-		[activeItem, addDraftFiles, canUploadToWorkspace, currentChatFileCount, threadId],
+		[activeItem, addDraftFiles, canUploadToWorkspace, currentChatFileCount],
 	);
 
 	const confirmWorkspaceFallback = useCallback(() => {

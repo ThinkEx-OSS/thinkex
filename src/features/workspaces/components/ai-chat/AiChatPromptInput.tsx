@@ -100,7 +100,7 @@ export default function AiChatPromptInput({
 	const [isInspectorOpen, setIsInspectorOpen] = useState(false);
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 	const dictation = useAiChatDictation({ input, setInput });
-	const draftFiles = useWorkspaceAiComposerDraftFiles(context.workspaceId);
+	const draftFiles = useWorkspaceAiComposerDraftFiles(activeThreadId);
 	const attachmentsReady =
 		draftFiles.length === 0 || draftFiles.every((file) => file.status === "ready");
 	const canType = status !== "error";
@@ -109,14 +109,14 @@ export default function AiChatPromptInput({
 	const { uploadFiles: uploadWorkspaceFiles } = useWorkspaceFileUpload();
 	const addDraftFiles = useWorkspaceAiComposerDraftStore((state) => state.addFiles);
 	const removeDraftFile = useWorkspaceAiComposerDraftStore((state) => state.removeFile);
-	const discardDraftFiles = useWorkspaceAiComposerDraftStore((state) => state.discardFiles);
+	const clearDraftFiles = useWorkspaceAiComposerDraftStore((state) => state.clearFiles);
 	const { addFiles, closeReview, confirmWorkspaceFallback, reviewState } =
 		useAiChatAttachmentIntake({
 			activeItem: context.activeItem,
-			addDraftFiles: (files, options) => addDraftFiles(context.workspaceId, files, options),
+			addDraftFiles: (files, options) =>
+				addDraftFiles(context.workspaceId, activeThreadId, files, options),
 			canUploadToWorkspace: capabilities.canMutateContent,
 			currentChatFileCount: draftFiles.length,
-			threadId: activeThreadId,
 			uploadWorkspaceFiles,
 		});
 	useTypeToFocusPrompt({
@@ -128,9 +128,9 @@ export default function AiChatPromptInput({
 	const attachments: Omit<AttachmentsContext, "openFileDialog"> = {
 		add: addFiles,
 		composerReady: canType,
-		clear: () => discardDraftFiles(context.workspaceId),
+		clear: () => clearDraftFiles(activeThreadId),
 		files: draftFiles,
-		remove: (fileId) => removeDraftFile(context.workspaceId, fileId),
+		remove: (fileId) => removeDraftFile(activeThreadId, fileId),
 	};
 
 	const handleSubmit = async (message: PromptInputMessage) => {

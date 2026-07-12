@@ -37,14 +37,11 @@ export function stageComposerFiles(
 	options: StageComposerFilesOptions = {},
 ) {
 	const { onError, revealChat = true } = options;
-	const threadId =
-		useWorkspaceUiStore.getState().getSession(workspaceId)?.activeAiChatThreadId ??
-		getDefaultWorkspaceThreadId(workspaceId);
+	const threadId = getComposerThreadId(workspaceId);
 
-	useWorkspaceAiComposerDraftStore.getState().addFiles(workspaceId, files, {
+	useWorkspaceAiComposerDraftStore.getState().addFiles(workspaceId, threadId, files, {
 		...WORKSPACE_AI_CHAT_ATTACHMENT_POLICY,
 		onError,
-		threadId,
 	});
 
 	if (revealChat) {
@@ -58,14 +55,23 @@ export function stageCaptureAttachmentToComposer(
 	options: StageComposerFilesOptions = {},
 ) {
 	const filesBefore =
-		useWorkspaceAiComposerDraftStore.getState().filesByWorkspaceId[workspaceId]?.length ?? 0;
+		useWorkspaceAiComposerDraftStore.getState().filesByThreadId[getComposerThreadId(workspaceId)]
+			?.length ?? 0;
 
 	stageComposerFiles(workspaceId, [file], options);
 
 	const filesAfter =
-		useWorkspaceAiComposerDraftStore.getState().filesByWorkspaceId[workspaceId]?.length ?? 0;
+		useWorkspaceAiComposerDraftStore.getState().filesByThreadId[getComposerThreadId(workspaceId)]
+			?.length ?? 0;
 
 	return filesAfter > filesBefore;
+}
+
+function getComposerThreadId(workspaceId: string) {
+	return (
+		useWorkspaceUiStore.getState().getSession(workspaceId)?.activeAiChatThreadId ??
+		getDefaultWorkspaceThreadId(workspaceId)
+	);
 }
 
 export function stageCaptureAttachmentToComposerWithFeedback(
