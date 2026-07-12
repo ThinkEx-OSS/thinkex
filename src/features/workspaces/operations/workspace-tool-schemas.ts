@@ -94,13 +94,12 @@ export const workspacePageRangeSchema = z
 	);
 
 export const workspaceListItemsInputSchema = z.object({
-	cursor: z
-		.string()
-		.min(1)
+	offset: z
+		.number()
+		.int()
+		.min(0)
 		.optional()
-		.describe(
-			"Opaque nextCursor returned by the previous list call. Keep path and recursive unchanged when continuing.",
-		),
+		.describe("Zero-based item offset. Use nextOffset from the previous result to continue."),
 	limit: z
 		.number()
 		.int()
@@ -326,16 +325,13 @@ export const workspaceLinkItemsInputExamples = createInputExamples<
 
 export const workspaceListItemsOutputSchema = z.object({
 	path: workspacePathSchema,
-	more: z.boolean(),
-	nextCursor: z.string().optional(),
+	total: z.number().int().nonnegative(),
+	nextOffset: z.number().int().nonnegative().optional(),
 	items: z.array(workspaceListItemSchema),
 	failed: z.array(
-		createFailureSchema(
-			["path_not_absolute", "path_not_folder", "path_not_found", "invalid_cursor"],
-			{
-				includeIndex: false,
-			},
-		),
+		createFailureSchema(["path_not_absolute", "path_not_folder", "path_not_found"], {
+			includeIndex: false,
+		}),
 	),
 });
 

@@ -17,8 +17,8 @@ import {
 
 export interface ListWorkspaceKernelItemsResult {
 	path: string;
-	more: boolean;
-	nextCursor?: string;
+	total: number;
+	nextOffset?: number;
 	items: ListWorkspaceKernelItem[];
 	failed: ListWorkspaceKernelItemsFailure[];
 }
@@ -32,14 +32,14 @@ export interface ListWorkspaceKernelItem {
 }
 
 export interface ListWorkspaceKernelItemsFailure {
-	code: WorkspaceKernelPathErrorCode | "invalid_cursor";
+	code: WorkspaceKernelPathErrorCode;
 	path: string;
 }
 
 interface WorkspaceKernelListedItems {
 	items: ListWorkspaceKernelItem[];
-	more: boolean;
-	nextCursor?: string;
+	total: number;
+	nextOffset?: number;
 }
 
 interface WorkspaceKernelListRow {
@@ -47,17 +47,10 @@ interface WorkspaceKernelListRow {
 	path: string;
 }
 
-class WorkspaceListCursorError extends Error {
-	constructor(readonly path: string) {
-		super("Invalid workspace list cursor.");
-		this.name = "WorkspaceListCursorError";
-	}
-}
-
 export function listWorkspaceKernelTreeItems(input: {
 	tree: WorkspaceKernelTree;
 	itemFactsById: ReadonlyMap<string, WorkspaceItemFacts>;
-	cursor?: string;
+	offset?: number;
 	path?: string;
 	recursive?: boolean;
 	limit?: number;
@@ -66,7 +59,7 @@ export function listWorkspaceKernelTreeItems(input: {
 		const cwd = resolveWorkspaceKernelCwd(input.path ?? "/", input.tree);
 		const boundedLimit = clampWorkspaceListLimit(input.limit);
 		const listing = collectWorkspaceKernelListItems({
-			cursor: input.cursor,
+			offset: input.offset ?? 0,
 			parentId: cwd.parentId,
 			basePath: cwd.path,
 			recursive: input.recursive ?? false,
@@ -77,23 +70,21 @@ export function listWorkspaceKernelTreeItems(input: {
 
 		return {
 			path: cwd.path,
-			more: listing.more,
-			...(listing.nextCursor ? { nextCursor: listing.nextCursor } : {}),
+			total: listing.total,
+			...(listing.nextOffset !== undefined ? { nextOffset: listing.nextOffset } : {}),
 			items: listing.items,
 			failed: [],
 		};
 	} catch (error) {
-		if (error instanceof WorkspaceKernelPathError || error instanceof WorkspaceListCursorError) {
-			const path =
-				error instanceof WorkspaceListCursorError ? error.path : input.path?.trim() || "/";
-
+		if (error instanceof WorkspaceKernelPathError) {
+			const path = input.path?.trim() || "/";
 			return {
 				path,
-				more: false,
+				total: 0,
 				items: [],
 				failed: [
 					{
-						code: error instanceof WorkspaceListCursorError ? "invalid_cursor" : error.code,
+						code: error.code,
 						path,
 					},
 				],
@@ -105,7 +96,7 @@ export function listWorkspaceKernelTreeItems(input: {
 }
 
 function collectWorkspaceKernelListItems({
-	cursor,
+	offset,
 	parentId,
 	basePath,
 	recursive,
@@ -113,7 +104,7 @@ function collectWorkspaceKernelListItems({
 	childrenByParentId,
 	itemFactsById,
 }: {
-	cursor?: string;
+	offset: number;
 	parentId: string | null;
 	basePath: string;
 	recursive: boolean;
@@ -145,16 +136,8 @@ function collectWorkspaceKernelListItems({
 	};
 
 	visit(parentId, "");
-	const cursorIndex = cursor ? rows.findIndex((row) => row.item.id === cursor) : -1;
-
-	if (cursor && cursorIndex === -1) {
-		throw new WorkspaceListCursorError(basePath);
-	}
-
-	const startIndex = cursorIndex + 1;
-	const pageRows = rows.slice(startIndex, startIndex + limit);
-	const more = startIndex + pageRows.length < rows.length;
-	const lastItemId = pageRows.at(-1)?.item.id;
+	const pageRows = rows.slice(offset, offset + limit);
+	const nextOffset = offset + pageRows.length;
 
 	return {
 		items: pageRows.map((row) =>
@@ -164,8 +147,8 @@ function collectWorkspaceKernelListItems({
 				path: row.path,
 			}),
 		),
-		more,
-		...(more && lastItemId ? { nextCursor: lastItemId } : {}),
+		total: rows.length,
+		...(nextOffset < rows.length ? { nextOffset } : {}),
 	};
 }
 

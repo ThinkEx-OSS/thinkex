@@ -109,16 +109,16 @@ export const workspaceToolDefinitions = [
 	defineWorkspaceTool({
 		name: "workspace_list_items",
 		description:
-			"List items by absolute workspace path. If more is true, repeat with nextCursor as cursor and keep path and recursive unchanged.",
+			"List items by absolute workspace path. If nextOffset is present, use it as offset to continue.",
 		inputSchema: workspaceListItemsInputSchema,
 		inputExamples: workspaceListItemsInputExamples,
 		outputSchema: workspaceListItemsOutputSchema,
 		summarizeResult: summarizeWorkspaceCollectionResult,
 		scopes: workspaceReadScopes,
 		mutating: false,
-		execute: async ({ cursor, limit, path, recursive }, context) => {
+		execute: async ({ limit, offset, path, recursive }, context) => {
 			return await listWorkspaceItemsOperation(context, {
-				cursor,
+				offset,
 				path,
 				recursive,
 				limit,
