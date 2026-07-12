@@ -10,7 +10,7 @@ import type { AuthSession } from "#/lib/auth.functions";
 import { AppHotkeysProvider } from "#/lib/hotkeys";
 import { seo } from "#/lib/seo";
 import { getAuthSessionQueryOptions } from "#/lib/session-query";
-import { ThemeProvider } from "../components/theme-provider";
+import { ThemeProvider, ThemeScript } from "../components/theme-provider";
 import PostHogProvider from "../integrations/posthog/provider";
 import TanStackQueryDevtools from "../integrations/tanstack-query/devtools";
 import appCss from "../styles.css?url";
@@ -79,9 +79,10 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 	return (
 		<html lang="en" suppressHydrationWarning>
 			<head>
+				<ThemeScript defaultTheme="system" storageKey="theme" />
 				<HeadContent />
 			</head>
-			<body>
+			<body suppressHydrationWarning>
 				<ThemeProvider defaultTheme="system" storageKey="theme">
 					<AuthSessionRefresher />
 					<PostHogProvider>

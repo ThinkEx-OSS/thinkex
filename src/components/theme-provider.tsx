@@ -35,6 +35,24 @@ function getThemeScript(storageKey: string, defaultTheme: Theme) {
 	return `(function(){try{var t=localStorage.getItem(${key});if(t!=='light'&&t!=='dark'&&t!=='system'){t=${fallback}}var d=matchMedia('(prefers-color-scheme: dark)').matches;var r=t==='system'?(d?'dark':'light'):t;var e=document.documentElement;e.classList.add(r);e.style.colorScheme=r}catch(e){}})();`;
 }
 
+type ThemeScriptProps = {
+	defaultTheme?: Theme;
+	storageKey?: string;
+};
+
+/**
+ * Inline script that resolves and applies the theme to `document.documentElement`
+ * before paint. It must render in `<head>` so it runs during HTML parsing, ahead
+ * of body hydration — otherwise its mutation of the root element races React's
+ * whole-document hydration and can surface as a #418 mismatch.
+ */
+export function ThemeScript({
+	defaultTheme = "system",
+	storageKey = defaultThemeStorageKey,
+}: ThemeScriptProps) {
+	return <ScriptOnce>{getThemeScript(storageKey, defaultTheme)}</ScriptOnce>;
+}
+
 function applyResolvedTheme(resolved: ResolvedTheme) {
 	const root = document.documentElement;
 	root.classList.remove("light", "dark");
@@ -90,7 +108,6 @@ export function ThemeProvider({
 
 	return (
 		<ThemeProviderContext value={{ resolvedTheme, theme, setTheme }}>
-			<ScriptOnce>{getThemeScript(themeStorageKey, defaultTheme)}</ScriptOnce>
 			{children}
 		</ThemeProviderContext>
 	);
