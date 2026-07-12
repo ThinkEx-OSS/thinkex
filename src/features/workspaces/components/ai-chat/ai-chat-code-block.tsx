@@ -1,6 +1,7 @@
 import type { CSSProperties, HTMLAttributes, ReactNode } from "react";
 import { isValidElement, useEffect, useState } from "react";
 import type { ThemedToken } from "shiki/core";
+import { ClientOnly } from "@tanstack/react-router";
 import {
 	CodeBlockActions,
 	CodeBlockCopyButton,
@@ -390,7 +391,11 @@ export const MarkdownCodeBlock = ({
 	const code = getTextContent(children).replace(/\n$/, "");
 
 	if (rawLanguage?.toLowerCase() === "mermaid") {
-		return <AiChatMermaidDiagram source={code} />;
+		return (
+			<ClientOnly>
+				<AiChatMermaidDiagram source={code} />
+			</ClientOnly>
+		);
 	}
 
 	const language = normalizeChatCodeLanguage(rawLanguage);
