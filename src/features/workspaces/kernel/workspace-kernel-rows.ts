@@ -1,7 +1,7 @@
 import type { WorkspaceItemSummary } from "#/features/workspaces/contracts";
 import { workspaceItemTypeSchema } from "#/features/workspaces/contracts";
 import { getWorkspaceItemTypeMeta } from "#/features/workspaces/defaults";
-import { parseWorkspaceItemMetadataJson } from "#/features/workspaces/kernel/workspace-kernel-metadata";
+import { parseWorkspaceMetadataJson } from "#/features/workspaces/kernel/workspace-kernel-metadata";
 import type { WorkspaceRealtimeEvent } from "#/features/workspaces/realtime/messages";
 
 export type KernelItemRow = {
@@ -40,7 +40,7 @@ export function mapKernelItemRow(row: KernelItemRow, workspaceId: string): Works
 		name: row.name,
 		meta: getWorkspaceItemTypeMeta(type),
 		color: row.color,
-		metadataJson: parseWorkspaceItemMetadataJson(row.metadata_json),
+		metadataJson: parseWorkspaceMetadataJson(row.metadata_json),
 		sortOrder: row.sort_order,
 		createdAt: new Date(row.created_at).toISOString(),
 		updatedAt: new Date(row.updated_at).toISOString(),

@@ -1,6 +1,7 @@
 import { getWorkspaceItemTypeMeta } from "#/features/workspaces/defaults";
 import { buildWorkspaceKernelItemPathIndex } from "#/features/workspaces/kernel/workspace-kernel-paths";
 import type { WorkspaceItem } from "#/features/workspaces/model/types";
+import { resolveWorkspaceFileTypeFromItem } from "#/features/workspaces/model/workspace-file";
 
 import type {
 	WorkspaceAiContextOutline,
@@ -58,9 +59,13 @@ function getWorkspaceAiContextOutlineRows(
 			throw new Error("Workspace outline path index returned an unknown item.");
 		}
 
+		const facts = context.itemFactsById.get(item.id);
+
 		return {
 			item,
 			outlineItem: {
+				...(facts?.pageCount ? { pageCount: facts.pageCount } : {}),
+				relationshipCount: facts?.relationshipCount ?? 0,
 				...(item.type === "folder"
 					? {
 							childCount: childCountsByItemId.get(item.id) ?? 0,
@@ -68,7 +73,7 @@ function getWorkspaceAiContextOutlineRows(
 						}
 					: {}),
 				path,
-				type: getWorkspaceItemTypeMeta(item.type),
+				type: resolveWorkspaceFileTypeFromItem(item)?.label ?? getWorkspaceItemTypeMeta(item.type),
 			},
 		};
 	});

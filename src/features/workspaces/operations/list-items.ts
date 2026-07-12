@@ -6,6 +6,7 @@ import {
 } from "#/features/workspaces/kernel/workspace-kernel-list";
 
 export interface ListWorkspaceItemsOperationInput {
+	cursor?: string;
 	limit?: number;
 	path?: string;
 	recursive?: boolean;
@@ -22,6 +23,8 @@ export async function listWorkspaceItemsOperation(
 
 	return listWorkspaceKernelTreeItems({
 		tree: workspaceContext.tree,
+		itemFactsById: workspaceContext.itemFactsById,
+		cursor: input.cursor,
 		path: input.path,
 		recursive: input.recursive,
 		limit: input.limit,

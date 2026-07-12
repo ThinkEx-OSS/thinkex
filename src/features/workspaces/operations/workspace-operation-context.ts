@@ -1,5 +1,5 @@
 import { createDbContext } from "#/db/server";
-import type { WorkspaceItemSummary } from "#/features/workspaces/contracts";
+import type { WorkspaceItemFacts, WorkspaceItemSummary } from "#/features/workspaces/contracts";
 import {
 	getWorkspaceKernel,
 	type WorkspaceKernelClient,
@@ -24,6 +24,7 @@ export type WorkspaceOperationAccessMode = "read" | "mutate";
 
 export interface WorkspaceOperationContext {
 	kernel: WorkspaceKernelClient;
+	itemFactsById: ReadonlyMap<string, WorkspaceItemFacts>;
 	pageItems: WorkspaceItemSummary[];
 	tree: WorkspaceKernelTree;
 }
@@ -86,6 +87,7 @@ export async function getWorkspaceOperationContext(input: {
 
 		return {
 			kernel,
+			itemFactsById: new Map(page.itemFacts.map((item) => [item.itemId, item])),
 			pageItems: page.items,
 			tree: buildWorkspaceKernelTree(page.items),
 		};

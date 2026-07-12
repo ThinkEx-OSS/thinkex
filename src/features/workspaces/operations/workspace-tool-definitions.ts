@@ -108,15 +108,17 @@ function defineWorkspaceTool<
 export const workspaceToolDefinitions = [
 	defineWorkspaceTool({
 		name: "workspace_list_items",
-		description: "List items in the actual ThinkEx workspace by absolute path.",
+		description:
+			"List items by absolute workspace path. If more is true, repeat with nextCursor as cursor and keep path and recursive unchanged.",
 		inputSchema: workspaceListItemsInputSchema,
 		inputExamples: workspaceListItemsInputExamples,
 		outputSchema: workspaceListItemsOutputSchema,
 		summarizeResult: summarizeWorkspaceCollectionResult,
 		scopes: workspaceReadScopes,
 		mutating: false,
-		execute: async ({ limit, path, recursive }, context) => {
+		execute: async ({ cursor, limit, path, recursive }, context) => {
 			return await listWorkspaceItemsOperation(context, {
+				cursor,
 				path,
 				recursive,
 				limit,

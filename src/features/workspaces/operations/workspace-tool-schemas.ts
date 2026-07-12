@@ -43,6 +43,14 @@ const workspacePathItemSchema = z.object({
 	type: workspaceItemTypeSchema,
 });
 
+const workspaceListItemSchema = z.object({
+	modifiedAt: z.string(),
+	pageCount: z.number().int().positive().optional(),
+	path: workspacePathSchema,
+	relationshipCount: z.number().int().nonnegative(),
+	type: z.enum(["folder", "document", "pdf", "image", "file", "flashcard", "quiz"]),
+});
+
 const workspacePreviousPathItemSchema = workspacePathItemSchema.extend({
 	previousPath: workspacePathSchema,
 });
@@ -86,6 +94,13 @@ export const workspacePageRangeSchema = z
 	);
 
 export const workspaceListItemsInputSchema = z.object({
+	cursor: z
+		.string()
+		.min(1)
+		.optional()
+		.describe(
+			"Opaque nextCursor returned by the previous list call. Keep path and recursive unchanged when continuing.",
+		),
 	limit: z
 		.number()
 		.int()
@@ -312,11 +327,15 @@ export const workspaceLinkItemsInputExamples = createInputExamples<
 export const workspaceListItemsOutputSchema = z.object({
 	path: workspacePathSchema,
 	more: z.boolean(),
-	items: z.array(workspacePathItemSchema),
+	nextCursor: z.string().optional(),
+	items: z.array(workspaceListItemSchema),
 	failed: z.array(
-		createFailureSchema(["path_not_absolute", "path_not_folder", "path_not_found"], {
-			includeIndex: false,
-		}),
+		createFailureSchema(
+			["path_not_absolute", "path_not_folder", "path_not_found", "invalid_cursor"],
+			{
+				includeIndex: false,
+			},
+		),
 	),
 });
 

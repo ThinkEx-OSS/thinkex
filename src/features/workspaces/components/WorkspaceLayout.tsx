@@ -22,7 +22,11 @@ import {
 	useWorkspaceViewPolicy,
 	WorkspaceViewCapabilitiesProvider,
 } from "#/features/workspaces/components/workspace-view-policy";
-import type { WorkspaceItemType, WorkspaceSummary } from "#/features/workspaces/contracts";
+import type {
+	WorkspaceItemFacts,
+	WorkspaceItemType,
+	WorkspaceSummary,
+} from "#/features/workspaces/contracts";
 import type { WorkspaceItem } from "#/features/workspaces/model/types";
 import { isWorkspaceItemView } from "#/features/workspaces/model/view";
 import { workspaceItemRequiresHeavyViewerRuntime } from "#/features/workspaces/model/workspace-file";
@@ -51,6 +55,7 @@ export type { WorkspaceItem } from "#/features/workspaces/model/types";
 interface WorkspaceShellProps {
 	workspace: WorkspaceSummary;
 	items: WorkspaceItem[];
+	itemFacts: WorkspaceItemFacts[];
 	revision: number;
 	activeTabIdFromUrl?: string;
 	activeViewFromUrl?: string;
@@ -59,6 +64,7 @@ interface WorkspaceShellProps {
 export function WorkspaceShell({
 	workspace,
 	items,
+	itemFacts,
 	revision,
 	activeTabIdFromUrl,
 	activeViewFromUrl,
@@ -174,6 +180,7 @@ export function WorkspaceShell({
 		activeItem: isWorkspaceItemView(activeItem) ? activeItem : undefined,
 		activeTabId: activeTab.id,
 		itemViewStatesByItemId,
+		itemFactsById: new Map(itemFacts.map((item) => [item.itemId, item])),
 		itemsById,
 		presentation,
 		selectedItemIds,

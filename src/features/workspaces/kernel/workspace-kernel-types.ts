@@ -1,6 +1,7 @@
 import type {
 	JsonValue,
 	WorkspaceItemColor,
+	WorkspaceItemFacts,
 	WorkspaceItemSummary,
 	WorkspaceRelationKind,
 	WorkspaceItemType,
@@ -13,6 +14,7 @@ import type {
 export interface WorkspaceKernelPage {
 	workspaceId: string;
 	items: WorkspaceItemSummary[];
+	itemFacts: WorkspaceItemFacts[];
 	revision: number;
 }
 

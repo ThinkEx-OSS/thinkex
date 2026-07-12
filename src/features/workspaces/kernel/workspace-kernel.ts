@@ -111,9 +111,12 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 	}
 
 	async getPage(): Promise<WorkspaceKernelPage> {
+		const items = this.store.getPageItems();
+
 		return {
 			workspaceId: this.name,
-			items: this.store.getPageItems(),
+			items,
+			itemFacts: this.store.getItemFacts(items),
 			revision: this.store.getCurrentRevision(),
 		};
 	}

@@ -11,6 +11,7 @@ import {
 	getWorkspaceKernelFilePreviewShellPath,
 	getWorkspaceKernelFileShellPath,
 } from "#/features/workspaces/kernel/workspace-kernel-files";
+import { parseWorkspaceMetadataJson } from "#/features/workspaces/kernel/workspace-kernel-metadata";
 import type { WorkspaceKernelSql } from "#/features/workspaces/kernel/workspace-kernel-schema";
 import type { WorkspaceKernelStore } from "#/features/workspaces/kernel/workspace-kernel-store";
 import type {
@@ -510,16 +511,4 @@ function getErrorMessage(error: unknown) {
 	return error instanceof Error ? error.message : String(error);
 }
 
-function parseProjectionMetadataJson(value: string): Record<string, JsonValue> {
-	try {
-		const parsed = JSON.parse(value) as unknown;
-
-		if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-			return {};
-		}
-
-		return parsed as Record<string, JsonValue>;
-	} catch {
-		return {};
-	}
-}
+const parseProjectionMetadataJson = parseWorkspaceMetadataJson;

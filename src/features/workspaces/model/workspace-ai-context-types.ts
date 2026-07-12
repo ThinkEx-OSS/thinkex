@@ -1,5 +1,6 @@
 import type { WorkspaceTab } from "#/features/workspaces/model/tab-types";
 import type { WorkspaceItem } from "#/features/workspaces/model/types";
+import type { WorkspaceItemFacts } from "#/features/workspaces/contracts";
 import type {
 	WorkspaceAiContextItemViewState,
 	WorkspaceItemViewState,
@@ -11,6 +12,7 @@ export type WorkspaceAiContextScope = {
 	activeItem?: WorkspaceItem;
 	activeTabId?: string;
 	itemViewStatesByItemId: Readonly<Record<string, WorkspaceItemViewState | undefined>>;
+	itemFactsById: ReadonlyMap<string, WorkspaceItemFacts>;
 	itemsById: ReadonlyMap<string, WorkspaceItem>;
 	presentation: WorkspacePresentation;
 	selectedItemIds: readonly string[];
@@ -53,7 +55,9 @@ export type WorkspaceAiContextOutline =
 export type WorkspaceAiContextOutlineItem = {
 	childCount?: number;
 	descendantCount?: number;
+	pageCount?: number;
 	path: string;
+	relationshipCount: number;
 	type: string;
 };
 

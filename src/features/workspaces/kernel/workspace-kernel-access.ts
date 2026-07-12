@@ -10,6 +10,7 @@ import type {
 	MoveWorkspaceItemsInput,
 	RenameWorkspaceItemInput,
 	UpdateWorkspaceItemColorInput,
+	WorkspaceItemFacts,
 	WorkspaceItemSummary,
 	WorkspacePage,
 } from "#/features/workspaces/contracts";
@@ -43,6 +44,7 @@ export interface WorkspaceKernelClient {
 	getPage(): Promise<{
 		workspaceId: string;
 		items: WorkspaceItemSummary[];
+		itemFacts: WorkspaceItemFacts[];
 		revision: number;
 	}>;
 	createRelations(input: { relations: CreateWorkspaceKernelRelationArgs[] }): Promise<void>;
@@ -164,6 +166,7 @@ export async function getWorkspaceKernelPage(input: {
 		return {
 			workspace: input.workspace,
 			items: page.items,
+			itemFacts: page.itemFacts,
 			revision: page.revision,
 		};
 	} finally {

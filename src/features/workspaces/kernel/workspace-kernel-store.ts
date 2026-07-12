@@ -1,4 +1,8 @@
-import type { WorkspaceItemSummary, WorkspaceItemType } from "#/features/workspaces/contracts";
+import type {
+	WorkspaceItemFacts,
+	WorkspaceItemSummary,
+	WorkspaceItemType,
+} from "#/features/workspaces/contracts";
 import {
 	getAvailableWorkspaceItemName,
 	normalizeWorkspaceItemName,
@@ -12,7 +16,9 @@ import {
 	workspaceItemSortStep,
 	workspaceRevisionKey,
 } from "#/features/workspaces/kernel/workspace-kernel-schema";
+import { parseWorkspaceMetadataJson } from "#/features/workspaces/kernel/workspace-kernel-metadata";
 import type { WorkspaceKernelNameConflictPolicy } from "#/features/workspaces/kernel/workspace-kernel-types";
+import { getMetadataNumber } from "#/features/workspaces/model/workspace-file";
 
 export class WorkspaceKernelNameConflictError extends Error {
 	constructor(
@@ -40,6 +46,43 @@ export class WorkspaceKernelStore {
 			WHERE deleted_at IS NULL
 			ORDER BY parent_id ASC, sort_order ASC, name ASC
 		`.map((row) => mapKernelItemRow(row, this.workspaceId()));
+	}
+
+	getItemFacts(items: WorkspaceItemSummary[]): WorkspaceItemFacts[] {
+		const factsByItemId = new Map(
+			this.sql<{
+				id: string;
+				projection_metadata_json: string | null;
+				relationship_count: number;
+			}>`
+				SELECT
+					i.id,
+					p.metadata_json AS projection_metadata_json,
+					(
+						SELECT COUNT(*)
+						FROM kernel_relations r
+						WHERE r.from_item_id = i.id OR r.to_item_id = i.id
+					) AS relationship_count
+				FROM kernel_items i
+				LEFT JOIN kernel_item_projections p
+					ON p.item_id = i.id AND p.format = 'pages' AND p.status = 'ready'
+				WHERE i.deleted_at IS NULL
+			`.map((row) => [row.id, row] as const),
+		);
+
+		return items.map((item) => {
+			const facts = factsByItemId.get(item.id);
+			const projectionMetadata = facts?.projection_metadata_json
+				? parseWorkspaceMetadataJson(facts.projection_metadata_json)
+				: {};
+			const pageCount = getMetadataNumber(projectionMetadata, "pageCount");
+
+			return {
+				itemId: item.id,
+				...(pageCount && Number.isInteger(pageCount) ? { pageCount } : {}),
+				relationshipCount: facts?.relationship_count ?? 0,
+			};
+		});
 	}
 
 	getAllDocumentItemIds(): string[] {

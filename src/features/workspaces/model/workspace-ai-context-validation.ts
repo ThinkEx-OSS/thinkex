@@ -76,6 +76,8 @@ function isWorkspaceAiContextOutlineItem(value: unknown) {
 	return (
 		typeof value.path === "string" &&
 		typeof value.type === "string" &&
+		(value.pageCount === undefined || isPositiveInteger(value.pageCount)) &&
+		isNonNegativeInteger(value.relationshipCount) &&
 		hasChildCount === hasDescendantCount &&
 		(value.childCount === undefined || isNonNegativeInteger(value.childCount)) &&
 		(value.descendantCount === undefined || isNonNegativeInteger(value.descendantCount))
@@ -84,6 +86,10 @@ function isWorkspaceAiContextOutlineItem(value: unknown) {
 
 function isNonNegativeInteger(value: unknown) {
 	return typeof value === "number" && Number.isInteger(value) && value >= 0;
+}
+
+function isPositiveInteger(value: unknown) {
+	return typeof value === "number" && Number.isInteger(value) && value > 0;
 }
 
 export function isWorkspaceAiContextSelectedItem(
