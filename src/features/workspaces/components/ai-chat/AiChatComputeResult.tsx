@@ -97,7 +97,7 @@ function ComputeTextBlock({
 			<pre
 				className={
 					tone === "error"
-						? "max-h-80 overflow-auto whitespace-pre-wrap break-words px-3 py-2 text-destructive"
+						? "max-h-80 overflow-auto whitespace-pre-wrap break-words px-3 py-2 text-muted-foreground"
 						: "max-h-80 overflow-auto whitespace-pre-wrap break-words px-3 py-2 text-muted-foreground"
 				}
 			>

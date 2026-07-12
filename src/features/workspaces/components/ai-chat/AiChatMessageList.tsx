@@ -297,10 +297,13 @@ function AiChatAssistantError({
 	return (
 		<Message>
 			<MessageContent>
-				<Bubble variant="destructive">
+				<Bubble variant="muted">
 					<BubbleContent className="flex flex-col items-start gap-3">
 						<div className="flex items-start gap-2">
-							<AlertCircle className="mt-0.5 size-4 shrink-0 text-destructive" aria-hidden="true" />
+							<AlertCircle
+								className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+								aria-hidden="true"
+							/>
 							<p className="text-sm">
 								{getChatErrorMessage({
 									errorState,

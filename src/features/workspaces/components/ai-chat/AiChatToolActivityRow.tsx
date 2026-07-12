@@ -152,25 +152,13 @@ function ActivitySummary({
 			role={isRunning ? "status" : undefined}
 			aria-live={isRunning ? "polite" : undefined}
 			title={label}
-			className={cn(
-				"group/tool-row inline-flex min-w-0 max-w-full items-center gap-1.5 py-0.5 text-sm text-muted-foreground",
-				activity.status === "failed" && "text-destructive",
-			)}
+			className="group/tool-row inline-flex min-w-0 max-w-full items-center gap-1.5 py-0.5 text-sm text-muted-foreground"
 		>
-			<span
-				className={cn(
-					"grid size-4 shrink-0 place-items-center self-center text-muted-foreground/80",
-					activity.status === "failed" && "text-destructive",
-				)}
-			>
+			<span className="grid size-4 shrink-0 place-items-center self-center text-muted-foreground/80">
 				<ToolActivityIcon toolName={activity.toolName} />
 			</span>
 			<span
-				className={cn(
-					"min-w-0 truncate font-medium text-foreground/90",
-					isRunning && "shimmer",
-					activity.status === "failed" && "text-destructive",
-				)}
+				className={cn("min-w-0 truncate font-medium text-foreground/90", isRunning && "shimmer")}
 			>
 				{label}
 			</span>
@@ -327,7 +315,6 @@ function ToolStatusIcon({ status }: { status: AiChatToolActivity["status"] }) {
 		"size-3.5 shrink-0 text-muted-foreground/70",
 		status === "running" && "animate-spin",
 		status === "completed" && "text-success",
-		status === "failed" && "text-destructive",
 	);
 
 	if (status === "running") {
