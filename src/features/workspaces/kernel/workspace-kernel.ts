@@ -38,6 +38,7 @@ import type {
 	WorkspaceKernelPage,
 	WriteWorkspaceKernelItemArgs,
 } from "#/features/workspaces/kernel/workspace-kernel-types";
+import { getChatAttachmentWorkspacePrefix } from "#/features/workspaces/ai/chat-attachment-storage";
 import type {
 	WorkspaceCommandResult,
 	WorkspaceConnectionState,
@@ -262,6 +263,7 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 		}
 
 		await Promise.all([
+			this.deleteR2Prefix(getChatAttachmentWorkspacePrefix(workspaceId)),
 			this.deleteR2Prefix(`uploads/workspaces/${workspaceId}/`),
 			this.deleteR2Prefix(`workspace_kernel_files/${workspaceId}/`),
 		]);

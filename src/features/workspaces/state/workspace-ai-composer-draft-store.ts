@@ -2,7 +2,10 @@ import { nanoid } from "nanoid";
 import { useMemo } from "react";
 import { create } from "zustand";
 import type { FileAttachmentData } from "#/features/workspaces/components/ai-chat/ai-chat-attachments";
-import { normalizeWorkspaceAiChatAttachmentFile } from "#/features/workspaces/components/ai-chat/chat-attachment-normalization";
+import {
+	deleteWorkspaceAiChatAttachment,
+	normalizeWorkspaceAiChatAttachmentFile,
+} from "#/features/workspaces/components/ai-chat/chat-attachment-normalization";
 import {
 	normalizeWorkspaceSelectedQuote,
 	type WorkspaceSelectedQuote,
@@ -16,6 +19,7 @@ type AddWorkspaceAiComposerDraftFilesOptions = {
 	maxFileSize?: number;
 	maxFiles?: number;
 	onError?: (error: WorkspaceAiComposerDraftFileError) => void;
+	threadId: string;
 };
 
 type WorkspaceAiComposerDraftFileError = {
@@ -29,11 +33,11 @@ interface WorkspaceAiComposerDraftState {
 	addFiles: (
 		workspaceId: string,
 		files: File[] | FileList,
-		options?: AddWorkspaceAiComposerDraftFilesOptions,
+		options: AddWorkspaceAiComposerDraftFilesOptions,
 	) => void;
 	addQuote: (workspaceId: string, quote: WorkspaceSelectedQuote) => void;
 	clearDraftArtifacts: (workspaceId: string) => void;
-	clearFiles: (workspaceId: string) => void;
+	discardFiles: (workspaceId: string) => void;
 	clearQuotes: (workspaceId: string) => void;
 	removeFile: (workspaceId: string, fileId: string) => void;
 	removeQuote: (workspaceId: string, quoteId: string) => void;
@@ -47,11 +51,11 @@ export const useWorkspaceAiComposerDraftStore = create<WorkspaceAiComposerDraftS
 		addFiles: (workspaceId, fileList, options) => {
 			const current = get().filesByWorkspaceId[workspaceId] ?? EMPTY_DRAFT_FILES;
 			const capped = acceptIncomingFiles([...fileList], {
-				accept: options?.accept,
+				accept: options.accept,
 				currentCount: current.length,
-				maxFileSize: options?.maxFileSize,
-				maxFiles: options?.maxFiles,
-				onError: options?.onError,
+				maxFileSize: options.maxFileSize,
+				maxFiles: options.maxFiles,
+				onError: options.onError,
 			});
 
 			if (capped.length === 0) {
@@ -73,13 +77,24 @@ export const useWorkspaceAiComposerDraftStore = create<WorkspaceAiComposerDraftS
 					continue;
 				}
 
-				void normalizeWorkspaceAiChatAttachmentFile({ file, workspaceId })
+				void normalizeWorkspaceAiChatAttachmentFile({
+					file,
+					threadId: options.threadId,
+					workspaceId,
+				})
 					.then((attachment) => {
+						const draftStillExists = get().filesByWorkspaceId[workspaceId]?.some(
+							(item) => item.id === placeholder.id,
+						);
+						if (!draftStillExists) {
+							void discardUploadedAttachment(attachment.url);
+							return;
+						}
 						set((state) => markDraftFileReady(state, workspaceId, placeholder.id, attachment));
 					})
 					.catch((error) => {
 						set((state) => removeDraftFile(state, workspaceId, placeholder.id));
-						options?.onError?.({
+						options.onError?.({
 							code: "read",
 							message:
 								error instanceof Error && error.message.trim()
@@ -110,7 +125,15 @@ export const useWorkspaceAiComposerDraftStore = create<WorkspaceAiComposerDraftS
 			}),
 		clearDraftArtifacts: (workspaceId) =>
 			set((state) => clearDraftArtifactsForWorkspace(state, workspaceId)),
-		clearFiles: (workspaceId) => set((state) => clearFilesForWorkspace(state, workspaceId)),
+		discardFiles: (workspaceId) => {
+			const files = get().filesByWorkspaceId[workspaceId] ?? EMPTY_DRAFT_FILES;
+			set((state) => clearFilesForWorkspace(state, workspaceId));
+			for (const file of files) {
+				if (file.url) {
+					void discardUploadedAttachment(file.url);
+				}
+			}
+		},
 		clearQuotes: (workspaceId) =>
 			set((state) => {
 				const current = state.quotesByWorkspaceId[workspaceId] ?? EMPTY_DRAFT_QUOTES;
@@ -127,8 +150,13 @@ export const useWorkspaceAiComposerDraftStore = create<WorkspaceAiComposerDraftS
 			}),
 		filesByWorkspaceId: {},
 		quotesByWorkspaceId: {},
-		removeFile: (workspaceId, fileId) =>
-			set((state) => removeDraftFile(state, workspaceId, fileId)),
+		removeFile: (workspaceId, fileId) => {
+			const file = get().filesByWorkspaceId[workspaceId]?.find((item) => item.id === fileId);
+			set((state) => removeDraftFile(state, workspaceId, fileId));
+			if (file?.url) {
+				void discardUploadedAttachment(file.url);
+			}
+		},
 		removeQuote: (workspaceId, quoteId) =>
 			set((state) => {
 				const current = state.quotesByWorkspaceId[workspaceId] ?? EMPTY_DRAFT_QUOTES;
@@ -266,4 +294,12 @@ function removeDraftFile(
 			[workspaceId]: next.length > 0 ? next : undefined,
 		},
 	};
+}
+
+async function discardUploadedAttachment(url: string) {
+	try {
+		await deleteWorkspaceAiChatAttachment(url);
+	} catch {
+		// Thread and workspace deletion provide a final cleanup path.
+	}
 }

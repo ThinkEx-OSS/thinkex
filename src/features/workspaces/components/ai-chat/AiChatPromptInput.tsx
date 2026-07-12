@@ -76,7 +76,7 @@ function AiChatAttachmentButton() {
 }
 
 interface AiChatPromptInputProps {
-	activeThreadId?: string;
+	activeThreadId: string;
 	context: WorkspaceAiContextScope;
 	getInspectorSnapshot?: (threadId: string) => Promise<AIInspectorSnapshot>;
 	modelId?: AiChatModelId;
@@ -109,13 +109,14 @@ export default function AiChatPromptInput({
 	const { uploadFiles: uploadWorkspaceFiles } = useWorkspaceFileUpload();
 	const addDraftFiles = useWorkspaceAiComposerDraftStore((state) => state.addFiles);
 	const removeDraftFile = useWorkspaceAiComposerDraftStore((state) => state.removeFile);
-	const clearDraftFiles = useWorkspaceAiComposerDraftStore((state) => state.clearFiles);
+	const discardDraftFiles = useWorkspaceAiComposerDraftStore((state) => state.discardFiles);
 	const { addFiles, closeReview, confirmWorkspaceFallback, reviewState } =
 		useAiChatAttachmentIntake({
 			activeItem: context.activeItem,
 			addDraftFiles: (files, options) => addDraftFiles(context.workspaceId, files, options),
 			canUploadToWorkspace: capabilities.canMutateContent,
 			currentChatFileCount: draftFiles.length,
+			threadId: activeThreadId,
 			uploadWorkspaceFiles,
 		});
 	useTypeToFocusPrompt({
@@ -127,7 +128,7 @@ export default function AiChatPromptInput({
 	const attachments: Omit<AttachmentsContext, "openFileDialog"> = {
 		add: addFiles,
 		composerReady: canType,
-		clear: () => clearDraftFiles(context.workspaceId),
+		clear: () => discardDraftFiles(context.workspaceId),
 		files: draftFiles,
 		remove: (fileId) => removeDraftFile(context.workspaceId, fileId),
 	};

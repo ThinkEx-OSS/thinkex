@@ -1,5 +1,6 @@
 import { toast } from "sonner";
 import { WORKSPACE_AI_CHAT_ATTACHMENT_POLICY } from "#/features/workspaces/components/ai-chat/constants";
+import { getDefaultWorkspaceThreadId } from "#/features/workspaces/ai/ai-thread-identity";
 import type { WorkspaceSelectedQuote } from "#/features/workspaces/model/workspace-selected-quotes";
 import { useWorkspaceAiComposerDraftStore } from "#/features/workspaces/state/workspace-ai-composer-draft-store";
 import { useWorkspaceUiStore } from "#/features/workspaces/state/workspace-ui-store";
@@ -36,10 +37,14 @@ export function stageComposerFiles(
 	options: StageComposerFilesOptions = {},
 ) {
 	const { onError, revealChat = true } = options;
+	const threadId =
+		useWorkspaceUiStore.getState().getSession(workspaceId)?.activeAiChatThreadId ??
+		getDefaultWorkspaceThreadId(workspaceId);
 
 	useWorkspaceAiComposerDraftStore.getState().addFiles(workspaceId, files, {
 		...WORKSPACE_AI_CHAT_ATTACHMENT_POLICY,
 		onError,
+		threadId,
 	});
 
 	if (revealChat) {

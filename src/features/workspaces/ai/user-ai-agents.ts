@@ -11,6 +11,11 @@ import {
 import { createAIThreadClass } from "#/features/workspaces/ai/ai-thread";
 import type { ResourcePurgeResult } from "#/features/workspaces/resource-purge-result";
 import {
+	copyChatAttachmentsForThread,
+	deleteChatAttachmentsForThread,
+	rebindChatAttachmentMessageUrls,
+} from "#/features/workspaces/ai/chat-attachment-storage";
+import {
 	deleteThreadMeta,
 	deleteLinkedThreadImport,
 	ensureChatMetaStore,
@@ -87,23 +92,11 @@ export class UserAIStore extends Agent<Cloudflare.Env, UserAIStoreState> {
 		}
 
 		try {
-			await this._requireThreadMeta(name);
+			await this._requireThreadMetaOrEnsureDefault(name);
 		} catch (error) {
 			if (error instanceof AIThreadForbiddenError) {
 				return new Response("Forbidden", { status: 403 });
 			}
-
-			try {
-				const defaultThread = await this._ensureDefaultWorkspaceThread(name);
-				if (defaultThread) {
-					return undefined;
-				}
-			} catch (ensureError) {
-				if (ensureError instanceof AIThreadForbiddenError) {
-					return new Response("Forbidden", { status: 403 });
-				}
-			}
-
 			return new Response("Chat thread not found", { status: 404 });
 		}
 	}
@@ -236,10 +229,19 @@ export class UserAIStore extends Agent<Cloudflare.Env, UserAIStoreState> {
 
 	@callable()
 	async deleteThread(threadId: string): Promise<void> {
-		await this._requireThreadMeta(threadId);
+		const thread = await this._requireThreadMeta(threadId);
 		await this.deleteSubAgent(AIThread, threadId);
 		deleteThreadMeta(this, threadId);
 		this._refreshState();
+		this.ctx.waitUntil(
+			deleteChatAttachmentsForThread(this.env.WORKSPACE_KERNEL_FILES, {
+				threadId,
+				userId: this.name,
+				workspaceId: thread.workspace_id,
+			}).catch((error) => {
+				console.error("Failed to delete chat attachments for deleted thread", error);
+			}),
+		);
 	}
 
 	@callable()
@@ -254,6 +256,11 @@ export class UserAIStore extends Agent<Cloudflare.Env, UserAIStoreState> {
 				}
 
 				deleteThreadMeta(this, thread.id);
+				await deleteChatAttachmentsForThread(this.env.WORKSPACE_KERNEL_FILES, {
+					threadId: thread.id,
+					userId: this.name,
+					workspaceId: thread.workspace_id,
+				});
 			} catch {
 				failed += 1;
 			}
@@ -317,7 +324,7 @@ export class UserAIStore extends Agent<Cloudflare.Env, UserAIStoreState> {
 
 	async getThreadContext(threadId: string): Promise<AIThreadContext | null> {
 		try {
-			const thread = await this._requireThreadMeta(threadId);
+			const thread = await this._requireThreadMetaOrEnsureDefault(threadId);
 			const promptScope = await getWorkspacePromptScope({
 				workspaceId: thread.workspace_id,
 				userId: this.name,
@@ -471,10 +478,18 @@ export class UserAIStore extends Agent<Cloudflare.Env, UserAIStoreState> {
 		}
 
 		const threadId = this._getAvailableImportedThreadId(snapshot.meta.id);
+		const attachmentTransfer = {
+			sourceThreadId: snapshot.meta.id,
+			sourceUserId: input.sourceUserId,
+			targetThreadId: threadId,
+			targetUserId: this.name,
+			workspaceId: snapshot.meta.workspace_id,
+		};
 		await this.subAgent(AIThread, threadId);
 		const now = Date.now();
 
 		try {
+			await copyChatAttachmentsForThread(this.env.WORKSPACE_KERNEL_FILES, attachmentTransfer);
 			insertThreadMetaRow(this, {
 				...snapshot.meta,
 				archived_at: null,
@@ -484,10 +499,13 @@ export class UserAIStore extends Agent<Cloudflare.Env, UserAIStoreState> {
 
 			if (snapshot.messages.length > 0) {
 				const thread = await this.subAgent(AIThread, threadId);
-				await thread.addMessages(snapshot.messages, {
-					broadcast: false,
-					mode: "upsert",
-				});
+				await thread.addMessages(
+					rebindChatAttachmentMessageUrls(snapshot.messages, attachmentTransfer),
+					{
+						broadcast: false,
+						mode: "upsert",
+					},
+				);
 			}
 
 			insertLinkedThreadImport(this, {
@@ -499,8 +517,21 @@ export class UserAIStore extends Agent<Cloudflare.Env, UserAIStoreState> {
 		} catch (error) {
 			await this.deleteSubAgent(AIThread, threadId);
 			deleteThreadMeta(this, threadId);
+			await deleteChatAttachmentsForThread(this.env.WORKSPACE_KERNEL_FILES, {
+				threadId,
+				userId: this.name,
+				workspaceId: snapshot.meta.workspace_id,
+			});
 			throw error;
 		}
+
+		await deleteChatAttachmentsForThread(this.env.WORKSPACE_KERNEL_FILES, {
+			threadId: snapshot.meta.id,
+			userId: input.sourceUserId,
+			workspaceId: snapshot.meta.workspace_id,
+		}).catch((error) => {
+			console.error("Failed to delete source chat attachments after account linking", error);
+		});
 
 		this._refreshState();
 	}
@@ -574,5 +605,22 @@ export class UserAIStore extends Agent<Cloudflare.Env, UserAIStoreState> {
 		}
 
 		return thread;
+	}
+
+	private async _requireThreadMetaOrEnsureDefault(threadId: string): Promise<AIThreadMetaRow> {
+		try {
+			return await this._requireThreadMeta(threadId);
+		} catch (error) {
+			if (error instanceof AIThreadForbiddenError) {
+				throw error;
+			}
+
+			const defaultThread = await this._ensureDefaultWorkspaceThread(threadId);
+			if (!defaultThread) {
+				throw error;
+			}
+
+			return this._requireThreadMeta(threadId);
+		}
 	}
 }
