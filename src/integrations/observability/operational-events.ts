@@ -6,11 +6,13 @@ import {
 	type TelemetryRequestDetails,
 } from "#/integrations/posthog/server-context";
 import type { PostHogTelemetryScheduler } from "#/integrations/posthog/scheduler";
+import { buildOperationalErrorFields } from "#/integrations/observability/operational-error";
 
 type OperationalEventValue = boolean | null | number | string | readonly string[] | undefined;
 type OperationalEventFields = Record<string, OperationalEventValue>;
 
 interface OperationalEventInput {
+	error?: unknown;
 	event: string;
 	fields?: OperationalEventFields;
 	outcome: "error" | "partial" | "rejected" | "success";
@@ -50,14 +52,10 @@ export function recordOperationalFailure(input: OperationalFailureInput) {
 	const requestContext =
 		input.requestContext ??
 		(input.request ? getTelemetryRequestContext(input.request) : getTelemetryRuntimeContext());
-	const fields = {
-		...input.fields,
-		error_type: input.error instanceof Error ? input.error.name : "UnknownError",
-	};
-
 	logOperationalEvent({
+		error: input.error,
 		event: input.event,
-		fields,
+		fields: input.fields,
 		outcome: "error",
 		requestContext,
 	});
@@ -107,5 +105,6 @@ export function buildOperationalEvent(input: OperationalEventInput) {
 		service: "thinkex",
 		...input.requestContext?.properties,
 		...input.fields,
+		...(input.error === undefined ? undefined : buildOperationalErrorFields(input.error)),
 	};
 }
