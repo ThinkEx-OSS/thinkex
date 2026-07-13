@@ -44,6 +44,10 @@ import {
 	type UserAIStoreState,
 } from "#/features/workspaces/ai/ai-thread-metadata";
 import { getWorkspacePromptScope } from "#/features/workspaces/ai/ai-thread-prompt-scope";
+import {
+	logOperationalEvent,
+	recordOperationalFailure,
+} from "#/integrations/observability/operational-events";
 
 export type {
 	AIThreadSummary,
@@ -83,13 +87,43 @@ export interface PutChatAttachmentInput {
 export const AIThread = createAIThreadClass(() => UserAIStore);
 
 export class UserAIStore extends Agent<Cloudflare.Env, UserAIStoreState> {
-	static options = { sendIdentityOnConnect: false };
+	// PartyServer selects its connection manager from the raw subclass options,
+	// before the Agents SDK fills its defaults. Keep hibernation explicit here.
+	static options = { hibernate: true, sendIdentityOnConnect: false };
 
 	initialState: UserAIStoreState = { isLoaded: false, threads: [] };
 
 	onStart() {
-		ensureChatMetaStore(this);
-		this._refreshState();
+		const startedAt = performance.now();
+		let stage: "schema" | "state_refresh" = "schema";
+
+		try {
+			ensureChatMetaStore(this);
+			stage = "state_refresh";
+			const { registeredThreadCount, visibleThreadCount } = this._refreshState();
+
+			logOperationalEvent({
+				event: "user_ai_store_start",
+				fields: {
+					duration_ms: Math.round(performance.now() - startedAt),
+					hibernation_enabled: UserAIStore.options.hibernate,
+					registered_thread_count: registeredThreadCount,
+					visible_thread_count: visibleThreadCount,
+				},
+				outcome: "success",
+			});
+		} catch (error) {
+			recordOperationalFailure({
+				error,
+				event: "user_ai_store_start",
+				fields: {
+					duration_ms: Math.round(performance.now() - startedAt),
+					hibernation_enabled: UserAIStore.options.hibernate,
+					stage,
+				},
+			});
+			throw error;
+		}
 	}
 
 	override async onBeforeSubAgent(
@@ -481,6 +515,11 @@ export class UserAIStore extends Agent<Cloudflare.Env, UserAIStoreState> {
 		threads.sort(compareThreadRecentFirst);
 
 		this.setState({ ...this.state, isLoaded: true, threads });
+
+		return {
+			registeredThreadCount: registry.length,
+			visibleThreadCount: threads.length,
+		};
 	}
 
 	private async _importLinkedThread(input: {
