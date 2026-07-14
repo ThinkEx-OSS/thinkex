@@ -2,6 +2,23 @@ diff --git a/dist/chat/react.js b/dist/chat/react.js
 index 39996ae6af91fd7f9da14230d80f147183bbe211..eca9af8f9f977c7664f029a16810d22150dfecc9 100644
 --- a/dist/chat/react.js
 +++ b/dist/chat/react.js
+@@ -680 +680,2 @@ function useAgentChat(options) {
+-		const response = await fetch(getMessagesUrl.toString(), {
++		return getAgentMessages({
++			url: getMessagesUrl.toString(),
+@@ -684,12 +685,0 @@ function useAgentChat(options) {
+-		if (!response.ok) {
+-			console.warn(`Failed to fetch initial messages: ${response.status} ${response.statusText}`);
+-			return [];
+-		}
+-		const text = await response.text();
+-		if (!text.trim()) return [];
+-		try {
+-			return JSON.parse(text);
+-		} catch (error) {
+-			console.warn("Failed to parse initial messages JSON:", error);
+-			return [];
+-		}
 @@ -1204,6 +1204,8 @@ function useAgentChat(options) {
  					break;
  				case "cf_agent_stream_resume_none":
