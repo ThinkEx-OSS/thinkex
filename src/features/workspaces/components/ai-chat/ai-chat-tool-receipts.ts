@@ -1,4 +1,5 @@
-export type AiChatToolReceiptStatus = "completed" | "failed";
+export type AiChatToolReceiptStatus = "completed" | "failed" | "running";
+type AiChatFinishedToolReceiptStatus = Exclude<AiChatToolReceiptStatus, "running">;
 
 export interface AiChatToolReceipt {
 	status: AiChatToolReceiptStatus;
@@ -10,7 +11,7 @@ const TOOL_RECEIPT_VALUE_MAX_LENGTH = 72;
 export function getRunningToolReceipt(input: {
 	toolInput: unknown;
 	toolName: string;
-}): Pick<AiChatToolReceipt, "summary"> {
+}): AiChatToolReceipt {
 	const toolInput = asRecord(input.toolInput);
 
 	switch (input.toolName) {
@@ -48,7 +49,7 @@ export function getRunningToolReceipt(input: {
 }
 
 export function getFinishedToolReceipt(input: {
-	baseStatus: AiChatToolReceiptStatus;
+	baseStatus: AiChatFinishedToolReceiptStatus;
 	output: unknown;
 	toolInput: unknown;
 	toolName: string;
@@ -401,8 +402,8 @@ function completed(summary: string): AiChatToolReceipt {
 	};
 }
 
-function running(summary: string): Pick<AiChatToolReceipt, "summary"> {
-	return { summary };
+function running(summary: string): AiChatToolReceipt {
+	return { status: "running", summary };
 }
 
 function failed(summary: string): AiChatToolReceipt {
@@ -417,10 +418,11 @@ function quoteName(value: string | undefined) {
 }
 
 function joinNames(items: unknown[], fallbackNoun: string) {
-	const names = items
-		.slice(0, 2)
-		.map((item) => quoteName(getBaseName(getString(asRecord(item).path))))
-		.filter((name) => name !== "item");
+	const names: string[] = [];
+	for (const item of items.slice(0, 2)) {
+		const name = quoteName(getBaseName(getString(asRecord(item).path)));
+		if (name !== "item") names.push(name);
+	}
 
 	if (names.length === 2) {
 		return `${names[0]} and ${names[1]}`;

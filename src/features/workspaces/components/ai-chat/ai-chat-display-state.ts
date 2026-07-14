@@ -8,15 +8,15 @@ import type {
 } from "#/features/workspaces/components/ai-chat/types";
 import { getAiToolPresentation } from "#/features/workspaces/ai/ai-tool-presentation";
 import {
+	getCodemodeCallActivities,
+	type AiChatToolChildActivity,
+} from "#/features/workspaces/components/ai-chat/ai-chat-codemode-activity";
+import {
 	getFinishedToolReceipt,
 	getRunningToolReceipt,
 } from "#/features/workspaces/components/ai-chat/ai-chat-tool-receipts";
 
 export type AssistantPendingKind = "thinking" | "working" | "recovering";
-export interface AiChatToolChildActivity {
-	summary: string;
-	toolName: string;
-}
 
 export interface AiChatToolGroupPart {
 	type: "data-tool-group";
@@ -146,27 +146,19 @@ export function getDisplayableParts(message: AiChatMessage): AiChatRenderablePar
 		return parts;
 	}
 
-	const codemodeIndex = parts.indexOf(codemodePart);
-	const codemodeChildren = parts
-		.filter(
-			(part): part is AiChatToolPart =>
-				isToolUIPart(part) && part !== codemodePart && isVisibleToolPart(part),
-		)
-		.map((part) => {
-			const activity = getToolActivityForPart(part);
-			return activity
-				? {
-						summary: activity.summary,
-						toolName: activity.toolName,
-					}
-				: null;
-		})
-		.filter((child): child is AiChatToolChildActivity => child !== null);
+	const loggedChildren = getCodemodeCallActivities(codemodePart.output);
+	const groupsSiblingTools = loggedChildren === undefined;
+	const codemodeChildren = loggedChildren ?? getLegacyCodemodeChildren(parts, codemodePart);
 
 	const result: AiChatRenderablePart[] = [];
 
-	for (const [index, part] of parts.entries()) {
-		if (isToolUIPart(part) && part !== codemodePart && isVisibleToolPart(part)) {
+	for (const part of parts) {
+		if (
+			groupsSiblingTools &&
+			isToolUIPart(part) &&
+			part !== codemodePart &&
+			isVisibleToolPart(part)
+		) {
 			continue;
 		}
 
@@ -174,7 +166,7 @@ export function getDisplayableParts(message: AiChatMessage): AiChatRenderablePar
 			result.push({
 				type: "data-tool-group",
 				part,
-				children: index === codemodeIndex ? codemodeChildren : [],
+				children: codemodeChildren,
 			});
 			continue;
 		}
@@ -183,6 +175,29 @@ export function getDisplayableParts(message: AiChatMessage): AiChatRenderablePar
 	}
 
 	return result;
+}
+
+function getLegacyCodemodeChildren(
+	parts: AiChatMessagePart[],
+	codemodePart: AiChatToolPart,
+): AiChatToolChildActivity[] {
+	return parts.flatMap((part) => {
+		if (!isToolUIPart(part) || part === codemodePart || !isVisibleToolPart(part)) {
+			return [];
+		}
+
+		const activity = getToolActivityForPart(part);
+		return activity
+			? [
+					{
+						id: part.toolCallId,
+						status: activity.status,
+						summary: activity.summary,
+						toolName: activity.toolName,
+					},
+				]
+			: [];
+	});
 }
 
 export function isDisplayableMessagePart(part: AiChatMessagePart): boolean {

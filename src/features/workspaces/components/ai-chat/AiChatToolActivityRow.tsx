@@ -20,9 +20,9 @@ import {
 } from "#/features/workspaces/components/ai-chat/AiChatComputeResult";
 import {
 	getToolActivityForPart,
-	type AiChatToolChildActivity,
 	type AiChatToolActivity,
 } from "#/features/workspaces/components/ai-chat/ai-chat-display-state";
+import type { AiChatToolChildActivity } from "#/features/workspaces/components/ai-chat/ai-chat-codemode-activity";
 import {
 	getToolSourceHostname,
 	getToolSourcePreviews,
@@ -72,12 +72,7 @@ export function AiChatToolActivityRow({
 							{nestedChildren.length > 0 ? (
 								<div className="space-y-1">
 									{nestedChildren.map((child) => (
-										<div
-											key={`${child.toolName}:${child.summary}`}
-											className="text-muted-foreground/80 text-sm"
-										>
-											{child.summary}
-										</div>
+										<ActivitySummary key={child.id} activity={child} sourcePreviews={[]} />
 									))}
 								</div>
 							) : null}
@@ -92,7 +87,6 @@ export function AiChatToolActivityRow({
 
 	return <ToolActivityMotion disabled={shouldReduceMotion}>{content}</ToolActivityMotion>;
 }
-
 function ToolActivityMotion({
 	children,
 	disabled,
@@ -140,7 +134,7 @@ function ActivitySummary({
 	canExpand = false,
 	sourcePreviews,
 }: {
-	activity: AiChatToolActivity;
+	activity: Pick<AiChatToolActivity, "status" | "summary" | "toolName">;
 	canExpand?: boolean;
 	sourcePreviews: ToolSourcePreview[];
 }) {
