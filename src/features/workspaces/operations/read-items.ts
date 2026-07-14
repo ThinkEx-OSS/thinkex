@@ -1,3 +1,5 @@
+import { env } from "cloudflare:workers";
+
 import {
 	getWorkspaceOperationContext,
 	resolveWorkspaceOperationPath,
@@ -293,4 +295,3 @@ function truncateWorkspaceMarkdownLine(line: string) {
 		value: line.slice(0, MAX_WORKSPACE_READ_LINE_LENGTH) + TRUNCATED_LINE_SUFFIX,
 	};
 }
-import { env } from "cloudflare:workers";

@@ -41,7 +41,7 @@ export async function createWorkspaceDirectUploadSession(
 	});
 
 	return {
-		completionToken: await signUploadClaims(env.R2_SECRET_ACCESS_KEY, claims),
+		completionToken: await signUploadClaims(env.WORKSPACE_UPLOAD_TOKEN_SECRET, claims),
 		uploadUrl,
 	};
 }
@@ -56,7 +56,7 @@ export async function verifyWorkspaceDirectUploadToken(
 		throw new Error("Upload completion token is invalid.");
 	}
 
-	const key = await createSigningKey(env.R2_SECRET_ACCESS_KEY, ["verify"]);
+	const key = await createSigningKey(env.WORKSPACE_UPLOAD_TOKEN_SECRET, ["verify"]);
 	const valid = await crypto.subtle.verify(
 		"HMAC",
 		key,

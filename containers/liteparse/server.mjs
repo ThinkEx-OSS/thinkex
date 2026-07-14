@@ -1,5 +1,6 @@
 import { LiteParse } from "@llamaindex/liteparse";
 import { execFile } from "node:child_process";
+import { once } from "node:events";
 import { createWriteStream } from "node:fs";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { createServer } from "node:http";
@@ -66,7 +67,13 @@ createServer(async (request, response) => {
 		status = 200;
 		response.writeHead(status, { "content-type": "application/x-ndjson; charset=utf-8" });
 		for (const page of result.pages) {
-			response.write(`${JSON.stringify({ markdown: page.markdown, pageNumber: page.pageNum })}\n`);
+			if (
+				!response.write(
+					`${JSON.stringify({ markdown: page.markdown, pageNumber: page.pageNum })}\n`,
+				)
+			) {
+				await once(response, "drain");
+			}
 		}
 		return response.end();
 	} catch (error) {

@@ -50,7 +50,7 @@ async function pipeMultipartBody(
 		await writer.write(suffix);
 		await writer.close();
 	} catch (error) {
-		await writer.abort(error).catch(() => undefined);
+		await Promise.allSettled([reader.cancel(error), writer.abort(error)]);
 		throw error;
 	} finally {
 		reader.releaseLock();

@@ -116,6 +116,7 @@ async function finalizeWorkspaceFileUpload(
 	let stagingObjectKey: string | null = null;
 	let finalObjectKey: string | null = null;
 	let completionClaimKey: string | null = null;
+	let uploadCompleted = false;
 
 	try {
 		const userId = await authorizeWorkspaceUpload(request, workspaceId);
@@ -159,6 +160,7 @@ async function finalizeWorkspaceFileUpload(
 			});
 			observation.itemId = command.result.id;
 			observation.outputBytes = claims.fileSize;
+			uploadCompleted = true;
 			return apiJson(command, requestId);
 		}
 
@@ -192,6 +194,7 @@ async function finalizeWorkspaceFileUpload(
 
 		finalObjectKey = null;
 		observation.itemId = command.result.id;
+		uploadCompleted = true;
 		await queueWorkspaceFileExtraction(upload, {
 			itemId: command.result.id,
 			requestId,
@@ -209,7 +212,7 @@ async function finalizeWorkspaceFileUpload(
 		}
 		await Promise.allSettled([
 			finalObjectKey ? env.WORKSPACE_KERNEL_FILES.delete(finalObjectKey) : Promise.resolve(),
-			completionClaimKey
+			completionClaimKey && !uploadCompleted
 				? env.WORKSPACE_KERNEL_FILES.delete(completionClaimKey)
 				: Promise.resolve(),
 		]);

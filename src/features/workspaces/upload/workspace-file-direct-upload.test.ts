@@ -65,8 +65,9 @@ describe("workspace direct upload sessions", () => {
 			userId: "user-1",
 			workspaceId: "workspace-1",
 		});
-		const lastCharacter = session.completionToken.at(-1);
-		const tampered = `${session.completionToken.slice(0, -1)}${lastCharacter === "x" ? "y" : "x"}`;
+		const [payload, signature] = session.completionToken.split(".") as [string, string];
+		const tamperedPayload = `${payload.startsWith("x") ? "y" : "x"}${payload.slice(1)}`;
+		const tampered = `${tamperedPayload}.${signature}`;
 
 		await expect(verifyWorkspaceDirectUploadToken(env, tampered)).rejects.toThrow("invalid");
 
@@ -119,5 +120,6 @@ function createEnv() {
 		R2_ACCOUNT_ID: "account-id",
 		R2_BUCKET_NAME: "thinkex-workspace-kernel-files",
 		R2_SECRET_ACCESS_KEY: "secret-key",
+		WORKSPACE_UPLOAD_TOKEN_SECRET: "upload-token-secret",
 	} as Cloudflare.Env;
 }

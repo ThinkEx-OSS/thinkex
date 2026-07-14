@@ -1,3 +1,5 @@
+import { createStreamingMultipartFile } from "#/lib/http/streaming-multipart";
+
 type FileConversionContainer = {
 	fetch(request: Request): Promise<Response>;
 	startAndWaitForPorts(input: {
@@ -54,15 +56,17 @@ export async function convertFileStreamWithContainer(input: {
 		sizeBytes: input.sizeBytes,
 	});
 
-	const response = await input.container.fetch(
-		new Request(input.url, {
-			body: multipart.body,
-			duplex: "half",
-			headers: { "content-type": multipart.contentType },
-			method: "POST",
-		} as RequestInit & { duplex: "half" }),
-	);
-	await multipart.done;
+	const [response] = await Promise.all([
+		input.container.fetch(
+			new Request(input.url, {
+				body: multipart.body,
+				duplex: "half",
+				headers: { "content-type": multipart.contentType },
+				method: "POST",
+			} as RequestInit & { duplex: "half" }),
+		),
+		multipart.done,
+	]);
 
 	if (!response.ok) {
 		throw input.error(await getConversionErrorMessage(response));
@@ -72,7 +76,21 @@ export async function convertFileStreamWithContainer(input: {
 		throw input.error(input.emptyMessage);
 	}
 
-	return response;
+	return requireNonEmptyResponse(response, () => input.error(input.emptyMessage));
+}
+
+async function requireNonEmptyResponse(response: Response, createError: () => Error) {
+	const [probe, body] = response.body!.tee();
+	const reader = probe.getReader();
+	const first = await reader.read();
+	void reader.cancel().catch(() => undefined);
+
+	if (first.done || first.value.byteLength === 0) {
+		await body.cancel().catch(() => undefined);
+		throw createError();
+	}
+
+	return new Response(body, response);
 }
 
 async function getConversionErrorMessage(response: Response) {
@@ -82,4 +100,3 @@ async function getConversionErrorMessage(response: Response) {
 
 	return message ? `${fallback} ${message}` : fallback;
 }
-import { createStreamingMultipartFile } from "#/lib/http/streaming-multipart";

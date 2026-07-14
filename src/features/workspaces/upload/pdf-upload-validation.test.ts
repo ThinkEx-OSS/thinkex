@@ -44,6 +44,27 @@ describe("PDF upload validation", () => {
 			}),
 		);
 	});
+
+	it("preserves processor failures as retryable server errors", async () => {
+		requestWorkspaceFileProcessor.mockResolvedValue(
+			Response.json({ error: "temporary failure" }, { status: 500 }),
+		);
+
+		await expect(validate(new Uint8Array([1, 2, 3]))).rejects.toThrow(
+			"Workspace file processor failed with status 500",
+		);
+	});
+
+	it("preserves the processor upload limit response", async () => {
+		requestWorkspaceFileProcessor.mockResolvedValue(
+			Response.json({ code: "UPLOAD_TOO_LARGE" }, { status: 413 }),
+		);
+
+		await expect(validate(new Uint8Array([1, 2, 3]))).rejects.toMatchObject({
+			code: "UPLOAD_TOO_LARGE",
+			status: 413,
+		});
+	});
 });
 
 function validate(bytes: Uint8Array) {

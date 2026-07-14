@@ -72,6 +72,9 @@ export async function storeWorkspaceFileUpload(input: {
 		if (!stored) {
 			throw new Error("Workspace file could not be stored.");
 		}
+		if (stored.size === 0) {
+			throw new Error("Workspace file conversion produced an empty file.");
+		}
 
 		if (!conversion && stored.size !== input.fileSize) {
 			throw new Error("Stored workspace file size did not match the upload request.");

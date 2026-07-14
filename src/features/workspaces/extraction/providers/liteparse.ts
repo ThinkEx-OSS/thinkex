@@ -2,6 +2,8 @@ import type { MarkdownProjectionPage } from "#/features/workspaces/extraction/pa
 import { parseLiteParsePage } from "#/features/workspaces/extraction/providers/liteparse-response";
 import { requestWorkspaceFileProcessor } from "#/features/workspaces/files/workspace-file-processor";
 
+const maxNdjsonLineBytes = 8 * 1024 * 1024;
+
 export async function* extractPdfWithLiteParse(
 	env: Cloudflare.Env,
 	input: {
@@ -41,10 +43,29 @@ async function* readNdjsonLines(body: ReadableStream<Uint8Array>): AsyncGenerato
 	const reader = body.getReader();
 	const decoder = new TextDecoder();
 	let buffer = "";
+	let pendingLineBytes = 0;
 
 	try {
 		while (true) {
 			const { done, value } = await reader.read();
+
+			if (value) {
+				let offset = 0;
+				while (offset < value.byteLength) {
+					const newlineOffset = value.indexOf(0x0a, offset);
+					const segmentEnd = newlineOffset === -1 ? value.byteLength : newlineOffset;
+					pendingLineBytes += segmentEnd - offset;
+					if (pendingLineBytes > maxNdjsonLineBytes) {
+						throw new Error("LiteParse returned an oversized NDJSON page.");
+					}
+					if (newlineOffset === -1) {
+						break;
+					}
+					pendingLineBytes = 0;
+					offset = newlineOffset + 1;
+				}
+			}
+
 			buffer += decoder.decode(value, { stream: !done });
 			const lines = buffer.split("\n");
 			buffer = lines.pop() ?? "";
@@ -64,6 +85,7 @@ async function* readNdjsonLines(body: ReadableStream<Uint8Array>): AsyncGenerato
 			yield buffer;
 		}
 	} finally {
+		await reader.cancel().catch(() => undefined);
 		reader.releaseLock();
 	}
 }

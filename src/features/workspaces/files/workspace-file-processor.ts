@@ -2,6 +2,12 @@ import { Container, getRandom } from "@cloudflare/containers";
 
 const workspaceFileProcessorPort = 8080;
 const workspaceFileProcessorPoolSize = 2;
+const processorRequestTimeoutMs = {
+	"/parse/pdf": 10 * 60_000,
+	"/preview/image": 2 * 60_000,
+	"/preview/pdf": 2 * 60_000,
+	"/validate/pdf": 2 * 60_000,
+} as const;
 
 export class WorkspaceFileProcessor extends Container {
 	defaultPort = workspaceFileProcessorPort;
@@ -40,6 +46,7 @@ export async function requestWorkspaceFileProcessor(
 			duplex: "half",
 			headers,
 			method: "POST",
+			signal: AbortSignal.timeout(processorRequestTimeoutMs[input.path]),
 		} as RequestInit & { duplex: "half" }),
 	);
 }

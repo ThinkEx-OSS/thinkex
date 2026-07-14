@@ -54,7 +54,7 @@ vp run deploy:worker:staging
 
 Runtime and deploy secrets are synced into GitHub Actions secrets from Infisical. Production and staging workflows require Cloudflare credentials, PostHog variables, and the runtime secrets declared by the Worker configuration.
 
-Direct workspace uploads additionally require bucket-scoped R2 Object Read & Write credentials in `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY`, plus `R2_ACCOUNT_ID`. Configure browser PUT access from the checked-in policies:
+Direct workspace uploads additionally require bucket-scoped R2 Object Read & Write credentials in `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY`, `R2_ACCOUNT_ID`, and an independent random `WORKSPACE_UPLOAD_TOKEN_SECRET` for completion claims. Configure browser PUT access from the checked-in policies:
 
 ```bash
 wrangler r2 bucket cors set thinkex-workspace-kernel-files-staging --file config/r2/cors.staging.json

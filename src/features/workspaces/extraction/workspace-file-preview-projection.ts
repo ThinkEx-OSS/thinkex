@@ -16,11 +16,25 @@ export async function publishWorkspaceFilePreview(
 	step: WorkflowStep,
 	params: WorkspaceFileExtractionWorkflowParams,
 ) {
-	return step.do(
-		"publish workspace file preview",
-		{ retries: { limit: 1, delay: "5 seconds", backoff: "constant" }, timeout: "2 minutes" },
-		async () => generateWorkspaceFilePreview(env, params),
-	);
+	try {
+		return await step.do(
+			"publish workspace file preview",
+			{ retries: { limit: 1, delay: "5 seconds", backoff: "constant" }, timeout: "2 minutes" },
+			async () => generateWorkspaceFilePreview(env, params),
+		);
+	} catch (error) {
+		return step.do("record workspace file preview failure", async () => {
+			const kernel = await getWorkspaceKernelFromEnv(env, params.workspaceId);
+			await kernel.upsertFileProjection({
+				itemId: params.itemId,
+				format: "preview",
+				status: "failed",
+				errorMessage: error instanceof Error ? error.message : String(error),
+				actorUserId: params.actorUserId,
+			});
+			return { outcome: "error" as const };
+		});
+	}
 }
 
 async function generateWorkspaceFilePreview(
@@ -81,15 +95,8 @@ async function generateWorkspaceFilePreview(
 		return { outcome: "success" as const };
 	} catch (error) {
 		failure = error;
-		await env.WORKSPACE_KERNEL_FILES.delete(objectKey);
-		await kernel.upsertFileProjection({
-			itemId: params.itemId,
-			format: "preview",
-			status: "failed",
-			errorMessage: error instanceof Error ? error.message : String(error),
-			actorUserId: params.actorUserId,
-		});
-		return { outcome: "error" as const };
+		await env.WORKSPACE_KERNEL_FILES.delete(objectKey).catch(() => undefined);
+		throw error;
 	} finally {
 		recordOperationalOutcome({
 			distinctId: params.actorUserId ?? undefined,

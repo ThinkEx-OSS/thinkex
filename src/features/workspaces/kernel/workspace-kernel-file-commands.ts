@@ -213,19 +213,19 @@ export class WorkspaceKernelFileCommands {
 		if (row.type !== "file") {
 			throw new Error("Workspace item is not a file.");
 		}
-		if (input.status === "ready" && input.format === "pages") {
+		if (input.status === "ready") {
 			if (!row.object_key) {
-				throw new Error("Ready page projections require a source hash and manifest object.");
+				throw new Error("Ready file projections require a current source object.");
 			}
-			const [source, manifest] = await Promise.all([
+			const [source, projectionObject] = await Promise.all([
 				this.r2.head(row.object_key),
 				this.r2.head(input.objectKey),
 			]);
 			if (!source || source.etag !== input.sourceHash) {
 				throw new Error("The file source changed before its extraction could be published.");
 			}
-			if (!manifest) {
-				throw new Error("The page projection manifest was not found.");
+			if (!projectionObject) {
+				throw new Error("The file projection object was not found.");
 			}
 		}
 

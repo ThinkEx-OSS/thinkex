@@ -18,6 +18,18 @@ export async function assertReadablePdfUpload(input: {
 
 	const payload = await readValidationFailure(response);
 
+	if (response.status >= 500) {
+		throw new Error(`Workspace file processor failed with status ${response.status}.`);
+	}
+
+	if (response.status === 413 || payload.code === "UPLOAD_TOO_LARGE") {
+		throw new WorkspaceFileUploadError({
+			code: "UPLOAD_TOO_LARGE",
+			message: "This PDF exceeds the supported upload limit.",
+			status: 413,
+		});
+	}
+
 	if (payload.code === "PASSWORD_PROTECTED_PDF") {
 		throw new WorkspaceFileUploadError({
 			code: "PASSWORD_PROTECTED_PDF",
@@ -25,6 +37,9 @@ export async function assertReadablePdfUpload(input: {
 				"Password-protected PDFs aren’t supported. Remove the password and upload the PDF again.",
 			status: 422,
 		});
+	}
+	if (payload.code !== "INVALID_PDF" && payload.code !== "INVALID_FILE") {
+		throw new Error(`Workspace file processor returned status ${response.status}.`);
 	}
 
 	throw new WorkspaceFileUploadError({
