@@ -219,6 +219,10 @@ function createAuth(database: Db, env: AuthRuntimeEnv) {
 						capturePostHogServerEvent({
 							distinctId: createdUser.id,
 							event: "user signed up",
+							personProperties: {
+								email: createdUser.email,
+								name: createdUser.name,
+							},
 							properties: { method: "google" },
 						});
 					},

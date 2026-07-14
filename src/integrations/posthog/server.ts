@@ -29,6 +29,8 @@ export function getPostHogServerClient() {
 interface PostHogServerEvent<TEvent extends PostHogServerEventName> {
 	distinctId: string;
 	event: TEvent;
+	/** Person properties PostHog must set atomically with this event. */
+	personProperties?: Record<string, unknown>;
 	properties: PostHogEventPropertiesByName[TEvent];
 	requestContext?: TelemetryRequestContext;
 	request?: TelemetryRequestDetails;
@@ -77,6 +79,7 @@ export function capturePostHogServerEvent<TEvent extends PostHogServerEventName>
 				properties: {
 					...requestContext.properties,
 					...input.properties,
+					...(input.personProperties ? { $set: input.personProperties } : {}),
 				},
 				...(timestamp ? { timestamp } : {}),
 			})
