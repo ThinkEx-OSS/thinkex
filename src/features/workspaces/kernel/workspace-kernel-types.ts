@@ -96,12 +96,12 @@ export interface ReadWorkspaceKernelItemArgs {
 	itemId: string;
 }
 
-export interface ReadWorkspaceKernelFileContentArgs {
+export interface ReadWorkspaceKernelFileSourceArgs {
 	itemId: string;
 }
 
-export interface ReadWorkspaceKernelFileContentResult {
-	bytes: Uint8Array;
+export interface WorkspaceKernelFileSource {
+	objectKey: string;
 	contentType: string;
 	fileName: string;
 	sizeBytes: number;
@@ -116,26 +116,48 @@ export type WorkspaceKernelFileProjectionStatus =
 	| "ready"
 	| "failed";
 
-export interface UpsertWorkspaceKernelFileProjectionArgs {
+interface WorkspaceKernelFileProjectionMutationBase {
 	itemId: string;
 	format: WorkspaceKernelFileProjectionFormat;
-	status: WorkspaceKernelFileProjectionStatus;
-	content?: string | null;
-	contentBytes?: Uint8Array | null;
-	provider?: string | null;
-	providerMode?: string | null;
-	errorMessage?: string | null;
-	sourceHash?: string | null;
-	metadataJson?: Record<string, JsonValue>;
 	actorUserId?: string | null;
 	clientMutationId?: string | null;
 }
 
+export type UpsertWorkspaceKernelFileProjectionArgs =
+	| (WorkspaceKernelFileProjectionMutationBase & {
+			status: "not_started" | "queued" | "processing";
+			errorMessage?: never;
+			metadataJson?: never;
+			objectKey?: never;
+			provider?: never;
+			providerMode?: never;
+			sourceHash?: never;
+	  })
+	| (WorkspaceKernelFileProjectionMutationBase & {
+			status: "failed";
+			errorMessage: string;
+			metadataJson?: never;
+			objectKey?: never;
+			provider?: never;
+			providerMode?: never;
+			sourceHash?: never;
+	  })
+	| (WorkspaceKernelFileProjectionMutationBase & {
+			status: "ready";
+			errorMessage?: never;
+			metadataJson?: Record<string, JsonValue>;
+			objectKey: string;
+			provider?: string | null;
+			providerMode?: string | null;
+			sourceHash: string;
+	  });
+
 export interface ReadWorkspaceKernelFilePreviewResult {
 	itemId: string;
 	status: WorkspaceKernelFileProjectionStatus;
-	bytes: Uint8Array | null;
+	objectKey: string | null;
 	contentType: string;
+	sizeBytes: number | null;
 	sourceHash: string | null;
 	metadataJson: Record<string, JsonValue>;
 	updatedAt: string;
@@ -150,7 +172,7 @@ export interface ReadWorkspaceKernelFileProjectionResult {
 	itemId: string;
 	format: WorkspaceKernelFileProjectionFormat;
 	status: WorkspaceKernelFileProjectionStatus;
-	content: string | null;
+	objectKey: string | null;
 	provider: string | null;
 	providerMode: string | null;
 	errorMessage: string | null;
@@ -167,6 +189,7 @@ export interface WriteWorkspaceKernelItemArgs {
 }
 
 export interface CreateWorkspaceKernelFileFromUploadArgs {
+	id: string;
 	parentId?: string | null;
 	fileName: string;
 	fileSize: number;

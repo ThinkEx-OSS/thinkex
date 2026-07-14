@@ -8,13 +8,12 @@ import {
 } from "#/features/workspaces/operations/relations";
 import {
 	parseWorkspacePageRange,
-	readWorkspaceProjectionPages,
 	WorkspacePageSelectionError,
 	type WorkspaceReadPages,
-} from "#/features/workspaces/operations/read-page-selection";
+} from "#/features/workspaces/read-page-selection";
 import type { WorkspaceItemSummary } from "#/features/workspaces/contracts";
 import { serializeTiptapDocumentToMarkdown } from "#/features/workspaces/documents/document-markdown";
-import { parseMarkdownPagesProjection } from "#/features/workspaces/extraction/page-markdown-projection";
+import { readWorkspacePageProjection } from "#/features/workspaces/extraction/workspace-page-projection";
 import { parseTiptapDocumentJson } from "#/features/workspaces/documents/tiptap-document";
 import type { WorkspaceKernelClient } from "#/features/workspaces/kernel/workspace-kernel-access";
 import { buildWorkspaceKernelItemPathIndex } from "#/features/workspaces/kernel/workspace-kernel-paths";
@@ -46,6 +45,7 @@ const TRUNCATED_LINE_SUFFIX = `... (line truncated to ${MAX_WORKSPACE_READ_LINE_
 
 export const readWorkspaceItemsFailureCodes = [
 	"page_range_out_of_range",
+	"page_selection_too_large",
 	"path_is_folder",
 	"path_not_absolute",
 	"path_not_found",
@@ -222,16 +222,15 @@ async function readWorkspaceFileItem(input: {
 		return createWorkspaceFileStatusItem(input.path, "pending");
 	}
 
-	if (pagesProjection.status !== "ready" || pagesProjection.content === null) {
+	if (pagesProjection.status !== "ready" || pagesProjection.objectKey === null) {
 		return createWorkspaceFileStatusItem(input.path, "failed");
 	}
 
-	const pageRead = readWorkspaceProjectionPages(
-		parseMarkdownPagesProjection(pagesProjection.content),
-		{
-			pages: input.pages,
-		},
-	);
+	const pageRead = await readWorkspacePageProjection({
+		bucket: env.WORKSPACE_KERNEL_FILES,
+		manifestObjectKey: pagesProjection.objectKey,
+		pages: input.pages,
+	});
 
 	return {
 		content: pageRead.content,
@@ -294,3 +293,4 @@ function truncateWorkspaceMarkdownLine(line: string) {
 		value: line.slice(0, MAX_WORKSPACE_READ_LINE_LENGTH) + TRUNCATED_LINE_SUFFIX,
 	};
 }
+import { env } from "cloudflare:workers";

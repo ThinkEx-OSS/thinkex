@@ -1,3 +1,4 @@
+import { env } from "cloudflare:workers";
 import { createFileRoute } from "@tanstack/react-router";
 import { WORKSPACE_FILE_PREVIEW_CONTENT_TYPE } from "#/features/workspaces/files/workspace-file-preview.constants";
 import { readWorkspaceKernelFilePreview } from "#/features/workspaces/kernel/workspace-kernel-access";
@@ -26,7 +27,7 @@ async function handleWorkspaceFilePreview(request: Request, workspaceId: string,
 			itemId,
 		});
 
-		if (!preview || preview.status !== "ready" || !preview.bytes) {
+		if (!preview || preview.status !== "ready" || !preview.objectKey) {
 			return apiError(
 				requestId,
 				404,
@@ -35,17 +36,22 @@ async function handleWorkspaceFilePreview(request: Request, workspaceId: string,
 			);
 		}
 
-		const body = new Uint8Array(preview.bytes).buffer;
+		const object = await env.WORKSPACE_KERNEL_FILES.get(preview.objectKey);
+
+		if (!object) {
+			throw new Error("Workspace file preview object was not found.");
+		}
+
 		const cacheKey = preview.sourceHash ?? preview.updatedAt;
 		const headers = {
 			"cache-control": "private, max-age=86400, immutable",
-			"content-length": String(body.byteLength),
+			"content-length": String(object.size),
 			"content-type": preview.contentType || WORKSPACE_FILE_PREVIEW_CONTENT_TYPE,
 			etag: `"${cacheKey}"`,
 			"x-request-id": requestId,
 		};
 
-		return new Response(body, { headers });
+		return new Response(object.body, { headers });
 	} catch (error) {
 		if (error instanceof WorkspaceForbiddenError) {
 			return apiError(

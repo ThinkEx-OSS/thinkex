@@ -89,7 +89,7 @@ async function getWorkspaceFileExtractionWorkflowId(input: {
 	assetKind: WorkspaceFileAssetKind;
 }) {
 	const digest = await sha256Base64UrlText(
-		`${input.workspaceId}:${input.itemId}:${input.assetKind}-extraction:v1`,
+		`${input.workspaceId}:${input.itemId}:${input.assetKind}-extraction:v2`,
 	);
 
 	return `${input.assetKind}-${digest.slice(0, 48)}`;

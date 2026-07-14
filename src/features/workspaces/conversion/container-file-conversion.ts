@@ -14,26 +14,12 @@ export async function convertFileWithContainer(input: {
 	formFieldName: string;
 	url: string;
 }): Promise<ArrayBuffer> {
-	await input.container.startAndWaitForPorts({
-		cancellationOptions: {
-			portReadyTimeoutMS: 60_000,
-		},
+	const response = await convertFileStreamWithContainer({
+		...input,
+		body: input.file.stream(),
+		contentType: input.file.type || "application/octet-stream",
+		sizeBytes: input.file.size,
 	});
-
-	const formData = new FormData();
-	formData.set(input.formFieldName, input.file, input.fileName);
-
-	const response = await input.container.fetch(
-		new Request(input.url, {
-			body: formData,
-			method: "POST",
-		}),
-	);
-
-	if (!response.ok) {
-		throw input.error(await getConversionErrorMessage(response));
-	}
-
 	const bytes = await response.arrayBuffer();
 
 	if (bytes.byteLength === 0) {
@@ -43,6 +29,52 @@ export async function convertFileWithContainer(input: {
 	return bytes;
 }
 
+export async function convertFileStreamWithContainer(input: {
+	container: FileConversionContainer;
+	body: ReadableStream<Uint8Array>;
+	contentType: string;
+	emptyMessage: string;
+	error: (message: string) => Error;
+	fileName: string;
+	formFieldName: string;
+	sizeBytes: number;
+	url: string;
+}): Promise<Response> {
+	await input.container.startAndWaitForPorts({
+		cancellationOptions: {
+			portReadyTimeoutMS: 60_000,
+		},
+	});
+
+	const multipart = createStreamingMultipartFile({
+		body: input.body,
+		contentType: input.contentType,
+		fileName: input.fileName,
+		formFieldName: input.formFieldName,
+		sizeBytes: input.sizeBytes,
+	});
+
+	const response = await input.container.fetch(
+		new Request(input.url, {
+			body: multipart.body,
+			duplex: "half",
+			headers: { "content-type": multipart.contentType },
+			method: "POST",
+		} as RequestInit & { duplex: "half" }),
+	);
+	await multipart.done;
+
+	if (!response.ok) {
+		throw input.error(await getConversionErrorMessage(response));
+	}
+
+	if (!response.body) {
+		throw input.error(input.emptyMessage);
+	}
+
+	return response;
+}
+
 async function getConversionErrorMessage(response: Response) {
 	const fallback = `File conversion failed with status ${response.status}.`;
 	const body = await response.text().catch(() => "");
@@ -50,3 +82,4 @@ async function getConversionErrorMessage(response: Response) {
 
 	return message ? `${fallback} ${message}` : fallback;
 }
+import { createStreamingMultipartFile } from "#/lib/http/streaming-multipart";

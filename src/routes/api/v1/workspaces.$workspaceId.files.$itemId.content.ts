@@ -1,6 +1,7 @@
+import { env } from "cloudflare:workers";
 import { createFileRoute } from "@tanstack/react-router";
 
-import { readWorkspaceKernelFileContent } from "#/features/workspaces/kernel/workspace-kernel-access";
+import { readWorkspaceKernelFileSource } from "#/features/workspaces/kernel/workspace-kernel-access";
 import { WorkspaceForbiddenError } from "#/features/workspaces/server/permissions";
 import { apiError, getRequestId } from "#/lib/api/http";
 import { getSessionFromRequest } from "#/lib/auth-queries.server";
@@ -20,19 +21,23 @@ async function handleWorkspaceFileContent(request: Request, workspaceId: string,
 			);
 		}
 
-		const content = await readWorkspaceKernelFileContent({
+		const source = await readWorkspaceKernelFileSource({
 			workspaceId,
 			userId: session.user.id,
 			itemId,
 		});
-		const body = new Uint8Array(content.bytes).buffer;
+		const object = await env.WORKSPACE_KERNEL_FILES.get(source.objectKey);
 
-		return new Response(body, {
+		if (!object) {
+			throw new Error("Workspace file object was not found.");
+		}
+
+		return new Response(object.body, {
 			headers: {
 				"cache-control": "private, max-age=60",
-				"content-disposition": `inline; filename="${sanitizeHeaderFileName(content.fileName)}"`,
-				"content-length": String(body.byteLength),
-				"content-type": content.contentType,
+				"content-disposition": `inline; filename="${sanitizeHeaderFileName(source.fileName)}"`,
+				"content-length": String(object.size),
+				"content-type": source.contentType,
 				"x-request-id": requestId,
 			},
 		});

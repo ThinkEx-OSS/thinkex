@@ -36,7 +36,7 @@ export type LiteParseStageOutcome =
 export interface MarkdownExtractionInput {
 	workspaceId: string;
 	itemId: string;
-	bytes: Uint8Array;
+	body: ReadableStream<Uint8Array>;
 	fileName: string;
 	contentType: string;
 	sizeBytes: number;

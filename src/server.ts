@@ -3,6 +3,7 @@ import handler from "@tanstack/react-start/server-entry";
 import { routeUserAIRequest } from "#/features/workspaces/ai/auth";
 import { routeDocumentSessionRequest } from "#/features/workspaces/documents/document-session-auth";
 import { routeWorkspaceKernelRequest } from "#/features/workspaces/kernel/workspace-kernel-auth";
+import { routeWorkspaceFileR2Migration } from "#/features/workspaces/kernel/workspace-file-r2-migration-route";
 import { recordOperationalFailure } from "#/integrations/observability/operational-events";
 import { posthogHost, posthogHostOrigin, posthogProjectToken } from "#/integrations/posthog/config";
 import { getTelemetryRequestDetails } from "#/integrations/posthog/server-context";
@@ -14,7 +15,7 @@ export { ImageFileConverter } from "#/features/workspaces/conversion/image-file-
 export { OfficePdfConverter } from "#/features/workspaces/conversion/office-pdf-converter";
 export { DocumentSession } from "#/features/workspaces/documents/document-session";
 export { WorkspaceFileExtractionWorkflow } from "#/features/workspaces/extraction/workspace-file-extraction-workflow";
-export { LiteParsePdfExtractor } from "#/features/workspaces/extraction/providers/liteparse";
+export { WorkspaceFileProcessor } from "#/features/workspaces/files/workspace-file-processor";
 export { WorkspaceKernel } from "#/features/workspaces/kernel/workspace-kernel";
 
 const isProduction = import.meta.env.PROD;
@@ -112,6 +113,12 @@ function withSecurityHeaders(response: Response) {
 export default {
 	async fetch(request, env) {
 		try {
+			const migrationResponse = await routeWorkspaceFileR2Migration(request, env);
+
+			if (migrationResponse) {
+				return migrationResponse;
+			}
+
 			const chatResponse = await routeUserAIRequest(request, env);
 
 			if (chatResponse) {

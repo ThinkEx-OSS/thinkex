@@ -16,10 +16,6 @@ export function getWorkspaceKernelFileShellPath(input: { itemId: string; extensi
 	return `/items/${input.itemId}/content.${input.extension}`;
 }
 
-export function getWorkspaceKernelFilePreviewShellPath(itemId: string) {
-	return `/items/${itemId}/derivatives/preview.webp`;
-}
-
 export function getWorkspaceKernelContentMimeType(type: WorkspaceItemType) {
 	switch (type) {
 		case "document":

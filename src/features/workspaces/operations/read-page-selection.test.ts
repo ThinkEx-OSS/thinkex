@@ -1,25 +1,16 @@
 import { describe, expect, it } from "vitest";
 
 import {
-	readWorkspaceProjectionPages,
+	parseWorkspacePageRange,
 	WorkspacePageSelectionError,
-} from "#/features/workspaces/operations/read-page-selection";
+} from "#/features/workspaces/read-page-selection";
 
 describe("workspace read page selection", () => {
-	it("returns an empty first page for empty ready projections", () => {
-		expect(readWorkspaceProjectionPages([], {})).toEqual({
-			content: "",
-			pages: {
-				requested: "1",
-				returned: [1],
-				total: 1,
-			},
-		});
+	it("returns sorted unique page numbers", () => {
+		expect(parseWorkspacePageRange("3, 1-2, 2", 3)).toEqual([1, 2, 3]);
 	});
 
-	it("rejects out-of-range empty projection page requests", () => {
-		expect(() => readWorkspaceProjectionPages([], { pages: "2" })).toThrow(
-			WorkspacePageSelectionError,
-		);
+	it("rejects out-of-range page requests", () => {
+		expect(() => parseWorkspacePageRange("4", 3)).toThrow(WorkspacePageSelectionError);
 	});
 });

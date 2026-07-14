@@ -20,11 +20,13 @@ export function initializeWorkspaceKernelStorage(sql: WorkspaceKernelSql) {
 			metadata_json TEXT NOT NULL DEFAULT '{}',
 			sort_order INTEGER NOT NULL,
 			shell_path TEXT NOT NULL UNIQUE,
+			object_key TEXT,
 			created_at INTEGER NOT NULL,
 			updated_at INTEGER NOT NULL,
 			deleted_at INTEGER
 		)
 	`;
+	ensureKernelItemObjectKeyColumn(sql);
 	sql`CREATE INDEX IF NOT EXISTS kernel_items_parent_idx
 		ON kernel_items (parent_id, deleted_at, sort_order)`;
 	sql`CREATE INDEX IF NOT EXISTS kernel_items_type_idx
@@ -38,6 +40,7 @@ export function initializeWorkspaceKernelStorage(sql: WorkspaceKernelSql) {
 			provider TEXT,
 			provider_mode TEXT,
 			content_shell_path TEXT,
+			object_key TEXT,
 			error_message TEXT,
 			source_hash TEXT,
 			metadata_json TEXT NOT NULL DEFAULT '{}',
@@ -46,6 +49,7 @@ export function initializeWorkspaceKernelStorage(sql: WorkspaceKernelSql) {
 			PRIMARY KEY (item_id, format)
 		)
 	`;
+	ensureProjectionObjectKeyColumn(sql);
 	sql`CREATE INDEX IF NOT EXISTS kernel_item_projections_status_idx
 		ON kernel_item_projections (status, updated_at)`;
 	sql`
@@ -84,6 +88,22 @@ export function initializeWorkspaceKernelStorage(sql: WorkspaceKernelSql) {
 	`;
 	sql`CREATE INDEX IF NOT EXISTS kernel_events_revision_idx
 		ON kernel_events (revision)`;
+}
+
+function ensureKernelItemObjectKeyColumn(sql: WorkspaceKernelSql) {
+	const columns = sql<{ name: string }>`PRAGMA table_info(kernel_items)`;
+
+	if (!columns.some((column) => column.name === "object_key")) {
+		sql`ALTER TABLE kernel_items ADD COLUMN object_key TEXT`;
+	}
+}
+
+function ensureProjectionObjectKeyColumn(sql: WorkspaceKernelSql) {
+	const columns = sql<{ name: string }>`PRAGMA table_info(kernel_item_projections)`;
+
+	if (!columns.some((column) => column.name === "object_key")) {
+		sql`ALTER TABLE kernel_item_projections ADD COLUMN object_key TEXT`;
+	}
 }
 
 function createSiblingNameIndexes(sql: WorkspaceKernelSql) {

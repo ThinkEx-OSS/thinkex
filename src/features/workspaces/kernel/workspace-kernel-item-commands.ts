@@ -65,6 +65,11 @@ export class WorkspaceKernelItemCommands {
 		input: CreateWorkspaceKernelItemArgs,
 	): Promise<WorkspaceCommandResult<WorkspaceItemSummary>> {
 		const type = workspaceItemTypeSchema.parse(input.type);
+
+		if (type === "file") {
+			throw new Error("Binary workspace files must be created through the upload flow.");
+		}
+
 		const id = input.id ?? crypto.randomUUID();
 		const parentId = input.parentId ?? null;
 		const color = resolveWorkspaceItemColorForCreate({
@@ -274,7 +279,7 @@ export class WorkspaceKernelItemCommands {
 		const item = this.store.assertActiveItem(input.itemId);
 		const itemSummary = mapKernelItemRow(item, this.workspaceId());
 
-		return item.type === "folder"
+		return item.type === "folder" || item.type === "file"
 			? { item: itemSummary, content: null }
 			: {
 					item: itemSummary,
@@ -288,8 +293,8 @@ export class WorkspaceKernelItemCommands {
 		const item = this.store.assertActiveItem(input.itemId);
 		const type = workspaceItemTypeSchema.parse(item.type);
 
-		if (type === "folder") {
-			throw new Error("Folders do not have writable content.");
+		if (type === "folder" || type === "file") {
+			throw new Error("This workspace item does not have writable text content.");
 		}
 
 		await this.workspace.writeFile(

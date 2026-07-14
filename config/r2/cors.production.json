@@ -1,0 +1,12 @@
+{
+	"rules": [
+		{
+			"allowed": {
+				"origins": ["https://thinkex.app"],
+				"methods": ["PUT"],
+				"headers": ["content-type"]
+			},
+			"maxAgeSeconds": 3600
+		}
+	]
+}

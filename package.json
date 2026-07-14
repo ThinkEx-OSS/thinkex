@@ -40,7 +40,6 @@
 	"dependencies": {
 		"@ai-sdk/react": "^3.0.210",
 		"@base-ui/react": "^1.6.0",
-		"@cf-wasm/photon": "^0.3.6",
 		"@cloudflare/codemode": "^0.4.3",
 		"@cloudflare/containers": "^0.3.7",
 		"@cloudflare/sandbox": "0.12.3",
@@ -108,6 +107,7 @@
 		"agents": "^0.17.4",
 		"ai": "^6.0.208",
 		"autumn-js": "^1.2.35",
+		"aws4fetch": "^1.0.20",
 		"better-auth": "^1.6.23",
 		"class-variance-authority": "^0.7.1",
 		"clsx": "^2.1.1",
@@ -142,7 +142,6 @@
 		"tw-animate-css": "^1.3.6",
 		"unified": "^11.0.5",
 		"unist-util-visit": "^5.1.0",
-		"unpdf": "1.6.2",
 		"y-partyserver": "^2.2.0",
 		"y-protocols": "^1.0.7",
 		"yjs": "^13.6.31",

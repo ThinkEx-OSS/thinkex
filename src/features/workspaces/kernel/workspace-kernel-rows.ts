@@ -3,6 +3,10 @@ import { workspaceItemTypeSchema } from "#/features/workspaces/contracts";
 import { getWorkspaceItemTypeMeta } from "#/features/workspaces/defaults";
 import { parseWorkspaceMetadataJson } from "#/features/workspaces/kernel/workspace-kernel-metadata";
 import type { WorkspaceRealtimeEvent } from "#/features/workspaces/realtime/messages";
+import type {
+	WorkspaceKernelFileProjectionFormat,
+	WorkspaceKernelFileProjectionStatus,
+} from "#/features/workspaces/kernel/workspace-kernel-types";
 
 export type KernelItemRow = {
 	id: string;
@@ -13,6 +17,7 @@ export type KernelItemRow = {
 	metadata_json: string;
 	sort_order: number;
 	shell_path: string;
+	object_key: string | null;
 	created_at: number;
 	updated_at: number;
 	deleted_at: number | null;
@@ -26,6 +31,21 @@ export type KernelEventRow = {
 	client_mutation_id: string | null;
 	payload_json: string;
 	created_at: number;
+};
+
+export type KernelItemProjectionRow = {
+	item_id: string;
+	format: WorkspaceKernelFileProjectionFormat;
+	status: WorkspaceKernelFileProjectionStatus;
+	provider: string | null;
+	provider_mode: string | null;
+	content_shell_path: string | null;
+	object_key: string | null;
+	error_message: string | null;
+	source_hash: string | null;
+	metadata_json: string;
+	created_at: number;
+	updated_at: number;
 };
 
 export function mapKernelItemRow(row: KernelItemRow, workspaceId: string): WorkspaceItemSummary {

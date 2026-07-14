@@ -1,29 +1,26 @@
 import type { Workspace as ShellWorkspace } from "@cloudflare/shell";
 
 import type { JsonValue, WorkspaceItemSummary } from "#/features/workspaces/contracts";
-import { sha256Base64Url } from "#/features/workspaces/extraction/binary";
-import {
-	resolveUploadPreviewGenerator,
-	WORKSPACE_FILE_PREVIEW_CONTENT_TYPE,
-} from "#/features/workspaces/files/workspace-file-preview";
+import { getWorkspaceFileItemObjectPrefix } from "#/features/workspaces/files/workspace-file-object-keys";
+import { WORKSPACE_FILE_PREVIEW_CONTENT_TYPE } from "#/features/workspaces/files/workspace-file-preview.constants";
 import type { WorkspaceKernelEventBus } from "#/features/workspaces/kernel/workspace-kernel-events";
-import {
-	getWorkspaceKernelFilePreviewShellPath,
-	getWorkspaceKernelFileShellPath,
-} from "#/features/workspaces/kernel/workspace-kernel-files";
+import { WorkspaceKernelFileMigrator } from "#/features/workspaces/kernel/workspace-kernel-file-migrations";
+import { getWorkspaceKernelFileShellPath } from "#/features/workspaces/kernel/workspace-kernel-files";
 import { parseWorkspaceMetadataJson } from "#/features/workspaces/kernel/workspace-kernel-metadata";
 import type { WorkspaceKernelSql } from "#/features/workspaces/kernel/workspace-kernel-schema";
+import type {
+	KernelItemProjectionRow,
+	KernelItemRow,
+} from "#/features/workspaces/kernel/workspace-kernel-rows";
 import type { WorkspaceKernelStore } from "#/features/workspaces/kernel/workspace-kernel-store";
 import type {
 	CreateWorkspaceKernelFileFromUploadArgs,
-	ReadWorkspaceKernelFileContentArgs,
-	ReadWorkspaceKernelFileContentResult,
+	ReadWorkspaceKernelFileSourceArgs,
 	ReadWorkspaceKernelFilePreviewResult,
 	ReadWorkspaceKernelFileProjectionArgs,
 	ReadWorkspaceKernelFileProjectionResult,
 	UpsertWorkspaceKernelFileProjectionArgs,
 	WorkspaceKernelFileProjectionFormat,
-	WorkspaceKernelFileProjectionStatus,
 } from "#/features/workspaces/kernel/workspace-kernel-types";
 import {
 	getMetadataNumber,
@@ -38,9 +35,11 @@ import {
 } from "#/features/workspaces/model/workspace-file/policy";
 import type { WorkspaceCommandResult } from "#/features/workspaces/realtime/messages";
 import { recordOperationalOutcome } from "#/integrations/observability/operational-events";
+import { deleteR2Prefix } from "#/lib/r2";
 
 export class WorkspaceKernelFileCommands {
 	private readonly events: WorkspaceKernelEventBus;
+	private readonly migrator: WorkspaceKernelFileMigrator;
 	private readonly r2: R2Bucket;
 	private readonly sql: WorkspaceKernelSql;
 	private readonly store: WorkspaceKernelStore;
@@ -56,6 +55,12 @@ export class WorkspaceKernelFileCommands {
 		workspaceId: () => string;
 	}) {
 		this.events = input.events;
+		this.migrator = new WorkspaceKernelFileMigrator({
+			bucket: input.r2,
+			sql: input.sql,
+			workspace: input.workspace,
+			workspaceId: input.workspaceId,
+		});
 		this.r2 = input.r2;
 		this.sql = input.sql;
 		this.store = input.store;
@@ -70,7 +75,11 @@ export class WorkspaceKernelFileCommands {
 
 		this.store.assertParentIsValid(parentId);
 
-		const object = await this.r2.get(input.objectKey);
+		if (this.store.getItemRowIncludingDeleted(input.id)) {
+			throw new Error("Workspace item id already exists.");
+		}
+
+		const object = await this.r2.head(input.objectKey);
 
 		if (!object) {
 			throw new Error("Uploaded file was not found.");
@@ -80,7 +89,6 @@ export class WorkspaceKernelFileCommands {
 			throw new Error("Uploaded file size did not match the upload request.");
 		}
 
-		const bytes = new Uint8Array(await object.arrayBuffer());
 		const descriptor = getWorkspaceUploadFamily(input.assetKind);
 		const contentType = resolveWorkspaceFileContentType({
 			contentType: input.contentType,
@@ -89,7 +97,7 @@ export class WorkspaceKernelFileCommands {
 		});
 
 		const now = Date.now();
-		const itemId = crypto.randomUUID();
+		const itemId = input.id;
 		const requestedName = normalizeWorkspaceUploadFileName(input.fileName, descriptor);
 		const name = this.store.resolveItemName({
 			itemId,
@@ -109,12 +117,9 @@ export class WorkspaceKernelFileCommands {
 			contentType,
 			descriptor,
 			originalName: requestedName,
-			sizeBytes: bytes.byteLength,
+			sizeBytes: object.size,
 			source: input.source,
 		});
-
-		await this.workspace.writeFileBytes(shellPath, bytes, contentType);
-		await this.r2.delete(input.objectKey);
 
 		this.sql`
 			INSERT INTO kernel_items (
@@ -126,6 +131,7 @@ export class WorkspaceKernelFileCommands {
 				metadata_json,
 				sort_order,
 				shell_path,
+				object_key,
 				created_at,
 				updated_at,
 				deleted_at
@@ -139,6 +145,7 @@ export class WorkspaceKernelFileCommands {
 					${JSON.stringify(metadataJson)},
 				${this.store.getNextSortOrder(parentId)},
 				${shellPath},
+				${input.objectKey},
 				${now},
 				${now},
 				NULL
@@ -153,52 +160,37 @@ export class WorkspaceKernelFileCommands {
 			payload: { item },
 		});
 
-		const previewGenerator = resolveUploadPreviewGenerator(descriptor);
-
-		if (previewGenerator) {
-			await this.tryCreateUploadPreview({
-				actorUserId: input.actorUserId ?? null,
-				bytes,
-				generate: previewGenerator,
-				itemId,
-				label: descriptor.assetKind,
-				now,
-			});
-		}
-
 		return { result: item, event };
 	}
 
-	async readFileContent(
-		input: ReadWorkspaceKernelFileContentArgs,
-	): Promise<ReadWorkspaceKernelFileContentResult> {
+	async getFileSource(input: ReadWorkspaceKernelFileSourceArgs) {
 		const row = this.store.assertActiveItem(input.itemId);
 
 		if (row.type !== "file") {
 			throw new Error("Workspace item is not a file.");
 		}
 
-		const bytes = await this.workspace.readFileBytes(row.shell_path);
-
-		if (!bytes) {
-			throw new Error("Workspace file content was not found.");
-		}
-
 		const item = this.store.requireItem(input.itemId);
 		const contentType = getMetadataString(item.metadataJson, "mimeType");
 		const originalName = getMetadataString(item.metadataJson, "originalName");
 		const sizeBytes = getMetadataNumber(item.metadataJson, "sizeBytes");
+		const objectKey =
+			row.object_key ??
+			(await this.migrator.migrateSource(row.shell_path, item.id, {
+				contentType: contentType ?? "application/octet-stream",
+				expectedSize: sizeBytes,
+			}));
 
 		return {
-			bytes,
+			objectKey,
 			contentType: contentType ?? "application/octet-stream",
 			fileName: originalName ?? item.name,
-			sizeBytes: sizeBytes ?? bytes.byteLength,
+			sizeBytes: sizeBytes ?? (await this.requireObject(objectKey)).size,
 		};
 	}
 
 	async readFilePreview(
-		input: ReadWorkspaceKernelFileContentArgs,
+		input: ReadWorkspaceKernelFileSourceArgs,
 	): Promise<ReadWorkspaceKernelFilePreviewResult | null> {
 		const row = this.store.assertActiveItem(input.itemId);
 
@@ -215,18 +207,20 @@ export class WorkspaceKernelFileCommands {
 			return null;
 		}
 
-		const bytes =
-			projection.status === "ready" && projection.content_shell_path
-				? await this.workspace.readFileBytes(projection.content_shell_path)
+		const objectKey =
+			projection.status === "ready"
+				? (projection.object_key ?? (await this.migrator.migratePreview(projection, input.itemId)))
 				: null;
+		const metadataJson = parseProjectionMetadataJson(projection.metadata_json);
 
 		return {
 			itemId: projection.item_id,
 			status: projection.status,
-			bytes,
+			objectKey,
 			contentType: WORKSPACE_FILE_PREVIEW_CONTENT_TYPE,
+			sizeBytes: getMetadataNumber(metadataJson, "sizeBytes"),
 			sourceHash: projection.source_hash,
-			metadataJson: parseProjectionMetadataJson(projection.metadata_json),
+			metadataJson,
 			updatedAt: new Date(projection.updated_at).toISOString(),
 		};
 	}
@@ -236,6 +230,21 @@ export class WorkspaceKernelFileCommands {
 
 		if (row.type !== "file") {
 			throw new Error("Workspace item is not a file.");
+		}
+		if (input.status === "ready" && input.format === "pages") {
+			if (!row.object_key) {
+				throw new Error("Ready page projections require a source hash and manifest object.");
+			}
+			const [source, manifest] = await Promise.all([
+				this.r2.head(row.object_key),
+				this.r2.head(input.objectKey),
+			]);
+			if (!source || source.etag !== input.sourceHash) {
+				throw new Error("The file source changed before its extraction could be published.");
+			}
+			if (!manifest) {
+				throw new Error("The page projection manifest was not found.");
+			}
 		}
 
 		const now = Date.now();
@@ -253,45 +262,10 @@ export class WorkspaceKernelFileCommands {
 		projection: UpsertWorkspaceKernelFileProjectionArgs;
 		now: number;
 	}) {
-		const contentShellPath =
-			input.projection.content == null && input.projection.contentBytes == null
-				? this.getExistingProjectionPath({
-						itemId: input.itemId,
-						format: input.projection.format,
-					})
-				: getWorkspaceKernelProjectionShellPath({
-						itemId: input.itemId,
-						format: input.projection.format,
-					});
-
-		if (input.projection.content != null) {
-			const projectionShellPath = getWorkspaceKernelProjectionShellPath({
-				itemId: input.itemId,
-				format: input.projection.format,
-			});
-
-			await this.workspace.mkdir(`/items/${input.itemId}/projections`, {
-				recursive: true,
-			});
-			await this.workspace.writeFile(
-				projectionShellPath,
-				input.projection.content,
-				getProjectionContentType(input.projection.format),
-			);
-		}
-
-		if (input.projection.contentBytes != null) {
-			const previewShellPath = getWorkspaceKernelFilePreviewShellPath(input.itemId);
-
-			await this.workspace.mkdir(`/items/${input.itemId}/derivatives`, {
-				recursive: true,
-			});
-			await this.workspace.writeFileBytes(
-				previewShellPath,
-				input.projection.contentBytes,
-				WORKSPACE_FILE_PREVIEW_CONTENT_TYPE,
-			);
-		}
+		const legacyContentPath = this.getProjectionRow({
+			itemId: input.itemId,
+			format: input.projection.format,
+		})?.content_shell_path;
 
 		this.sql`
 			INSERT INTO kernel_item_projections (
@@ -301,6 +275,7 @@ export class WorkspaceKernelFileCommands {
 				provider,
 				provider_mode,
 				content_shell_path,
+				object_key,
 				error_message,
 				source_hash,
 				metadata_json,
@@ -313,7 +288,8 @@ export class WorkspaceKernelFileCommands {
 				${input.projection.status},
 				${input.projection.provider ?? null},
 				${input.projection.providerMode ?? null},
-				${contentShellPath},
+				NULL,
+				${input.projection.objectKey ?? null},
 					${input.projection.errorMessage ?? null},
 					${input.projection.sourceHash ?? null},
 					${JSON.stringify(input.projection.metadataJson ?? {})},
@@ -324,12 +300,17 @@ export class WorkspaceKernelFileCommands {
 				status = excluded.status,
 				provider = excluded.provider,
 				provider_mode = excluded.provider_mode,
-				content_shell_path = COALESCE(excluded.content_shell_path, kernel_item_projections.content_shell_path),
+				content_shell_path = NULL,
+				object_key = excluded.object_key,
 				error_message = excluded.error_message,
 				source_hash = excluded.source_hash,
 				metadata_json = excluded.metadata_json,
 				updated_at = excluded.updated_at
 		`;
+
+		if (legacyContentPath) {
+			await this.workspace.rm(legacyContentPath, { force: true });
+		}
 	}
 
 	async readFileProjection(
@@ -341,19 +322,29 @@ export class WorkspaceKernelFileCommands {
 			throw new Error("Workspace item is not a file.");
 		}
 
-		const projection = this.getProjectionRow(input);
+		let projection = this.getProjectionRow(input);
 
 		if (!projection) {
 			return null;
+		}
+		if (
+			projection.status === "ready" &&
+			projection.format === "pages" &&
+			!projection.object_key &&
+			projection.content_shell_path
+		) {
+			await this.migrator.migratePageProjection(projection);
+			projection = this.getProjectionRow(input);
+			if (!projection) {
+				return null;
+			}
 		}
 
 		return {
 			itemId: projection.item_id,
 			format: projection.format,
 			status: projection.status,
-			content: projection.content_shell_path
-				? await this.workspace.readFile(projection.content_shell_path)
-				: null,
+			objectKey: projection.object_key,
 			provider: projection.provider,
 			providerMode: projection.provider_mode,
 			errorMessage: projection.error_message,
@@ -361,13 +352,6 @@ export class WorkspaceKernelFileCommands {
 			metadataJson: parseProjectionMetadataJson(projection.metadata_json),
 			updatedAt: new Date(projection.updated_at).toISOString(),
 		};
-	}
-
-	private getExistingProjectionPath(input: {
-		itemId: string;
-		format: WorkspaceKernelFileProjectionFormat;
-	}) {
-		return this.getProjectionRow(input)?.content_shell_path ?? null;
 	}
 
 	private getProjectionRow(input: { itemId: string; format: WorkspaceKernelFileProjectionFormat }) {
@@ -381,90 +365,113 @@ export class WorkspaceKernelFileCommands {
 		);
 	}
 
-	private async tryCreateUploadPreview(input: {
-		actorUserId: string | null;
-		bytes: Uint8Array;
-		generate: (bytes: Uint8Array) => Promise<{ bytes: Uint8Array; width: number; height: number }>;
-		itemId: string;
-		label: string;
-		now: number;
-	}) {
-		const startedAt = Date.now();
-		let failure: unknown;
-		let previewMetrics: { height: number; outputBytes: number; width: number } | undefined;
+	async deleteObjects(itemIds: string[]) {
+		const fileItemIds = itemIds.filter(
+			(itemId) => this.store.getItemRowIncludingDeleted(itemId)?.type === "file",
+		);
+		const results = await Promise.allSettled(
+			fileItemIds.map((itemId) =>
+				deleteR2Prefix(
+					this.r2,
+					getWorkspaceFileItemObjectPrefix({ workspaceId: this.workspaceId(), itemId }),
+				),
+			),
+		);
+		const failure = results.find((result) => result.status === "rejected");
 
-		try {
-			const preview = await input.generate(input.bytes);
-			previewMetrics = {
-				height: preview.height,
-				outputBytes: preview.bytes.byteLength,
-				width: preview.width,
-			};
-			const sourceHash = await sha256Base64Url(input.bytes);
-
-			await this.writeProjectionRow({
-				itemId: input.itemId,
-				now: input.now,
-				projection: {
-					itemId: input.itemId,
-					format: "preview",
-					status: "ready",
-					contentBytes: preview.bytes,
-					sourceHash,
-					metadataJson: {
-						contentType: WORKSPACE_FILE_PREVIEW_CONTENT_TYPE,
-						width: preview.width,
-						height: preview.height,
-					},
-				},
-			});
-		} catch (error) {
-			failure = error;
-
-			await this.writeProjectionRow({
-				itemId: input.itemId,
-				now: input.now,
-				projection: {
-					itemId: input.itemId,
-					format: "preview",
-					status: "failed",
-					errorMessage: getErrorMessage(error),
-				},
-			});
-		} finally {
+		if (failure?.status === "rejected") {
 			recordOperationalOutcome({
-				distinctId: input.actorUserId ?? undefined,
-				error: failure,
-				event: "workspace_file_preview",
+				error: failure.reason,
+				event: "workspace_file_object_cleanup",
 				fields: {
-					asset_kind: input.label,
-					duration_ms: Date.now() - startedAt,
-					height: previewMetrics?.height,
-					input_bytes: input.bytes.byteLength,
-					item_id: input.itemId,
-					output_bytes: previewMetrics?.outputBytes,
-					user_id: input.actorUserId,
-					width: previewMetrics?.width,
+					item_count: fileItemIds.length,
 					workspace_id: this.workspaceId(),
 				},
 			});
 		}
 	}
-}
 
-type KernelItemProjectionRow = {
-	item_id: string;
-	format: WorkspaceKernelFileProjectionFormat;
-	status: WorkspaceKernelFileProjectionStatus;
-	provider: string | null;
-	provider_mode: string | null;
-	content_shell_path: string | null;
-	error_message: string | null;
-	source_hash: string | null;
-	metadata_json: string;
-	created_at: number;
-	updated_at: number;
-};
+	async migrateLegacyStorage() {
+		const sourceRows = this.sql<KernelItemRow>`
+			SELECT * FROM kernel_items
+			WHERE type = 'file' AND object_key IS NULL
+		`;
+		const projectionRows = this.sql<KernelItemProjectionRow>`
+			SELECT * FROM kernel_item_projections
+			WHERE content_shell_path IS NOT NULL
+		`;
+		const orphanedItemIds = new Set<string>();
+		let orphanedProjectionCount = 0;
+
+		for (const row of sourceRows) {
+			if (!(await this.workspace.stat(row.shell_path))) {
+				orphanedItemIds.add(row.id);
+				const orphanedProjections = projectionRows.filter(
+					(candidate) => candidate.item_id === row.id && candidate.content_shell_path,
+				);
+				orphanedProjectionCount += orphanedProjections.length;
+				for (const projection of orphanedProjections) {
+					await this.workspace.rm(projection.content_shell_path!, { force: true });
+				}
+				this.sql`DELETE FROM kernel_item_projections WHERE item_id = ${row.id}`;
+				this
+					.sql`DELETE FROM kernel_relations WHERE from_item_id = ${row.id} OR to_item_id = ${row.id}`;
+				this.sql`DELETE FROM kernel_items WHERE id = ${row.id}`;
+				await deleteR2Prefix(
+					this.r2,
+					getWorkspaceFileItemObjectPrefix({ workspaceId: this.workspaceId(), itemId: row.id }),
+				);
+				continue;
+			}
+
+			const metadata = parseWorkspaceMetadataJson(row.metadata_json);
+			await this.migrator.migrateSource(row.shell_path, row.id, {
+				contentType: getMetadataString(metadata, "mimeType") ?? "application/octet-stream",
+				expectedSize: getMetadataNumber(metadata, "sizeBytes"),
+			});
+		}
+
+		for (const projection of projectionRows) {
+			if (orphanedItemIds.has(projection.item_id)) {
+				continue;
+			}
+			if (projection.format === "pages") {
+				await this.migrator.migratePageProjection(projection);
+			} else {
+				await this.migrator.migratePreview(projection, projection.item_id);
+			}
+		}
+
+		const remainingSources =
+			this.sql<{ count: number }>`
+			SELECT COUNT(*) AS count FROM kernel_items
+			WHERE type = 'file' AND object_key IS NULL
+		`[0]?.count ?? 0;
+		const remainingProjections =
+			this.sql<{ count: number }>`
+			SELECT COUNT(*) AS count FROM kernel_item_projections
+			WHERE content_shell_path IS NOT NULL
+		`[0]?.count ?? 0;
+
+		return {
+			migratedSources: sourceRows.length - orphanedItemIds.size,
+			migratedProjections: projectionRows.length - orphanedProjectionCount,
+			orphanedFilesRemoved: orphanedItemIds.size,
+			remainingSources,
+			remainingProjections,
+		};
+	}
+
+	private async requireObject(objectKey: string) {
+		const object = await this.r2.head(objectKey);
+
+		if (!object) {
+			throw new Error("Workspace file object was not found.");
+		}
+
+		return object;
+	}
+}
 
 function createFileMetadata(input: {
 	contentType: string;
@@ -490,25 +497,6 @@ function createFileMetadata(input: {
 	}
 
 	return metadata;
-}
-
-function getWorkspaceKernelProjectionShellPath(input: {
-	itemId: string;
-	format: WorkspaceKernelFileProjectionFormat;
-}) {
-	if (input.format === "preview") {
-		return getWorkspaceKernelFilePreviewShellPath(input.itemId);
-	}
-
-	return `/items/${input.itemId}/projections/${input.format}.json`;
-}
-
-function getProjectionContentType(format: WorkspaceKernelFileProjectionFormat) {
-	return format === "pages" ? "application/json" : "text/markdown";
-}
-
-function getErrorMessage(error: unknown) {
-	return error instanceof Error ? error.message : String(error);
 }
 
 const parseProjectionMetadataJson = parseWorkspaceMetadataJson;

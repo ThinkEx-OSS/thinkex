@@ -1,19 +1,16 @@
 import { WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from "cloudflare:workers";
 
-import { sha256Base64Url } from "#/features/workspaces/extraction/binary";
 import { publishLiteParseProjection } from "#/features/workspaces/extraction/liteparse-projection";
+import { publishWorkspaceFilePreview } from "#/features/workspaces/extraction/workspace-file-preview-projection";
 import { recordWorkspaceFileExtractionOutcome } from "#/features/workspaces/extraction/workspace-file-extraction-observability";
-import {
-	joinMarkdownProjectionPages,
-	parseMarkdownPagesProjection,
-	serializeMarkdownPagesProjection,
-} from "#/features/workspaces/extraction/page-markdown-projection";
 import { createMarkdownExtractionProvider } from "#/features/workspaces/extraction/providers/index";
 import type {
 	MarkdownExtractionProviderId,
 	MarkdownExtractionProviderMode,
 	WorkspaceFileExtractionWorkflowParams,
 } from "#/features/workspaces/extraction/types";
+import { getWorkspaceFileSourceObject } from "#/features/workspaces/extraction/workspace-file-source";
+import { writeWorkspacePageProjection } from "#/features/workspaces/extraction/workspace-page-projection";
 import { getWorkspaceKernelFromEnv } from "#/features/workspaces/kernel/workspace-kernel-access";
 import { getWorkspaceUploadFamily } from "#/features/workspaces/model/workspace-file";
 
@@ -26,7 +23,6 @@ export class WorkspaceFileExtractionWorkflow extends WorkflowEntrypoint<
 		step: WorkflowStep,
 	) {
 		const params = assertWorkflowParams(event.payload);
-		const artifactKey = getExtractionArtifactKey(event.instanceId);
 		const schedule = (task: Promise<void>) => this.ctx.waitUntil(task);
 
 		await step.do("mark extraction processing", async () => {
@@ -41,7 +37,8 @@ export class WorkspaceFileExtractionWorkflow extends WorkflowEntrypoint<
 			return { status: "processing" };
 		});
 
-		const liteParse = await publishLiteParseProjection(this.env, step, params);
+		const liteParse = await publishLiteParseProjection(this.env, step, params, event.instanceId);
+		await publishWorkspaceFilePreview(this.env, step, params);
 		const enhancementStartedAt = Date.now();
 		let extraction: StagedPageExtractionResult;
 		let result: {
@@ -64,37 +61,46 @@ export class WorkspaceFileExtractionWorkflow extends WorkflowEntrypoint<
 				},
 				async (): Promise<StagedPageExtractionResult> => {
 					const kernel = await getWorkspaceKernelFromEnv(this.env, params.workspaceId);
-					const source = await kernel.readFileContent({
+					const { object, source } = await getWorkspaceFileSourceObject({
+						env: this.env,
 						itemId: params.itemId,
+						kernel,
 					});
-					const sourceHash = await sha256Base64Url(source.bytes);
 					const route = getWorkspaceUploadFamily(params.assetKind).extractionRoute;
 					const provider = createMarkdownExtractionProvider(route.provider, this.env);
 					const extraction = await provider.extract({
 						workspaceId: params.workspaceId,
 						itemId: params.itemId,
-						bytes: source.bytes,
+						body: object.body,
 						fileName: source.fileName,
 						contentType: source.contentType,
 						sizeBytes: source.sizeBytes,
-						sourceHash,
+						sourceHash: object.etag,
 						mode: route.mode,
 					});
 
-					const pagesJson = serializeMarkdownPagesProjection(extraction.pages);
-
-					await this.env.WORKSPACE_KERNEL_FILES.put(artifactKey, pagesJson, {
-						httpMetadata: { contentType: "application/json" },
+					const projection = await writeWorkspacePageProjection({
+						bucket: this.env.WORKSPACE_KERNEL_FILES,
+						itemId: params.itemId,
+						metadata: extraction.metadata,
+						pages: extraction.pages,
+						provider: extraction.provider,
+						providerMode: extraction.providerMode,
+						runId: event.instanceId,
+						sourceHash: object.etag,
+						tier: "enhanced",
+						workspaceId: params.workspaceId,
 					});
 
 					return {
-						artifactKey,
+						manifestObjectKey: projection.manifestObjectKey,
+						markdownLength: projection.manifest.markdownLength,
 						provider: extraction.provider,
 						providerMode: extraction.providerMode,
 						metadata: extraction.metadata,
-						pageCount: extraction.pages.length,
+						pageCount: projection.manifest.pageCount,
 						routeReason: route.reason,
-						sourceHash,
+						sourceHash: object.etag,
 					};
 				},
 			);
@@ -111,26 +117,18 @@ export class WorkspaceFileExtractionWorkflow extends WorkflowEntrypoint<
 				},
 				async () => {
 					const kernel = await getWorkspaceKernelFromEnv(this.env, params.workspaceId);
-					const artifact = await this.env.WORKSPACE_KERNEL_FILES.get(extraction.artifactKey);
-
-					if (!artifact) {
-						throw new Error("Staged page extraction artifact was not found.");
-					}
-
-					const pagesJson = await artifact.text();
-					const pages = parseMarkdownPagesProjection(pagesJson);
 					const metadataJson = {
 						...extraction.metadata,
 						routeReason: extraction.routeReason,
 						pageCount: extraction.pageCount,
-						markdownLength: joinMarkdownProjectionPages(pages).length,
+						markdownLength: extraction.markdownLength,
 					};
 
 					await kernel.upsertFileProjection({
 						itemId: params.itemId,
 						format: "pages",
 						status: "ready",
-						content: pagesJson,
+						objectKey: extraction.manifestObjectKey,
 						provider: extraction.provider,
 						providerMode: extraction.providerMode,
 						sourceHash: extraction.sourceHash,
@@ -214,18 +212,6 @@ export class WorkspaceFileExtractionWorkflow extends WorkflowEntrypoint<
 			throw error;
 		}
 
-		await step.do("delete staged extraction artifact", async () => {
-			try {
-				await this.env.WORKSPACE_KERNEL_FILES.delete(extraction.artifactKey);
-				return { deleted: extraction.artifactKey };
-			} catch (error) {
-				return {
-					deleted: null,
-					errorType: error instanceof Error ? error.name : "UnknownError",
-				};
-			}
-		});
-
 		await step.do("record extraction outcome", async () => {
 			recordWorkspaceFileExtractionOutcome({
 				durationMs: Date.now() - event.timestamp.getTime(),
@@ -252,7 +238,8 @@ export class WorkspaceFileExtractionWorkflow extends WorkflowEntrypoint<
 }
 
 interface StagedPageExtractionResult {
-	artifactKey: string;
+	manifestObjectKey: string;
+	markdownLength: number;
 	provider: MarkdownExtractionProviderId;
 	providerMode: MarkdownExtractionProviderMode;
 	metadata: Record<string, string | number | boolean | null>;
@@ -275,10 +262,6 @@ function assertWorkflowParams(
 		assetKind: value.assetKind,
 		requestId: value.requestId ?? null,
 	};
-}
-
-function getExtractionArtifactKey(instanceId: string) {
-	return `workflow-artifacts/page-extraction/${instanceId}/projection.json`;
 }
 
 function getErrorMessage(error: unknown) {

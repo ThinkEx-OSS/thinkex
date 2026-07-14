@@ -1,9 +1,14 @@
 import { env } from "cloudflare:workers";
 import { createFileRoute } from "@tanstack/react-router";
+import { z } from "zod";
 
 import { createDbContext } from "#/db/server";
 import { WorkspaceFileConversionError } from "#/features/workspaces/conversion/errors";
 import { requestWorkspaceFileExtraction } from "#/features/workspaces/extraction/request-workspace-file-extraction";
+import {
+	getWorkspaceFileSourceObjectKey,
+	getWorkspaceFileUploadObjectKey,
+} from "#/features/workspaces/files/workspace-file-object-keys";
 import {
 	createWorkspaceFileFromUpload,
 	getWorkspaceKernel,
@@ -17,224 +22,330 @@ import {
 	WorkspaceForbiddenError,
 } from "#/features/workspaces/server/permissions";
 import {
-	createDocumentContentFromWorkspaceUpload,
-	validateWorkspaceUpload,
-	type WorkspaceUploadPlan,
-} from "#/features/workspaces/upload/workspace-upload-intake";
-import { prepareWorkspaceFileUpload } from "#/features/workspaces/upload/workspace-file-upload-normalization";
+	claimWorkspaceDirectUploadCompletion,
+	createWorkspaceDirectUploadSession,
+	verifyWorkspaceDirectUploadToken,
+	type WorkspaceDirectUploadClaims,
+} from "#/features/workspaces/upload/workspace-file-direct-upload";
 import {
 	observeWorkspaceFileIntake,
 	type WorkspaceFileIntakeObservation,
 } from "#/features/workspaces/upload/workspace-file-intake-observability";
+import type { CompleteWorkspaceDirectUploadInput } from "#/features/workspaces/upload/workspace-file-upload-protocol";
+import { storeWorkspaceFileUpload } from "#/features/workspaces/upload/workspace-file-upload-storage";
+import {
+	createDocumentContentFromWorkspaceUpload,
+	validateWorkspaceUpload,
+	type WorkspaceUploadPlan,
+} from "#/features/workspaces/upload/workspace-upload-intake";
 import { apiError, apiJson, getRequestId } from "#/lib/api/http";
 import { getSessionFromRequest } from "#/lib/auth-queries.server";
 
-const fileFormKey = "file";
-const parentIdFormKey = "parentId";
-const clientMutationIdFormKey = "clientMutationId";
+const uploadIntentSchema = z.object({
+	clientMutationId: z.string().min(1),
+	contentType: z.string().min(1),
+	fileName: z.string().min(1),
+	fileSize: z.number().int().positive(),
+	parentId: z.string().min(1).nullable(),
+});
+const uploadCompletionSchema = z.object({ completionToken: z.string().min(1) });
 
-async function handleWorkspaceFileUpload(request: Request, workspaceId: string) {
+async function handleWorkspaceUploadPost(request: Request, workspaceId: string) {
+	const action = new URL(request.url).searchParams.get("action");
+
+	if (action === "initiate") {
+		return initiateWorkspaceFileUpload(request, workspaceId);
+	}
+
+	if (action === "complete") {
+		return completeWorkspaceFileUpload(request, workspaceId);
+	}
+
+	return apiError(getRequestId(request), 400, "INVALID_UPLOAD", "Unknown upload action.");
+}
+
+async function initiateWorkspaceFileUpload(request: Request, workspaceId: string) {
+	const requestId = getRequestId(request);
+
+	try {
+		const userId = await authorizeWorkspaceUpload(request, workspaceId);
+		const input = await readUploadIntent(request);
+		const validation = validateWorkspaceUpload({
+			contentType: input.contentType,
+			fileName: input.fileName,
+			sizeBytes: input.fileSize,
+		});
+
+		if (!validation.ok) {
+			return apiError(
+				requestId,
+				validation.error.status,
+				validation.error.code,
+				validation.error.message,
+			);
+		}
+
+		const session = await createWorkspaceDirectUploadSession(env, {
+			...input,
+			userId,
+			workspaceId,
+		});
+		return apiJson(session, requestId, 201);
+	} catch (error) {
+		return workspaceUploadErrorResponse(requestId, error);
+	}
+}
+
+async function completeWorkspaceFileUpload(request: Request, workspaceId: string) {
 	const requestId = getRequestId(request);
 	return observeWorkspaceFileIntake({
 		kind: "workspace_file",
 		request,
 		requestId,
-		run: (observation) => executeWorkspaceFileUpload(request, workspaceId, requestId, observation),
+		run: (observation) => finalizeWorkspaceFileUpload(request, workspaceId, requestId, observation),
 		workspaceId,
 	});
 }
 
-async function executeWorkspaceFileUpload(
+async function finalizeWorkspaceFileUpload(
 	request: Request,
 	workspaceId: string,
 	requestId: string,
 	observation: WorkspaceFileIntakeObservation,
 ) {
-	let objectKey: string | null = null;
+	let stagingObjectKey: string | null = null;
+	let finalObjectKey: string | null = null;
+	let completionClaimKey: string | null = null;
 
 	try {
-		const session = await getSessionFromRequest(request);
+		const userId = await authorizeWorkspaceUpload(request, workspaceId);
+		observation.userId = userId;
+		const claims = await readUploadClaims(request);
 
-		if (!session) {
-			return apiError(
-				requestId,
-				401,
-				"UNAUTHORIZED",
-				"You must be signed in to upload workspace files.",
-			);
-		}
-		observation.userId = session.user.id;
-
-		const dbContext = await createDbContext();
-
-		try {
-			await assertCanMutateWorkspace(dbContext.db, {
-				workspaceId,
-				userId: session.user.id,
-			});
-		} finally {
-			await dbContext.dispose();
+		if (claims.workspaceId !== workspaceId || claims.userId !== userId) {
+			throw invalidUpload("Upload completion token does not belong to this workspace.");
 		}
 
-		const formData = await request.formData();
-		const file = formData.get(fileFormKey);
-
-		if (!(file instanceof File)) {
-			return apiError(requestId, 400, "INVALID_UPLOAD", "File upload is missing a file.");
-		}
-		observation.inputBytes = file.size;
-
-		const uploadValidation = validateWorkspaceUpload({
-			fileName: file.name,
-			sizeBytes: file.size,
-			contentType: file.type,
+		const validation = validateWorkspaceUpload({
+			contentType: claims.contentType,
+			fileName: claims.fileName,
+			sizeBytes: claims.fileSize,
 		});
 
-		if (!uploadValidation.ok) {
-			return apiError(
-				requestId,
-				uploadValidation.error.status,
-				uploadValidation.error.code,
-				uploadValidation.error.message,
-			);
+		if (!validation.ok) {
+			throw invalidUpload("Upload completion metadata is invalid.");
+		}
+		completionClaimKey = await claimWorkspaceDirectUploadCompletion(env, claims);
+		if (!completionClaimKey) {
+			throw invalidUpload("Upload is already being completed.");
 		}
 
-		const parentId = getNullableString(formData.get(parentIdFormKey));
-		const clientMutationId = getNullableString(formData.get(clientMutationIdFormKey));
-		const uploadPlan = uploadValidation.plan;
-		observation.plan = uploadPlan.kind;
+		observation.inputBytes = claims.fileSize;
+		observation.plan = validation.plan.kind;
+		stagingObjectKey = getWorkspaceFileUploadObjectKey(claims);
+		const stagingObject = await env.WORKSPACE_KERNEL_FILES.get(stagingObjectKey);
 
-		if (uploadPlan.kind === "document") {
+		if (!stagingObject || stagingObject.size !== claims.fileSize) {
+			throw invalidUpload("Uploaded file size does not match the selected file.");
+		}
+
+		if (validation.plan.kind === "document") {
 			const command = await createWorkspaceDocumentFromUpload({
-				clientMutationId,
-				file,
-				parentId,
-				plan: uploadPlan,
-				userId: session.user.id,
-				workspaceId,
+				claims,
+				file: new File([await stagingObject.arrayBuffer()], claims.fileName, {
+					type: claims.contentType,
+				}),
+				plan: validation.plan,
 			});
-
 			observation.itemId = command.result.id;
-			observation.outputBytes = file.size;
+			observation.outputBytes = claims.fileSize;
 			return apiJson(command, requestId);
 		}
 
-		const upload = await prepareWorkspaceFileUpload({
-			descriptor: uploadPlan.descriptor,
+		finalObjectKey = getWorkspaceFileSourceObjectKey(claims);
+		const upload = await storeWorkspaceFileUpload({
+			body: stagingObject.body,
+			contentType: claims.contentType,
+			descriptor: validation.plan.descriptor,
 			env,
-			file,
+			fileName: claims.fileName,
+			fileSize: claims.fileSize,
+			objectKey: finalObjectKey,
 		});
 		observation.assetKind = upload.descriptor.assetKind;
 		observation.conversion = upload.source?.conversion;
 		observation.outputBytes = upload.fileSize;
 
-		objectKey = getWorkspaceFileUploadObjectKey(workspaceId);
-		await env.WORKSPACE_KERNEL_FILES.put(objectKey, upload.body, {
-			httpMetadata: {
-				contentType: upload.contentType,
-			},
-		});
-
 		const command = await createWorkspaceFileFromUpload({
-			workspaceId,
-			userId: session.user.id,
-			parentId,
+			assetKind: upload.descriptor.assetKind,
+			clientMutationId: claims.clientMutationId,
+			contentType: upload.contentType,
 			fileName: upload.fileName,
 			fileSize: upload.fileSize,
-			objectKey,
-			contentType: upload.contentType,
-			assetKind: upload.descriptor.assetKind,
+			id: claims.itemId,
+			objectKey: upload.objectKey,
+			parentId: claims.parentId,
 			source: upload.source,
-			clientMutationId,
+			userId,
+			workspaceId,
 		});
 
-		objectKey = null;
+		finalObjectKey = null;
 		observation.itemId = command.result.id;
-		if (
-			resolveWorkspaceFileAiReadStrategy({
-				fileName: upload.fileName,
-				contentType: upload.contentType,
-				descriptor: upload.descriptor,
-			}) === "markdown_extraction"
-		) {
-			await requestWorkspaceFileExtraction({
-				workspaceId,
-				itemId: command.result.id,
-				actorUserId: session.user.id,
-				assetKind: upload.descriptor.assetKind,
-				requestId,
-			});
-		}
+		await queueWorkspaceFileExtraction(upload, {
+			itemId: command.result.id,
+			requestId,
+			userId,
+			workspaceId,
+		});
 
 		return apiJson(command, requestId);
 	} catch (error) {
 		observation.error = error;
-		if (error instanceof WorkspaceForbiddenError) {
-			observation.error = undefined;
-			return apiError(
-				requestId,
-				403,
-				"FORBIDDEN",
-				"You do not have permission to upload files to this workspace.",
-			);
-		}
-
-		if (error instanceof WorkspaceFileUploadError) {
-			observation.error = undefined;
-			return apiError(requestId, error.status, error.code, error.message);
-		}
-
-		if (error instanceof WorkspaceFileConversionError) {
-			return apiError(requestId, 422, "CONVERSION_FAILED", error.userMessage);
-		}
-
-		return apiError(requestId, 500, "UPLOAD_FAILED", "Unable to upload file right now.");
+		return workspaceUploadErrorResponse(requestId, error);
 	} finally {
-		if (objectKey) {
-			await env.WORKSPACE_KERNEL_FILES.delete(objectKey);
+		if (stagingObjectKey) {
+			await env.WORKSPACE_KERNEL_FILES.delete(stagingObjectKey).catch(() => undefined);
 		}
+		await Promise.allSettled([
+			finalObjectKey ? env.WORKSPACE_KERNEL_FILES.delete(finalObjectKey) : Promise.resolve(),
+			completionClaimKey
+				? env.WORKSPACE_KERNEL_FILES.delete(completionClaimKey)
+				: Promise.resolve(),
+		]);
+	}
+}
+
+async function queueWorkspaceFileExtraction(
+	upload: Awaited<ReturnType<typeof storeWorkspaceFileUpload>>,
+	input: { itemId: string; requestId: string; userId: string; workspaceId: string },
+) {
+	if (
+		resolveWorkspaceFileAiReadStrategy({
+			contentType: upload.contentType,
+			descriptor: upload.descriptor,
+			fileName: upload.fileName,
+		}) !== "markdown_extraction"
+	) {
+		return;
+	}
+
+	await requestWorkspaceFileExtraction({
+		actorUserId: input.userId,
+		assetKind: upload.descriptor.assetKind,
+		itemId: input.itemId,
+		requestId: input.requestId,
+		workspaceId: input.workspaceId,
+	});
+}
+
+async function createWorkspaceDocumentFromUpload(input: {
+	claims: WorkspaceDirectUploadClaims;
+	file: File;
+	plan: Extract<WorkspaceUploadPlan, { kind: "document" }>;
+}) {
+	const documentContent = await createDocumentContentFromWorkspaceUpload({
+		file: input.file,
+		plan: input.plan,
+	});
+	const kernel = await getWorkspaceKernel(input.claims.workspaceId);
+
+	return kernel.createItem({
+		id: input.claims.itemId,
+		actorUserId: input.claims.userId,
+		clientMutationId: input.claims.clientMutationId,
+		initialContent: documentContent.initialContent,
+		metadataJson: documentContent.metadataJson,
+		name: documentContent.name,
+		parentId: input.claims.parentId,
+		type: "document",
+	});
+}
+
+async function authorizeWorkspaceUpload(request: Request, workspaceId: string) {
+	const session = await getSessionFromRequest(request);
+
+	if (!session) {
+		throw new WorkspaceUploadRequestError(401, "UNAUTHORIZED", "You must be signed in.");
+	}
+
+	const dbContext = await createDbContext();
+
+	try {
+		await assertCanMutateWorkspace(dbContext.db, { userId: session.user.id, workspaceId });
+	} finally {
+		await dbContext.dispose();
+	}
+
+	return session.user.id;
+}
+
+async function readUploadIntent(request: Request) {
+	return parseJsonRequest(request, uploadIntentSchema);
+}
+
+async function readUploadClaims(request: Request): Promise<WorkspaceDirectUploadClaims> {
+	const input: CompleteWorkspaceDirectUploadInput = await parseJsonRequest(
+		request,
+		uploadCompletionSchema,
+	);
+
+	try {
+		return await verifyWorkspaceDirectUploadToken(env, input.completionToken);
+	} catch {
+		throw invalidUpload("Upload completion token is invalid or expired.");
+	}
+}
+
+async function parseJsonRequest<T>(request: Request, schema: z.ZodType<T>): Promise<T> {
+	const value: unknown = await request.json().catch(() => null);
+	const result = schema.safeParse(value);
+
+	if (!result.success) {
+		throw invalidUpload("Upload request is invalid.");
+	}
+
+	return result.data;
+}
+
+function invalidUpload(message: string) {
+	return new WorkspaceUploadRequestError(400, "INVALID_UPLOAD", message);
+}
+
+function workspaceUploadErrorResponse(requestId: string, error: unknown) {
+	if (error instanceof WorkspaceUploadRequestError) {
+		return apiError(requestId, error.status, error.code, error.message);
+	}
+
+	if (error instanceof WorkspaceForbiddenError) {
+		return apiError(requestId, 403, "FORBIDDEN", "You cannot upload to this workspace.");
+	}
+
+	if (error instanceof WorkspaceFileUploadError) {
+		return apiError(requestId, error.status, error.code, error.message);
+	}
+
+	if (error instanceof WorkspaceFileConversionError) {
+		return apiError(requestId, 422, "CONVERSION_FAILED", error.userMessage);
+	}
+
+	return apiError(requestId, 500, "UPLOAD_FAILED", "Unable to upload file right now.");
+}
+
+class WorkspaceUploadRequestError extends Error {
+	constructor(
+		readonly status: number,
+		readonly code: string,
+		message: string,
+	) {
+		super(message);
 	}
 }
 
 export const Route = createFileRoute("/api/v1/workspaces/$workspaceId/file-upload")({
 	server: {
 		handlers: {
-			POST: ({ params, request }) => handleWorkspaceFileUpload(request, params.workspaceId),
+			POST: ({ params, request }) => handleWorkspaceUploadPost(request, params.workspaceId),
 		},
 	},
 });
-
-function getWorkspaceFileUploadObjectKey(workspaceId: string) {
-	return `uploads/workspaces/${workspaceId}/${crypto.randomUUID()}/source`;
-}
-
-async function createWorkspaceDocumentFromUpload(input: {
-	clientMutationId: string | null;
-	file: File;
-	parentId: string | null;
-	plan: Extract<WorkspaceUploadPlan, { kind: "document" }>;
-	userId: string;
-	workspaceId: string;
-}) {
-	const documentContent = await createDocumentContentFromWorkspaceUpload({
-		file: input.file,
-		plan: input.plan,
-	});
-	const kernel = await getWorkspaceKernel(input.workspaceId);
-
-	return kernel.createItem({
-		parentId: input.parentId,
-		type: "document",
-		name: documentContent.name,
-		metadataJson: documentContent.metadataJson,
-		initialContent: documentContent.initialContent,
-		actorUserId: input.userId,
-		clientMutationId: input.clientMutationId,
-	});
-}
-
-function getNullableString(value: FormDataEntryValue | null) {
-	return typeof value === "string" && value.trim() ? value : null;
-}
-
-export { handleWorkspaceFileUpload };

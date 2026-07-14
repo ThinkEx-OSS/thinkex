@@ -1,4 +1,4 @@
-import { toArrayBuffer } from "#/features/workspaces/extraction/binary";
+import { convertImageStreamToChatJpeg } from "#/features/workspaces/conversion/image-file-converter";
 import type {
 	MarkdownExtractionProvider,
 	MarkdownExtractionResult,
@@ -9,11 +9,18 @@ export function createWorkersAiToMarkdownProvider(env: Env): MarkdownExtractionP
 	return {
 		id: "workers_ai_to_markdown",
 		async extract(input) {
+			const conversion = await convertImageStreamToChatJpeg(env, {
+				body: input.body,
+				contentType: input.contentType,
+				fileName: input.fileName,
+				sizeBytes: input.sizeBytes,
+			});
+			const bytes = await conversion.arrayBuffer();
 			const result = await env.AI.toMarkdown(
 				{
 					name: input.fileName,
-					blob: new Blob([toArrayBuffer(input.bytes)], {
-						type: input.contentType || "application/octet-stream",
+					blob: new Blob([bytes], {
+						type: "image/jpeg",
 					}),
 				},
 				{

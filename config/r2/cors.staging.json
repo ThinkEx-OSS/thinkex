@@ -1,0 +1,12 @@
+{
+	"rules": [
+		{
+			"allowed": {
+				"origins": ["https://staging.thinkex.app", "http://localhost:3000"],
+				"methods": ["PUT"],
+				"headers": ["content-type"]
+			},
+			"maxAgeSeconds": 3600
+		}
+	]
+}

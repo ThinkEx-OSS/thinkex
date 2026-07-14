@@ -53,3 +53,21 @@ vp run deploy:worker:staging
 ## Secrets
 
 Runtime and deploy secrets are synced into GitHub Actions secrets from Infisical. Production and staging workflows require Cloudflare credentials, PostHog variables, and the runtime secrets declared by the Worker configuration.
+
+Direct workspace uploads additionally require bucket-scoped R2 Object Read & Write credentials in `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY`, plus `R2_ACCOUNT_ID`. Configure browser PUT access from the checked-in policies:
+
+```bash
+wrangler r2 bucket cors set thinkex-workspace-kernel-files-staging --file config/r2/cors.staging.json
+wrangler r2 bucket cors set thinkex-workspace-kernel-files --file config/r2/cors.production.json
+```
+
+After inspecting existing lifecycle rules, add a one-day expiry for abandoned direct-upload objects in each bucket:
+
+```bash
+wrangler r2 bucket lifecycle add thinkex-workspace-kernel-files-staging expire-abandoned-workspace-file-uploads workspace_file_uploads/ --expire-days 1
+wrangler r2 bucket lifecycle add thinkex-workspace-kernel-files expire-abandoned-workspace-file-uploads workspace_file_uploads/ --expire-days 1
+```
+
+<Warning>
+  CORS `set` replaces the bucket's current CORS policy. Reconcile the checked-in policy with any existing rules before applying it.
+</Warning>

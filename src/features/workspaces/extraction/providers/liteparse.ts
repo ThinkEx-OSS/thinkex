@@ -1,50 +1,69 @@
-import { Container, getRandom } from "@cloudflare/containers";
-
 import type { MarkdownProjectionPage } from "#/features/workspaces/extraction/page-markdown-projection";
-import { parseLiteParsePages } from "#/features/workspaces/extraction/providers/liteparse-response";
+import { parseLiteParsePage } from "#/features/workspaces/extraction/providers/liteparse-response";
+import { requestWorkspaceFileProcessor } from "#/features/workspaces/files/workspace-file-processor";
 
-const liteParsePort = 8080;
-const liteParsePoolSize = 2;
-
-export class LiteParsePdfExtractor extends Container {
-	defaultPort = liteParsePort;
-	requiredPorts = [liteParsePort];
-	sleepAfter = "5m";
-	enableInternet = false;
-}
-
-export async function extractPdfWithLiteParse(
+export async function* extractPdfWithLiteParse(
 	env: Cloudflare.Env,
-	input: { bytes: Uint8Array; fileName: string },
-): Promise<MarkdownProjectionPage[]> {
-	const extractor = await getRandom(env.LITEPARSE_PDF_EXTRACTOR, liteParsePoolSize);
-	await extractor.startAndWaitForPorts({
-		cancellationOptions: { portReadyTimeoutMS: 60_000 },
+	input: {
+		body: ReadableStream<Uint8Array>;
+		fileName: string;
+		sizeBytes: number;
+	},
+): AsyncGenerator<MarkdownProjectionPage> {
+	const response = await requestWorkspaceFileProcessor(env, {
+		body: input.body,
+		contentType: "application/pdf",
+		fileName: input.fileName,
+		path: "/parse/pdf",
+		sizeBytes: input.sizeBytes,
 	});
-
-	const formData = new FormData();
-	formData.set(
-		"file",
-		new File([input.bytes as BlobPart], input.fileName, { type: "application/pdf" }),
-		input.fileName,
-	);
-	const response = await extractor.fetch(
-		new Request("http://liteparse-pdf-extractor/parse", {
-			body: formData,
-			method: "POST",
-		}),
-	);
 
 	if (!response.ok) {
 		throw new Error(`LiteParse failed with status ${response.status}.`);
 	}
 
-	const payload: unknown = await response.json();
-	const pages = parseLiteParsePages(payload);
-
-	if (!pages.some((page) => page.markdown.trim().length > 0)) {
-		throw new Error("LiteParse did not extract usable page Markdown.");
+	if (!response.body) {
+		throw new Error("LiteParse completed without a response body.");
 	}
 
-	return pages;
+	for await (const line of readNdjsonLines(response.body)) {
+		let payload: unknown;
+		try {
+			payload = JSON.parse(line);
+		} catch {
+			throw new Error("LiteParse returned invalid NDJSON.");
+		}
+		yield parseLiteParsePage(payload);
+	}
+}
+
+async function* readNdjsonLines(body: ReadableStream<Uint8Array>): AsyncGenerator<string> {
+	const reader = body.getReader();
+	const decoder = new TextDecoder();
+	let buffer = "";
+
+	try {
+		while (true) {
+			const { done, value } = await reader.read();
+			buffer += decoder.decode(value, { stream: !done });
+			const lines = buffer.split("\n");
+			buffer = lines.pop() ?? "";
+
+			for (const line of lines) {
+				if (line.trim()) {
+					yield line;
+				}
+			}
+
+			if (done) {
+				break;
+			}
+		}
+
+		if (buffer.trim()) {
+			yield buffer;
+		}
+	} finally {
+		reader.releaseLock();
+	}
 }

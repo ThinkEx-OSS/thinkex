@@ -8,17 +8,7 @@ export function createSingleMarkdownProjectionPage(markdown: string): MarkdownPr
 	return trimmed ? [{ pageNumber: 1, markdown: trimmed }] : [];
 }
 
-export function serializeMarkdownPagesProjection(pages: readonly MarkdownProjectionPage[]) {
-	return JSON.stringify(
-		pages
-			.map((page) => ({
-				pageNumber: page.pageNumber,
-				markdown: page.markdown.trim(),
-			}))
-			.filter((page) => Number.isInteger(page.pageNumber) && page.pageNumber > 0 && page.markdown),
-	);
-}
-
+/** Parses the pre-R2 projection shape during lazy migration only. */
 export function parseMarkdownPagesProjection(content: string | null) {
 	if (!content?.trim()) {
 		return [];
@@ -37,13 +27,6 @@ export function parseMarkdownPagesProjection(content: string | null) {
 	} catch {
 		return [];
 	}
-}
-
-export function joinMarkdownProjectionPages(pages: readonly MarkdownProjectionPage[]) {
-	return pages
-		.map((page) => `## Page ${page.pageNumber}\n\n${page.markdown}`)
-		.join("\n\n")
-		.trim();
 }
 
 function parseMarkdownProjectionPage(value: unknown): MarkdownProjectionPage | null {
