@@ -122,10 +122,17 @@ function uploadAcceptedFiles(input: {
 	const total = jobs.length;
 
 	return new Promise((resolve, reject) => {
+		const uploadErrors: Error[] = [];
+
 		new AsyncQueuer<WorkspaceFileUploadJob>(postWorkspaceFileUpload, {
 			concurrency: workspaceFileUploadLimits.concurrency,
 			throwOnError: false,
 			initialItems: jobs,
+			onError: (error) => {
+				// The queuer swallows per-job failures (throwOnError: false), so hold on to
+				// them here — otherwise the real server reason never reaches error tracking.
+				uploadErrors.push(error);
+			},
 			onSuccess: (command) => {
 				input.onSuccess(command);
 			},
@@ -137,13 +144,7 @@ function uploadAcceptedFiles(input: {
 				const { successCount, errorCount } = queuer.store.state;
 
 				if (successCount === 0) {
-					reject(
-						new Error(
-							total === 1
-								? `Failed to upload ${input.files[0]?.name ?? "file"}.`
-								: `Failed to upload ${total} files.`,
-						),
-					);
+					reject(buildUploadFailureError(input.files, total, uploadErrors));
 					return;
 				}
 
@@ -151,6 +152,37 @@ function uploadAcceptedFiles(input: {
 			},
 		});
 	});
+}
+
+function buildUploadFailureError(
+	files: readonly File[],
+	total: number,
+	errors: readonly Error[],
+): Error {
+	const summary =
+		total === 1
+			? `Failed to upload ${files[0]?.name ?? "file"}.`
+			: `Failed to upload ${total} files.`;
+
+	const reason = summarizeUploadErrors(errors);
+	const error = new Error(reason ? `${summary} ${reason}` : summary);
+
+	if (errors.length > 0) {
+		// Preserve the underlying failures so error tracking keeps the server context.
+		error.cause = errors.length === 1 ? errors[0] : errors;
+	}
+
+	return error;
+}
+
+function summarizeUploadErrors(errors: readonly Error[]): string | null {
+	const messages = [
+		...new Set(
+			errors.map((error) => getErrorMessage(error, "").trim()).filter((message) => message !== ""),
+		),
+	];
+
+	return messages.length > 0 ? messages.join(" ") : null;
 }
 
 async function getWorkspaceFileUploadErrorMessage(response: Response) {
