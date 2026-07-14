@@ -8,6 +8,11 @@ import {
 } from "#/features/workspaces/files/workspace-file-preview";
 import type { WorkspaceKernelEventBus } from "#/features/workspaces/kernel/workspace-kernel-events";
 import {
+	formatWorkspaceKernelByteLimit,
+	WORKSPACE_KERNEL_MAX_IN_MEMORY_BYTES,
+	WORKSPACE_KERNEL_MAX_PREVIEW_SOURCE_BYTES,
+} from "#/features/workspaces/kernel/workspace-kernel-file-limits";
+import {
 	getWorkspaceKernelFilePreviewShellPath,
 	getWorkspaceKernelFileShellPath,
 } from "#/features/workspaces/kernel/workspace-kernel-files";
@@ -78,6 +83,19 @@ export class WorkspaceKernelFileCommands {
 
 		if (object.size !== input.fileSize) {
 			throw new Error("Uploaded file size did not match the upload request.");
+		}
+
+		// Never materialize a body large enough to exhaust the DO isolate. Such files
+		// already fail today by resetting the whole Durable Object (memory limit or
+		// storage-timeout); fail cleanly here instead so concurrent in-flight writes
+		// survive. The upload route rejects these earlier, so this is a safety net.
+		if (object.size > WORKSPACE_KERNEL_MAX_IN_MEMORY_BYTES) {
+			await this.r2.delete(input.objectKey);
+			throw new Error(
+				`File is too large to process (limit ${formatWorkspaceKernelByteLimit(
+					WORKSPACE_KERNEL_MAX_IN_MEMORY_BYTES,
+				)}).`,
+			);
 		}
 
 		const bytes = new Uint8Array(await object.arrayBuffer());
@@ -155,7 +173,10 @@ export class WorkspaceKernelFileCommands {
 
 		const previewGenerator = resolveUploadPreviewGenerator(descriptor);
 
-		if (previewGenerator) {
+		// Preview decoding (pdfium / photon-wasm) inflates memory to several multiples
+		// of the file size, so skip it for large files rather than risk the isolate.
+		// Previews are best-effort; a missing one degrades to no thumbnail.
+		if (previewGenerator && bytes.byteLength <= WORKSPACE_KERNEL_MAX_PREVIEW_SOURCE_BYTES) {
 			await this.tryCreateUploadPreview({
 				actorUserId: input.actorUserId ?? null,
 				bytes,
@@ -178,16 +199,27 @@ export class WorkspaceKernelFileCommands {
 			throw new Error("Workspace item is not a file.");
 		}
 
+		const item = this.store.requireItem(input.itemId);
+		const contentType = getMetadataString(item.metadataJson, "mimeType");
+		const originalName = getMetadataString(item.metadataJson, "originalName");
+		const sizeBytes = getMetadataNumber(item.metadataJson, "sizeBytes");
+
+		// Refuse to load a body large enough to reset the DO isolate. This can only be
+		// hit by files ingested before the ingest cap existed; better a handled error
+		// than a Durable Object reset that also loses concurrent in-flight writes.
+		if (sizeBytes != null && sizeBytes > WORKSPACE_KERNEL_MAX_IN_MEMORY_BYTES) {
+			throw new Error(
+				`File is too large to load (limit ${formatWorkspaceKernelByteLimit(
+					WORKSPACE_KERNEL_MAX_IN_MEMORY_BYTES,
+				)}).`,
+			);
+		}
+
 		const bytes = await this.workspace.readFileBytes(row.shell_path);
 
 		if (!bytes) {
 			throw new Error("Workspace file content was not found.");
 		}
-
-		const item = this.store.requireItem(input.itemId);
-		const contentType = getMetadataString(item.metadataJson, "mimeType");
-		const originalName = getMetadataString(item.metadataJson, "originalName");
-		const sizeBytes = getMetadataNumber(item.metadataJson, "sizeBytes");
 
 		return {
 			bytes,

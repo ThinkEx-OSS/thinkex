@@ -9,6 +9,10 @@ import {
 	getWorkspaceKernel,
 } from "#/features/workspaces/kernel/workspace-kernel-access";
 import {
+	formatWorkspaceKernelByteLimit,
+	WORKSPACE_KERNEL_MAX_IN_MEMORY_BYTES,
+} from "#/features/workspaces/kernel/workspace-kernel-file-limits";
+import {
 	resolveWorkspaceFileAiReadStrategy,
 	WorkspaceFileUploadError,
 } from "#/features/workspaces/model/workspace-file";
@@ -127,6 +131,20 @@ async function executeWorkspaceFileUpload(
 		observation.assetKind = upload.descriptor.assetKind;
 		observation.conversion = upload.source?.conversion;
 		observation.outputBytes = upload.fileSize;
+
+		// The WorkspaceKernel Durable Object materializes the whole file body in its
+		// ~128MB isolate on ingest, so reject anything above the kernel's in-memory cap
+		// before it can reset the object. Uses the post-conversion size the kernel buffers.
+		if (upload.fileSize > WORKSPACE_KERNEL_MAX_IN_MEMORY_BYTES) {
+			return apiError(
+				requestId,
+				413,
+				"UPLOAD_TOO_LARGE",
+				`This file is too large to process. Upload files up to ${formatWorkspaceKernelByteLimit(
+					WORKSPACE_KERNEL_MAX_IN_MEMORY_BYTES,
+				)}.`,
+			);
+		}
 
 		objectKey = getWorkspaceFileUploadObjectKey(workspaceId);
 		await env.WORKSPACE_KERNEL_FILES.put(objectKey, upload.body, {
