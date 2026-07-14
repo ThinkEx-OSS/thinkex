@@ -2,6 +2,7 @@ import { type ComponentType, type LazyExoticComponent, lazy, Suspense } from "re
 
 import { ContextMenu, ContextMenuTrigger } from "#/components/ui/context-menu";
 import { Spinner } from "#/components/ui/spinner";
+import WorkspaceFileViewerErrorBoundary from "#/features/workspaces/components/WorkspaceFileViewerErrorBoundary";
 import { WorkspaceItemActionsContextMenuContent } from "#/features/workspaces/components/WorkspaceItemActionsMenu";
 import { useWorkspaceViewCapabilities } from "#/features/workspaces/components/workspace-view-policy";
 import { getWorkspaceItemDisplay } from "#/features/workspaces/model/item-display";
@@ -47,9 +48,11 @@ export default function WorkspaceFileViewer({
 	const Viewer = descriptor ? workspaceFileViewers[descriptor.assetKind] : null;
 	const viewCapabilities = useWorkspaceViewCapabilities();
 	const viewerContent = Viewer ? (
-		<Suspense fallback={<WorkspaceFileViewerSkeleton />}>
-			<Viewer item={item} toolbarSlotId={toolbarSlotId} workspaceId={workspaceId} />
-		</Suspense>
+		<WorkspaceFileViewerErrorBoundary key={item.id} fileName={item.name}>
+			<Suspense fallback={<WorkspaceFileViewerSkeleton />}>
+				<Viewer item={item} toolbarSlotId={toolbarSlotId} workspaceId={workspaceId} />
+			</Suspense>
+		</WorkspaceFileViewerErrorBoundary>
 	) : (
 		<div className="flex h-full items-center justify-center bg-background">
 			<WorkspaceUnsupportedFilePlaceholder item={item} />

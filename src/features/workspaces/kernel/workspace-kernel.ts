@@ -47,7 +47,11 @@ import type {
 } from "#/features/workspaces/realtime/messages";
 import { recordOperationalOutcome } from "#/integrations/observability/operational-events";
 
-const workspaceKernelInlineThresholdBytes = 1_500_000;
+// Keep only small files inline in the Durable Object's SQLite. Anything larger spills to R2 so
+// big files/PDFs never bloat a single SQLite row (base64 inflates ~33%), which was tripping
+// Cloudflare's storage-operation timeout and resetting the object. Existing files keep whatever
+// backend they were written with — this threshold only governs new writes.
+const workspaceKernelInlineThresholdBytes = 128 * 1024;
 
 export { setWorkspaceKernelUserHeaders };
 
@@ -154,6 +158,10 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 
 	async readFileContent(input: ReadWorkspaceKernelFileContentArgs) {
 		return await this.fileCommands.readFileContent(input);
+	}
+
+	async readFileContentStream(input: ReadWorkspaceKernelFileContentArgs) {
+		return await this.fileCommands.readFileContentStream(input);
 	}
 
 	async readFilePreview(input: ReadWorkspaceKernelFileContentArgs) {

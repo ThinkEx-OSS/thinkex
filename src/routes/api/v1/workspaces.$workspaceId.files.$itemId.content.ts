@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { readWorkspaceKernelFileContent } from "#/features/workspaces/kernel/workspace-kernel-access";
+import { readWorkspaceKernelFileContentStream } from "#/features/workspaces/kernel/workspace-kernel-access";
 import { WorkspaceForbiddenError } from "#/features/workspaces/server/permissions";
 import { apiError, getRequestId } from "#/lib/api/http";
 import { getSessionFromRequest } from "#/lib/auth-queries.server";
@@ -20,22 +20,24 @@ async function handleWorkspaceFileContent(request: Request, workspaceId: string,
 			);
 		}
 
-		const content = await readWorkspaceKernelFileContent({
+		const content = await readWorkspaceKernelFileContentStream({
 			workspaceId,
 			userId: session.user.id,
 			itemId,
 		});
-		const body = new Uint8Array(content.bytes).buffer;
 
-		return new Response(body, {
-			headers: {
-				"cache-control": "private, max-age=60",
-				"content-disposition": `inline; filename="${sanitizeHeaderFileName(content.fileName)}"`,
-				"content-length": String(body.byteLength),
-				"content-type": content.contentType,
-				"x-request-id": requestId,
-			},
+		const headers = new Headers({
+			"cache-control": "private, max-age=60",
+			"content-disposition": `inline; filename="${sanitizeHeaderFileName(content.fileName)}"`,
+			"content-type": content.contentType,
+			"x-request-id": requestId,
 		});
+
+		if (content.sizeBytes != null && content.sizeBytes >= 0) {
+			headers.set("content-length", String(content.sizeBytes));
+		}
+
+		return new Response(content.stream, { headers });
 	} catch (error) {
 		if (error instanceof WorkspaceForbiddenError) {
 			return apiError(

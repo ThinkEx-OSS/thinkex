@@ -18,6 +18,7 @@ import type {
 	CreateWorkspaceKernelFileFromUploadArgs,
 	ReadWorkspaceKernelFileContentArgs,
 	ReadWorkspaceKernelFileContentResult,
+	ReadWorkspaceKernelFileContentStreamResult,
 	ReadWorkspaceKernelFilePreviewResult,
 	ReadWorkspaceKernelFileProjectionArgs,
 	ReadWorkspaceKernelFileProjectionResult,
@@ -194,6 +195,37 @@ export class WorkspaceKernelFileCommands {
 			contentType: contentType ?? "application/octet-stream",
 			fileName: originalName ?? item.name,
 			sizeBytes: sizeBytes ?? bytes.byteLength,
+		};
+	}
+
+	async readFileContentStream(
+		input: ReadWorkspaceKernelFileContentArgs,
+	): Promise<ReadWorkspaceKernelFileContentStreamResult> {
+		const row = this.store.assertActiveItem(input.itemId);
+
+		if (row.type !== "file") {
+			throw new Error("Workspace item is not a file.");
+		}
+
+		// Stream bytes straight from storage (R2 for large files) instead of buffering the
+		// whole blob into the Durable Object isolate, which trips Cloudflare's memory limit
+		// and resets the object on large files/PDFs.
+		const stream = await this.workspace.readFileStream(row.shell_path);
+
+		if (!stream) {
+			throw new Error("Workspace file content was not found.");
+		}
+
+		const item = this.store.requireItem(input.itemId);
+		const contentType = getMetadataString(item.metadataJson, "mimeType");
+		const originalName = getMetadataString(item.metadataJson, "originalName");
+		const sizeBytes = getMetadataNumber(item.metadataJson, "sizeBytes");
+
+		return {
+			stream,
+			contentType: contentType ?? "application/octet-stream",
+			fileName: originalName ?? item.name,
+			sizeBytes: sizeBytes ?? null,
 		};
 	}
 
