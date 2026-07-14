@@ -47,6 +47,9 @@ allowBuilds:
   workerd: true
 
 minimumReleaseAgeExclude:
+  - "@cloudflare/codemode@0.4.3"
+  - "@cloudflare/think@0.13.0"
+  - agents@0.17.4
   - "@voidzero-dev/vite-plus-core@0.2.2"
   - "@voidzero-dev/vite-plus-darwin-arm64@0.2.2"
   - "@voidzero-dev/vite-plus-darwin-x64@0.2.2"
@@ -59,6 +62,6 @@ minimumReleaseAgeExclude:
   - vite-plus@0.2.2
 
 patchedDependencies:
-  "@cloudflare/think@0.12.1": patches/@cloudflare__think@0.12.1.patch
+  "@cloudflare/think@0.13.0": patches/@cloudflare__think@0.13.0.patch
   "@embedpdf/plugin-zoom@2.14.4": patches/@embedpdf__plugin-zoom@2.14.4.patch
-  agents@0.17.3: patches/agents@0.17.3.patch
+  agents@0.17.4: patches/agents@0.17.4.patch

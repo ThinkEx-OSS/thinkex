@@ -1,8 +1,8 @@
 diff --git a/dist/think.js b/dist/think.js
-index 6a0f2161761952d21c2efdce7a81d102d7214eda..9e82aa1747a2c802679fd60c13d06070ae920516 100644
+index 046b9f3603c4212302f7599a21b06838d5b5928b..a0479ff7555b8f5919c005c42d86daf68b164696 100644
 --- a/dist/think.js
 +++ b/dist/think.js
-@@ -5733,7 +5733,10 @@ var Think = class Think extends Agent {
+@@ -5758,7 +5758,10 @@ var Think = class Think extends Agent {
  							continuation: true
  						}));
  						if (result) {
@@ -14,7 +14,7 @@ index 6a0f2161761952d21c2efdce7a81d102d7214eda..9e82aa1747a2c802679fd60c13d06070
  							status = streamResult.status;
  							error = streamResult.error;
  						}
-@@ -6564,7 +6567,13 @@ var Think = class Think extends Agent {
+@@ -6589,7 +6592,13 @@ var Think = class Think extends Agent {
  			this._continuation.activatePending();
  			this._continuation.flushAwaitingConnections((c) => this._notifyStreamResuming(c));
  		}
@@ -29,7 +29,7 @@ index 6a0f2161761952d21c2efdce7a81d102d7214eda..9e82aa1747a2c802679fd60c13d06070
  		this._streamingAssistant = accumulator;
  		let doneSent = false;
  		let streamAborted = false;
-@@ -8006,10 +8015,11 @@ var Think = class Think extends Agent {
+@@ -8048,10 +8057,11 @@ var Think = class Think extends Agent {
  				return;
  			}
  			this._applyRecoveredRequestContext(data);

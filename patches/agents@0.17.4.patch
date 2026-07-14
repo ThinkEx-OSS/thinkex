@@ -1,5 +1,5 @@
 diff --git a/dist/chat/react.js b/dist/chat/react.js
-index 39996ae6af91fd7f9da14230d80f147183bbe211..c3fe91c17bc9f507e4d281b2315424ac18f4d3a6 100644
+index 39996ae6af91fd7f9da14230d80f147183bbe211..eca9af8f9f977c7664f029a16810d22150dfecc9 100644
 --- a/dist/chat/react.js
 +++ b/dist/chat/react.js
 @@ -1204,6 +1204,8 @@ function useAgentChat(options) {
@@ -20,13 +20,7 @@ index 39996ae6af91fd7f9da14230d80f147183bbe211..c3fe91c17bc9f507e4d281b2315424ac
  						chunkData = JSON.parse(data.body);
  						if (data.replay && !data.continuation && !resumingToolContinuationRef.current && observedToolContinuationRequestIdRef.current !== data.id && typeof chunkData.messageId === "string" && chunkData.type === "start") {
  							pendingReplayResumeRequestIdsRef.current.delete(data.id);
-@@ -1319,13 +1321,14 @@ function useAgentChat(options) {
- 		const fallbackAckedResumeRequestIds = fallbackAckedResumeRequestIdsRef.current;
- 		function onAgentClose() {
- 			fallbackAckedResumeRequestIds.clear();
- 		}
- 		function onAgentOpen() {
- 			if (!hasConnectedOnceRef.current) {
+@@ -1325,7 +1327,8 @@ function useAgentChat(options) {
  				hasConnectedOnceRef.current = true;
  				return;
  			}
@@ -37,7 +31,7 @@ index 39996ae6af91fd7f9da14230d80f147183bbe211..c3fe91c17bc9f507e4d281b2315424ac
  			if (!resumeStreamFn) return;
  			resumeInFlightRef.current = true;
 diff --git a/dist/wire-types-nflOzNuU.js b/dist/wire-types-nflOzNuU.js
-index 1ee35475b0edaa4dd05859e54f254b8f1cb710e7..0c73e1630e22cdef41a002ae5d61ce4cbb9e0812 100644
+index 1ee35475b0edaa4dd05859e54f254b8f1cb710e7..fd0a564403352c32f9a2ae85340c20ad991bd370 100644
 --- a/dist/wire-types-nflOzNuU.js
 +++ b/dist/wire-types-nflOzNuU.js
 @@ -145,6 +145,10 @@ function transition(state, event) {
