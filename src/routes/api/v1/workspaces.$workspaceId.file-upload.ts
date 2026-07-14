@@ -247,11 +247,13 @@ async function createWorkspaceDocumentFromUpload(input: {
 	file: File;
 	plan: Extract<WorkspaceUploadPlan, { kind: "document" }>;
 }) {
-	const documentContent = await createDocumentContentFromWorkspaceUpload({
-		file: input.file,
-		plan: input.plan,
-	});
-	const kernel = await getWorkspaceKernel(input.claims.workspaceId);
+	const [documentContent, kernel] = await Promise.all([
+		createDocumentContentFromWorkspaceUpload({
+			file: input.file,
+			plan: input.plan,
+		}),
+		getWorkspaceKernel(input.claims.workspaceId),
+	]);
 
 	return kernel.createItem({
 		id: input.claims.itemId,

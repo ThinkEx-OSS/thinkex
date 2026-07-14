@@ -16,11 +16,11 @@ export async function assertReadablePdfUpload(input: {
 		return;
 	}
 
-	const payload = await readValidationFailure(response);
-
 	if (response.status >= 500) {
 		throw new Error(`Workspace file processor failed with status ${response.status}.`);
 	}
+
+	const payload = await readValidationFailure(response);
 
 	if (response.status === 413 || payload.code === "UPLOAD_TOO_LARGE") {
 		throw new WorkspaceFileUploadError({
