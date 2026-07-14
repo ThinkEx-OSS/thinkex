@@ -3,7 +3,6 @@ import handler from "@tanstack/react-start/server-entry";
 import { routeUserAIRequest } from "#/features/workspaces/ai/auth";
 import { routeDocumentSessionRequest } from "#/features/workspaces/documents/document-session-auth";
 import { routeWorkspaceKernelRequest } from "#/features/workspaces/kernel/workspace-kernel-auth";
-import { routeWorkspaceFileR2Migration } from "#/features/workspaces/kernel/workspace-file-r2-migration-route";
 import { recordOperationalFailure } from "#/integrations/observability/operational-events";
 import { posthogHost, posthogHostOrigin, posthogProjectToken } from "#/integrations/posthog/config";
 import { getTelemetryRequestDetails } from "#/integrations/posthog/server-context";
@@ -113,12 +112,6 @@ function withSecurityHeaders(response: Response) {
 export default {
 	async fetch(request, env) {
 		try {
-			const migrationResponse = await routeWorkspaceFileR2Migration(request, env);
-
-			if (migrationResponse) {
-				return migrationResponse;
-			}
-
 			const chatResponse = await routeUserAIRequest(request, env);
 
 			if (chatResponse) {

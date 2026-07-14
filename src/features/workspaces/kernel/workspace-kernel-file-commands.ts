@@ -1,17 +1,11 @@
-import type { Workspace as ShellWorkspace } from "@cloudflare/shell";
-
 import type { JsonValue, WorkspaceItemSummary } from "#/features/workspaces/contracts";
 import { getWorkspaceFileItemObjectPrefix } from "#/features/workspaces/files/workspace-file-object-keys";
 import { WORKSPACE_FILE_PREVIEW_CONTENT_TYPE } from "#/features/workspaces/files/workspace-file-preview.constants";
 import type { WorkspaceKernelEventBus } from "#/features/workspaces/kernel/workspace-kernel-events";
-import { WorkspaceKernelFileMigrator } from "#/features/workspaces/kernel/workspace-kernel-file-migrations";
 import { getWorkspaceKernelFileShellPath } from "#/features/workspaces/kernel/workspace-kernel-files";
 import { parseWorkspaceMetadataJson } from "#/features/workspaces/kernel/workspace-kernel-metadata";
 import type { WorkspaceKernelSql } from "#/features/workspaces/kernel/workspace-kernel-schema";
-import type {
-	KernelItemProjectionRow,
-	KernelItemRow,
-} from "#/features/workspaces/kernel/workspace-kernel-rows";
+import type { KernelItemProjectionRow } from "#/features/workspaces/kernel/workspace-kernel-rows";
 import type { WorkspaceKernelStore } from "#/features/workspaces/kernel/workspace-kernel-store";
 import type {
 	CreateWorkspaceKernelFileFromUploadArgs,
@@ -39,11 +33,9 @@ import { deleteR2Prefix } from "#/lib/r2";
 
 export class WorkspaceKernelFileCommands {
 	private readonly events: WorkspaceKernelEventBus;
-	private readonly migrator: WorkspaceKernelFileMigrator;
 	private readonly r2: R2Bucket;
 	private readonly sql: WorkspaceKernelSql;
 	private readonly store: WorkspaceKernelStore;
-	private readonly workspace: ShellWorkspace;
 	private readonly workspaceId: () => string;
 
 	constructor(input: {
@@ -51,20 +43,12 @@ export class WorkspaceKernelFileCommands {
 		r2: R2Bucket;
 		sql: WorkspaceKernelSql;
 		store: WorkspaceKernelStore;
-		workspace: ShellWorkspace;
 		workspaceId: () => string;
 	}) {
 		this.events = input.events;
-		this.migrator = new WorkspaceKernelFileMigrator({
-			bucket: input.r2,
-			sql: input.sql,
-			workspace: input.workspace,
-			workspaceId: input.workspaceId,
-		});
 		this.r2 = input.r2;
 		this.sql = input.sql;
 		this.store = input.store;
-		this.workspace = input.workspace;
 		this.workspaceId = input.workspaceId;
 	}
 
@@ -174,12 +158,10 @@ export class WorkspaceKernelFileCommands {
 		const contentType = getMetadataString(item.metadataJson, "mimeType");
 		const originalName = getMetadataString(item.metadataJson, "originalName");
 		const sizeBytes = getMetadataNumber(item.metadataJson, "sizeBytes");
-		const objectKey =
-			row.object_key ??
-			(await this.migrator.migrateSource(row.shell_path, item.id, {
-				contentType: contentType ?? "application/octet-stream",
-				expectedSize: sizeBytes,
-			}));
+		const objectKey = row.object_key;
+		if (!objectKey) {
+			throw new Error("Workspace file source object is missing.");
+		}
 
 		return {
 			objectKey,
@@ -207,10 +189,10 @@ export class WorkspaceKernelFileCommands {
 			return null;
 		}
 
-		const objectKey =
-			projection.status === "ready"
-				? (projection.object_key ?? (await this.migrator.migratePreview(projection, input.itemId)))
-				: null;
+		if (projection.status === "ready" && !projection.object_key) {
+			throw new Error("Ready workspace file preview object is missing.");
+		}
+		const objectKey = projection.status === "ready" ? projection.object_key : null;
 		const metadataJson = parseProjectionMetadataJson(projection.metadata_json);
 
 		return {
@@ -249,24 +231,19 @@ export class WorkspaceKernelFileCommands {
 
 		const now = Date.now();
 
-		await this.writeProjectionRow({
+		this.writeProjectionRow({
 			itemId: input.itemId,
 			projection: input,
 			now,
 		});
 	}
 
-	private async writeProjectionRow(input: {
+	private writeProjectionRow(input: {
 		createdAt?: number;
 		itemId: string;
 		projection: UpsertWorkspaceKernelFileProjectionArgs;
 		now: number;
 	}) {
-		const legacyContentPath = this.getProjectionRow({
-			itemId: input.itemId,
-			format: input.projection.format,
-		})?.content_shell_path;
-
 		this.sql`
 			INSERT INTO kernel_item_projections (
 				item_id,
@@ -274,7 +251,6 @@ export class WorkspaceKernelFileCommands {
 				status,
 				provider,
 				provider_mode,
-				content_shell_path,
 				object_key,
 				error_message,
 				source_hash,
@@ -288,7 +264,6 @@ export class WorkspaceKernelFileCommands {
 				${input.projection.status},
 				${input.projection.provider ?? null},
 				${input.projection.providerMode ?? null},
-				NULL,
 				${input.projection.objectKey ?? null},
 					${input.projection.errorMessage ?? null},
 					${input.projection.sourceHash ?? null},
@@ -300,17 +275,12 @@ export class WorkspaceKernelFileCommands {
 				status = excluded.status,
 				provider = excluded.provider,
 				provider_mode = excluded.provider_mode,
-				content_shell_path = NULL,
 				object_key = excluded.object_key,
 				error_message = excluded.error_message,
 				source_hash = excluded.source_hash,
 				metadata_json = excluded.metadata_json,
 				updated_at = excluded.updated_at
 		`;
-
-		if (legacyContentPath) {
-			await this.workspace.rm(legacyContentPath, { force: true });
-		}
 	}
 
 	async readFileProjection(
@@ -322,22 +292,13 @@ export class WorkspaceKernelFileCommands {
 			throw new Error("Workspace item is not a file.");
 		}
 
-		let projection = this.getProjectionRow(input);
+		const projection = this.getProjectionRow(input);
 
 		if (!projection) {
 			return null;
 		}
-		if (
-			projection.status === "ready" &&
-			projection.format === "pages" &&
-			!projection.object_key &&
-			projection.content_shell_path
-		) {
-			await this.migrator.migratePageProjection(projection);
-			projection = this.getProjectionRow(input);
-			if (!projection) {
-				return null;
-			}
+		if (projection.status === "ready" && !projection.object_key) {
+			throw new Error("Ready workspace file projection object is missing.");
 		}
 
 		return {
@@ -389,77 +350,6 @@ export class WorkspaceKernelFileCommands {
 				},
 			});
 		}
-	}
-
-	async migrateLegacyStorage() {
-		const sourceRows = this.sql<KernelItemRow>`
-			SELECT * FROM kernel_items
-			WHERE type = 'file' AND object_key IS NULL
-		`;
-		const projectionRows = this.sql<KernelItemProjectionRow>`
-			SELECT * FROM kernel_item_projections
-			WHERE content_shell_path IS NOT NULL
-		`;
-		const orphanedItemIds = new Set<string>();
-		let orphanedProjectionCount = 0;
-
-		for (const row of sourceRows) {
-			if (!(await this.workspace.stat(row.shell_path))) {
-				orphanedItemIds.add(row.id);
-				const orphanedProjections = projectionRows.filter(
-					(candidate) => candidate.item_id === row.id && candidate.content_shell_path,
-				);
-				orphanedProjectionCount += orphanedProjections.length;
-				for (const projection of orphanedProjections) {
-					await this.workspace.rm(projection.content_shell_path!, { force: true });
-				}
-				this.sql`DELETE FROM kernel_item_projections WHERE item_id = ${row.id}`;
-				this
-					.sql`DELETE FROM kernel_relations WHERE from_item_id = ${row.id} OR to_item_id = ${row.id}`;
-				this.sql`DELETE FROM kernel_items WHERE id = ${row.id}`;
-				await deleteR2Prefix(
-					this.r2,
-					getWorkspaceFileItemObjectPrefix({ workspaceId: this.workspaceId(), itemId: row.id }),
-				);
-				continue;
-			}
-
-			const metadata = parseWorkspaceMetadataJson(row.metadata_json);
-			await this.migrator.migrateSource(row.shell_path, row.id, {
-				contentType: getMetadataString(metadata, "mimeType") ?? "application/octet-stream",
-				expectedSize: getMetadataNumber(metadata, "sizeBytes"),
-			});
-		}
-
-		for (const projection of projectionRows) {
-			if (orphanedItemIds.has(projection.item_id)) {
-				continue;
-			}
-			if (projection.format === "pages") {
-				await this.migrator.migratePageProjection(projection);
-			} else {
-				await this.migrator.migratePreview(projection, projection.item_id);
-			}
-		}
-
-		const remainingSources =
-			this.sql<{ count: number }>`
-			SELECT COUNT(*) AS count FROM kernel_items
-			WHERE type = 'file' AND object_key IS NULL
-		`[0]?.count ?? 0;
-		const remainingProjections =
-			this.sql<{ count: number }>`
-			SELECT COUNT(*) AS count FROM kernel_item_projections
-			WHERE content_shell_path IS NOT NULL
-		`[0]?.count ?? 0;
-
-		return {
-			migratedSources: sourceRows.length - orphanedItemIds.size,
-			migratedProjections: projectionRows.length - orphanedProjectionCount,
-			orphanedFilesRemoved: orphanedItemIds.size,
-			remainingSources,
-			remainingProjections,
-		};
 	}
 
 	private async requireObject(objectKey: string) {

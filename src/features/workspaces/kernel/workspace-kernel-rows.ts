@@ -39,7 +39,6 @@ export type KernelItemProjectionRow = {
 	status: WorkspaceKernelFileProjectionStatus;
 	provider: string | null;
 	provider_mode: string | null;
-	content_shell_path: string | null;
 	object_key: string | null;
 	error_message: string | null;
 	source_hash: string | null;

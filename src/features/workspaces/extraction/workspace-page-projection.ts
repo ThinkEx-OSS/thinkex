@@ -45,7 +45,7 @@ export async function writeWorkspacePageProjection(input: {
 	providerMode: string;
 	runId: string;
 	sourceHash: string;
-	tier: "enhanced" | "fast" | "legacy";
+	tier: "enhanced" | "fast";
 	workspaceId: string;
 }): Promise<WorkspacePageProjectionReference> {
 	const prefix = getWorkspacePageProjectionPrefix(input);
@@ -178,7 +178,7 @@ export async function readWorkspacePageProjectionManifest(
 export function getWorkspacePageProjectionPrefix(input: {
 	itemId: string;
 	runId: string;
-	tier: "enhanced" | "fast" | "legacy";
+	tier: "enhanced" | "fast";
 	workspaceId: string;
 }) {
 	return `${getWorkspaceFileItemObjectPrefix(input)}extractions/${encodePathPart(input.runId)}/${input.tier}/`;

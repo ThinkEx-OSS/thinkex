@@ -86,7 +86,6 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 		r2: this.env.WORKSPACE_KERNEL_FILES,
 		sql: this.kernelSql,
 		store: this.store,
-		workspace: this.workspace,
 		workspaceId: () => this.name,
 	});
 
@@ -167,10 +166,6 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 
 	async readFileProjection(input: ReadWorkspaceKernelFileProjectionArgs) {
 		return await this.fileCommands.readFileProjection(input);
-	}
-
-	async migrateLegacyFileStorage() {
-		return await this.fileCommands.migrateLegacyStorage();
 	}
 
 	async renameItem(
