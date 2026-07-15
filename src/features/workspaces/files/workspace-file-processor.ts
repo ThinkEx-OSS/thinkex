@@ -40,13 +40,19 @@ export async function requestWorkspaceFileProcessor(
 		headers.set("x-file-name", encodeURIComponent(input.fileName));
 	}
 
-	return processor.fetch(
-		new Request(`http://workspace-file-processor${input.path}`, {
-			body: input.body,
-			duplex: "half",
-			headers,
-			method: "POST",
-			signal: AbortSignal.timeout(processorRequestTimeoutMs[input.path]),
-		} as RequestInit & { duplex: "half" }),
-	);
+	const body = new FixedLengthStream(input.sizeBytes);
+	const [response] = await Promise.all([
+		processor.fetch(
+			new Request(`http://workspace-file-processor${input.path}`, {
+				body: body.readable,
+				duplex: "half",
+				headers,
+				method: "POST",
+				signal: AbortSignal.timeout(processorRequestTimeoutMs[input.path]),
+			} as RequestInit & { duplex: "half" }),
+		),
+		input.body.pipeTo(body.writable),
+	]);
+
+	return response;
 }
