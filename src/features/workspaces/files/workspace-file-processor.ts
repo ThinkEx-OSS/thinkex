@@ -9,11 +9,55 @@ const processorRequestTimeoutMs = {
 	"/validate/pdf": 2 * 60_000,
 } as const;
 
+// The Containers runtime throws when no instance is available to back the durable
+// object (e.g. provisioning lag right after a deploy, or every instance in the pool
+// busy). This is transient, so we retry acquisition with backoff instead of failing
+// the caller on the first miss.
+const provisioningRetryAttempts = 4;
+const provisioningRetryBaseDelayMs = 1_000;
+
 export class WorkspaceFileProcessor extends Container {
 	defaultPort = workspaceFileProcessorPort;
 	requiredPorts = [workspaceFileProcessorPort];
 	sleepAfter = "5m";
 	enableInternet = false;
+}
+
+function isContainerProvisioningError(error: unknown): boolean {
+	return error instanceof Error && error.message.includes("no container instance");
+}
+
+function sleep(ms: number): Promise<void> {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function acquireWorkspaceFileProcessor(env: Cloudflare.Env) {
+	let lastError: unknown;
+
+	for (let attempt = 0; attempt < provisioningRetryAttempts; attempt++) {
+		try {
+			const processor = await getRandom(
+				env.WORKSPACE_FILE_PROCESSOR,
+				workspaceFileProcessorPoolSize,
+			);
+			await processor.startAndWaitForPorts({
+				cancellationOptions: { portReadyTimeoutMS: 60_000 },
+			});
+			return processor;
+		} catch (error) {
+			if (!isContainerProvisioningError(error)) {
+				throw error;
+			}
+
+			lastError = error;
+
+			if (attempt < provisioningRetryAttempts - 1) {
+				await sleep(provisioningRetryBaseDelayMs * 2 ** attempt);
+			}
+		}
+	}
+
+	throw lastError;
 }
 
 export async function requestWorkspaceFileProcessor(
@@ -26,10 +70,7 @@ export async function requestWorkspaceFileProcessor(
 		sizeBytes: number;
 	},
 ) {
-	const processor = await getRandom(env.WORKSPACE_FILE_PROCESSOR, workspaceFileProcessorPoolSize);
-	await processor.startAndWaitForPorts({
-		cancellationOptions: { portReadyTimeoutMS: 60_000 },
-	});
+	const processor = await acquireWorkspaceFileProcessor(env);
 
 	const headers = new Headers({
 		"content-type": input.contentType,
