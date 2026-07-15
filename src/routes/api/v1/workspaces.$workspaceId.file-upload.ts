@@ -5,10 +5,7 @@ import { z } from "zod";
 import { createDbContext } from "#/db/server";
 import { WorkspaceFileConversionError } from "#/features/workspaces/conversion/errors";
 import { requestWorkspaceFileExtraction } from "#/features/workspaces/extraction/request-workspace-file-extraction";
-import {
-	getWorkspaceFileSourceObjectKey,
-	getWorkspaceFileUploadObjectKey,
-} from "#/features/workspaces/files/workspace-file-object-keys";
+import { getWorkspaceFileSourceObjectKey } from "#/features/workspaces/files/workspace-file-object-keys";
 import {
 	createWorkspaceFileFromUpload,
 	getWorkspaceKernel,
@@ -22,7 +19,9 @@ import {
 	WorkspaceForbiddenError,
 } from "#/features/workspaces/server/permissions";
 import {
+	claimWorkspaceDirectUploadCompletion,
 	createWorkspaceDirectUploadSession,
+	getWorkspaceDirectUploadObjectKey,
 	verifyWorkspaceDirectUploadToken,
 	type WorkspaceDirectUploadClaims,
 } from "#/features/workspaces/upload/workspace-file-direct-upload";
@@ -31,9 +30,10 @@ import {
 	type WorkspaceFileIntakeObservation,
 } from "#/features/workspaces/upload/workspace-file-intake-observability";
 import type { CompleteWorkspaceDirectUploadInput } from "#/features/workspaces/upload/workspace-file-upload-protocol";
-import { storeWorkspaceFileUpload } from "#/features/workspaces/upload/workspace-file-upload-storage";
+import { finalizeWorkspaceFileUploadStorage } from "#/features/workspaces/upload/workspace-file-upload-storage";
 import {
 	createDocumentContentFromWorkspaceUpload,
+	resolveWorkspaceDirectUploadTarget,
 	validateWorkspaceUpload,
 	type WorkspaceUploadPlan,
 } from "#/features/workspaces/upload/workspace-upload-intake";
@@ -86,6 +86,11 @@ async function initiateWorkspaceFileUpload(request: Request, workspaceId: string
 
 		const session = await createWorkspaceDirectUploadSession(env, {
 			...input,
+			target: resolveWorkspaceDirectUploadTarget({
+				contentType: input.contentType,
+				fileName: input.fileName,
+				plan: validation.plan,
+			}),
 			userId,
 			workspaceId,
 		});
@@ -112,6 +117,9 @@ async function finalizeWorkspaceFileUpload(
 	requestId: string,
 	observation: WorkspaceFileIntakeObservation,
 ) {
+	let completionClaimKey: string | null = null;
+	let uploadCompleted = false;
+
 	try {
 		const userId = await authorizeWorkspaceUpload(request, workspaceId);
 		observation.userId = userId;
@@ -130,13 +138,25 @@ async function finalizeWorkspaceFileUpload(
 		if (!validation.ok) {
 			throw invalidUpload("Upload completion metadata is invalid.");
 		}
+		const expectedTarget = resolveWorkspaceDirectUploadTarget({
+			contentType: claims.contentType,
+			fileName: claims.fileName,
+			plan: validation.plan,
+		});
+		if (claims.target !== expectedTarget) {
+			throw invalidUpload("Upload completion target is invalid.");
+		}
+		completionClaimKey = await claimWorkspaceDirectUploadCompletion(env, claims);
+		if (!completionClaimKey) {
+			throw invalidUpload("Upload is already being completed.");
+		}
 		observation.inputBytes = claims.fileSize;
 		observation.plan = validation.plan.kind;
 
-		const stagingObjectKey = getWorkspaceFileUploadObjectKey(claims);
-		const stagingObject = await env.WORKSPACE_KERNEL_FILES.get(stagingObjectKey);
+		const uploadedObjectKey = getWorkspaceDirectUploadObjectKey(claims);
+		const uploadedObject = await env.WORKSPACE_KERNEL_FILES.get(uploadedObjectKey);
 
-		if (!stagingObject || stagingObject.size !== claims.fileSize) {
+		if (!uploadedObject || uploadedObject.size !== claims.fileSize) {
 			throw invalidUpload("Uploaded file size does not match the selected file.");
 		}
 
@@ -145,7 +165,7 @@ async function finalizeWorkspaceFileUpload(
 		if (validation.plan.kind === "document") {
 			command = await createWorkspaceDocumentFromUpload({
 				claims,
-				file: new File([await stagingObject.arrayBuffer()], claims.fileName, {
+				file: new File([await uploadedObject.arrayBuffer()], claims.fileName, {
 					type: claims.contentType,
 				}),
 				plan: validation.plan,
@@ -154,14 +174,15 @@ async function finalizeWorkspaceFileUpload(
 			observation.outputBytes = claims.fileSize;
 		} else {
 			const finalObjectKey = getWorkspaceFileSourceObjectKey(claims);
-			const upload = await storeWorkspaceFileUpload({
-				body: stagingObject.body,
+			const upload = await finalizeWorkspaceFileUploadStorage({
 				contentType: claims.contentType,
 				descriptor: validation.plan.descriptor,
 				env,
+				finalObjectKey,
 				fileName: claims.fileName,
 				fileSize: claims.fileSize,
-				objectKey: finalObjectKey,
+				uploadedObject,
+				uploadedObjectKey,
 			});
 			observation.assetKind = upload.descriptor.assetKind;
 			observation.conversion = upload.source?.conversion;
@@ -190,17 +211,24 @@ async function finalizeWorkspaceFileUpload(
 			});
 		}
 
-		await env.WORKSPACE_KERNEL_FILES.delete(stagingObjectKey).catch(() => undefined);
+		if (claims.target === "staging") {
+			await env.WORKSPACE_KERNEL_FILES.delete(uploadedObjectKey).catch(() => undefined);
+		}
+		uploadCompleted = true;
 
 		return apiJson(command, requestId);
 	} catch (error) {
 		observation.error = error;
 		return workspaceUploadErrorResponse(requestId, error);
+	} finally {
+		if (completionClaimKey && !uploadCompleted) {
+			await env.WORKSPACE_KERNEL_FILES.delete(completionClaimKey).catch(() => undefined);
+		}
 	}
 }
 
 async function queueWorkspaceFileExtraction(
-	upload: Awaited<ReturnType<typeof storeWorkspaceFileUpload>>,
+	upload: Awaited<ReturnType<typeof finalizeWorkspaceFileUploadStorage>>,
 	input: { itemId: string; requestId: string; userId: string; workspaceId: string },
 ) {
 	if (

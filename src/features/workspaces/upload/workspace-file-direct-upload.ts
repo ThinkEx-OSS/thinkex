@@ -1,10 +1,15 @@
 import { AwsClient } from "aws4fetch";
 import { z } from "zod";
 
-import { getWorkspaceFileUploadObjectKey } from "#/features/workspaces/files/workspace-file-object-keys";
+import {
+	getWorkspaceFileSourceObjectKey,
+	getWorkspaceFileUploadCompletionKey,
+	getWorkspaceFileUploadObjectKey,
+} from "#/features/workspaces/files/workspace-file-object-keys";
+import type { WorkspaceDirectUploadTarget } from "#/features/workspaces/upload/workspace-upload-intake";
 
 const uploadUrlLifetimeSeconds = 30 * 60;
-const uploadTokenVersion = 1;
+const uploadTokenVersion = 2;
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 const uploadClaimsSchema = z.object({
@@ -15,6 +20,7 @@ const uploadClaimsSchema = z.object({
 	fileSize: z.number().int().positive(),
 	itemId: z.uuid(),
 	parentId: z.string().min(1).nullable(),
+	target: z.enum(["source", "staging"]),
 	userId: z.string().min(1),
 	version: z.literal(uploadTokenVersion),
 	workspaceId: z.string().min(1),
@@ -34,13 +40,23 @@ export async function createWorkspaceDirectUploadSession(
 	};
 	const uploadUrl = await createPresignedUploadUrl(env, {
 		contentType: claims.contentType,
-		objectKey: getWorkspaceFileUploadObjectKey(claims),
+		objectKey: getWorkspaceDirectUploadObjectKey(claims),
 	});
 
 	return {
 		completionToken: await signUploadClaims(env.WORKSPACE_UPLOAD_TOKEN_SECRET, claims),
 		uploadUrl,
 	};
+}
+
+export function getWorkspaceDirectUploadObjectKey(input: {
+	itemId: string;
+	target: WorkspaceDirectUploadTarget;
+	workspaceId: string;
+}) {
+	return input.target === "source"
+		? getWorkspaceFileSourceObjectKey(input)
+		: getWorkspaceFileUploadObjectKey(input);
 }
 
 export async function verifyWorkspaceDirectUploadToken(
@@ -72,6 +88,18 @@ export async function verifyWorkspaceDirectUploadToken(
 	}
 
 	return claims;
+}
+
+export async function claimWorkspaceDirectUploadCompletion(
+	env: Cloudflare.Env,
+	claims: WorkspaceDirectUploadClaims,
+) {
+	const objectKey = getWorkspaceFileUploadCompletionKey(claims);
+	const claim = await env.WORKSPACE_KERNEL_FILES.put(objectKey, "", {
+		onlyIf: { etagDoesNotMatch: "*" },
+	});
+
+	return claim ? objectKey : null;
 }
 
 async function createPresignedUploadUrl(

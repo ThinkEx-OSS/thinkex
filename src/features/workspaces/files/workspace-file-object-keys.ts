@@ -20,3 +20,10 @@ export function getWorkspaceFilePreviewObjectKey(input: { workspaceId: string; i
 export function getWorkspaceFileUploadObjectKey(input: { itemId: string; workspaceId: string }) {
 	return `${workspaceFileUploadPrefix}/${input.workspaceId}/${input.itemId}/source`;
 }
+
+export function getWorkspaceFileUploadCompletionKey(input: {
+	itemId: string;
+	workspaceId: string;
+}) {
+	return `${workspaceFileUploadPrefix}/${input.workspaceId}/${input.itemId}/completion`;
+}

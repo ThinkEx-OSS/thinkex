@@ -41,56 +41,39 @@ const defaultConverters = {
 	office_to_pdf: convertOfficeStreamToPdf,
 } satisfies Record<WorkspaceUploadConversion, WorkspaceUploadStreamConverter>;
 
-export async function storeWorkspaceFileUpload(input: {
-	body: ReadableStream<Uint8Array>;
+interface FinalizeWorkspaceFileUploadStorageInput {
 	contentType: string;
 	converters?: Record<WorkspaceUploadConversion, WorkspaceUploadStreamConverter>;
 	descriptor: WorkspaceFileTypeDescriptor;
 	env: Cloudflare.Env;
+	finalObjectKey: string;
 	fileName: string;
 	fileSize: number;
-	objectKey: string;
-}): Promise<StoredWorkspaceFileUpload> {
+	uploadedObject: R2ObjectBody;
+	uploadedObjectKey: string;
+}
+
+export async function finalizeWorkspaceFileUploadStorage(
+	input: FinalizeWorkspaceFileUploadStorageInput,
+): Promise<StoredWorkspaceFileUpload> {
 	const conversion = resolveWorkspaceUploadConversion({
 		fileName: input.fileName,
 		contentType: input.contentType,
 	});
-	const prepared = conversion
-		? await convertWorkspaceFileUpload(input, conversion)
-		: {
-				body: input.body,
-				contentType: input.contentType || "application/octet-stream",
-				descriptor: input.descriptor,
-				fileName: input.fileName,
-				sizeBytes: input.fileSize,
-				source: undefined,
-			};
 
 	try {
-		const stored = await putFixedLengthR2Object(
-			input.env.WORKSPACE_KERNEL_FILES,
-			input.objectKey,
-			prepared,
-			{ httpMetadata: { contentType: prepared.contentType } },
-		);
+		const upload = conversion
+			? await convertAndStoreWorkspaceFileUpload(input, conversion)
+			: adoptCanonicalWorkspaceFileUpload(input);
 
-		if (!stored) {
-			throw new Error("Workspace file could not be stored.");
-		}
-		if (stored.size === 0) {
-			throw new Error("Workspace file conversion produced an empty file.");
-		}
-
-		if (!conversion && stored.size !== input.fileSize) {
-			throw new Error("Stored workspace file size did not match the upload request.");
-		}
-
-		if (stored.size > workspaceFileUploadLimits.maxFileBytes) {
+		if (upload.fileSize > workspaceFileUploadLimits.maxFileBytes) {
 			throw createConvertedFileSizeError();
 		}
 
-		if (prepared.descriptor.assetKind === "pdf") {
-			const object = await input.env.WORKSPACE_KERNEL_FILES.get(input.objectKey);
+		if (upload.descriptor.assetKind === "pdf") {
+			const object = conversion
+				? await input.env.WORKSPACE_KERNEL_FILES.get(input.finalObjectKey)
+				: input.uploadedObject;
 
 			if (!object) {
 				throw new Error("Stored workspace PDF could not be read for validation.");
@@ -99,35 +82,45 @@ export async function storeWorkspaceFileUpload(input: {
 			await assertReadablePdfUpload({ env: input.env, object });
 		}
 
-		return {
-			contentType: prepared.contentType,
-			descriptor: prepared.descriptor,
-			fileName: prepared.fileName,
-			fileSize: stored.size,
-			objectKey: input.objectKey,
-			source: prepared.source,
-		};
+		return upload;
 	} catch (error) {
-		await input.env.WORKSPACE_KERNEL_FILES.delete(input.objectKey);
+		if (conversion || error instanceof WorkspaceFileUploadError) {
+			await input.env.WORKSPACE_KERNEL_FILES.delete(input.finalObjectKey);
+		}
 		throw error;
 	}
 }
 
-async function convertWorkspaceFileUpload(
-	input: {
-		body: ReadableStream<Uint8Array>;
-		contentType: string;
-		converters?: Record<WorkspaceUploadConversion, WorkspaceUploadStreamConverter>;
-		descriptor: WorkspaceFileTypeDescriptor;
-		env: Cloudflare.Env;
-		fileName: string;
-		fileSize: number;
-	},
+function adoptCanonicalWorkspaceFileUpload(
+	input: FinalizeWorkspaceFileUploadStorageInput,
+): StoredWorkspaceFileUpload {
+	if (input.uploadedObjectKey !== input.finalObjectKey) {
+		throw new Error("Pass-through workspace uploads must already use their permanent object key.");
+	}
+	if (input.uploadedObject.size !== input.fileSize) {
+		throw new Error("Stored workspace file size did not match the upload request.");
+	}
+
+	return {
+		contentType: input.contentType || "application/octet-stream",
+		descriptor: input.descriptor,
+		fileName: input.fileName,
+		fileSize: input.uploadedObject.size,
+		objectKey: input.finalObjectKey,
+	};
+}
+
+async function convertAndStoreWorkspaceFileUpload(
+	input: FinalizeWorkspaceFileUploadStorageInput,
 	conversion: WorkspaceUploadConversion,
-) {
+): Promise<StoredWorkspaceFileUpload> {
+	if (input.uploadedObjectKey === input.finalObjectKey) {
+		throw new Error("Converted workspace uploads must use a temporary input object.");
+	}
+
 	const converters = input.converters ?? defaultConverters;
 	const response = await converters[conversion](input.env, {
-		body: input.body,
+		body: input.uploadedObject.body,
 		contentType: input.contentType,
 		fileName: input.fileName,
 		sizeBytes: input.fileSize,
@@ -135,13 +128,26 @@ async function convertWorkspaceFileUpload(
 	const contentType = getConvertedContentType(conversion);
 	const fileName = getWorkspaceConvertedFileName(input.fileName, conversion);
 	const descriptor = requireWorkspaceFileTypeFromHint({ fileName, contentType });
+	const stored = await putFixedLengthR2Object(
+		input.env.WORKSPACE_KERNEL_FILES,
+		input.finalObjectKey,
+		response,
+		{ httpMetadata: { contentType } },
+	);
+
+	if (!stored) {
+		throw new Error("Workspace file could not be stored.");
+	}
+	if (stored.size === 0) {
+		throw new Error("Workspace file conversion produced an empty file.");
+	}
 
 	return {
-		body: response.body,
 		contentType,
 		descriptor,
 		fileName,
-		sizeBytes: response.sizeBytes,
+		fileSize: stored.size,
+		objectKey: input.finalObjectKey,
 		source: {
 			conversion,
 			fileName: input.fileName,

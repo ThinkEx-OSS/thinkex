@@ -7,6 +7,7 @@ import {
 	workspaceFileUploadLimits,
 	workspaceFileUploadFormats,
 	resolveWorkspaceFileTypeFromHint,
+	resolveWorkspaceUploadConversion,
 	type WorkspaceFileTypeDescriptor,
 	type WorkspaceFileUploadHint,
 	type WorkspaceFileUploadValidationError,
@@ -26,6 +27,8 @@ export type WorkspaceUploadPlan =
 			kind: "file";
 			descriptor: WorkspaceFileTypeDescriptor;
 	  };
+
+export type WorkspaceDirectUploadTarget = "source" | "staging";
 
 export type WorkspaceUploadDocumentCreateContent = {
 	initialContent: string;
@@ -152,6 +155,24 @@ export function validateWorkspaceUpload(input: {
 	return { ok: true, plan };
 }
 
+export function resolveWorkspaceDirectUploadTarget(input: {
+	contentType?: string | null;
+	fileName: string;
+	plan: WorkspaceUploadPlan;
+}): WorkspaceDirectUploadTarget {
+	if (
+		input.plan.kind === "file" &&
+		!resolveWorkspaceUploadConversion({
+			contentType: input.contentType,
+			fileName: input.fileName,
+		})
+	) {
+		return "source";
+	}
+
+	return "staging";
+}
+
 export function getWorkspaceUploadSelectionValidationError(input: {
 	file: File;
 	acceptedCount: number;
@@ -208,10 +229,6 @@ export function partitionWorkspaceUploadSelection(files: readonly File[]) {
 	}
 
 	return { accepted, rejected };
-}
-
-export function uploadPlanCreatesDocument(input: WorkspaceFileUploadHint) {
-	return resolveWorkspaceUploadPlan(input)?.kind === "document";
 }
 
 export async function createDocumentContentFromWorkspaceUpload(input: {
