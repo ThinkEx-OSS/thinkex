@@ -44,7 +44,7 @@ export function WorkspaceFileUploadProvider({
 				onSuccess: (command) => {
 					applyWorkspaceEventToCache(queryClient, command.event);
 				},
-			});
+			}).catch(() => undefined);
 		},
 		[capabilities.canMutateContent, queryClient, workspaceId],
 	);

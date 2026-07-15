@@ -2,15 +2,13 @@ import { AsyncQueuer } from "@tanstack/pacer";
 import { toast } from "sonner";
 
 import type { WorkspaceItemSummary } from "#/features/workspaces/contracts";
-import {
-	resolveWorkspaceUploadConversion,
-	workspaceFileUploadLimits,
-} from "#/features/workspaces/model/workspace-file";
+import { workspaceFileUploadLimits } from "#/features/workspaces/model/workspace-file";
 import type { WorkspaceCommandResult } from "#/features/workspaces/realtime/messages";
 import {
-	partitionWorkspaceUploadSelection,
-	uploadPlanCreatesDocument,
-} from "#/features/workspaces/upload/workspace-upload-intake";
+	getWorkspaceUploadAbortReason,
+	uploadFileDirectlyToR2,
+} from "#/features/workspaces/upload/workspace-file-direct-upload-client";
+import { partitionWorkspaceUploadSelection } from "#/features/workspaces/upload/workspace-upload-intake";
 import {
 	type CompleteWorkspaceDirectUploadInput,
 	type WorkspaceDirectUploadSession,
@@ -24,6 +22,8 @@ interface WorkspaceFileUploadJob {
 	parentId: string | null;
 	file: File;
 	clientMutationId: string;
+	onProgress: (loadedBytes: number) => void;
+	signal: AbortSignal;
 }
 
 interface WorkspaceFileUploadBatchInput {
@@ -38,6 +38,8 @@ interface WorkspaceFileUploadBatchResult {
 	errorCount: number;
 	skippedCount: number;
 }
+
+const uploadRequestTimeoutMs = 5 * 60_000;
 
 export async function runWorkspaceFileUploadBatch(
 	input: WorkspaceFileUploadBatchInput,
@@ -56,25 +58,74 @@ export async function runWorkspaceFileUploadBatch(
 		};
 	}
 
-	const uploadPromise = uploadAcceptedFiles({
-		files: accepted,
-		onSuccess: input.onSuccess,
-		parentId: input.parentId,
-		workspaceId: input.workspaceId,
+	const controller = new AbortController();
+	const totalBytes = accepted.reduce((total, file) => total + file.size, 0);
+	const loadedBytesByFile = new Map(accepted.map((file) => [file, 0]));
+	const toastId = toast.loading(getUploadBatchStageMessage("uploading", accepted), {
+		action: {
+			label: "Cancel",
+			onClick: () => controller.abort(new DOMException("Upload canceled.", "AbortError")),
+		},
+		description: getUploadProgressDescription(0, totalBytes),
+		duration: Number.POSITIVE_INFINITY,
 	});
+	let lastProgressPercent = -1;
+	const onProgress = (file: File, loadedBytes: number) => {
+		loadedBytesByFile.set(file, Math.min(file.size, loadedBytes));
+		const loadedTotal = Array.from(loadedBytesByFile.values()).reduce(
+			(total, loaded) => total + loaded,
+			0,
+		);
+		const percent = Math.floor((loadedTotal / totalBytes) * 100);
 
-	void toast.promise(uploadPromise, {
-		loading: getUploadBatchLoadingMessage(accepted),
-		success: (result) => getUploadBatchSuccessMessage(result, accepted.length),
-		error: (error) => getErrorMessage(error, "Unable to upload files right now."),
-	});
-
-	const result = await uploadPromise;
-
-	return {
-		...result,
-		skippedCount: rejected.length,
+		if (percent === lastProgressPercent) {
+			return;
+		}
+		lastProgressPercent = percent;
+		toast.loading(
+			getUploadBatchStageMessage(percent === 100 ? "processing" : "uploading", accepted),
+			{
+				action: {
+					label: "Cancel",
+					onClick: () => controller.abort(new DOMException("Upload canceled.", "AbortError")),
+				},
+				description: getUploadProgressDescription(loadedTotal, totalBytes),
+				duration: Number.POSITIVE_INFINITY,
+				id: toastId,
+			},
+		);
 	};
+
+	try {
+		const result = await uploadAcceptedFiles({
+			files: accepted,
+			onProgress,
+			onSuccess: input.onSuccess,
+			parentId: input.parentId,
+			signal: controller.signal,
+			workspaceId: input.workspaceId,
+		});
+
+		toast.success(getUploadBatchSuccessMessage(result, accepted.length), {
+			action: undefined,
+			description: undefined,
+			duration: 3_000,
+			id: toastId,
+		});
+
+		return {
+			...result,
+			skippedCount: rejected.length,
+		};
+	} catch (error) {
+		toast.error(getUploadBatchErrorMessage(error, controller.signal), {
+			action: undefined,
+			description: undefined,
+			duration: 5_000,
+			id: toastId,
+		});
+		throw error;
+	}
 }
 
 async function postWorkspaceFileUpload(
@@ -104,18 +155,17 @@ async function postWorkspaceDirectUpload(job: WorkspaceFileUploadJob) {
 			}),
 			headers: { "content-type": "application/json" },
 			method: "POST",
+			signal: getUploadRequestSignal(job.signal),
 		},
 	);
 
-	const uploadResponse = await fetch(session.uploadUrl, {
-		body: job.file,
-		headers: { "content-type": contentType },
-		method: "PUT",
+	await uploadFileDirectlyToR2({
+		contentType,
+		file: job.file,
+		onProgress: job.onProgress,
+		signal: job.signal,
+		url: session.uploadUrl,
 	});
-
-	if (!uploadResponse.ok) {
-		throw new Error(`Direct file upload failed with status ${uploadResponse.status}.`);
-	}
 
 	const completeInput: CompleteWorkspaceDirectUploadInput = {
 		completionToken: session.completionToken,
@@ -124,6 +174,7 @@ async function postWorkspaceDirectUpload(job: WorkspaceFileUploadJob) {
 		body: JSON.stringify(completeInput),
 		headers: { "content-type": "application/json" },
 		method: "POST",
+		signal: getUploadRequestSignal(job.signal),
 	});
 }
 
@@ -142,20 +193,30 @@ function toUploadJob(input: {
 	parentId: string | null;
 	file: File;
 	clientMutationId?: string;
+	onProgress: (loadedBytes: number) => void;
+	signal: AbortSignal;
 }): WorkspaceFileUploadJob {
-	return prepareWorkspaceClientMutationInput(input);
+	return {
+		...prepareWorkspaceClientMutationInput(input),
+		onProgress: input.onProgress,
+		signal: input.signal,
+	};
 }
 
 function uploadAcceptedFiles(input: {
 	workspaceId: string;
 	parentId: string | null;
 	files: readonly File[];
+	onProgress: (file: File, loadedBytes: number) => void;
 	onSuccess: (command: WorkspaceCommandResult<WorkspaceItemSummary>) => void;
+	signal: AbortSignal;
 }): Promise<Pick<WorkspaceFileUploadBatchResult, "successCount" | "errorCount">> {
 	const jobs = input.files.map((file) =>
 		toUploadJob({
 			file,
+			onProgress: (loadedBytes) => input.onProgress(file, loadedBytes),
 			parentId: input.parentId,
+			signal: input.signal,
 			workspaceId: input.workspaceId,
 		}),
 	);
@@ -177,6 +238,10 @@ function uploadAcceptedFiles(input: {
 				const { successCount, errorCount } = queuer.store.state;
 
 				if (successCount === 0) {
+					if (input.signal.aborted) {
+						reject(getWorkspaceUploadAbortReason(input.signal));
+						return;
+					}
 					reject(
 						new Error(
 							total === 1
@@ -205,47 +270,37 @@ async function getWorkspaceFileUploadErrorMessage(response: Response) {
 	}
 }
 
-function getUploadBatchLoadingMessage(files: readonly File[]) {
-	if (
-		files.some((file) =>
-			uploadPlanCreatesDocument({
-				fileName: file.name,
-				contentType: file.type,
-			}),
-		)
-	) {
-		if (files.length === 1) {
-			return `Converting ${files[0]?.name ?? "file"} to a document...`;
-		}
-
-		return `Converting and uploading ${files.length} files...`;
-	}
-
-	const firstConvertedFile = files.find((file) => getWorkspaceUploadConversion(file) !== null);
-
-	if (firstConvertedFile) {
-		if (files.length === 1) {
-			const conversion = getWorkspaceUploadConversion(firstConvertedFile);
-			return conversion === "office_to_pdf"
-				? `Converting ${firstConvertedFile.name} to PDF...`
-				: `Converting ${firstConvertedFile.name} to an image...`;
-		}
-
-		return `Converting and uploading ${files.length} files...`;
-	}
-
+function getUploadBatchStageMessage(stage: "processing" | "uploading", files: readonly File[]) {
+	const action = stage === "processing" ? "Processing" : "Uploading";
 	if (files.length === 1) {
-		return `Uploading ${files[0]?.name ?? "file"}...`;
+		return `${action} ${files[0]?.name ?? "file"}...`;
 	}
 
-	return `Uploading ${files.length} files...`;
+	return `${action} ${files.length} files...`;
 }
 
-function getWorkspaceUploadConversion(file: File) {
-	return resolveWorkspaceUploadConversion({
-		fileName: file.name,
-		contentType: file.type,
-	});
+function getUploadProgressDescription(loadedBytes: number, totalBytes: number) {
+	const percent = Math.floor((loadedBytes / totalBytes) * 100);
+	return `${percent}% · ${formatBytes(loadedBytes)} of ${formatBytes(totalBytes)}`;
+}
+
+function formatBytes(bytes: number) {
+	const megabytes = bytes / (1024 * 1024);
+	return `${megabytes >= 10 ? megabytes.toFixed(0) : megabytes.toFixed(1)} MB`;
+}
+
+function getUploadBatchErrorMessage(error: unknown, signal: AbortSignal) {
+	if (signal.aborted) {
+		return "Upload canceled.";
+	}
+	if (error instanceof DOMException && error.name === "TimeoutError") {
+		return "Upload processing took too long. Please try again.";
+	}
+	return getErrorMessage(error, "Unable to upload files right now.");
+}
+
+function getUploadRequestSignal(signal: AbortSignal) {
+	return AbortSignal.any([signal, AbortSignal.timeout(uploadRequestTimeoutMs)]);
 }
 
 function getUploadBatchSuccessMessage(
