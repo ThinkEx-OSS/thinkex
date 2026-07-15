@@ -23,5 +23,10 @@ export async function createWorkspaceFilePreview(
 		throw new Error(`Workspace preview generation failed with status ${response.status}.`);
 	}
 
-	return response;
+	const sizeBytes = Number(response.headers.get("content-length"));
+	if (!Number.isSafeInteger(sizeBytes) || sizeBytes <= 0) {
+		throw new Error("Workspace preview response is missing a valid content length.");
+	}
+
+	return { body: response.body, sizeBytes };
 }

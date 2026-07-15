@@ -83,9 +83,13 @@ async function generateWorkspaceFilePreview(
 			contentType: source.contentType,
 			sizeBytes: source.sizeBytes,
 		});
-		const object = await env.WORKSPACE_KERNEL_FILES.put(objectKey, preview.body, {
-			httpMetadata: { contentType: WORKSPACE_FILE_PREVIEW_CONTENT_TYPE },
-		});
+		const body = new FixedLengthStream(preview.sizeBytes);
+		const [object] = await Promise.all([
+			env.WORKSPACE_KERNEL_FILES.put(objectKey, body.readable, {
+				httpMetadata: { contentType: WORKSPACE_FILE_PREVIEW_CONTENT_TYPE },
+			}),
+			preview.body.pipeTo(body.writable),
+		]);
 
 		if (!object) {
 			throw new Error("Workspace preview could not be stored.");
