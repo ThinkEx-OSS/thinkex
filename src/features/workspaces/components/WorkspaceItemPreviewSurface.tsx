@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import {
 	workspaceItemDocumentPreviewPanelClass,
@@ -67,52 +67,19 @@ function WorkspaceItemFilePreview({ item }: { item: WorkspaceItem }) {
 		fileDescriptor?.previewGenerator != null
 			? getWorkspaceFilePreviewUrl(item.workspaceId, item.id)
 			: null;
-
-	return previewUrl ? (
-		<WorkspaceItemFileThumbnail item={item} previewUrl={previewUrl} />
-	) : (
-		<WorkspaceItemIconPreview item={item} />
-	);
-}
-
-const previewRetryDelaysMs = [1_000, 2_000, 4_000, 8_000, 15_000, 15_000, 15_000] as const;
-
-function WorkspaceItemFileThumbnail({
-	item,
-	previewUrl,
-}: {
-	item: WorkspaceItem;
-	previewUrl: string;
-}) {
-	const [attempt, setAttempt] = useState(0);
-	const [waitingToRetry, setWaitingToRetry] = useState(false);
-
-	useEffect(() => {
-		if (!waitingToRetry || attempt >= previewRetryDelaysMs.length) {
-			return;
-		}
-
-		const retry = window.setTimeout(() => {
-			setAttempt((current) => current + 1);
-			setWaitingToRetry(false);
-		}, previewRetryDelaysMs[attempt]);
-
-		return () => window.clearTimeout(retry);
-	}, [attempt, waitingToRetry]);
-
-	const showImage = !waitingToRetry && attempt <= previewRetryDelaysMs.length;
+	const [failedPreviewUrl, setFailedPreviewUrl] = useState<string | null>(null);
+	const showImage = Boolean(previewUrl) && failedPreviewUrl !== previewUrl;
 
 	if (showImage) {
-		const requestUrl = attempt === 0 ? previewUrl : `${previewUrl}?attempt=${attempt}`;
 		return (
 			<div className={workspaceItemPreviewContentLayerClass}>
 				<img
-					src={requestUrl}
+					src={previewUrl ?? undefined}
 					alt=""
 					loading="lazy"
 					decoding="async"
 					className="size-full object-cover object-top"
-					onError={() => setWaitingToRetry(true)}
+					onError={() => setFailedPreviewUrl(previewUrl)}
 				/>
 			</div>
 		);
