@@ -1,4 +1,3 @@
-import { toArrayBuffer } from "#/features/workspaces/extraction/binary";
 import {
 	createSingleMarkdownProjectionPage,
 	type MarkdownProjectionPage,
@@ -16,6 +15,7 @@ import {
 	getStringValue,
 	llamaCloudJsonRequest,
 } from "#/integrations/llamaparse/client";
+import { createStreamingMultipartFile } from "#/lib/http/streaming-multipart";
 
 const llamaParsePollIntervalMs = 2_000;
 const llamaParseMaxPollMs = 300_000;
@@ -63,22 +63,25 @@ function normalizeLlamaParseTier(mode: MarkdownExtractionInput["mode"]): LlamaPa
 }
 
 async function uploadLlamaParseFile(env: Env, input: MarkdownExtractionInput) {
-	const formData = new FormData();
-	formData.set("purpose", "parse");
-	formData.set(
-		"file",
-		new File([toArrayBuffer(input.bytes)], input.fileName, {
-			type: input.contentType || "application/pdf",
-		}),
-	);
-
-	const responseJson = await llamaCloudJsonRequest({
-		env,
-		path: "/api/v1/beta/files",
-		operation: "LlamaParse file upload",
-		method: "POST",
-		body: formData,
+	const multipart = createStreamingMultipartFile({
+		body: input.body,
+		contentType: input.contentType || "application/pdf",
+		fields: { purpose: "parse" },
+		fileName: input.fileName,
+		formFieldName: "file",
+		sizeBytes: input.sizeBytes,
 	});
+	const [responseJson] = await Promise.all([
+		llamaCloudJsonRequest({
+			env,
+			path: "/api/v1/beta/files",
+			operation: "LlamaParse file upload",
+			method: "POST",
+			headers: { "content-type": multipart.contentType },
+			body: multipart.body,
+		}),
+		multipart.done,
+	]);
 	const fileId = getStringValue(responseJson, "id");
 
 	if (!fileId) {
@@ -136,14 +139,18 @@ async function pollLlamaParseJob(env: Env, jobId: string) {
 	while (Date.now() - startedAt < llamaParseMaxPollMs) {
 		const responseJson = await llamaCloudJsonRequest({
 			env,
-			path: `/api/v2/parse/${jobId}?expand=markdown,metadata,job_metadata`,
-			operation: "LlamaParse job result",
+			path: `/api/v2/parse/${jobId}`,
+			operation: "LlamaParse job status",
 		});
 		const job = getRecordValue(responseJson, "job") ?? responseJson;
 		const status = getStringValue(job, "status");
 
 		if (status === "COMPLETED") {
-			return responseJson;
+			return await llamaCloudJsonRequest({
+				env,
+				path: `/api/v2/parse/${jobId}?expand=markdown,metadata,job_metadata`,
+				operation: "LlamaParse job result",
+			});
 		}
 
 		if (status === "FAILED" || status === "CANCELLED") {

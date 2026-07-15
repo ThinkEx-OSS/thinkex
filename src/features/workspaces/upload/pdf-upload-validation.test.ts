@@ -1,46 +1,81 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { WorkspaceFileUploadError } from "#/features/workspaces/model/workspace-file";
 import { assertReadablePdfUpload } from "#/features/workspaces/upload/pdf-upload-validation";
 
-const getDocumentProxy = vi.hoisted(() => vi.fn());
+const requestWorkspaceFileProcessor = vi.hoisted(() => vi.fn());
 
-vi.mock("unpdf", () => ({ getDocumentProxy }));
+vi.mock("#/features/workspaces/files/workspace-file-processor", () => ({
+	requestWorkspaceFileProcessor,
+}));
 
 describe("PDF upload validation", () => {
-	afterEach(() => {
-		getDocumentProxy.mockReset();
+	beforeEach(() => {
+		requestWorkspaceFileProcessor.mockReset();
 	});
 
-	it("accepts a readable PDF and releases the parser document", async () => {
-		const destroy = vi.fn().mockResolvedValue(undefined);
-		getDocumentProxy.mockResolvedValue({ destroy });
+	it("accepts a PDF approved by the isolated validator", async () => {
+		requestWorkspaceFileProcessor.mockResolvedValue(new Response(null, { status: 204 }));
 
-		await expect(assertReadablePdfUpload(new Uint8Array([1, 2, 3]))).resolves.toBeUndefined();
-		expect(destroy).toHaveBeenCalledOnce();
+		await expect(validate(new Uint8Array([1, 2, 3]))).resolves.toBeUndefined();
+		expect(requestWorkspaceFileProcessor).toHaveBeenCalledOnce();
 	});
 
 	it("rejects a PDF that requires a password", async () => {
-		getDocumentProxy.mockRejectedValue(
-			Object.assign(new Error("No password given"), { name: "PasswordException", code: 1 }),
+		requestWorkspaceFileProcessor.mockResolvedValue(
+			Response.json({ code: "PASSWORD_PROTECTED_PDF" }, { status: 422 }),
 		);
 
-		await expect(assertReadablePdfUpload(new Uint8Array([1, 2, 3]))).rejects.toMatchObject({
+		await expect(validate(new Uint8Array([1, 2, 3]))).rejects.toMatchObject({
 			code: "PASSWORD_PROTECTED_PDF",
 			status: 422,
 		});
 	});
 
-	it("rejects malformed PDFs without misclassifying them as password protected", async () => {
-		getDocumentProxy.mockRejectedValue(
-			Object.assign(new Error("Invalid PDF structure"), { name: "InvalidPDFException" }),
+	it("rejects malformed PDFs without misclassifying them", async () => {
+		requestWorkspaceFileProcessor.mockResolvedValue(
+			Response.json({ code: "INVALID_PDF" }, { status: 422 }),
 		);
 
-		await expect(assertReadablePdfUpload(new Uint8Array([1, 2, 3]))).rejects.toEqual(
+		await expect(validate(new Uint8Array([1, 2, 3]))).rejects.toEqual(
 			expect.objectContaining<Partial<WorkspaceFileUploadError>>({
 				code: "INVALID_PDF",
 				status: 422,
 			}),
 		);
 	});
+
+	it("preserves processor failures as retryable server errors", async () => {
+		requestWorkspaceFileProcessor.mockResolvedValue(
+			Response.json({ error: "temporary failure" }, { status: 500 }),
+		);
+
+		await expect(validate(new Uint8Array([1, 2, 3]))).rejects.toThrow(
+			"Workspace file processor failed with status 500",
+		);
+	});
+
+	it("preserves the processor upload limit response", async () => {
+		requestWorkspaceFileProcessor.mockResolvedValue(
+			Response.json({ code: "UPLOAD_TOO_LARGE" }, { status: 413 }),
+		);
+
+		await expect(validate(new Uint8Array([1, 2, 3]))).rejects.toMatchObject({
+			code: "UPLOAD_TOO_LARGE",
+			status: 413,
+		});
+	});
 });
+
+function validate(bytes: Uint8Array) {
+	const body = new Response(bytes.slice().buffer).body;
+
+	if (!body) {
+		throw new Error("Test stream was not created.");
+	}
+
+	return assertReadablePdfUpload({
+		env: {} as Cloudflare.Env,
+		object: { body } as R2ObjectBody,
+	});
+}

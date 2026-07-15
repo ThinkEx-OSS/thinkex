@@ -24,6 +24,7 @@ import type {
 	ReadWorkspaceKernelFileProjectionArgs,
 	ReadWorkspaceKernelFileProjectionResult,
 	UpsertWorkspaceKernelFileProjectionArgs,
+	WorkspaceKernelFileSource,
 	WorkspaceKernelItemRelation,
 	WorkspaceKernelNameConflictPolicy,
 } from "#/features/workspaces/kernel/workspace-kernel-types";
@@ -97,12 +98,7 @@ export interface WorkspaceKernelClient {
 	readItem(input: {
 		itemId: string;
 	}): Promise<{ item: WorkspaceItemSummary; content: string | null }>;
-	readFileContent(input: { itemId: string }): Promise<{
-		bytes: Uint8Array;
-		contentType: string;
-		fileName: string;
-		sizeBytes: number;
-	}>;
+	getFileSource(input: { itemId: string }): Promise<WorkspaceKernelFileSource>;
 	readFilePreview(input: { itemId: string }): Promise<ReadWorkspaceKernelFilePreviewResult | null>;
 	upsertFileProjection(input: UpsertWorkspaceKernelFileProjectionArgs): Promise<void>;
 	readFileProjection(
@@ -117,7 +113,7 @@ export interface WorkspaceKernelClient {
 	purgeForDeletion(): Promise<ResourcePurgeResult>;
 }
 
-export async function readWorkspaceKernelFileContent(input: {
+export async function readWorkspaceKernelFileSource(input: {
 	workspaceId: string;
 	userId: string;
 	itemId: string;
@@ -128,7 +124,7 @@ export async function readWorkspaceKernelFileContent(input: {
 		await assertCanReadWorkspace(dbContext.db, input);
 		const kernel = await getWorkspaceKernel(input.workspaceId);
 
-		return await kernel.readFileContent({ itemId: input.itemId });
+		return await kernel.getFileSource({ itemId: input.itemId });
 	} finally {
 		await dbContext.dispose();
 	}
@@ -199,6 +195,7 @@ export async function createWorkspaceKernelItem(
 }
 
 export async function createWorkspaceFileFromUpload(input: {
+	id: string;
 	workspaceId: string;
 	userId: string;
 	parentId?: string | null;
@@ -217,6 +214,7 @@ export async function createWorkspaceFileFromUpload(input: {
 		const kernel = await getWorkspaceKernel(input.workspaceId);
 
 		return await kernel.createFileFromUpload({
+			id: input.id,
 			parentId: input.parentId ?? null,
 			fileName: input.fileName,
 			fileSize: input.fileSize,

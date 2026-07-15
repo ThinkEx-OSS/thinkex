@@ -124,7 +124,21 @@ export function validateWorkspaceUpload(input: {
 		};
 	}
 
-	if (input.sizeBytes > workspaceFileUploadLimits.maxBytesPerSelection) {
+	if (
+		plan.kind === "document" &&
+		input.sizeBytes > workspaceFileUploadLimits.maxDocumentImportBytes
+	) {
+		return {
+			error: {
+				code: "SELECTION_TOO_LARGE",
+				message: "Import text, code, Markdown, CSV, or TSV files up to 10 MB.",
+				status: 413,
+			},
+			ok: false,
+		};
+	}
+
+	if (input.sizeBytes > workspaceFileUploadLimits.maxFileBytes) {
 		return {
 			error: {
 				code: "SELECTION_TOO_LARGE",
@@ -161,7 +175,7 @@ export function getWorkspaceUploadSelectionValidationError(input: {
 		return validationError;
 	}
 
-	if (input.selectionBytes + input.file.size > workspaceFileUploadLimits.maxBytesPerSelection) {
+	if (input.selectionBytes + input.file.size > workspaceFileUploadLimits.maxSelectionBytes) {
 		return {
 			code: "SELECTION_TOO_LARGE",
 			message: "Upload up to 200 MB at once.",

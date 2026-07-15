@@ -1,11 +1,10 @@
 import { Container, getRandom } from "@cloudflare/containers";
 
-import { convertFileWithContainer } from "#/features/workspaces/conversion/container-file-conversion";
+import { convertFileStreamWithContainer } from "#/features/workspaces/conversion/container-file-conversion";
 import { WorkspaceFileConversionError } from "#/features/workspaces/conversion/errors";
 
 const gotenbergPort = 3000;
 const gotenbergLibreOfficeConvertPath = "/forms/libreoffice/convert";
-const pdfContentType = "application/pdf";
 const converterPoolSize = 2;
 
 export class OfficePdfConverter extends Container {
@@ -20,17 +19,6 @@ export class OfficePdfConverter extends Container {
 	};
 }
 
-export interface ConvertOfficeFileToPdfInput {
-	file: File;
-	fileName: string;
-}
-
-export interface ConvertOfficeFileToPdfResult {
-	bytes: ArrayBuffer;
-	contentType: typeof pdfContentType;
-	sizeBytes: number;
-}
-
 export class OfficePdfConversionError extends WorkspaceFileConversionError {
 	constructor(message: string) {
 		super(message, "Unable to convert this file to PDF right now.");
@@ -38,24 +26,23 @@ export class OfficePdfConversionError extends WorkspaceFileConversionError {
 	}
 }
 
-export async function convertOfficeFileToPdf(
+export async function convertOfficeStreamToPdf(
 	env: Cloudflare.Env,
-	input: ConvertOfficeFileToPdfInput,
-): Promise<ConvertOfficeFileToPdfResult> {
+	input: {
+		body: ReadableStream<Uint8Array>;
+		contentType: string;
+		fileName: string;
+		sizeBytes: number;
+	},
+) {
 	const converter = await getRandom(env.OFFICE_PDF_CONVERTER, converterPoolSize);
-	const bytes = await convertFileWithContainer({
+
+	return convertFileStreamWithContainer({
+		...input,
 		container: converter,
 		emptyMessage: "Office file conversion returned an empty PDF.",
 		error: (message) => new OfficePdfConversionError(message),
-		file: input.file,
-		fileName: input.fileName,
 		formFieldName: "files",
 		url: `http://office-pdf-converter${gotenbergLibreOfficeConvertPath}`,
 	});
-
-	return {
-		bytes,
-		contentType: pdfContentType,
-		sizeBytes: bytes.byteLength,
-	};
 }

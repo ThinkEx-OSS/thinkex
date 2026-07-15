@@ -40,6 +40,7 @@
 	},
 	"vars": {
 		"FIRECRAWL_API_URL": "https://api.firecrawl.dev",
+		"R2_BUCKET_NAME": "thinkex-workspace-kernel-files-staging",
 		"SANDBOX_TRANSPORT": "rpc",
 	},
 	"send_email": [
@@ -51,7 +52,8 @@
 	"r2_buckets": [
 		{
 			"binding": "WORKSPACE_KERNEL_FILES",
-			"bucket_name": "thinkex-workspace-kernel-files",
+			"bucket_name": "thinkex-workspace-kernel-files-staging",
+			"remote": true,
 		},
 	],
 	"secrets": {
@@ -65,6 +67,10 @@
 			"AI_GATEWAY_API_KEY",
 			"AUTUMN_SECRET_KEY",
 			"TCC_API_KEY",
+			"R2_ACCOUNT_ID",
+			"R2_ACCESS_KEY_ID",
+			"R2_SECRET_ACCESS_KEY",
+			"WORKSPACE_UPLOAD_TOKEN_SECRET",
 		],
 	},
 	"workflows": [
@@ -93,7 +99,7 @@
 			"max_instances": 1,
 		},
 		{
-			"class_name": "LiteParsePdfExtractor",
+			"class_name": "WorkspaceFileProcessor",
 			"image": "./containers/liteparse/Dockerfile",
 			"instance_type": "standard-2",
 			"max_instances": 2,
@@ -127,8 +133,8 @@
 				"class_name": "ImageFileConverter",
 			},
 			{
-				"name": "LITEPARSE_PDF_EXTRACTOR",
-				"class_name": "LiteParsePdfExtractor",
+				"name": "WORKSPACE_FILE_PROCESSOR",
+				"class_name": "WorkspaceFileProcessor",
 			},
 		],
 	},
@@ -161,6 +167,15 @@
 			"tag": "v8_liteparse_pdf_extractor",
 			"new_sqlite_classes": ["LiteParsePdfExtractor"],
 		},
+		{
+			"tag": "v9_workspace_file_processor",
+			"renamed_classes": [
+				{
+					"from": "LiteParsePdfExtractor",
+					"to": "WorkspaceFileProcessor",
+				},
+			],
+		},
 	],
 	"d1_databases": [
 		{
@@ -185,6 +200,7 @@
 			// Provision dedicated staging resources before the first deploy.
 			"vars": {
 				"FIRECRAWL_API_URL": "https://api.firecrawl.dev",
+				"R2_BUCKET_NAME": "thinkex-workspace-kernel-files-staging",
 				"SANDBOX_TRANSPORT": "rpc",
 			},
 			"secrets": {
@@ -198,6 +214,10 @@
 					"AI_GATEWAY_API_KEY",
 					"AUTUMN_SECRET_KEY",
 					"TCC_API_KEY",
+					"R2_ACCOUNT_ID",
+					"R2_ACCESS_KEY_ID",
+					"R2_SECRET_ACCESS_KEY",
+					"WORKSPACE_UPLOAD_TOKEN_SECRET",
 				],
 			},
 			"ai": {
@@ -251,7 +271,7 @@
 					"max_instances": 1,
 				},
 				{
-					"class_name": "LiteParsePdfExtractor",
+					"class_name": "WorkspaceFileProcessor",
 					"image": "./containers/liteparse/Dockerfile",
 					"instance_type": "standard-2",
 					"max_instances": 2,
@@ -284,8 +304,8 @@
 						"class_name": "ImageFileConverter",
 					},
 					{
-						"name": "LITEPARSE_PDF_EXTRACTOR",
-						"class_name": "LiteParsePdfExtractor",
+						"name": "WORKSPACE_FILE_PROCESSOR",
+						"class_name": "WorkspaceFileProcessor",
 					},
 				],
 			},
@@ -311,6 +331,7 @@
 			],
 			"vars": {
 				"FIRECRAWL_API_URL": "https://api.firecrawl.dev",
+				"R2_BUCKET_NAME": "thinkex-workspace-kernel-files",
 				"SANDBOX_TRANSPORT": "rpc",
 			},
 			"secrets": {
@@ -324,6 +345,10 @@
 					"AI_GATEWAY_API_KEY",
 					"AUTUMN_SECRET_KEY",
 					"TCC_API_KEY",
+					"R2_ACCOUNT_ID",
+					"R2_ACCESS_KEY_ID",
+					"R2_SECRET_ACCESS_KEY",
+					"WORKSPACE_UPLOAD_TOKEN_SECRET",
 				],
 			},
 			"ai": {
@@ -377,10 +402,11 @@
 					"max_instances": 1,
 				},
 				{
-					"class_name": "LiteParsePdfExtractor",
+					"class_name": "WorkspaceFileProcessor",
 					"image": "./containers/liteparse/Dockerfile",
 					"instance_type": "standard-2",
 					"max_instances": 2,
+					"name": "thinkex-liteparsepdfextractor-production",
 				},
 			],
 			"durable_objects": {
@@ -410,8 +436,8 @@
 						"class_name": "ImageFileConverter",
 					},
 					{
-						"name": "LITEPARSE_PDF_EXTRACTOR",
-						"class_name": "LiteParsePdfExtractor",
+						"name": "WORKSPACE_FILE_PROCESSOR",
+						"class_name": "WorkspaceFileProcessor",
 					},
 				],
 			},

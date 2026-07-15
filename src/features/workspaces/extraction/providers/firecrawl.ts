@@ -1,4 +1,3 @@
-import { toArrayBuffer } from "#/features/workspaces/extraction/binary";
 import type {
 	FirecrawlPdfMode,
 	MarkdownExtractionInput,
@@ -13,6 +12,7 @@ import {
 	getRecordValue,
 	getStringValue,
 } from "#/integrations/firecrawl/client";
+import { createStreamingMultipartFile } from "#/lib/http/streaming-multipart";
 
 const firecrawlParseTimeoutMs = 300_000;
 
@@ -23,29 +23,32 @@ export function createFirecrawlPdfExtractionProvider(
 		id: "firecrawl",
 		async extract(input) {
 			const mode = normalizeFirecrawlMode(input.mode);
-			const formData = new FormData();
-			formData.set(
-				"options",
-				JSON.stringify({
-					formats: ["markdown"],
-					parsers: [{ type: "pdf", mode }],
-					timeout: firecrawlParseTimeoutMs,
-				}),
-			);
-			formData.set(
-				"file",
-				new File([toArrayBuffer(input.bytes)], input.fileName, {
-					type: input.contentType || "application/pdf",
-				}),
-			);
-
-			const responseJson = await firecrawlJsonRequest({
-				env,
-				path: "/v2/parse",
-				operation: "Firecrawl PDF parsing",
-				method: "POST",
-				body: formData,
+			const multipart = createStreamingMultipartFile({
+				body: input.body,
+				contentType: input.contentType || "application/pdf",
+				fields: {
+					options: JSON.stringify({
+						formats: ["markdown"],
+						parsers: [{ type: "pdf", mode }],
+						timeout: firecrawlParseTimeoutMs,
+					}),
+				},
+				fileName: input.fileName,
+				formFieldName: "file",
+				sizeBytes: input.sizeBytes,
 			});
+
+			const [responseJson] = await Promise.all([
+				firecrawlJsonRequest({
+					env,
+					path: "/v2/parse",
+					operation: "Firecrawl PDF parsing",
+					method: "POST",
+					headers: { "content-type": multipart.contentType },
+					body: multipart.body,
+				}),
+				multipart.done,
+			]);
 
 			const markdown = getFirecrawlMarkdown(responseJson);
 

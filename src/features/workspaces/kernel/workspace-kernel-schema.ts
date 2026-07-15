@@ -20,6 +20,7 @@ export function initializeWorkspaceKernelStorage(sql: WorkspaceKernelSql) {
 			metadata_json TEXT NOT NULL DEFAULT '{}',
 			sort_order INTEGER NOT NULL,
 			shell_path TEXT NOT NULL UNIQUE,
+			object_key TEXT,
 			created_at INTEGER NOT NULL,
 			updated_at INTEGER NOT NULL,
 			deleted_at INTEGER
@@ -37,7 +38,7 @@ export function initializeWorkspaceKernelStorage(sql: WorkspaceKernelSql) {
 			status TEXT NOT NULL,
 			provider TEXT,
 			provider_mode TEXT,
-			content_shell_path TEXT,
+			object_key TEXT,
 			error_message TEXT,
 			source_hash TEXT,
 			metadata_json TEXT NOT NULL DEFAULT '{}',
@@ -84,6 +85,9 @@ export function initializeWorkspaceKernelStorage(sql: WorkspaceKernelSql) {
 	`;
 	sql`CREATE INDEX IF NOT EXISTS kernel_events_revision_idx
 		ON kernel_events (revision)`;
+	sql`CREATE INDEX IF NOT EXISTS kernel_events_client_mutation_idx
+		ON kernel_events (client_mutation_id, type, revision)
+		WHERE client_mutation_id IS NOT NULL`;
 }
 
 function createSiblingNameIndexes(sql: WorkspaceKernelSql) {

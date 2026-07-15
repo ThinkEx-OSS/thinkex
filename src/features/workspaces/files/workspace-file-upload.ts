@@ -11,6 +11,10 @@ import {
 	partitionWorkspaceUploadSelection,
 	uploadPlanCreatesDocument,
 } from "#/features/workspaces/upload/workspace-upload-intake";
+import {
+	type CompleteWorkspaceDirectUploadInput,
+	type WorkspaceDirectUploadSession,
+} from "#/features/workspaces/upload/workspace-file-upload-protocol";
 import { prepareWorkspaceClientMutationInput } from "#/features/workspaces/use-workspace-client-mutation-echo";
 import { apiErrorSchema } from "#/lib/api/contracts";
 import { getErrorMessage } from "#/lib/error-message";
@@ -76,25 +80,61 @@ export async function runWorkspaceFileUploadBatch(
 async function postWorkspaceFileUpload(
 	job: WorkspaceFileUploadJob,
 ): Promise<WorkspaceCommandResult<WorkspaceItemSummary>> {
-	const formData = new FormData();
-
-	formData.set("file", job.file);
-	formData.set("clientMutationId", job.clientMutationId);
-
-	if (job.parentId) {
-		formData.set("parentId", job.parentId);
-	}
-
-	const uploadResponse = await fetch(`/api/v1/workspaces/${job.workspaceId}/file-upload`, {
-		method: "POST",
-		body: formData,
-	});
+	const uploadResponse = await postWorkspaceDirectUpload(job);
 
 	if (!uploadResponse.ok) {
 		throw new Error(await getWorkspaceFileUploadErrorMessage(uploadResponse));
 	}
 
 	return (await uploadResponse.json()) as WorkspaceCommandResult<WorkspaceItemSummary>;
+}
+
+async function postWorkspaceDirectUpload(job: WorkspaceFileUploadJob) {
+	const endpoint = `/api/v1/workspaces/${job.workspaceId}/file-upload`;
+	const contentType = job.file.type || "application/octet-stream";
+	const session = await requestUploadJson<WorkspaceDirectUploadSession>(
+		`${endpoint}?action=initiate`,
+		{
+			body: JSON.stringify({
+				clientMutationId: job.clientMutationId,
+				contentType,
+				fileName: job.file.name,
+				fileSize: job.file.size,
+				parentId: job.parentId,
+			}),
+			headers: { "content-type": "application/json" },
+			method: "POST",
+		},
+	);
+
+	const uploadResponse = await fetch(session.uploadUrl, {
+		body: job.file,
+		headers: { "content-type": contentType },
+		method: "PUT",
+	});
+
+	if (!uploadResponse.ok) {
+		throw new Error(`Direct file upload failed with status ${uploadResponse.status}.`);
+	}
+
+	const completeInput: CompleteWorkspaceDirectUploadInput = {
+		completionToken: session.completionToken,
+	};
+	return fetch(`${endpoint}?action=complete`, {
+		body: JSON.stringify(completeInput),
+		headers: { "content-type": "application/json" },
+		method: "POST",
+	});
+}
+
+async function requestUploadJson<T>(url: string, init: RequestInit): Promise<T> {
+	const response = await fetch(url, init);
+
+	if (!response.ok) {
+		throw new Error(await getWorkspaceFileUploadErrorMessage(response));
+	}
+
+	return (await response.json()) as T;
 }
 
 function toUploadJob(input: {

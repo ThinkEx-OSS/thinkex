@@ -29,7 +29,7 @@ import type {
 	ListWorkspaceKernelItemsArgs,
 	MoveWorkspaceKernelItemsArgs,
 	MoveWorkspaceKernelItemsResult,
-	ReadWorkspaceKernelFileContentArgs,
+	ReadWorkspaceKernelFileSourceArgs,
 	ReadWorkspaceKernelFileProjectionArgs,
 	ReadWorkspaceKernelItemArgs,
 	RenameWorkspaceKernelItemArgs,
@@ -46,6 +46,7 @@ import type {
 	WorkspaceRealtimeServerMessage,
 } from "#/features/workspaces/realtime/messages";
 import { recordOperationalOutcome } from "#/integrations/observability/operational-events";
+import { deleteR2Prefix } from "#/lib/r2";
 
 const workspaceKernelInlineThresholdBytes = 1_500_000;
 
@@ -85,7 +86,6 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 		r2: this.env.WORKSPACE_KERNEL_FILES,
 		sql: this.kernelSql,
 		store: this.store,
-		workspace: this.workspace,
 		workspaceId: () => this.name,
 	});
 
@@ -152,11 +152,11 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 		return await this.fileCommands.createFileFromUpload(input);
 	}
 
-	async readFileContent(input: ReadWorkspaceKernelFileContentArgs) {
-		return await this.fileCommands.readFileContent(input);
+	async getFileSource(input: ReadWorkspaceKernelFileSourceArgs) {
+		return await this.fileCommands.getFileSource(input);
 	}
 
-	async readFilePreview(input: ReadWorkspaceKernelFileContentArgs) {
+	async readFilePreview(input: ReadWorkspaceKernelFileSourceArgs) {
 		return await this.fileCommands.readFilePreview(input);
 	}
 
@@ -193,9 +193,11 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 	async deleteItems(
 		input: DeleteWorkspaceKernelItemsArgs,
 	): Promise<WorkspaceCommandResult<DeleteWorkspaceKernelItemsResult>> {
-		return this.runMutation("delete_items", input, input.itemIds.length, () =>
-			this.itemCommands.deleteItems(input),
-		);
+		return this.runMutation("delete_items", input, input.itemIds.length, async () => {
+			const command = await this.itemCommands.deleteItems(input);
+			await this.fileCommands.deleteObjects(command.result.deletedItemIds);
+			return command;
+		});
 	}
 
 	async readItem(input: ReadWorkspaceKernelItemArgs) {
@@ -263,29 +265,18 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 		}
 
 		await Promise.all([
-			this.deleteR2Prefix(getChatAttachmentWorkspacePrefix(workspaceId)),
-			this.deleteR2Prefix(`uploads/workspaces/${workspaceId}/`),
-			this.deleteR2Prefix(`workspace_kernel_files/${workspaceId}/`),
+			deleteR2Prefix(
+				this.env.WORKSPACE_KERNEL_FILES,
+				getChatAttachmentWorkspacePrefix(workspaceId),
+			),
+			deleteR2Prefix(this.env.WORKSPACE_KERNEL_FILES, `uploads/workspaces/${workspaceId}/`),
+			deleteR2Prefix(this.env.WORKSPACE_KERNEL_FILES, `workspace_kernel_files/${workspaceId}/`),
+			deleteR2Prefix(this.env.WORKSPACE_KERNEL_FILES, `workspace_file_objects/${workspaceId}/`),
+			deleteR2Prefix(this.env.WORKSPACE_KERNEL_FILES, `workspace_file_uploads/${workspaceId}/`),
 		]);
 
 		await this.ctx.storage.deleteAll();
 		return { attempted: documentItemIds.length + 1, failed };
-	}
-
-	private async deleteR2Prefix(prefix: string) {
-		const bucket = this.env.WORKSPACE_KERNEL_FILES;
-
-		if (!bucket) {
-			return;
-		}
-
-		let cursor: string | undefined;
-
-		do {
-			const listed = await bucket.list({ prefix, cursor });
-			await Promise.all(listed.objects.map((object) => bucket.delete(object.key)));
-			cursor = listed.truncated ? listed.cursor : undefined;
-		} while (cursor);
 	}
 
 	private broadcastPresenceSnapshot() {

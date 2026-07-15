@@ -1,6 +1,9 @@
 import { Container, getRandom } from "@cloudflare/containers";
 
-import { convertFileWithContainer } from "#/features/workspaces/conversion/container-file-conversion";
+import {
+	convertFileStreamWithContainer,
+	convertFileWithContainer,
+} from "#/features/workspaces/conversion/container-file-conversion";
 import { WorkspaceFileConversionError } from "#/features/workspaces/conversion/errors";
 
 const imageConverterPort = 8080;
@@ -34,11 +37,50 @@ export class ImageFileConversionError extends WorkspaceFileConversionError {
 	}
 }
 
-export async function convertImageFileToJpeg(
+export async function convertImageStreamToJpeg(
 	env: Cloudflare.Env,
-	input: ConvertImageFileToJpegInput,
-): Promise<ConvertImageFileToJpegResult> {
-	return convertImageFileToJpegAtPath(env, input, imageConverterPath);
+	input: {
+		body: ReadableStream<Uint8Array>;
+		contentType: string;
+		fileName: string;
+		sizeBytes: number;
+	},
+) {
+	return convertImageStreamToJpegAtPath(env, input, imageConverterPath);
+}
+
+export async function convertImageStreamToChatJpeg(
+	env: Cloudflare.Env,
+	input: {
+		body: ReadableStream<Uint8Array>;
+		contentType: string;
+		fileName: string;
+		sizeBytes: number;
+	},
+) {
+	return convertImageStreamToJpegAtPath(env, input, chatImageConverterPath);
+}
+
+async function convertImageStreamToJpegAtPath(
+	env: Cloudflare.Env,
+	input: {
+		body: ReadableStream<Uint8Array>;
+		contentType: string;
+		fileName: string;
+		sizeBytes: number;
+	},
+	path: string,
+) {
+	const converter = await getRandom(env.IMAGE_FILE_CONVERTER, converterPoolSize);
+
+	return convertFileStreamWithContainer({
+		...input,
+		container: converter,
+		emptyMessage: "Image conversion returned an empty JPEG.",
+		error: (message) => new ImageFileConversionError(message),
+		formFieldName: "file",
+		url: `http://image-file-converter${path}`,
+	});
 }
 
 export async function convertImageFileToChatJpeg(

@@ -1,22 +1,19 @@
 import type { WorkflowStep } from "cloudflare:workers";
 
-import { sha256Base64Url } from "#/features/workspaces/extraction/binary";
-import {
-	joinMarkdownProjectionPages,
-	parseMarkdownPagesProjection,
-	serializeMarkdownPagesProjection,
-} from "#/features/workspaces/extraction/page-markdown-projection";
 import { extractPdfWithLiteParse } from "#/features/workspaces/extraction/providers/liteparse";
 import type {
 	LiteParseStageOutcome,
 	WorkspaceFileExtractionWorkflowParams,
 } from "#/features/workspaces/extraction/types";
+import { getWorkspaceFileSourceObject } from "#/features/workspaces/extraction/workspace-file-source";
+import { writeWorkspacePageProjection } from "#/features/workspaces/extraction/workspace-page-projection";
 import { getWorkspaceKernelFromEnv } from "#/features/workspaces/kernel/workspace-kernel-access";
 
 export async function publishLiteParseProjection(
 	env: Cloudflare.Env,
 	step: WorkflowStep,
 	params: WorkspaceFileExtractionWorkflowParams,
+	runId: string,
 ): Promise<LiteParseStageOutcome> {
 	if (params.assetKind !== "pdf") {
 		return { durationMs: 0, outcome: "skipped" };
@@ -33,27 +30,38 @@ export async function publishLiteParseProjection(
 			},
 			async () => {
 				const kernel = await getWorkspaceKernelFromEnv(env, params.workspaceId);
-				const source = await kernel.readFileContent({ itemId: params.itemId });
-				const sourceHash = await sha256Base64Url(source.bytes);
-				const pages = await extractPdfWithLiteParse(env, {
-					bytes: source.bytes,
-					fileName: source.fileName,
+				const { object, source } = await getWorkspaceFileSourceObject({
+					env,
+					itemId: params.itemId,
+					kernel,
 				});
-				const content = serializeMarkdownPagesProjection(pages);
-				const projectionPages = parseMarkdownPagesProjection(content);
-				const markdownLength = joinMarkdownProjectionPages(projectionPages).length;
+				const projection = await writeWorkspacePageProjection({
+					bucket: env.WORKSPACE_KERNEL_FILES,
+					itemId: params.itemId,
+					pages: extractPdfWithLiteParse(env, {
+						body: object.body,
+						fileName: source.fileName,
+						sizeBytes: source.sizeBytes,
+					}),
+					provider: "liteparse",
+					providerMode: "fast",
+					runId,
+					sourceHash: object.etag,
+					tier: "fast",
+					workspaceId: params.workspaceId,
+				});
 
 				await kernel.upsertFileProjection({
 					itemId: params.itemId,
 					format: "pages",
 					status: "ready",
-					content,
+					objectKey: projection.manifestObjectKey,
 					provider: "liteparse",
 					providerMode: "fast",
-					sourceHash,
+					sourceHash: object.etag,
 					metadataJson: {
-						markdownLength,
-						pageCount: projectionPages.length,
+						markdownLength: projection.manifest.markdownLength,
+						pageCount: projection.manifest.pageCount,
 						provisional: true,
 					},
 					actorUserId: params.actorUserId,
@@ -61,9 +69,9 @@ export async function publishLiteParseProjection(
 
 				return {
 					durationMs: Date.now() - startedAt,
-					markdownLength,
+					markdownLength: projection.manifest.markdownLength,
 					outcome: "success" as const,
-					pageCount: projectionPages.length,
+					pageCount: projection.manifest.pageCount,
 				};
 			},
 		);

@@ -14,7 +14,7 @@ export { ImageFileConverter } from "#/features/workspaces/conversion/image-file-
 export { OfficePdfConverter } from "#/features/workspaces/conversion/office-pdf-converter";
 export { DocumentSession } from "#/features/workspaces/documents/document-session";
 export { WorkspaceFileExtractionWorkflow } from "#/features/workspaces/extraction/workspace-file-extraction-workflow";
-export { LiteParsePdfExtractor } from "#/features/workspaces/extraction/providers/liteparse";
+export { WorkspaceFileProcessor } from "#/features/workspaces/files/workspace-file-processor";
 export { WorkspaceKernel } from "#/features/workspaces/kernel/workspace-kernel";
 
 const isProduction = import.meta.env.PROD;
