@@ -30,7 +30,11 @@ export async function publishWorkspaceFilePreview(
 				format: "preview",
 			});
 
-			if (existing?.status === "ready") {
+			if (
+				existing?.status === "ready" &&
+				existing.objectKey &&
+				(await env.WORKSPACE_KERNEL_FILES.head(existing.objectKey))
+			) {
 				return { outcome: "success" as const };
 			}
 

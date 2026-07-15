@@ -109,7 +109,12 @@ export interface WorkspaceKernelFileSource {
 
 export type WorkspaceKernelFileProjectionFormat = "pages" | "preview";
 
-export type WorkspaceKernelFileProjectionStatus = "processing" | "ready" | "failed";
+export type WorkspaceKernelFileProjectionStatus =
+	| "not_started"
+	| "queued"
+	| "processing"
+	| "ready"
+	| "failed";
 
 interface WorkspaceKernelFileProjectionMutationBase {
 	itemId: string;

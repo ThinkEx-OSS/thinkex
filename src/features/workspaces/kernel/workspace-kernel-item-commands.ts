@@ -72,16 +72,21 @@ export class WorkspaceKernelItemCommands {
 
 		const id = input.id ?? crypto.randomUUID();
 		const parentId = input.parentId ?? null;
-		const priorEvent =
-			input.id && input.clientMutationId
-				? this.events.getCreatedItemEvent({
-						clientMutationId: input.clientMutationId,
-						itemId: input.id,
-					})
-				: null;
+		const getPriorResult = () => {
+			const event =
+				input.id && input.clientMutationId
+					? this.events.getCreatedItemEvent({
+							clientMutationId: input.clientMutationId,
+							itemId: input.id,
+						})
+					: null;
 
-		if (priorEvent) {
-			return { event: priorEvent, result: this.store.requireItem(id) };
+			return event ? { event, result: this.store.requireItem(id) } : null;
+		};
+		const priorResult = getPriorResult();
+
+		if (priorResult) {
+			return priorResult;
 		}
 
 		const color = resolveWorkspaceItemColorForCreate({
@@ -116,6 +121,11 @@ export class WorkspaceKernelItemCommands {
 			shellPath,
 			initialContent,
 		});
+
+		const concurrentResult = getPriorResult();
+		if (concurrentResult) {
+			return concurrentResult;
+		}
 
 		this.sql`
 			INSERT INTO kernel_items (

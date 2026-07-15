@@ -56,15 +56,20 @@ export class WorkspaceKernelFileCommands {
 		input: CreateWorkspaceKernelFileFromUploadArgs,
 	): Promise<WorkspaceCommandResult<WorkspaceItemSummary>> {
 		const parentId = input.parentId ?? null;
-		const priorEvent = input.clientMutationId
-			? this.events.getCreatedItemEvent({
-					clientMutationId: input.clientMutationId,
-					itemId: input.id,
-				})
-			: null;
+		const getPriorResult = () => {
+			const event = input.clientMutationId
+				? this.events.getCreatedItemEvent({
+						clientMutationId: input.clientMutationId,
+						itemId: input.id,
+					})
+				: null;
 
-		if (priorEvent) {
-			return { event: priorEvent, result: this.store.requireItem(input.id) };
+			return event ? { event, result: this.store.requireItem(input.id) } : null;
+		};
+		const priorResult = getPriorResult();
+
+		if (priorResult) {
+			return priorResult;
 		}
 
 		this.store.assertParentIsValid(parentId);
@@ -81,6 +86,11 @@ export class WorkspaceKernelFileCommands {
 
 		if (object.size !== input.fileSize) {
 			throw new Error("Uploaded file size did not match the upload request.");
+		}
+
+		const concurrentResult = getPriorResult();
+		if (concurrentResult) {
+			return concurrentResult;
 		}
 
 		const descriptor = getWorkspaceUploadFamily(input.assetKind);
