@@ -32,6 +32,9 @@ export async function requestWorkspaceFileProcessor(
 	});
 
 	const headers = new Headers({
+		// Cloudflare Workers refuses to send a streamed request body without a known
+		// length, so declare it up front from the source object's verified size.
+		"content-length": String(input.sizeBytes),
 		"content-type": input.contentType,
 		"x-file-size": String(input.sizeBytes),
 	});
