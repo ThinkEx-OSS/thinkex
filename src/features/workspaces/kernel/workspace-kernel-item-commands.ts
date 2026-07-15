@@ -72,6 +72,18 @@ export class WorkspaceKernelItemCommands {
 
 		const id = input.id ?? crypto.randomUUID();
 		const parentId = input.parentId ?? null;
+		const priorEvent =
+			input.id && input.clientMutationId
+				? this.events.getCreatedItemEvent({
+						clientMutationId: input.clientMutationId,
+						itemId: input.id,
+					})
+				: null;
+
+		if (priorEvent) {
+			return { event: priorEvent, result: this.store.requireItem(id) };
+		}
+
 		const color = resolveWorkspaceItemColorForCreate({
 			type,
 			color: input.color,

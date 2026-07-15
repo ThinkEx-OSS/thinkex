@@ -56,6 +56,16 @@ export class WorkspaceKernelFileCommands {
 		input: CreateWorkspaceKernelFileFromUploadArgs,
 	): Promise<WorkspaceCommandResult<WorkspaceItemSummary>> {
 		const parentId = input.parentId ?? null;
+		const priorEvent = input.clientMutationId
+			? this.events.getCreatedItemEvent({
+					clientMutationId: input.clientMutationId,
+					itemId: input.id,
+				})
+			: null;
+
+		if (priorEvent) {
+			return { event: priorEvent, result: this.store.requireItem(input.id) };
+		}
 
 		this.store.assertParentIsValid(parentId);
 

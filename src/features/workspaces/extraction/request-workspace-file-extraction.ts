@@ -25,6 +25,15 @@ export async function requestWorkspaceFileExtraction(input: {
 			requestId: input.requestId,
 		} satisfies WorkspaceFileExtractionWorkflowParams;
 		const kernel = await getWorkspaceKernel(input.workspaceId);
+		const existing = await kernel.readFileProjection({
+			itemId: input.itemId,
+			format: "pages",
+		});
+
+		if (existing) {
+			return;
+		}
+
 		await kernel.upsertFileProjection({
 			itemId: input.itemId,
 			format: "pages",

@@ -114,7 +114,6 @@ async function finalizeWorkspaceFileUpload(
 	observation: WorkspaceFileIntakeObservation,
 ) {
 	let stagingObjectKey: string | null = null;
-	let finalObjectKey: string | null = null;
 	let completionClaimKey: string | null = null;
 	let uploadCompleted = false;
 
@@ -136,13 +135,13 @@ async function finalizeWorkspaceFileUpload(
 		if (!validation.ok) {
 			throw invalidUpload("Upload completion metadata is invalid.");
 		}
+		observation.inputBytes = claims.fileSize;
+		observation.plan = validation.plan.kind;
 		completionClaimKey = await claimWorkspaceDirectUploadCompletion(env, claims);
 		if (!completionClaimKey) {
 			throw invalidUpload("Upload is already being completed.");
 		}
 
-		observation.inputBytes = claims.fileSize;
-		observation.plan = validation.plan.kind;
 		stagingObjectKey = getWorkspaceFileUploadObjectKey(claims);
 		const stagingObject = await env.WORKSPACE_KERNEL_FILES.get(stagingObjectKey);
 
@@ -164,7 +163,7 @@ async function finalizeWorkspaceFileUpload(
 			return apiJson(command, requestId);
 		}
 
-		finalObjectKey = getWorkspaceFileSourceObjectKey(claims);
+		const finalObjectKey = getWorkspaceFileSourceObjectKey(claims);
 		const upload = await storeWorkspaceFileUpload({
 			body: stagingObject.body,
 			contentType: claims.contentType,
@@ -192,7 +191,6 @@ async function finalizeWorkspaceFileUpload(
 			workspaceId,
 		});
 
-		finalObjectKey = null;
 		observation.itemId = command.result.id;
 		uploadCompleted = true;
 		await queueWorkspaceFileExtraction(upload, {
@@ -207,11 +205,10 @@ async function finalizeWorkspaceFileUpload(
 		observation.error = error;
 		return workspaceUploadErrorResponse(requestId, error);
 	} finally {
-		if (stagingObjectKey) {
-			await env.WORKSPACE_KERNEL_FILES.delete(stagingObjectKey).catch(() => undefined);
-		}
 		await Promise.allSettled([
-			finalObjectKey ? env.WORKSPACE_KERNEL_FILES.delete(finalObjectKey) : Promise.resolve(),
+			stagingObjectKey && uploadCompleted
+				? env.WORKSPACE_KERNEL_FILES.delete(stagingObjectKey)
+				: Promise.resolve(),
 			completionClaimKey && !uploadCompleted
 				? env.WORKSPACE_KERNEL_FILES.delete(completionClaimKey)
 				: Promise.resolve(),

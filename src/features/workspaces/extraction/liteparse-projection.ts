@@ -6,10 +6,7 @@ import type {
 	WorkspaceFileExtractionWorkflowParams,
 } from "#/features/workspaces/extraction/types";
 import { getWorkspaceFileSourceObject } from "#/features/workspaces/extraction/workspace-file-source";
-import {
-	commitWorkspacePageProjection,
-	writeWorkspacePageProjection,
-} from "#/features/workspaces/extraction/workspace-page-projection";
+import { writeWorkspacePageProjection } from "#/features/workspaces/extraction/workspace-page-projection";
 import { getWorkspaceKernelFromEnv } from "#/features/workspaces/kernel/workspace-kernel-access";
 
 export async function publishLiteParseProjection(
@@ -54,23 +51,20 @@ export async function publishLiteParseProjection(
 					workspaceId: params.workspaceId,
 				});
 
-				await commitWorkspacePageProjection({
-					bucket: env.WORKSPACE_KERNEL_FILES,
-					kernel,
-					manifestObjectKey: projection.manifestObjectKey,
-					mutation: {
-						itemId: params.itemId,
-						format: "pages",
-						provider: "liteparse",
-						providerMode: "fast",
-						sourceHash: object.etag,
-						metadataJson: {
-							markdownLength: projection.manifest.markdownLength,
-							pageCount: projection.manifest.pageCount,
-							provisional: true,
-						},
-						actorUserId: params.actorUserId,
+				await kernel.upsertFileProjection({
+					itemId: params.itemId,
+					format: "pages",
+					status: "ready",
+					objectKey: projection.manifestObjectKey,
+					provider: "liteparse",
+					providerMode: "fast",
+					sourceHash: object.etag,
+					metadataJson: {
+						markdownLength: projection.manifest.markdownLength,
+						pageCount: projection.manifest.pageCount,
+						provisional: true,
 					},
+					actorUserId: params.actorUserId,
 				});
 
 				return {

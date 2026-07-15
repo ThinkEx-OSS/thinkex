@@ -34,6 +34,14 @@ describe("container file conversion", () => {
 		expect(new Uint8Array(await response.arrayBuffer())).toEqual(output);
 		expect(container.startAndWaitForPorts).toHaveBeenCalledOnce();
 	});
+
+	it("propagates a failed conversion response", async () => {
+		const container = createContainer(new Response("converter unavailable", { status: 503 }));
+
+		await expect(convert(container)).rejects.toThrow(
+			"File conversion failed with status 503. converter unavailable",
+		);
+	});
 });
 
 function convert(container: ReturnType<typeof createContainer>) {
@@ -50,11 +58,11 @@ function convert(container: ReturnType<typeof createContainer>) {
 	});
 }
 
-function createContainer(output: Uint8Array) {
+function createContainer(output: Response | Uint8Array) {
 	return {
 		fetch: vi.fn(async (request: Request) => {
 			await request.arrayBuffer();
-			return new Response(output.slice().buffer);
+			return output instanceof Response ? output : new Response(output.slice().buffer);
 		}),
 		startAndWaitForPorts: vi.fn(async () => undefined),
 	};

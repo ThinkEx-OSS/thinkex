@@ -25,6 +25,15 @@ export async function publishWorkspaceFilePreview(
 	} catch (error) {
 		return step.do("record workspace file preview failure", async () => {
 			const kernel = await getWorkspaceKernelFromEnv(env, params.workspaceId);
+			const existing = await kernel.readFileProjection({
+				itemId: params.itemId,
+				format: "preview",
+			});
+
+			if (existing?.status === "ready") {
+				return { outcome: "success" as const };
+			}
+
 			await kernel.upsertFileProjection({
 				itemId: params.itemId,
 				format: "preview",
@@ -95,7 +104,6 @@ async function generateWorkspaceFilePreview(
 		return { outcome: "success" as const };
 	} catch (error) {
 		failure = error;
-		await env.WORKSPACE_KERNEL_FILES.delete(objectKey).catch(() => undefined);
 		throw error;
 	} finally {
 		recordOperationalOutcome({

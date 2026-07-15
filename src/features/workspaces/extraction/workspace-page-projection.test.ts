@@ -1,7 +1,6 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import {
-	commitWorkspacePageProjection,
 	getWorkspacePageObjectKey,
 	readWorkspacePageProjection,
 	writeWorkspacePageProjection,
@@ -138,38 +137,6 @@ describe("workspace page projections", () => {
 				workspaceId: "workspace-1",
 			}),
 		).rejects.toThrow("Extracted pages must be ordered");
-		expect(storage.values.size).toBe(0);
-	});
-
-	it("removes a completed projection when its kernel publication fails", async () => {
-		const storage = createObjectStorage();
-		const reference = await writeWorkspacePageProjection({
-			bucket: storage.bucket,
-			itemId: "item-1",
-			pages: [{ pageNumber: 1, markdown: "First" }],
-			provider: "liteparse",
-			providerMode: "fast",
-			runId: "run-1",
-			sourceHash: "etag-1",
-			tier: "fast",
-			workspaceId: "workspace-1",
-		});
-		const publicationError = new Error("Kernel publication failed");
-
-		await expect(
-			commitWorkspacePageProjection({
-				bucket: storage.bucket,
-				kernel: { upsertFileProjection: vi.fn().mockRejectedValue(publicationError) },
-				manifestObjectKey: reference.manifestObjectKey,
-				mutation: {
-					format: "pages",
-					itemId: "item-1",
-					provider: "liteparse",
-					providerMode: "fast",
-					sourceHash: "etag-1",
-				},
-			}),
-		).rejects.toBe(publicationError);
 		expect(storage.values.size).toBe(0);
 	});
 });

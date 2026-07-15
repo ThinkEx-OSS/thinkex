@@ -10,10 +10,7 @@ import type {
 	WorkspaceFileExtractionWorkflowParams,
 } from "#/features/workspaces/extraction/types";
 import { getWorkspaceFileSourceObject } from "#/features/workspaces/extraction/workspace-file-source";
-import {
-	commitWorkspacePageProjection,
-	writeWorkspacePageProjection,
-} from "#/features/workspaces/extraction/workspace-page-projection";
+import { writeWorkspacePageProjection } from "#/features/workspaces/extraction/workspace-page-projection";
 import { getWorkspaceKernelFromEnv } from "#/features/workspaces/kernel/workspace-kernel-access";
 import { getWorkspaceUploadFamily } from "#/features/workspaces/model/workspace-file";
 
@@ -127,19 +124,16 @@ export class WorkspaceFileExtractionWorkflow extends WorkflowEntrypoint<
 						markdownLength: extraction.markdownLength,
 					};
 
-					await commitWorkspacePageProjection({
-						bucket: this.env.WORKSPACE_KERNEL_FILES,
-						kernel,
-						manifestObjectKey: extraction.manifestObjectKey,
-						mutation: {
-							itemId: params.itemId,
-							format: "pages",
-							provider: extraction.provider,
-							providerMode: extraction.providerMode,
-							sourceHash: extraction.sourceHash,
-							metadataJson,
-							actorUserId: params.actorUserId,
-						},
+					await kernel.upsertFileProjection({
+						itemId: params.itemId,
+						format: "pages",
+						status: "ready",
+						objectKey: extraction.manifestObjectKey,
+						provider: extraction.provider,
+						providerMode: extraction.providerMode,
+						sourceHash: extraction.sourceHash,
+						metadataJson,
+						actorUserId: params.actorUserId,
 					});
 
 					return {

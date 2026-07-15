@@ -40,6 +40,28 @@ export class WorkspaceKernelEventBus {
 		return rows.map((row) => mapKernelEventRow(row, this.workspaceId()));
 	}
 
+	getCreatedItemEvent(input: { clientMutationId: string; itemId: string }) {
+		const [row] = this.sql<KernelEventRow>`
+			SELECT *
+			FROM kernel_events
+			WHERE type = 'workspace.item.created'
+				AND client_mutation_id = ${input.clientMutationId}
+			ORDER BY revision ASC
+			LIMIT 1
+		`;
+
+		if (!row) {
+			return null;
+		}
+
+		const event = mapKernelEventRow(row, this.workspaceId());
+		if (event.type !== "workspace.item.created" || event.payload.item.id !== input.itemId) {
+			throw new Error("Workspace client mutation id was already used.");
+		}
+
+		return event;
+	}
+
 	commit(input: Omit<WorkspaceRealtimeEvent, "id" | "revision" | "workspaceId" | "createdAt">) {
 		const createdAt = Date.now();
 		const event = {

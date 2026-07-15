@@ -1,8 +1,6 @@
 import { jsonValueSchema, type JsonValue } from "#/features/workspaces/contracts";
 import type { MarkdownProjectionPage } from "#/features/workspaces/extraction/page-markdown-projection";
 import { getWorkspaceFileItemObjectPrefix } from "#/features/workspaces/files/workspace-file-object-keys";
-import type { WorkspaceKernelClient } from "#/features/workspaces/kernel/workspace-kernel-access";
-import type { UpsertWorkspaceKernelFileProjectionArgs } from "#/features/workspaces/kernel/workspace-kernel-types";
 import {
 	parseWorkspacePageRange,
 	WorkspacePageSelectionError,
@@ -35,31 +33,6 @@ export interface WorkspacePageProjectionManifest {
 export interface WorkspacePageProjectionReference {
 	manifestObjectKey: string;
 	manifest: WorkspacePageProjectionManifest;
-}
-
-type ReadyProjectionMutation = Omit<
-	Extract<UpsertWorkspaceKernelFileProjectionArgs, { status: "ready" }>,
-	"objectKey" | "status"
->;
-
-export async function commitWorkspacePageProjection(input: {
-	bucket: R2Bucket;
-	kernel: Pick<WorkspaceKernelClient, "upsertFileProjection">;
-	manifestObjectKey: string;
-	mutation: ReadyProjectionMutation;
-}) {
-	try {
-		await input.kernel.upsertFileProjection({
-			...input.mutation,
-			objectKey: input.manifestObjectKey,
-			status: "ready",
-		});
-	} catch (error) {
-		await deleteR2Prefix(input.bucket, getManifestPrefix(input.manifestObjectKey)).catch(
-			() => undefined,
-		);
-		throw error;
-	}
 }
 
 export async function writeWorkspacePageProjection(input: {
