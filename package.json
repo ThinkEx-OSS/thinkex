@@ -106,7 +106,7 @@
 		"@tiptap/y-tiptap": "^3.0.6",
 		"agents": "^0.17.4",
 		"ai": "^6.0.208",
-		"autumn-js": "^1.2.35",
+		"autumn-js": "^1.2.40",
 		"aws4fetch": "^1.0.20",
 		"better-auth": "^1.6.23",
 		"class-variance-authority": "^0.7.1",
