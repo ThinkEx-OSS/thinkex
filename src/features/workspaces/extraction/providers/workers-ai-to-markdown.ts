@@ -15,7 +15,7 @@ export function createWorkersAiToMarkdownProvider(env: Env): MarkdownExtractionP
 				fileName: input.fileName,
 				sizeBytes: input.sizeBytes,
 			});
-			const bytes = await conversion.arrayBuffer();
+			const bytes = await new Response(conversion.body).arrayBuffer();
 			const result = await env.AI.toMarkdown(
 				{
 					name: input.fileName,

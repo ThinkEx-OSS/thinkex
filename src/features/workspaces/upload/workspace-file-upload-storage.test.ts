@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import {
 	requireWorkspaceFileTypeFromHint,
@@ -18,6 +18,22 @@ vi.mock("#/features/workspaces/conversion/office-pdf-converter", () => ({
 vi.mock("#/features/workspaces/upload/pdf-upload-validation", () => ({
 	assertReadablePdfUpload: vi.fn(),
 }));
+
+beforeAll(() => {
+	vi.stubGlobal(
+		"FixedLengthStream",
+		class {
+			readonly readable: ReadableStream<Uint8Array>;
+			readonly writable: WritableStream<Uint8Array>;
+
+			constructor() {
+				const stream = new TransformStream<Uint8Array, Uint8Array>();
+				this.readable = stream.readable;
+				this.writable = stream.writable;
+			}
+		},
+	);
+});
 
 describe("workspace file upload storage", () => {
 	it("streams an unchanged binary upload into its permanent object", async () => {
@@ -50,7 +66,7 @@ describe("workspace file upload storage", () => {
 		const converted = new Uint8Array([9, 8, 7]);
 		const converter: WorkspaceUploadStreamConverter = vi
 			.fn()
-			.mockResolvedValue(new Response(converted.slice().buffer));
+			.mockResolvedValue({ body: stream(converted), sizeBytes: converted.byteLength });
 
 		const result = await storeWorkspaceFileUpload({
 			body: stream(new Uint8Array([1, 2, 3, 4, 5])),

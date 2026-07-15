@@ -1,5 +1,6 @@
 import { requestWorkspaceFileProcessor } from "#/features/workspaces/files/workspace-file-processor";
 import type { WorkspaceFileAssetKind } from "#/features/workspaces/model/workspace-file";
+import { requireSizedResponseBody } from "#/lib/http/sized-response-body";
 
 export { WORKSPACE_FILE_PREVIEW_CONTENT_TYPE } from "#/features/workspaces/files/workspace-file-preview.constants";
 
@@ -19,14 +20,12 @@ export async function createWorkspaceFilePreview(
 		sizeBytes: input.sizeBytes,
 	});
 
-	if (!response.ok || !response.body) {
+	if (!response.ok) {
 		throw new Error(`Workspace preview generation failed with status ${response.status}.`);
 	}
 
-	const sizeBytes = Number(response.headers.get("content-length"));
-	if (!Number.isSafeInteger(sizeBytes) || sizeBytes <= 0) {
-		throw new Error("Workspace preview response is missing a valid content length.");
-	}
-
-	return { body: response.body, sizeBytes };
+	return requireSizedResponseBody(
+		response,
+		() => new Error("Workspace preview response is missing a valid content length."),
+	);
 }

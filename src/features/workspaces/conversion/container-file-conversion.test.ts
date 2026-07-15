@@ -31,7 +31,7 @@ describe("container file conversion", () => {
 
 		const response = await convert(container);
 
-		expect(new Uint8Array(await response.arrayBuffer())).toEqual(output);
+		expect(new Uint8Array(await new Response(response.body).arrayBuffer())).toEqual(output);
 		expect(container.startAndWaitForPorts).toHaveBeenCalledOnce();
 	});
 
@@ -62,7 +62,11 @@ function createContainer(output: Response | Uint8Array) {
 	return {
 		fetch: vi.fn(async (request: Request) => {
 			await request.arrayBuffer();
-			return output instanceof Response ? output : new Response(output.slice().buffer);
+			return output instanceof Response
+				? output
+				: new Response(output.slice().buffer, {
+						headers: { "content-length": String(output.byteLength) },
+					});
 		}),
 		startAndWaitForPorts: vi.fn(async () => undefined),
 	};

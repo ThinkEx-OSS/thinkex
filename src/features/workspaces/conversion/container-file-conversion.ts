@@ -1,4 +1,5 @@
 import { createStreamingMultipartFile } from "#/lib/http/streaming-multipart";
+import { requireSizedResponseBody } from "#/lib/http/sized-response-body";
 
 type FileConversionContainer = {
 	fetch(request: Request): Promise<Response>;
@@ -22,7 +23,7 @@ export async function convertFileWithContainer(input: {
 		contentType: input.file.type || "application/octet-stream",
 		sizeBytes: input.file.size,
 	});
-	const bytes = await response.arrayBuffer();
+	const bytes = await new Response(response.body).arrayBuffer();
 
 	if (bytes.byteLength === 0) {
 		throw input.error(input.emptyMessage);
@@ -41,7 +42,7 @@ export async function convertFileStreamWithContainer(input: {
 	formFieldName: string;
 	sizeBytes: number;
 	url: string;
-}): Promise<Response> {
+}) {
 	await input.container.startAndWaitForPorts({
 		cancellationOptions: {
 			portReadyTimeoutMS: 60_000,
@@ -72,25 +73,7 @@ export async function convertFileStreamWithContainer(input: {
 		throw input.error(await getConversionErrorMessage(response));
 	}
 
-	if (!response.body) {
-		throw input.error(input.emptyMessage);
-	}
-
-	return requireNonEmptyResponse(response, () => input.error(input.emptyMessage));
-}
-
-async function requireNonEmptyResponse(response: Response, createError: () => Error) {
-	const [probe, body] = response.body!.tee();
-	const reader = probe.getReader();
-	const first = await reader.read();
-	void reader.cancel().catch(() => undefined);
-
-	if (first.done || first.value.byteLength === 0) {
-		await body.cancel().catch(() => undefined);
-		throw createError();
-	}
-
-	return new Response(body, response);
+	return requireSizedResponseBody(response, () => input.error(input.emptyMessage));
 }
 
 async function getConversionErrorMessage(response: Response) {

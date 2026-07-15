@@ -10,6 +10,7 @@ import {
 import { getWorkspaceKernelFromEnv } from "#/features/workspaces/kernel/workspace-kernel-access";
 import { getWorkspaceUploadFamily } from "#/features/workspaces/model/workspace-file";
 import { recordOperationalOutcome } from "#/integrations/observability/operational-events";
+import { putFixedLengthR2Object } from "#/lib/r2";
 
 export async function publishWorkspaceFilePreview(
 	env: Cloudflare.Env,
@@ -83,13 +84,9 @@ async function generateWorkspaceFilePreview(
 			contentType: source.contentType,
 			sizeBytes: source.sizeBytes,
 		});
-		const body = new FixedLengthStream(preview.sizeBytes);
-		const [object] = await Promise.all([
-			env.WORKSPACE_KERNEL_FILES.put(objectKey, body.readable, {
-				httpMetadata: { contentType: WORKSPACE_FILE_PREVIEW_CONTENT_TYPE },
-			}),
-			preview.body.pipeTo(body.writable),
-		]);
+		const object = await putFixedLengthR2Object(env.WORKSPACE_KERNEL_FILES, objectKey, preview, {
+			httpMetadata: { contentType: WORKSPACE_FILE_PREVIEW_CONTENT_TYPE },
+		});
 
 		if (!object) {
 			throw new Error("Workspace preview could not be stored.");

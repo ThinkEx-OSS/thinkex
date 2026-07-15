@@ -10,6 +10,7 @@ import {
 	workspaceFileUploadLimits,
 } from "#/features/workspaces/model/workspace-file";
 import { assertReadablePdfUpload } from "#/features/workspaces/upload/pdf-upload-validation";
+import { putFixedLengthR2Object } from "#/lib/r2";
 
 export interface StoredWorkspaceFileUpload {
 	contentType: string;
@@ -33,7 +34,7 @@ export type WorkspaceUploadStreamConverter = (
 		fileName: string;
 		sizeBytes: number;
 	},
-) => Promise<Response>;
+) => Promise<{ body: ReadableStream<Uint8Array>; sizeBytes: number }>;
 
 const defaultConverters = {
 	heic_to_jpeg: convertImageStreamToJpeg,
@@ -61,13 +62,17 @@ export async function storeWorkspaceFileUpload(input: {
 				contentType: input.contentType || "application/octet-stream",
 				descriptor: input.descriptor,
 				fileName: input.fileName,
+				sizeBytes: input.fileSize,
 				source: undefined,
 			};
 
 	try {
-		const stored = await input.env.WORKSPACE_KERNEL_FILES.put(input.objectKey, prepared.body, {
-			httpMetadata: { contentType: prepared.contentType },
-		});
+		const stored = await putFixedLengthR2Object(
+			input.env.WORKSPACE_KERNEL_FILES,
+			input.objectKey,
+			prepared,
+			{ httpMetadata: { contentType: prepared.contentType } },
+		);
 
 		if (!stored) {
 			throw new Error("Workspace file could not be stored.");
@@ -131,15 +136,12 @@ async function convertWorkspaceFileUpload(
 	const fileName = getWorkspaceConvertedFileName(input.fileName, conversion);
 	const descriptor = requireWorkspaceFileTypeFromHint({ fileName, contentType });
 
-	if (!response.body) {
-		throw new Error("Workspace file conversion returned an empty response.");
-	}
-
 	return {
 		body: response.body,
 		contentType,
 		descriptor,
 		fileName,
+		sizeBytes: response.sizeBytes,
 		source: {
 			conversion,
 			fileName: input.fileName,

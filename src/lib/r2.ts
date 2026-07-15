@@ -13,3 +13,21 @@ export async function deleteR2Prefix(bucket: R2Bucket, prefix: string): Promise<
 		}
 	}
 }
+
+export async function putFixedLengthR2Object(
+	bucket: R2Bucket,
+	key: string,
+	input: {
+		body: ReadableStream<Uint8Array>;
+		sizeBytes: number;
+	},
+	options?: R2PutOptions,
+) {
+	const stream = new FixedLengthStream(input.sizeBytes);
+	const [object] = await Promise.all([
+		bucket.put(key, stream.readable, options),
+		input.body.pipeTo(stream.writable),
+	]);
+
+	return object;
+}
