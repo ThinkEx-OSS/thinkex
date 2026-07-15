@@ -6,6 +6,7 @@ import { routeWorkspaceKernelRequest } from "#/features/workspaces/kernel/worksp
 import { recordOperationalFailure } from "#/integrations/observability/operational-events";
 import { posthogHost, posthogHostOrigin, posthogProjectToken } from "#/integrations/posthog/config";
 import { getTelemetryRequestDetails } from "#/integrations/posthog/server-context";
+import { buildContentSecurityPolicy } from "#/lib/http/content-security-policy";
 
 export { CodemodeRuntime } from "@cloudflare/codemode";
 export { Sandbox } from "@cloudflare/sandbox";
@@ -18,8 +19,6 @@ export { WorkspaceFileProcessor } from "#/features/workspaces/files/workspace-fi
 export { WorkspaceKernel } from "#/features/workspaces/kernel/workspace-kernel";
 
 const isProduction = import.meta.env.PROD;
-const cloudflareInsightsScriptOrigin = "https://static.cloudflareinsights.com";
-const cloudflareInsightsConnectOrigin = "https://cloudflareinsights.com";
 
 function buildContentSecurityPolicyReportUrl() {
 	if (!posthogHost || !posthogProjectToken) {
@@ -37,62 +36,26 @@ function buildContentSecurityPolicyReportUrl() {
 	}
 }
 
-function buildContentSecurityPolicy() {
-	const scriptSrc = [
-		"'self'",
-		"'unsafe-inline'",
-		"'wasm-unsafe-eval'",
-		cloudflareInsightsScriptOrigin,
-	];
-	const connectSrc = ["'self'", "wss:", cloudflareInsightsConnectOrigin];
-
-	if (posthogHostOrigin) {
-		scriptSrc.push(posthogHostOrigin);
-		connectSrc.push(posthogHostOrigin);
-	}
-
-	if (!isProduction) {
-		scriptSrc.push("'unsafe-eval'");
-		connectSrc.push("ws:", "http://localhost:*", "http://127.0.0.1:*");
-	}
-
-	const cspDirectives = [
-		"default-src 'self'",
-		"base-uri 'self'",
-		"object-src 'none'",
-		"frame-ancestors 'none'",
-		"frame-src 'none'",
-		"form-action 'self'",
-		"manifest-src 'self'",
-		"img-src 'self' data: blob: https:",
-		"font-src 'self' data:",
-		"style-src 'self' 'unsafe-inline'",
-		`script-src ${scriptSrc.join(" ")}`,
-		`connect-src ${connectSrc.join(" ")}`,
-		"media-src 'self' data: blob:",
-		"worker-src 'self' blob:",
-	];
-
-	const reportUrl = buildContentSecurityPolicyReportUrl();
-
-	if (reportUrl) {
-		cspDirectives.push(`report-uri ${reportUrl}`);
-	}
-
-	return cspDirectives.join("; ");
-}
-
 function isHtmlResponse(response: Response) {
 	return response.headers.get("content-type")?.includes("text/html") ?? false;
 }
 
-function withSecurityHeaders(response: Response) {
+function withSecurityHeaders(response: Response, env: Cloudflare.Env, request: Request) {
 	if (!isHtmlResponse(response)) {
 		return response;
 	}
 
 	const headers = new Headers(response.headers);
-	headers.set("Content-Security-Policy", buildContentSecurityPolicy());
+	headers.set(
+		"Content-Security-Policy",
+		buildContentSecurityPolicy({
+			applicationOrigin: new URL(request.url).origin,
+			isProduction,
+			posthogHostOrigin,
+			posthogReportUrl: buildContentSecurityPolicyReportUrl(),
+			r2AccountId: env.R2_ACCOUNT_ID,
+		}),
+	);
 	headers.set("X-Content-Type-Options", "nosniff");
 	headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
 	headers.set("X-Frame-Options", "DENY");
@@ -126,7 +89,11 @@ export default {
 
 			const workspaceKernelResponse = await routeWorkspaceKernelRequest(request, env);
 
-			return withSecurityHeaders(workspaceKernelResponse ?? (await handler.fetch(request)));
+			return withSecurityHeaders(
+				workspaceKernelResponse ?? (await handler.fetch(request)),
+				env,
+				request,
+			);
 		} catch (error) {
 			recordOperationalFailure({
 				error,
