@@ -1,7 +1,12 @@
 import geistLatinWoff2 from "@fontsource-variable/geist/files/geist-latin-wght-normal.woff2?url";
 import { TanStackDevtools } from "@tanstack/react-devtools";
 import { useQuery, type QueryClient } from "@tanstack/react-query";
-import { createRootRouteWithContext, HeadContent, Scripts } from "@tanstack/react-router";
+import {
+	createRootRouteWithContext,
+	HeadContent,
+	ScriptOnce,
+	Scripts,
+} from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import { Toaster } from "#/components/ui/sonner";
 import { TooltipProvider } from "#/components/ui/tooltip";
@@ -14,6 +19,9 @@ import { ThemeProvider } from "../components/theme-provider";
 import PostHogProvider from "../integrations/posthog/provider";
 import TanStackQueryDevtools from "../integrations/tanstack-query/devtools";
 import appCss from "../styles.css?url";
+
+const configureZodForStrictCsp =
+	"globalThis.__zod_globalConfig??={};globalThis.__zod_globalConfig.jitless=true";
 
 interface MyRouterContext {
 	queryClient: QueryClient;
@@ -79,6 +87,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 	return (
 		<html lang="en" suppressHydrationWarning>
 			<head>
+				<ScriptOnce>{configureZodForStrictCsp}</ScriptOnce>
 				<HeadContent />
 			</head>
 			<body>
