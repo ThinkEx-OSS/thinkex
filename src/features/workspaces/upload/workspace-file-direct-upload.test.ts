@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
-	claimWorkspaceDirectUploadCompletion,
 	createWorkspaceDirectUploadSession,
 	verifyWorkspaceDirectUploadToken,
 } from "#/features/workspaces/upload/workspace-file-direct-upload";
@@ -75,42 +74,6 @@ describe("workspace direct upload sessions", () => {
 		await expect(verifyWorkspaceDirectUploadToken(env, session.completionToken)).rejects.toThrow(
 			"expired",
 		);
-	});
-
-	it("allows only one upload completion owner", async () => {
-		const values = new Set<string>();
-		const env = {
-			...createEnv(),
-			WORKSPACE_KERNEL_FILES: {
-				async put(key: string) {
-					if (values.has(key)) {
-						return null;
-					}
-					values.add(key);
-					return { key };
-				},
-			} as unknown as R2Bucket,
-		};
-		const claims = {
-			clientMutationId: "mutation-1",
-			contentType: "application/pdf",
-			expiresAt: Math.floor(Date.now() / 1_000) + 60,
-			fileName: "report.pdf",
-			fileSize: 42,
-			itemId: crypto.randomUUID(),
-			parentId: null,
-			userId: "user-1",
-			version: 1 as const,
-			workspaceId: "workspace-1",
-		};
-
-		const [first, second] = await Promise.all([
-			claimWorkspaceDirectUploadCompletion(env, claims),
-			claimWorkspaceDirectUploadCompletion(env, claims),
-		]);
-
-		expect(first).toContain("/completion");
-		expect(second).toBeNull();
 	});
 });
 

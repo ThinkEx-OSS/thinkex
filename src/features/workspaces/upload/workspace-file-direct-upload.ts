@@ -1,10 +1,7 @@
 import { AwsClient } from "aws4fetch";
 import { z } from "zod";
 
-import {
-	getWorkspaceFileUploadCompletionKey,
-	getWorkspaceFileUploadObjectKey,
-} from "#/features/workspaces/files/workspace-file-object-keys";
+import { getWorkspaceFileUploadObjectKey } from "#/features/workspaces/files/workspace-file-object-keys";
 
 const uploadUrlLifetimeSeconds = 30 * 60;
 const uploadTokenVersion = 1;
@@ -75,18 +72,6 @@ export async function verifyWorkspaceDirectUploadToken(
 	}
 
 	return claims;
-}
-
-export async function claimWorkspaceDirectUploadCompletion(
-	env: Cloudflare.Env,
-	claims: WorkspaceDirectUploadClaims,
-): Promise<string | null> {
-	const objectKey = getWorkspaceFileUploadCompletionKey(claims);
-	const claim = await env.WORKSPACE_KERNEL_FILES.put(objectKey, "", {
-		onlyIf: { etagDoesNotMatch: "*" },
-	});
-
-	return claim ? objectKey : null;
 }
 
 async function createPresignedUploadUrl(

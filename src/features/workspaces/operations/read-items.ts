@@ -212,15 +212,7 @@ async function readWorkspaceFileItem(input: {
 		format: "pages",
 	});
 
-	if (
-		pagesProjection?.status === "queued" ||
-		pagesProjection?.status === "processing" ||
-		pagesProjection?.status === "not_started"
-	) {
-		return createWorkspaceFileStatusItem(input.path, "pending");
-	}
-
-	if (!pagesProjection) {
+	if (!pagesProjection || pagesProjection.status === "processing") {
 		return createWorkspaceFileStatusItem(input.path, "pending");
 	}
 

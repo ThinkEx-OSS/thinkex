@@ -22,7 +22,6 @@ import {
 	WorkspaceForbiddenError,
 } from "#/features/workspaces/server/permissions";
 import {
-	claimWorkspaceDirectUploadCompletion,
 	createWorkspaceDirectUploadSession,
 	verifyWorkspaceDirectUploadToken,
 	type WorkspaceDirectUploadClaims,
@@ -113,10 +112,6 @@ async function finalizeWorkspaceFileUpload(
 	requestId: string,
 	observation: WorkspaceFileIntakeObservation,
 ) {
-	let stagingObjectKey: string | null = null;
-	let completionClaimKey: string | null = null;
-	let uploadCompleted = false;
-
 	try {
 		const userId = await authorizeWorkspaceUpload(request, workspaceId);
 		observation.userId = userId;
@@ -137,20 +132,18 @@ async function finalizeWorkspaceFileUpload(
 		}
 		observation.inputBytes = claims.fileSize;
 		observation.plan = validation.plan.kind;
-		completionClaimKey = await claimWorkspaceDirectUploadCompletion(env, claims);
-		if (!completionClaimKey) {
-			throw invalidUpload("Upload is already being completed.");
-		}
 
-		stagingObjectKey = getWorkspaceFileUploadObjectKey(claims);
+		const stagingObjectKey = getWorkspaceFileUploadObjectKey(claims);
 		const stagingObject = await env.WORKSPACE_KERNEL_FILES.get(stagingObjectKey);
 
 		if (!stagingObject || stagingObject.size !== claims.fileSize) {
 			throw invalidUpload("Uploaded file size does not match the selected file.");
 		}
 
+		let command: Awaited<ReturnType<typeof createWorkspaceFileFromUpload>>;
+
 		if (validation.plan.kind === "document") {
-			const command = await createWorkspaceDocumentFromUpload({
+			command = await createWorkspaceDocumentFromUpload({
 				claims,
 				file: new File([await stagingObject.arrayBuffer()], claims.fileName, {
 					type: claims.contentType,
@@ -159,60 +152,50 @@ async function finalizeWorkspaceFileUpload(
 			});
 			observation.itemId = command.result.id;
 			observation.outputBytes = claims.fileSize;
-			uploadCompleted = true;
-			return apiJson(command, requestId);
+		} else {
+			const finalObjectKey = getWorkspaceFileSourceObjectKey(claims);
+			const upload = await storeWorkspaceFileUpload({
+				body: stagingObject.body,
+				contentType: claims.contentType,
+				descriptor: validation.plan.descriptor,
+				env,
+				fileName: claims.fileName,
+				fileSize: claims.fileSize,
+				objectKey: finalObjectKey,
+			});
+			observation.assetKind = upload.descriptor.assetKind;
+			observation.conversion = upload.source?.conversion;
+			observation.outputBytes = upload.fileSize;
+
+			command = await createWorkspaceFileFromUpload({
+				assetKind: upload.descriptor.assetKind,
+				clientMutationId: claims.clientMutationId,
+				contentType: upload.contentType,
+				fileName: upload.fileName,
+				fileSize: upload.fileSize,
+				id: claims.itemId,
+				objectKey: upload.objectKey,
+				parentId: claims.parentId,
+				source: upload.source,
+				userId,
+				workspaceId,
+			});
+
+			observation.itemId = command.result.id;
+			await queueWorkspaceFileExtraction(upload, {
+				itemId: command.result.id,
+				requestId,
+				userId,
+				workspaceId,
+			});
 		}
 
-		const finalObjectKey = getWorkspaceFileSourceObjectKey(claims);
-		const upload = await storeWorkspaceFileUpload({
-			body: stagingObject.body,
-			contentType: claims.contentType,
-			descriptor: validation.plan.descriptor,
-			env,
-			fileName: claims.fileName,
-			fileSize: claims.fileSize,
-			objectKey: finalObjectKey,
-		});
-		observation.assetKind = upload.descriptor.assetKind;
-		observation.conversion = upload.source?.conversion;
-		observation.outputBytes = upload.fileSize;
-
-		const command = await createWorkspaceFileFromUpload({
-			assetKind: upload.descriptor.assetKind,
-			clientMutationId: claims.clientMutationId,
-			contentType: upload.contentType,
-			fileName: upload.fileName,
-			fileSize: upload.fileSize,
-			id: claims.itemId,
-			objectKey: upload.objectKey,
-			parentId: claims.parentId,
-			source: upload.source,
-			userId,
-			workspaceId,
-		});
-
-		observation.itemId = command.result.id;
-		uploadCompleted = true;
-		await queueWorkspaceFileExtraction(upload, {
-			itemId: command.result.id,
-			requestId,
-			userId,
-			workspaceId,
-		});
+		await env.WORKSPACE_KERNEL_FILES.delete(stagingObjectKey).catch(() => undefined);
 
 		return apiJson(command, requestId);
 	} catch (error) {
 		observation.error = error;
 		return workspaceUploadErrorResponse(requestId, error);
-	} finally {
-		await Promise.allSettled([
-			stagingObjectKey && uploadCompleted
-				? env.WORKSPACE_KERNEL_FILES.delete(stagingObjectKey)
-				: Promise.resolve(),
-			completionClaimKey && !uploadCompleted
-				? env.WORKSPACE_KERNEL_FILES.delete(completionClaimKey)
-				: Promise.resolve(),
-		]);
 	}
 }
 

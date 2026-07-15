@@ -24,33 +24,12 @@ export async function requestWorkspaceFileExtraction(input: {
 			assetKind: input.assetKind,
 			requestId: input.requestId,
 		} satisfies WorkspaceFileExtractionWorkflowParams;
-		const kernel = await getWorkspaceKernel(input.workspaceId);
-		const existing = await kernel.readFileProjection({
-			itemId: input.itemId,
-			format: "pages",
-		});
-
-		if (existing) {
-			return;
-		}
-
-		await kernel.upsertFileProjection({
-			itemId: input.itemId,
-			format: "pages",
-			status: "queued",
-			actorUserId: input.actorUserId,
-		});
-
-		const [instance] = await env.WORKSPACE_FILE_EXTRACTION_WORKFLOW.createBatch([
+		await env.WORKSPACE_FILE_EXTRACTION_WORKFLOW.createBatch([
 			{
 				id: workflowId,
 				params,
 			},
 		]);
-
-		if (!instance) {
-			throw new Error("Workspace file extraction workflow was not created.");
-		}
 	} catch (error) {
 		recordOperationalFailure({
 			distinctId: input.actorUserId ?? undefined,
