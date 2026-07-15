@@ -99,25 +99,6 @@ describe("workspace page projections", () => {
 		).rejects.toMatchObject({ code: "page_selection_too_large" });
 	});
 
-	it("rejects oversized page numbers before writing page gaps", async () => {
-		const storage = createObjectStorage();
-
-		await expect(
-			writeWorkspacePageProjection({
-				bucket: storage.bucket,
-				itemId: "item-1",
-				pages: [{ pageNumber: 2_001, markdown: "Too far" }],
-				provider: "liteparse",
-				providerMode: "fast",
-				runId: "run-1",
-				sourceHash: "etag-1",
-				tier: "fast",
-				workspaceId: "workspace-1",
-			}),
-		).rejects.toThrow("Extraction exceeds the 2000-page limit.");
-		expect(storage.values.size).toBe(0);
-	});
-
 	it("removes partial artifacts when publication fails", async () => {
 		const storage = createObjectStorage();
 

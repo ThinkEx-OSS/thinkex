@@ -11,7 +11,6 @@ import { deleteR2Prefix } from "#/lib/r2";
 const projectionSchemaVersion = 1;
 const pageNumberWidth = 6;
 const pageWriteConcurrency = 8;
-const maxProjectionPages = 2_000;
 const maxPageMarkdownBytes = 1024 * 1024;
 const maxPageReadBytes = 2 * 1024 * 1024;
 
@@ -58,9 +57,6 @@ export async function writeWorkspacePageProjection(input: {
 	try {
 		for await (const rawPage of input.pages) {
 			const page = normalizeProjectionPage(rawPage);
-			if (page.pageNumber > maxProjectionPages) {
-				throw new Error(`Extraction exceeds the ${maxProjectionPages}-page limit.`);
-			}
 			if (page.pageNumber <= lastPageNumber) {
 				throw new Error("Extracted pages must be ordered by unique, increasing page number.");
 			}
