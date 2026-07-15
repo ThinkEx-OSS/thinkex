@@ -5,7 +5,10 @@ import { z } from "zod";
 import { createDbContext } from "#/db/server";
 import { WorkspaceFileConversionError } from "#/features/workspaces/conversion/errors";
 import { requestWorkspaceFileExtraction } from "#/features/workspaces/extraction/request-workspace-file-extraction";
-import { getWorkspaceFileSourceObjectKey } from "#/features/workspaces/files/workspace-file-object-keys";
+import {
+	getWorkspaceFilePreviewObjectKey,
+	getWorkspaceFileSourceObjectKey,
+} from "#/features/workspaces/files/workspace-file-object-keys";
 import {
 	createWorkspaceFileFromUpload,
 	getWorkspaceKernel,
@@ -181,6 +184,7 @@ async function finalizeWorkspaceFileUpload(
 				finalObjectKey,
 				fileName: claims.fileName,
 				fileSize: claims.fileSize,
+				previewObjectKey: getWorkspaceFilePreviewObjectKey(claims),
 				uploadedObject,
 				uploadedObjectKey,
 			});
@@ -197,6 +201,7 @@ async function finalizeWorkspaceFileUpload(
 				id: claims.itemId,
 				objectKey: upload.objectKey,
 				parentId: claims.parentId,
+				preview: upload.preview,
 				source: upload.source,
 				userId,
 				workspaceId,

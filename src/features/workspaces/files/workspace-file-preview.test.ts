@@ -30,6 +30,10 @@ describe("workspace file preview", () => {
 
 		expect(preview.sizeBytes).toBe(bytes.byteLength);
 		expect(new Uint8Array(await new Response(preview.body).arrayBuffer())).toEqual(bytes);
+		expect(requestWorkspaceFileProcessor).toHaveBeenCalledWith(
+			expect.anything(),
+			expect.objectContaining({ path: "/prepare/pdf" }),
+		);
 	});
 
 	it("rejects a processor response without a valid content length", async () => {

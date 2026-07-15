@@ -16,9 +16,15 @@ vi.mock("#/features/workspaces/conversion/image-file-converter", () => ({
 vi.mock("#/features/workspaces/conversion/office-pdf-converter", () => ({
 	convertOfficeStreamToPdf: vi.fn(),
 }));
-const assertReadablePdfUpload = vi.hoisted(() => vi.fn());
+const createWorkspaceFilePreview = vi.hoisted(() => vi.fn());
 
-vi.mock("#/features/workspaces/upload/pdf-upload-validation", () => ({ assertReadablePdfUpload }));
+vi.mock("#/features/workspaces/files/workspace-file-preview", () => ({
+	createWorkspaceFilePreview,
+	WORKSPACE_FILE_PREVIEW_CONTENT_TYPE: "image/webp",
+}));
+
+const previewObjectKey = "workspace_file_objects/workspace/item/preview.webp";
+const previewBytes = new Uint8Array([7, 8]);
 
 beforeAll(() => {
 	vi.stubGlobal(
@@ -38,7 +44,10 @@ beforeAll(() => {
 
 describe("workspace file upload storage", () => {
 	beforeEach(() => {
-		assertReadablePdfUpload.mockReset().mockResolvedValue(undefined);
+		createWorkspaceFilePreview.mockReset().mockResolvedValue({
+			body: stream(previewBytes),
+			sizeBytes: previewBytes.byteLength,
+		});
 	});
 
 	it("adopts an unchanged binary already uploaded to its permanent object", async () => {
@@ -56,6 +65,7 @@ describe("workspace file upload storage", () => {
 			finalObjectKey: objectKey,
 			fileName: "diagram.png",
 			fileSize: bytes.byteLength,
+			previewObjectKey,
 			uploadedObject: createR2Object(objectKey, bytes),
 			uploadedObjectKey: objectKey,
 		});
@@ -64,8 +74,14 @@ describe("workspace file upload storage", () => {
 			fileName: "diagram.png",
 			fileSize: 4,
 			objectKey: "workspace_file_objects/workspace/item/source",
+			preview: {
+				objectKey: previewObjectKey,
+				sizeBytes: 2,
+				sourceHash: `etag:${objectKey}`,
+			},
 		});
-		expect(bucket.putCount()).toBe(0);
+		expect(bucket.putCount()).toBe(1);
+		expect(bucket.bytes(previewObjectKey)).toEqual(previewBytes);
 	});
 
 	it("streams conversion output to R2 and records source provenance", async () => {
@@ -86,6 +102,7 @@ describe("workspace file upload storage", () => {
 			finalObjectKey: "workspace_file_objects/workspace/item/source",
 			fileName: "photo.heic",
 			fileSize: 5,
+			previewObjectKey,
 			uploadedObject: createR2Object(
 				"workspace_file_uploads/workspace/item/source",
 				new Uint8Array([1, 2, 3, 4, 5]),
@@ -103,7 +120,8 @@ describe("workspace file upload storage", () => {
 				sizeBytes: 5,
 			},
 		});
-		expect(bucket.bytes()).toEqual(converted);
+		expect(bucket.bytes("workspace_file_objects/workspace/item/source")).toEqual(converted);
+		expect(bucket.bytes(previewObjectKey)).toEqual(previewBytes);
 	});
 
 	it("rejects an inconsistent permanent object without rewriting it", async () => {
@@ -120,6 +138,7 @@ describe("workspace file upload storage", () => {
 				finalObjectKey: "workspace_file_objects/workspace/item/source",
 				fileName: "diagram.png",
 				fileSize: 4,
+				previewObjectKey,
 				uploadedObject: createR2Object(
 					"workspace_file_objects/workspace/item/source",
 					new Uint8Array([1, 2, 3]),
@@ -133,7 +152,7 @@ describe("workspace file upload storage", () => {
 	it("preserves a canonical PDF when validation infrastructure fails", async () => {
 		const bucket = createR2Bucket();
 		const objectKey = "workspace_file_objects/workspace/item/source";
-		assertReadablePdfUpload.mockRejectedValue(new Error("Processor unavailable."));
+		createWorkspaceFilePreview.mockRejectedValue(new Error("Processor unavailable."));
 
 		await expect(
 			finalizeWorkspaceFileUploadStorage({
@@ -146,6 +165,7 @@ describe("workspace file upload storage", () => {
 				finalObjectKey: objectKey,
 				fileName: "report.pdf",
 				fileSize: 4,
+				previewObjectKey,
 				uploadedObject: createR2Object(objectKey, new Uint8Array([1, 2, 3, 4])),
 				uploadedObjectKey: objectKey,
 			}),
@@ -156,7 +176,7 @@ describe("workspace file upload storage", () => {
 	it("deletes a canonical PDF rejected as invalid", async () => {
 		const bucket = createR2Bucket();
 		const objectKey = "workspace_file_objects/workspace/item/source";
-		assertReadablePdfUpload.mockRejectedValue(
+		createWorkspaceFilePreview.mockRejectedValue(
 			new WorkspaceFileUploadError({
 				code: "INVALID_PDF",
 				message: "Invalid PDF.",
@@ -175,6 +195,7 @@ describe("workspace file upload storage", () => {
 				finalObjectKey: objectKey,
 				fileName: "report.pdf",
 				fileSize: 4,
+				previewObjectKey,
 				uploadedObject: createR2Object(objectKey, new Uint8Array([1, 2, 3, 4])),
 				uploadedObjectKey: objectKey,
 			}),
@@ -207,26 +228,32 @@ function stream(bytes: Uint8Array) {
 function createR2Object(key: string, bytes: Uint8Array) {
 	return {
 		body: stream(bytes),
+		etag: `etag:${key}`,
 		key,
 		size: bytes.byteLength,
 	} as R2ObjectBody;
 }
 
 function createR2Bucket() {
-	let value: Uint8Array | null = null;
+	const objects = new Map<string, Uint8Array>();
 	let deletes = 0;
 	let puts = 0;
 	const bucket = {
 		async put(key: string, body: ReadableStream<Uint8Array>) {
 			puts += 1;
-			value = new Uint8Array(await new Response(body).arrayBuffer());
-			return { key, size: value.byteLength } as R2Object;
+			const value = new Uint8Array(await new Response(body).arrayBuffer());
+			objects.set(key, value);
+			return { etag: `etag:${key}`, key, size: value.byteLength } as R2Object;
 		},
-		async delete() {
+		async get(key: string) {
+			const value = objects.get(key);
+			return value ? createR2Object(key, value) : null;
+		},
+		async delete(key: string) {
 			deletes += 1;
-			value = null;
+			objects.delete(key);
 		},
-		bytes: () => value,
+		bytes: (key: string) => objects.get(key) ?? null,
 		deleteCount: () => deletes,
 		putCount: () => puts,
 	};

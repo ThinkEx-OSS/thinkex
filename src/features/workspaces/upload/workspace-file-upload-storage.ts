@@ -1,6 +1,10 @@
 import { convertImageStreamToJpeg } from "#/features/workspaces/conversion/image-file-converter";
 import { convertOfficeStreamToPdf } from "#/features/workspaces/conversion/office-pdf-converter";
 import {
+	createWorkspaceFilePreview,
+	WORKSPACE_FILE_PREVIEW_CONTENT_TYPE,
+} from "#/features/workspaces/files/workspace-file-preview";
+import {
 	getWorkspaceConvertedFileName,
 	requireWorkspaceFileTypeFromHint,
 	resolveWorkspaceUploadConversion,
@@ -9,7 +13,6 @@ import {
 	type WorkspaceUploadConversion,
 	workspaceFileUploadLimits,
 } from "#/features/workspaces/model/workspace-file";
-import { assertReadablePdfUpload } from "#/features/workspaces/upload/pdf-upload-validation";
 import { putFixedLengthR2Object } from "#/lib/r2";
 
 export interface StoredWorkspaceFileUpload {
@@ -18,6 +21,11 @@ export interface StoredWorkspaceFileUpload {
 	fileName: string;
 	fileSize: number;
 	objectKey: string;
+	preview?: {
+		objectKey: string;
+		sizeBytes: number;
+		sourceHash: string;
+	};
 	source?: {
 		conversion: WorkspaceUploadConversion;
 		fileName: string;
@@ -49,6 +57,7 @@ interface FinalizeWorkspaceFileUploadStorageInput {
 	finalObjectKey: string;
 	fileName: string;
 	fileSize: number;
+	previewObjectKey: string;
 	uploadedObject: R2ObjectBody;
 	uploadedObjectKey: string;
 }
@@ -70,25 +79,57 @@ export async function finalizeWorkspaceFileUploadStorage(
 			throw createConvertedFileSizeError();
 		}
 
-		if (upload.descriptor.assetKind === "pdf") {
-			const object = conversion
-				? await input.env.WORKSPACE_KERNEL_FILES.get(input.finalObjectKey)
-				: input.uploadedObject;
+		const object = conversion
+			? await input.env.WORKSPACE_KERNEL_FILES.get(input.finalObjectKey)
+			: input.uploadedObject;
 
-			if (!object) {
-				throw new Error("Stored workspace PDF could not be read for validation.");
-			}
-
-			await assertReadablePdfUpload({ env: input.env, object });
+		if (!object) {
+			throw new Error("Stored workspace file could not be read for preview generation.");
 		}
 
-		return upload;
+		return {
+			...upload,
+			preview: await storeWorkspaceFileUploadPreview(input, upload, object),
+		};
 	} catch (error) {
 		if (conversion || error instanceof WorkspaceFileUploadError) {
 			await input.env.WORKSPACE_KERNEL_FILES.delete(input.finalObjectKey);
 		}
 		throw error;
 	}
+}
+
+async function storeWorkspaceFileUploadPreview(
+	input: FinalizeWorkspaceFileUploadStorageInput,
+	upload: StoredWorkspaceFileUpload,
+	object: R2ObjectBody,
+) {
+	if (!upload.descriptor.previewGenerator) {
+		return undefined;
+	}
+
+	const preview = await createWorkspaceFilePreview(input.env, {
+		assetKind: upload.descriptor.assetKind,
+		body: object.body,
+		contentType: upload.contentType,
+		sizeBytes: object.size,
+	});
+	const stored = await putFixedLengthR2Object(
+		input.env.WORKSPACE_KERNEL_FILES,
+		input.previewObjectKey,
+		preview,
+		{ httpMetadata: { contentType: WORKSPACE_FILE_PREVIEW_CONTENT_TYPE } },
+	);
+
+	if (!stored) {
+		throw new Error("Workspace file preview could not be stored.");
+	}
+
+	return {
+		objectKey: input.previewObjectKey,
+		sizeBytes: stored.size,
+		sourceHash: object.etag,
+	};
 }
 
 function adoptCanonicalWorkspaceFileUpload(

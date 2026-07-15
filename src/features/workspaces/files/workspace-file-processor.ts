@@ -4,9 +4,8 @@ const workspaceFileProcessorPort = 8080;
 const workspaceFileProcessorPoolSize = 2;
 const processorRequestTimeoutMs = {
 	"/parse/pdf": 10 * 60_000,
+	"/prepare/pdf": 2 * 60_000,
 	"/preview/image": 2 * 60_000,
-	"/preview/pdf": 2 * 60_000,
-	"/validate/pdf": 2 * 60_000,
 } as const;
 
 export class WorkspaceFileProcessor extends Container {
@@ -22,7 +21,7 @@ export async function requestWorkspaceFileProcessor(
 		body: ReadableStream<Uint8Array>;
 		contentType: string;
 		fileName?: string;
-		path: "/parse/pdf" | "/preview/image" | "/preview/pdf" | "/validate/pdf";
+		path: "/parse/pdf" | "/prepare/pdf" | "/preview/image";
 		sizeBytes: number;
 	},
 ) {

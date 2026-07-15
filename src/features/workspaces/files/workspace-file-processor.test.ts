@@ -51,7 +51,7 @@ describe("workspace file processor", () => {
 				body: createStream(source),
 				contentType: "application/pdf",
 				fileName: "paper.pdf",
-				path: "/preview/pdf",
+				path: "/prepare/pdf",
 				sizeBytes: source.byteLength,
 			},
 		);

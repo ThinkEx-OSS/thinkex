@@ -78,7 +78,10 @@ export class WorkspaceKernelFileCommands {
 			throw new Error("Workspace item id already exists.");
 		}
 
-		const object = await this.r2.head(input.objectKey);
+		const [object, previewObject] = await Promise.all([
+			this.r2.head(input.objectKey),
+			input.preview ? this.r2.head(input.preview.objectKey) : Promise.resolve(null),
+		]);
 
 		if (!object) {
 			throw new Error("Uploaded file was not found.");
@@ -87,6 +90,15 @@ export class WorkspaceKernelFileCommands {
 		if (object.size !== input.fileSize) {
 			throw new Error("Uploaded file size did not match the upload request.");
 		}
+		if (input.preview && !previewObject) {
+			throw new Error("Uploaded file preview was not found.");
+		}
+		if (input.preview && input.preview.sourceHash !== object.etag) {
+			throw new Error("Uploaded file preview does not match its source.");
+		}
+		if (input.preview && previewObject?.size !== input.preview.sizeBytes) {
+			throw new Error("Uploaded file preview size did not match the upload request.");
+		}
 
 		const concurrentResult = getPriorResult();
 		if (concurrentResult) {
@@ -94,6 +106,9 @@ export class WorkspaceKernelFileCommands {
 		}
 
 		const descriptor = getWorkspaceUploadFamily(input.assetKind);
+		if (Boolean(descriptor.previewGenerator) !== Boolean(input.preview)) {
+			throw new Error("Workspace file preview preparation did not match the file type.");
+		}
 		const contentType = resolveWorkspaceFileContentType({
 			contentType: input.contentType,
 			descriptor,
@@ -155,6 +170,24 @@ export class WorkspaceKernelFileCommands {
 				NULL
 			)
 		`;
+
+		if (input.preview) {
+			this.writeProjectionRow({
+				itemId,
+				now,
+				projection: {
+					format: "preview",
+					itemId,
+					metadataJson: {
+						contentType: WORKSPACE_FILE_PREVIEW_CONTENT_TYPE,
+						sizeBytes: input.preview.sizeBytes,
+					},
+					objectKey: input.preview.objectKey,
+					sourceHash: input.preview.sourceHash,
+					status: "ready",
+				},
+			});
+		}
 
 		const item = this.store.requireItem(itemId);
 		const event = this.events.commit({

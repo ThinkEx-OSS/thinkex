@@ -1,7 +1,6 @@
 import { WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from "cloudflare:workers";
 
 import { publishLiteParseProjection } from "#/features/workspaces/extraction/liteparse-projection";
-import { publishWorkspaceFilePreview } from "#/features/workspaces/extraction/workspace-file-preview-projection";
 import { recordWorkspaceFileExtractionOutcome } from "#/features/workspaces/extraction/workspace-file-extraction-observability";
 import { createMarkdownExtractionProvider } from "#/features/workspaces/extraction/providers/index";
 import type {
@@ -37,10 +36,7 @@ export class WorkspaceFileExtractionWorkflow extends WorkflowEntrypoint<
 			return { status: "processing" };
 		});
 
-		const [liteParse] = await Promise.all([
-			publishLiteParseProjection(this.env, step, params, event.instanceId),
-			publishWorkspaceFilePreview(this.env, step, params),
-		]);
+		const liteParse = await publishLiteParseProjection(this.env, step, params, event.instanceId);
 		const enhancementStartedAt = Date.now();
 		let extraction: StagedPageExtractionResult;
 		let result: {

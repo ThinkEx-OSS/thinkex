@@ -1,17 +1,6 @@
-import { requestWorkspaceFileProcessor } from "#/features/workspaces/files/workspace-file-processor";
 import { WorkspaceFileUploadError } from "#/features/workspaces/model/workspace-file";
 
-export async function assertReadablePdfUpload(input: {
-	env: Cloudflare.Env;
-	object: R2ObjectBody;
-}): Promise<void> {
-	const response = await requestWorkspaceFileProcessor(input.env, {
-		body: input.object.body,
-		contentType: "application/pdf",
-		path: "/validate/pdf",
-		sizeBytes: input.object.size,
-	});
-
+export async function assertPreparedPdfPreviewResponse(response: Response): Promise<void> {
 	if (response.ok) {
 		return;
 	}

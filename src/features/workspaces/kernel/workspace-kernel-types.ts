@@ -194,6 +194,11 @@ export interface CreateWorkspaceKernelFileFromUploadArgs {
 	fileName: string;
 	fileSize: number;
 	objectKey: string;
+	preview?: {
+		objectKey: string;
+		sizeBytes: number;
+		sourceHash: string;
+	};
 	contentType?: string | null;
 	assetKind: WorkspaceFileAssetKind;
 	source?: {

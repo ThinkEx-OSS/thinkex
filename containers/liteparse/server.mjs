@@ -31,20 +31,13 @@ createServer(async (request, response) => {
 	let errorMessage = null;
 
 	try {
-		if (request.method === "POST" && request.url === "/validate/pdf") {
-			inputBytes = await validatePdfRequest(request);
-			status = 204;
-			response.writeHead(status);
-			return response.end();
-		}
-
 		if (
 			request.method === "POST" &&
-			(request.url === "/preview/pdf" || request.url === "/preview/image")
+			(request.url === "/prepare/pdf" || request.url === "/preview/image")
 		) {
 			const preview = await generatePreviewRequest(
 				request,
-				request.url === "/preview/pdf" ? "pdf" : "image",
+				request.url === "/prepare/pdf" ? "pdf" : "image",
 			);
 			inputBytes = preview.inputBytes;
 			status = 200;
@@ -102,26 +95,22 @@ createServer(async (request, response) => {
 	}
 }).listen(port);
 
-async function validatePdfRequest(request) {
-	return withRequestFile(request, "thinkex-pdf-", async ({ filePath, sizeBytes }) => {
-		try {
-			await execFileAsync("pdfinfo", [filePath], { timeout: 30_000 });
-		} catch (error) {
-			const message = getProcessErrorMessage(error);
+async function validatePdfFile(filePath) {
+	try {
+		await execFileAsync("pdfinfo", [filePath], { timeout: 30_000 });
+	} catch (error) {
+		const message = getProcessErrorMessage(error);
 
-			if (/password|encrypted/i.test(message)) {
-				throw new PdfValidationError(
-					422,
-					"PASSWORD_PROTECTED_PDF",
-					"Password-protected PDFs are not supported.",
-				);
-			}
-
-			throw new PdfValidationError(422, "INVALID_PDF", "PDF is damaged or invalid.");
+		if (/password|encrypted/i.test(message)) {
+			throw new PdfValidationError(
+				422,
+				"PASSWORD_PROTECTED_PDF",
+				"Password-protected PDFs are not supported.",
+			);
 		}
 
-		return sizeBytes;
-	});
+		throw new PdfValidationError(422, "INVALID_PDF", "PDF is damaged or invalid.");
+	}
 }
 
 async function readPdfRequestBytes(request) {
@@ -134,8 +123,10 @@ async function readPdfRequestBytes(request) {
 
 async function generatePreviewRequest(request, kind) {
 	return withRequestFile(request, "thinkex-preview-", async ({ filePath, sizeBytes, tempDir }) => {
-		const previewInputPath =
-			kind === "pdf" ? await renderPdfPreviewInput(filePath, tempDir) : filePath;
+		if (kind === "pdf") {
+			await validatePdfFile(filePath);
+		}
+		const previewInputPath = kind === "pdf" ? `${filePath}[page=0,n=1]` : filePath;
 		const outputPath = join(tempDir, "preview.webp");
 
 		await execFileAsync(
@@ -156,31 +147,6 @@ async function generatePreviewRequest(request, kind) {
 
 		return { bytes: await readFile(outputPath), inputBytes: sizeBytes };
 	});
-}
-
-async function renderPdfPreviewInput(filePath, tempDir) {
-	const outputPrefix = join(tempDir, "page");
-
-	await execFileAsync(
-		"pdftoppm",
-		[
-			"-f",
-			"1",
-			"-l",
-			"1",
-			"-singlefile",
-			"-scale-to-x",
-			"480",
-			"-scale-to-y",
-			"-1",
-			"-png",
-			filePath,
-			outputPrefix,
-		],
-		{ timeout: 60_000 },
-	);
-
-	return `${outputPrefix}.png`;
 }
 
 async function withRequestFile(request, prefix, run) {
