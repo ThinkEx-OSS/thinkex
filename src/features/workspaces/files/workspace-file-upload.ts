@@ -83,7 +83,7 @@ export async function runWorkspaceFileUploadBatch(
 		}
 		lastProgressPercent = percent;
 		toast.loading(
-			getUploadBatchStageMessage(percent === 100 ? "processing" : "uploading", accepted),
+			getUploadBatchStageMessage(percent === 100 ? "finalizing" : "uploading", accepted),
 			{
 				action: {
 					label: "Cancel",
@@ -270,8 +270,8 @@ async function getWorkspaceFileUploadErrorMessage(response: Response) {
 	}
 }
 
-function getUploadBatchStageMessage(stage: "processing" | "uploading", files: readonly File[]) {
-	const action = stage === "processing" ? "Processing" : "Uploading";
+function getUploadBatchStageMessage(stage: "finalizing" | "uploading", files: readonly File[]) {
+	const action = stage === "finalizing" ? "Finalizing" : "Uploading";
 	if (files.length === 1) {
 		return `${action} ${files[0]?.name ?? "file"}...`;
 	}

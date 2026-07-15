@@ -37,8 +37,10 @@ export class WorkspaceFileExtractionWorkflow extends WorkflowEntrypoint<
 			return { status: "processing" };
 		});
 
-		const liteParse = await publishLiteParseProjection(this.env, step, params, event.instanceId);
-		await publishWorkspaceFilePreview(this.env, step, params);
+		const [liteParse] = await Promise.all([
+			publishLiteParseProjection(this.env, step, params, event.instanceId),
+			publishWorkspaceFilePreview(this.env, step, params),
+		]);
 		const enhancementStartedAt = Date.now();
 		let extraction: StagedPageExtractionResult;
 		let result: {
