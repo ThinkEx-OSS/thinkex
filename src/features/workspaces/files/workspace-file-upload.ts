@@ -61,12 +61,11 @@ export async function runWorkspaceFileUploadBatch(
 	const controller = new AbortController();
 	const totalBytes = accepted.reduce((total, file) => total + file.size, 0);
 	const loadedBytesByFile = new Map(accepted.map((file) => [file, 0]));
-	const toastId = toast.loading(getUploadBatchStageMessage("uploading", accepted), {
+	const toastId = toast.loading(getUploadBatchStageMessage("uploading", accepted, 0), {
 		action: {
 			label: "Cancel",
 			onClick: () => controller.abort(new DOMException("Upload canceled.", "AbortError")),
 		},
-		description: getUploadProgressDescription(0, totalBytes),
 		duration: Number.POSITIVE_INFINITY,
 	});
 	let lastProgressPercent = -1;
@@ -83,13 +82,12 @@ export async function runWorkspaceFileUploadBatch(
 		}
 		lastProgressPercent = percent;
 		toast.loading(
-			getUploadBatchStageMessage(percent === 100 ? "finalizing" : "uploading", accepted),
+			getUploadBatchStageMessage(percent === 100 ? "finalizing" : "uploading", accepted, percent),
 			{
 				action: {
 					label: "Cancel",
 					onClick: () => controller.abort(new DOMException("Upload canceled.", "AbortError")),
 				},
-				description: getUploadProgressDescription(loadedTotal, totalBytes),
 				duration: Number.POSITIVE_INFINITY,
 				id: toastId,
 			},
@@ -270,23 +268,18 @@ async function getWorkspaceFileUploadErrorMessage(response: Response) {
 	}
 }
 
-function getUploadBatchStageMessage(stage: "finalizing" | "uploading", files: readonly File[]) {
+function getUploadBatchStageMessage(
+	stage: "finalizing" | "uploading",
+	files: readonly File[],
+	percent?: number,
+) {
 	const action = stage === "finalizing" ? "Finalizing" : "Uploading";
+	const progress = stage === "uploading" && percent !== undefined ? ` ${percent}%` : "";
 	if (files.length === 1) {
-		return `${action} ${files[0]?.name ?? "file"}...`;
+		return `${action} ${files[0]?.name ?? "file"}...${progress}`;
 	}
 
-	return `${action} ${files.length} files...`;
-}
-
-function getUploadProgressDescription(loadedBytes: number, totalBytes: number) {
-	const percent = Math.floor((loadedBytes / totalBytes) * 100);
-	return `${percent}% · ${formatBytes(loadedBytes)} of ${formatBytes(totalBytes)}`;
-}
-
-function formatBytes(bytes: number) {
-	const megabytes = bytes / (1024 * 1024);
-	return `${megabytes >= 10 ? megabytes.toFixed(0) : megabytes.toFixed(1)} MB`;
+	return `${action} ${files.length} files...${progress}`;
 }
 
 function getUploadBatchErrorMessage(error: unknown, signal: AbortSignal) {
