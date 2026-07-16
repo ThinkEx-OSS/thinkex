@@ -10,7 +10,7 @@ import {
 	joinWorkspaceItemPath,
 	type WorkspaceKernelTree,
 } from "#/features/workspaces/kernel/workspace-kernel-paths";
-import { WorkspaceKernelNameConflictError } from "#/features/workspaces/kernel/workspace-kernel-store";
+import { WorkspaceKernelNameConflictError } from "#/features/workspaces/kernel/workspace-kernel-errors";
 
 export interface MoveWorkspaceItemsOperationInput {
 	destinationPath: string;

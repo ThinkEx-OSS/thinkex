@@ -18,17 +18,8 @@ import {
 } from "#/features/workspaces/kernel/workspace-kernel-schema";
 import { parseWorkspaceMetadataJson } from "#/features/workspaces/kernel/workspace-kernel-metadata";
 import type { WorkspaceKernelNameConflictPolicy } from "#/features/workspaces/kernel/workspace-kernel-types";
+import { WorkspaceKernelNameConflictError } from "#/features/workspaces/kernel/workspace-kernel-errors";
 import { getMetadataNumber } from "#/features/workspaces/model/workspace-file";
-
-export class WorkspaceKernelNameConflictError extends Error {
-	constructor(
-		readonly itemId?: string,
-		readonly requestedName?: string,
-	) {
-		super("Workspace item name already exists.");
-		this.name = "WorkspaceKernelNameConflictError";
-	}
-}
 
 export class WorkspaceKernelStore {
 	private readonly sql: WorkspaceKernelSql;

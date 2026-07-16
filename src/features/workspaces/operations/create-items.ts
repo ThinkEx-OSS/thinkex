@@ -20,7 +20,7 @@ import {
 	WorkspaceKernelPathError,
 	type WorkspaceKernelTree,
 } from "#/features/workspaces/kernel/workspace-kernel-paths";
-import { WorkspaceKernelNameConflictError } from "#/features/workspaces/kernel/workspace-kernel-store";
+import { isWorkspaceKernelNameConflictError } from "#/features/workspaces/kernel/workspace-kernel-errors";
 
 export interface CreateWorkspaceItemOperationInput {
 	type: "document" | "folder";
@@ -157,7 +157,7 @@ export async function createWorkspaceItemsOperation(
 				clientMutationId: `${accessContext.operationId}:${index}`,
 			});
 		} catch (error) {
-			if (error instanceof WorkspaceKernelNameConflictError) {
+			if (isWorkspaceKernelNameConflictError(error)) {
 				failed.push({
 					code: "path_already_exists",
 					index,

@@ -8,7 +8,7 @@ import {
 	getParentWorkspacePath,
 	joinWorkspaceItemPath,
 } from "#/features/workspaces/kernel/workspace-kernel-paths";
-import { WorkspaceKernelNameConflictError } from "#/features/workspaces/kernel/workspace-kernel-store";
+import { isWorkspaceKernelNameConflictError } from "#/features/workspaces/kernel/workspace-kernel-errors";
 
 export interface RenameWorkspaceItemOperationInput {
 	name: string;
@@ -81,7 +81,7 @@ export async function renameWorkspaceItemOperation(
 			},
 		};
 	} catch (error) {
-		if (error instanceof WorkspaceKernelNameConflictError) {
+		if (isWorkspaceKernelNameConflictError(error)) {
 			return {
 				failed: [
 					{
