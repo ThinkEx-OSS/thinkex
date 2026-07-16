@@ -4,6 +4,7 @@ packages:
 minimumReleaseAge: 1440
 minimumReleaseAgeStrict: true
 trustPolicy: no-downgrade
+trustPolicyIgnoreAfter: 10080
 trustPolicyExclude:
   - semver@6.3.1
 
