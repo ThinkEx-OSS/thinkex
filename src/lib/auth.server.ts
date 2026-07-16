@@ -1,8 +1,9 @@
 import { env as workerEnv } from "cloudflare:workers";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { betterAuth } from "better-auth/minimal";
-import { anonymous } from "better-auth/plugins";
+import { anonymous, jwt } from "better-auth/plugins";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
+import { oauthProvider } from "@better-auth/oauth-provider";
 import { sql } from "drizzle-orm";
 
 import {
@@ -42,6 +43,24 @@ function getAuthSecret(env: AuthRuntimeEnv) {
 	}
 
 	return secret;
+}
+
+function getGoogleSocialProviders(env: AuthRuntimeEnv) {
+	if (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET) {
+		return {
+			google: {
+				clientId: env.GOOGLE_CLIENT_ID,
+				clientSecret: env.GOOGLE_CLIENT_SECRET,
+				prompt: "select_account" as const,
+			},
+		};
+	}
+
+	if (isProduction) {
+		throw new Error("Google OAuth credentials are required in production.");
+	}
+
+	return {};
 }
 
 async function transferAnonymousUserData(
@@ -154,6 +173,9 @@ async function transferAnonymousUserData(
 
 function createAuth(database: Db, env: AuthRuntimeEnv) {
 	const baseURL = getAuthBaseURL();
+	const appOrigin =
+		typeof baseURL === "string" ? baseURL : (baseURL.fallback ?? "http://localhost:3000");
+	const mcpResource = `${appOrigin}/mcp`;
 
 	return betterAuth({
 		database: drizzleAdapter(database, {
@@ -162,6 +184,7 @@ function createAuth(database: Db, env: AuthRuntimeEnv) {
 		}),
 		secret: getAuthSecret(env),
 		baseURL,
+		disabledPaths: ["/token"],
 		trustedOrigins: getTrustedAppOrigins(typeof baseURL === "string" ? baseURL : baseURL.fallback),
 		session: {
 			expiresIn: 60 * 60 * 24 * 90,
@@ -173,33 +196,47 @@ function createAuth(database: Db, env: AuthRuntimeEnv) {
 		},
 		rateLimit: {
 			enabled: isProduction,
-			storage: "memory",
+			storage: "database",
 		},
 		advanced: {
 			ipAddress: {
 				ipAddressHeaders: ["cf-connecting-ip"],
 			},
 		},
-		socialProviders: {
-			google: {
-				clientId: env.GOOGLE_CLIENT_ID || "",
-				clientSecret: env.GOOGLE_CLIENT_SECRET || "",
-				prompt: "select_account",
-			},
-		},
+		socialProviders: getGoogleSocialProviders(env),
 		plugins: [
-			anonymous({
-				emailDomainName: "anonymous.thinkex.app",
-				generateName: () => "Guest",
-				onLinkAccount: async ({ anonymousUser, newUser }) => {
-					const transferInput = {
-						anonymousUserId: anonymousUser.user.id,
-						newUserId: newUser.user.id,
-					};
+			...(import.meta.env.DEV
+				? [
+						anonymous({
+							emailDomainName: "anonymous.thinkex.app",
+							generateName: () => "Guest",
+							onLinkAccount: async ({ anonymousUser, newUser }) => {
+								const transferInput = {
+									anonymousUserId: anonymousUser.user.id,
+									newUserId: newUser.user.id,
+								};
 
-					await transferAnonymousUserData(database, transferInput);
-					await transferLinkedAccountResources(transferInput);
-				},
+								await transferAnonymousUserData(database, transferInput);
+								await transferLinkedAccountResources(transferInput);
+							},
+						}),
+					]
+				: []),
+			jwt({ disableSettingJwtHeader: true }),
+			oauthProvider({
+				allowDynamicClientRegistration: true,
+				allowUnauthenticatedClientRegistration: true,
+				clientRegistrationDefaultScopes: [
+					"openid",
+					"offline_access",
+					"workspaces:read",
+					"workspaces:write",
+				],
+				consentPage: "/oauth/consent",
+				grantTypes: ["authorization_code", "refresh_token"],
+				loginPage: "/login",
+				scopes: ["openid", "offline_access", "workspaces:read", "workspaces:write"],
+				validAudiences: [mcpResource],
 			}),
 			tanstackStartCookies(),
 		],

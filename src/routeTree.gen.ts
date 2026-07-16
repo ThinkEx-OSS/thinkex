@@ -20,6 +20,7 @@ import { Route as AccountDeletedRouteImport } from './routes/account-deleted'
 import { Route as ProtectedRouteImport } from './routes/_protected'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as BlogIndexRouteImport } from './routes/blog.index'
+import { Route as OauthConsentRouteImport } from './routes/oauth.consent'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as BlogRssRouteImport } from './routes/blog.rss'
 import { Route as BlogSlugRouteImport } from './routes/blog.$slug'
@@ -88,6 +89,11 @@ const BlogIndexRoute = BlogIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => BlogRoute,
+} as any)
+const OauthConsentRoute = OauthConsentRouteImport.update({
+  id: '/oauth/consent',
+  path: '/oauth/consent',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const InviteTokenRoute = InviteTokenRouteImport.update({
   id: '/invite/$token',
@@ -185,6 +191,7 @@ export interface FileRoutesByFullPath {
   '/blog/$slug': typeof BlogSlugRoute
   '/blog/rss': typeof BlogRssRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/oauth/consent': typeof OauthConsentRoute
   '/blog/': typeof BlogIndexRoute
   '/workspaces/$workspaceId': typeof ProtectedWorkspacesWorkspaceIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -210,6 +217,7 @@ export interface FileRoutesByTo {
   '/blog/$slug': typeof BlogSlugRoute
   '/blog/rss': typeof BlogRssRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/oauth/consent': typeof OauthConsentRoute
   '/blog': typeof BlogIndexRoute
   '/workspaces/$workspaceId': typeof ProtectedWorkspacesWorkspaceIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -238,6 +246,7 @@ export interface FileRoutesById {
   '/blog/$slug': typeof BlogSlugRoute
   '/blog/rss': typeof BlogRssRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/oauth/consent': typeof OauthConsentRoute
   '/blog/': typeof BlogIndexRoute
   '/_protected/workspaces/$workspaceId': typeof ProtectedWorkspacesWorkspaceIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -266,6 +275,7 @@ export interface FileRouteTypes {
     | '/blog/$slug'
     | '/blog/rss'
     | '/invite/$token'
+    | '/oauth/consent'
     | '/blog/'
     | '/workspaces/$workspaceId'
     | '/api/auth/$'
@@ -291,6 +301,7 @@ export interface FileRouteTypes {
     | '/blog/$slug'
     | '/blog/rss'
     | '/invite/$token'
+    | '/oauth/consent'
     | '/blog'
     | '/workspaces/$workspaceId'
     | '/api/auth/$'
@@ -318,6 +329,7 @@ export interface FileRouteTypes {
     | '/blog/$slug'
     | '/blog/rss'
     | '/invite/$token'
+    | '/oauth/consent'
     | '/blog/'
     | '/_protected/workspaces/$workspaceId'
     | '/api/auth/$'
@@ -342,6 +354,7 @@ export interface RootRouteChildren {
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   TermsRoute: typeof TermsRoute
   InviteTokenRoute: typeof InviteTokenRoute
+  OauthConsentRoute: typeof OauthConsentRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiPosthogSurveyFeedbackRoute: typeof ApiPosthogSurveyFeedbackRoute
   ApiV1WorkspacesRoute: typeof ApiV1WorkspacesRouteWithChildren
@@ -425,6 +438,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/blog/'
       preLoaderRoute: typeof BlogIndexRouteImport
       parentRoute: typeof BlogRoute
+    }
+    '/oauth/consent': {
+      id: '/oauth/consent'
+      path: '/oauth/consent'
+      fullPath: '/oauth/consent'
+      preLoaderRoute: typeof OauthConsentRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/invite/$token': {
       id: '/invite/$token'
@@ -606,6 +626,7 @@ const rootRouteChildren: RootRouteChildren = {
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   TermsRoute: TermsRoute,
   InviteTokenRoute: InviteTokenRoute,
+  OauthConsentRoute: OauthConsentRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiPosthogSurveyFeedbackRoute: ApiPosthogSurveyFeedbackRoute,
   ApiV1WorkspacesRoute: ApiV1WorkspacesRouteWithChildren,
