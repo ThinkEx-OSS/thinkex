@@ -389,13 +389,15 @@ export function getWorkspaceAiGatewayProviderOptions(input?: {
 			...getWorkspaceAiGatewayTransportOptions(),
 			...getWorkspaceAiGatewayRoutingOptions(modelId),
 			tags,
-			user: input?.thread?.userId,
+			...(input?.thread ? { user: input.thread.userId } : {}),
 		},
 		...getWorkspaceAiReasoningOptions(modelId),
-	} as unknown as WorkspaceAiProviderOptions;
+	} satisfies WorkspaceAiProviderOptions;
 }
 
-function getWorkspaceAiReasoningOptions(modelId: ReturnType<typeof resolveWorkspaceAiChatModelId>) {
+function getWorkspaceAiReasoningOptions(
+	modelId: ReturnType<typeof resolveWorkspaceAiChatModelId>,
+): WorkspaceAiProviderOptions {
 	switch (modelId) {
 		case "claude-sonnet":
 			return {
