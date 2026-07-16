@@ -1,4 +1,4 @@
-import { type ReactNode, useId } from "react";
+import { type ReactNode, useId, useState } from "react";
 
 import {
 	AlertDialog,
@@ -19,7 +19,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "#/components/ui/dialog";
-import { Field, FieldGroup, FieldLabel } from "#/components/ui/field";
+import { Field, FieldError, FieldGroup, FieldLabel } from "#/components/ui/field";
 import { Input } from "#/components/ui/input";
 import { getWorkspaceDescendantIds } from "#/features/workspaces/model/tree";
 import type { WorkspaceItem } from "#/features/workspaces/model/types";
@@ -27,6 +27,7 @@ import {
 	useDeleteWorkspaceItemsMutation,
 	useRenameWorkspaceItemMutation,
 } from "#/features/workspaces/use-workspace-kernel-items";
+import { getErrorMessage } from "#/lib/error-message";
 
 export function RenameWorkspaceItemDialog({
 	item,
@@ -53,28 +54,38 @@ function RenameWorkspaceItemDialogContent({
 }) {
 	const nameInputId = useId();
 	const renameWorkspaceItemMutation = useRenameWorkspaceItemMutation();
+	// Controlled so a failed rename keeps the user's typed value in place for
+	// correction/retry instead of React resetting the form back to the old name.
+	const [nameDraft, setNameDraft] = useState(item.name);
 
 	return (
 		<DialogContent>
 			<form
 				className="grid gap-6"
-				action={(formData) => {
-					const rawName = formData.get("name");
-					const name = (typeof rawName === "string" ? rawName : "").trim();
+				action={async () => {
+					const name = nameDraft.trim();
 
 					if (!name) {
 						return;
 					}
 
-					if (name !== item.name) {
-						renameWorkspaceItemMutation.mutate({
+					if (name === item.name) {
+						onOpenChange(false);
+						return;
+					}
+
+					try {
+						await renameWorkspaceItemMutation.mutateAsync({
 							workspaceId: item.workspaceId,
 							itemId: item.id,
 							name,
 						});
-					}
 
-					onOpenChange(false);
+						onOpenChange(false);
+					} catch {
+						// Keep the dialog open so the error surfaces inline and the
+						// user can correct the name and retry instead of losing input.
+					}
 				}}
 			>
 				<DialogHeader>
@@ -82,9 +93,25 @@ function RenameWorkspaceItemDialogContent({
 					<DialogDescription>Update the item name shown in this workspace.</DialogDescription>
 				</DialogHeader>
 				<FieldGroup>
-					<Field>
+					<Field data-invalid={renameWorkspaceItemMutation.isError || undefined}>
 						<FieldLabel htmlFor={nameInputId}>Name</FieldLabel>
-						<Input id={nameInputId} name="name" defaultValue={item.name} required autoFocus />
+						<Input
+							id={nameInputId}
+							name="name"
+							value={nameDraft}
+							onChange={(event) => setNameDraft(event.target.value)}
+							required
+							autoFocus
+							aria-invalid={renameWorkspaceItemMutation.isError || undefined}
+						/>
+						{renameWorkspaceItemMutation.isError ? (
+							<FieldError>
+								{getErrorMessage(
+									renameWorkspaceItemMutation.error,
+									"Unable to rename workspace item right now.",
+								)}
+							</FieldError>
+						) : null}
 					</Field>
 				</FieldGroup>
 				<DialogFooter>
@@ -127,6 +154,9 @@ export function DeleteWorkspaceItemsAlert({
 			onOpenChange={onOpenChange}
 			onOpenChangeComplete={(nextOpen) => {
 				if (!nextOpen) {
+					// Clear any prior failure so reopening starts from a clean state
+					// rather than surfacing a stale error and a "Retry delete" label.
+					deleteWorkspaceItemsMutation.reset();
 					onClosed?.();
 				}
 			}}
@@ -136,6 +166,15 @@ export function DeleteWorkspaceItemsAlert({
 					<AlertDialogTitle>{title}</AlertDialogTitle>
 					<AlertDialogDescription>{description}</AlertDialogDescription>
 				</AlertDialogHeader>
+
+				{deleteWorkspaceItemsMutation.isError ? (
+					<p role="alert" className="text-destructive text-sm">
+						{getErrorMessage(
+							deleteWorkspaceItemsMutation.error,
+							"Unable to delete right now. Please try again.",
+						)}
+					</p>
+				) : null}
 
 				<AlertDialogFooter>
 					<AlertDialogCancel>Cancel</AlertDialogCancel>
@@ -149,6 +188,9 @@ export function DeleteWorkspaceItemsAlert({
 								return;
 							}
 
+							// Only close on success. On failure the mutation surfaces the
+							// error inline (above) and re-enables this button so the user
+							// can retry instead of being wedged with no way forward.
 							deleteWorkspaceItemsMutation.mutate(
 								{
 									workspaceId,
@@ -163,7 +205,7 @@ export function DeleteWorkspaceItemsAlert({
 							);
 						}}
 					>
-						Delete
+						{deleteWorkspaceItemsMutation.isError ? "Retry delete" : "Delete"}
 					</AlertDialogAction>
 				</AlertDialogFooter>
 			</AlertDialogContent>

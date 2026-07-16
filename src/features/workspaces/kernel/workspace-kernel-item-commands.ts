@@ -37,6 +37,16 @@ import {
 } from "#/features/workspaces/model/workspace-item-colors";
 import type { WorkspaceCommandResult } from "#/features/workspaces/realtime/messages";
 
+/**
+ * Number of workspace file removals to run concurrently when deleting items.
+ *
+ * A bulk delete can expand into a large number of nested rows. Firing every
+ * `workspace.rm` at once overwhelms the Durable Object storage budget and trips
+ * memory-limit / storage-timeout resets, so we stream the removals in bounded
+ * batches instead of loading them all at once.
+ */
+const workspaceItemDeleteConcurrency = 4;
+
 export class WorkspaceKernelItemCommands {
 	private readonly events: WorkspaceKernelEventBus;
 	private readonly relations: WorkspaceKernelRelations;
@@ -277,14 +287,7 @@ export class WorkspaceKernelItemCommands {
 
 		this.store.softDeleteItems(deleteIds, Date.now());
 		this.relations.deleteRelationsForItems(deleteIds);
-		await Promise.all(
-			rowsToRemove.map((row) =>
-				this.workspace.rm(row.shell_path, {
-					recursive: true,
-					force: true,
-				}),
-			),
-		);
+		await this.removeWorkspaceItemFiles(rowsToRemove);
 
 		const result = { itemIds: rootIds, deletedItemIds: deleteIds };
 		const event = this.events.commit({
@@ -367,6 +370,21 @@ export class WorkspaceKernelItemCommands {
 			input.initialContent ?? getInitialWorkspaceKernelContent(input.type, input.name),
 			getWorkspaceKernelContentMimeType(input.type),
 		);
+	}
+
+	private async removeWorkspaceItemFiles(rows: KernelItemRow[]) {
+		for (let start = 0; start < rows.length; start += workspaceItemDeleteConcurrency) {
+			const batch = rows.slice(start, start + workspaceItemDeleteConcurrency);
+
+			await Promise.all(
+				batch.map((row) =>
+					this.workspace.rm(row.shell_path, {
+						recursive: true,
+						force: true,
+					}),
+				),
+			);
+		}
 	}
 
 	private commitItemEvent(input: {
