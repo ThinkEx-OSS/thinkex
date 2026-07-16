@@ -337,9 +337,6 @@ export function createAIThreadClass(getUserAIStore: () => typeof UserAIStore) {
 						viewed,
 					});
 				}
-
-				this.activeRunStartedAt = undefined;
-				this.activeUsageContext = undefined;
 			} catch (error) {
 				const thread = this.activeUsageContext?.thread;
 				recordOperationalFailure({
@@ -354,6 +351,8 @@ export function createAIThreadClass(getUserAIStore: () => typeof UserAIStore) {
 					},
 				});
 			} finally {
+				this.activeRunStartedAt = undefined;
+				this.activeUsageContext = undefined;
 				await this._refreshSessionPromptIfNeeded();
 			}
 		}
@@ -498,9 +497,29 @@ export function createAIThreadClass(getUserAIStore: () => typeof UserAIStore) {
 			latencySeconds?: number;
 			prompt?: string;
 		}) {
-			const thread = await this._getThreadContext().catch(() => null);
+			let thread: AIThreadContext | null = null;
+			try {
+				thread = await this._getThreadContext();
+			} catch (error) {
+				recordOperationalFailure({
+					error,
+					event: "ai_auxiliary_context",
+					fields: {
+						feature: input.feature,
+						thread_id: this.name,
+					},
+				});
+			}
 
 			if (!thread) {
+				recordOperationalFailure({
+					error: input.error,
+					event: "ai_auxiliary",
+					fields: {
+						feature: input.feature,
+						thread_id: this.name,
+					},
+				});
 				return;
 			}
 

@@ -46,7 +46,10 @@ import type {
 	WorkspaceRealtimeEvent,
 	WorkspaceRealtimeServerMessage,
 } from "#/features/workspaces/realtime/messages";
-import { recordOperationalOutcome } from "#/integrations/observability/operational-events";
+import {
+	recordOperationalFailure,
+	recordOperationalOutcome,
+} from "#/integrations/observability/operational-events";
 import { deleteR2Prefix } from "#/lib/r2";
 
 const workspaceKernelInlineThresholdBytes = 1_500_000;
@@ -260,8 +263,16 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 					workspaceId,
 					itemId,
 				}).purgeForDeletion();
-			} catch {
+			} catch (error) {
 				failed += 1;
+				recordOperationalFailure({
+					error,
+					event: "workspace_document_purge",
+					fields: {
+						item_id: itemId,
+						workspace_id: workspaceId,
+					},
+				});
 			}
 		}
 

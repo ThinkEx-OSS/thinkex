@@ -10,6 +10,7 @@ import {
 } from "#/features/workspaces/ai/ai-inspector";
 import { createAIThreadClass } from "#/features/workspaces/ai/ai-thread";
 import type { ResourcePurgeResult } from "#/features/workspaces/resource-purge-result";
+import { WorkspaceForbiddenError } from "#/features/workspaces/server/permissions";
 import {
 	copyChatAttachmentsForThread,
 	deleteChatAttachmentsForThread,
@@ -57,12 +58,14 @@ export type {
 class AIThreadNotFoundError extends Error {
 	constructor() {
 		super("Chat thread not found");
+		this.name = "AIThreadNotFoundError";
 	}
 }
 
 class AIThreadForbiddenError extends Error {
 	constructor() {
 		super("Forbidden");
+		this.name = "AIThreadForbiddenError";
 	}
 }
 
@@ -140,7 +143,11 @@ export class UserAIStore extends Agent<Cloudflare.Env, UserAIStoreState> {
 			if (error instanceof AIThreadForbiddenError) {
 				return new Response("Forbidden", { status: 403 });
 			}
-			return new Response("Chat thread not found", { status: 404 });
+			if (error instanceof AIThreadNotFoundError) {
+				return new Response("Chat thread not found", { status: 404 });
+			}
+
+			throw error;
 		}
 	}
 
@@ -156,10 +163,7 @@ export class UserAIStore extends Agent<Cloudflare.Env, UserAIStoreState> {
 			throw new Error("workspaceId is required");
 		}
 
-		await getWorkspacePromptScope({
-			userId: this.name,
-			workspaceId,
-		});
+		await this._getWorkspacePromptScope(workspaceId);
 
 		return this._createThreadRecord(workspaceId);
 	}
@@ -186,12 +190,7 @@ export class UserAIStore extends Agent<Cloudflare.Env, UserAIStoreState> {
 			return null;
 		}
 
-		await getWorkspacePromptScope({
-			userId: this.name,
-			workspaceId,
-		}).catch(() => {
-			throw new AIThreadForbiddenError();
-		});
+		await this._getWorkspacePromptScope(workspaceId);
 
 		const existing = this._getThreadSummary(threadId);
 		if (existing) {
@@ -282,7 +281,17 @@ export class UserAIStore extends Agent<Cloudflare.Env, UserAIStoreState> {
 				userId: this.name,
 				workspaceId: thread.workspace_id,
 			}).catch((error) => {
-				console.error("Failed to delete chat attachments for deleted thread", error);
+				recordOperationalFailure({
+					distinctId: this.name,
+					error,
+					event: "chat_attachment_cleanup",
+					fields: {
+						reason: "thread_deleted",
+						thread_id: threadId,
+						user_id: this.name,
+						workspace_id: thread.workspace_id,
+					},
+				});
 			}),
 		);
 	}
@@ -305,8 +314,18 @@ export class UserAIStore extends Agent<Cloudflare.Env, UserAIStoreState> {
 				}
 
 				deleteThreadMeta(this, thread.id);
-			} catch {
+			} catch (error) {
 				failed += 1;
+				recordOperationalFailure({
+					distinctId: this.name,
+					error,
+					event: "ai_thread_purge",
+					fields: {
+						thread_id: thread.id,
+						user_id: this.name,
+						workspace_id: thread.workspace_id,
+					},
+				});
 			}
 		}
 
@@ -390,10 +409,7 @@ export class UserAIStore extends Agent<Cloudflare.Env, UserAIStoreState> {
 	async getThreadContext(threadId: string): Promise<AIThreadContext | null> {
 		try {
 			const thread = await this._requireThreadMetaOrEnsureDefault(threadId);
-			const promptScope = await getWorkspacePromptScope({
-				workspaceId: thread.workspace_id,
-				userId: this.name,
-			});
+			const promptScope = await this._getWorkspacePromptScope(thread.workspace_id);
 
 			return {
 				id: thread.id,
@@ -401,8 +417,12 @@ export class UserAIStore extends Agent<Cloudflare.Env, UserAIStoreState> {
 				promptScope,
 				userId: this.name,
 			};
-		} catch {
-			return null;
+		} catch (error) {
+			if (error instanceof AIThreadNotFoundError || error instanceof AIThreadForbiddenError) {
+				return null;
+			}
+
+			throw error;
 		}
 	}
 
@@ -600,7 +620,17 @@ export class UserAIStore extends Agent<Cloudflare.Env, UserAIStoreState> {
 			userId: input.sourceUserId,
 			workspaceId: snapshot.meta.workspace_id,
 		}).catch((error) => {
-			console.error("Failed to delete source chat attachments after account linking", error);
+			recordOperationalFailure({
+				distinctId: this.name,
+				error,
+				event: "chat_attachment_cleanup",
+				fields: {
+					reason: "account_linked",
+					thread_id: snapshot.meta.id,
+					user_id: input.sourceUserId,
+					workspace_id: snapshot.meta.workspace_id,
+				},
+			});
 		});
 
 		this._refreshState();
@@ -665,23 +695,31 @@ export class UserAIStore extends Agent<Cloudflare.Env, UserAIStoreState> {
 			throw new AIThreadNotFoundError();
 		}
 
-		try {
-			await getWorkspacePromptScope({
-				userId: this.name,
-				workspaceId: thread.workspace_id,
-			});
-		} catch {
-			throw new AIThreadForbiddenError();
-		}
+		await this._getWorkspacePromptScope(thread.workspace_id);
 
 		return thread;
+	}
+
+	private async _getWorkspacePromptScope(workspaceId: string) {
+		try {
+			return await getWorkspacePromptScope({
+				userId: this.name,
+				workspaceId,
+			});
+		} catch (error) {
+			if (error instanceof WorkspaceForbiddenError) {
+				throw new AIThreadForbiddenError();
+			}
+
+			throw error;
+		}
 	}
 
 	private async _requireThreadMetaOrEnsureDefault(threadId: string): Promise<AIThreadMetaRow> {
 		try {
 			return await this._requireThreadMeta(threadId);
 		} catch (error) {
-			if (error instanceof AIThreadForbiddenError) {
+			if (!(error instanceof AIThreadNotFoundError)) {
 				throw error;
 			}
 

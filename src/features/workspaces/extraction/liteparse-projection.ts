@@ -8,6 +8,7 @@ import type {
 import { getWorkspaceFileSourceObject } from "#/features/workspaces/extraction/workspace-file-source";
 import { writeWorkspacePageProjection } from "#/features/workspaces/extraction/workspace-page-projection";
 import { getWorkspaceKernelFromEnv } from "#/features/workspaces/kernel/workspace-kernel-access";
+import { recordOperationalFailure } from "#/integrations/observability/operational-events";
 
 export async function publishLiteParseProjection(
 	env: Cloudflare.Env,
@@ -76,6 +77,17 @@ export async function publishLiteParseProjection(
 			},
 		);
 	} catch (error) {
+		recordOperationalFailure({
+			distinctId: params.actorUserId ?? undefined,
+			error,
+			event: "workspace_liteparse_projection",
+			fields: {
+				item_id: params.itemId,
+				request_id: params.requestId,
+				workflow_id: runId,
+				workspace_id: params.workspaceId,
+			},
+		});
 		return {
 			durationMs: Date.now() - startedAt,
 			errorType: error instanceof Error ? error.name : "UnknownError",

@@ -43,6 +43,7 @@ import {
 } from "#/features/workspaces/upload/workspace-upload-intake";
 import { apiError, apiJson, getRequestId } from "#/lib/api/http";
 import { getSessionFromRequest } from "#/lib/auth-queries.server";
+import { recordOperationalFailure } from "#/integrations/observability/operational-events";
 
 const uploadIntentSchema = z.object({
 	clientMutationId: z.string().min(1),
@@ -218,7 +219,13 @@ async function finalizeWorkspaceFileUpload(
 		}
 
 		if (claims.target === "staging") {
-			await env.WORKSPACE_KERNEL_FILES.delete(uploadedObjectKey).catch(() => undefined);
+			await deleteUploadObjectBestEffort({
+				cleanup: "staging_upload",
+				key: uploadedObjectKey,
+				requestId,
+				userId: observation.userId,
+				workspaceId,
+			});
 		}
 		uploadCompleted = true;
 
@@ -228,8 +235,37 @@ async function finalizeWorkspaceFileUpload(
 		return workspaceUploadErrorResponse(requestId, error);
 	} finally {
 		if (completionClaimKey && !uploadCompleted) {
-			await env.WORKSPACE_KERNEL_FILES.delete(completionClaimKey).catch(() => undefined);
+			await deleteUploadObjectBestEffort({
+				cleanup: "completion_claim",
+				key: completionClaimKey,
+				requestId,
+				userId: observation.userId,
+				workspaceId,
+			});
 		}
+	}
+}
+
+async function deleteUploadObjectBestEffort(input: {
+	cleanup: "completion_claim" | "staging_upload";
+	key: string;
+	requestId: string;
+	userId?: string;
+	workspaceId: string;
+}) {
+	try {
+		await env.WORKSPACE_KERNEL_FILES.delete(input.key);
+	} catch (error) {
+		recordOperationalFailure({
+			distinctId: input.userId,
+			error,
+			event: "workspace_file_upload_cleanup",
+			fields: {
+				cleanup: input.cleanup,
+				request_id: input.requestId,
+				workspace_id: input.workspaceId,
+			},
+		});
 	}
 }
 
@@ -360,6 +396,7 @@ class WorkspaceUploadRequestError extends Error {
 		message: string,
 	) {
 		super(message);
+		this.name = "WorkspaceUploadRequestError";
 	}
 }
 

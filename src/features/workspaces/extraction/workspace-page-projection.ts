@@ -105,8 +105,27 @@ export async function writeWorkspacePageProjection(input: {
 
 		return { manifest, manifestObjectKey };
 	} catch (error) {
-		await flushPageWrites(writes).catch(() => undefined);
-		await deleteR2Prefix(input.bucket, prefix).catch(() => undefined);
+		const cleanupErrors: unknown[] = [];
+		try {
+			await flushPageWrites(writes);
+		} catch (cleanupError) {
+			cleanupErrors.push(cleanupError);
+		}
+
+		try {
+			await deleteR2Prefix(input.bucket, prefix);
+		} catch (cleanupError) {
+			cleanupErrors.push(cleanupError);
+		}
+
+		if (cleanupErrors.length > 0) {
+			throw new AggregateError(
+				[error, ...cleanupErrors],
+				"Workspace page projection failed and cleanup did not complete.",
+				{ cause: error },
+			);
+		}
+
 		throw error;
 	}
 }

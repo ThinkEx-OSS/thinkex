@@ -5,7 +5,10 @@ import { workspaces } from "#/db/schema";
 import { createDbContext } from "#/db/server";
 import { userAIAgentName, workspaceKernelAgentName } from "#/features/workspaces/agent-routes";
 import type { ResourcePurgeResult } from "#/features/workspaces/resource-purge-result";
-import { recordOperationalOutcome } from "#/integrations/observability/operational-events";
+import {
+	recordOperationalFailure,
+	recordOperationalOutcome,
+} from "#/integrations/observability/operational-events";
 
 interface UserAIStoreLifecycleAgent {
 	mergeLinkedAnonymousUser(input: { anonymousUserId: string }): Promise<void>;
@@ -37,7 +40,8 @@ async function purgeUserAIStore(userId: string) {
 	try {
 		const store = getUserAIStoreLifecycleAgent(env, userId);
 		return await store.purgeForDeletion();
-	} catch {
+	} catch (error) {
+		recordPurgeAgentFailure("user", userId, error);
 		return { attempted: 1, failed: 1 };
 	}
 }
@@ -68,9 +72,22 @@ async function purgeWorkspaceResourcesResult(workspaceId: string): Promise<Resou
 	try {
 		const kernel = getWorkspaceKernelLifecycleAgent(env, workspaceId);
 		return await kernel.purgeForDeletion();
-	} catch {
+	} catch (error) {
+		recordPurgeAgentFailure("workspace", workspaceId, error);
 		return { attempted: 1, failed: 1 };
 	}
+}
+
+function recordPurgeAgentFailure(scope: "user" | "workspace", scopeId: string, error: unknown) {
+	recordOperationalFailure({
+		distinctId: scope === "user" ? scopeId : undefined,
+		error,
+		event: "resource_purge_agent",
+		fields: {
+			scope,
+			scope_id: scopeId,
+		},
+	});
 }
 
 export async function purgeUserAccountResources(userId: string) {

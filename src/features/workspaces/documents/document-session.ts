@@ -35,6 +35,7 @@ import {
 	getWorkspaceKernelFromEnv,
 	type WorkspaceKernelClient,
 } from "#/features/workspaces/kernel/workspace-kernel-access";
+import { recordOperationalFailure } from "#/integrations/observability/operational-events";
 
 const persistedYDocUpdateKey = "document-session:yjs-update";
 const checkpointDelayMs = 1_500;
@@ -74,8 +75,16 @@ export class DocumentSession extends YServer {
 
 		try {
 			access = await resolveDocumentSessionConnectionAccess(context.request, room.workspaceId);
-		} catch {
-			connection.close(1011, "Unauthorized");
+		} catch (error) {
+			recordOperationalFailure({
+				error,
+				event: "document_session_connection",
+				fields: {
+					item_id: room.itemId,
+					workspace_id: room.workspaceId,
+				},
+			});
+			connection.close(1011, "Document session unavailable");
 			return;
 		}
 
@@ -149,7 +158,6 @@ export class DocumentSession extends YServer {
 
 		try {
 			projection = parseMarkdownToTiptapDocumentProjection(editResult.content);
-			this.replaceCurrentDocument(projection.document);
 		} catch {
 			return {
 				applied: 0,
@@ -159,6 +167,8 @@ export class DocumentSession extends YServer {
 				warnings: [],
 			};
 		}
+
+		this.replaceCurrentDocument(projection.document);
 
 		await this.persistYDoc();
 		await this.checkpointToKernel();

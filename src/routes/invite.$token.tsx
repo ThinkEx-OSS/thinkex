@@ -21,10 +21,13 @@ export const Route = createFileRoute("/invite/$token")({
 			const result = await acceptWorkspaceInviteFn({
 				data: { token: params.token },
 			});
+			if (result.status === "unavailable") {
+				return result;
+			}
 
 			throw redirect({
 				to: "/workspaces/$workspaceId",
-				params: { workspaceId: result.workspaceId },
+				params: { workspaceId: result.value.workspaceId },
 				search: {
 					tab: undefined,
 					view: undefined,
@@ -32,28 +35,24 @@ export const Route = createFileRoute("/invite/$token")({
 			});
 		}
 
-		try {
-			return await getWorkspaceInvitePreviewFn({
-				data: { token: params.token },
-			});
-		} catch {
-			throw new Error("INVITE_UNAVAILABLE");
-		}
+		return await getWorkspaceInvitePreviewFn({
+			data: { token: params.token },
+		});
 	},
 	head: ({ loaderData }) => ({
-		meta: loaderData
-			? buildPublicMeta({
-					title: `Join ${loaderData.workspaceName}`,
-					description: `${loaderData.inviterName} invited you to join ${loaderData.workspaceName} on ThinkEx.`,
-					openGraphImageAlt: `Join ${loaderData.workspaceName} on ThinkEx`,
-				})
-			: buildPublicMeta({
-					title: "Invite unavailable",
-					description: "This ThinkEx invite link is invalid, expired, or has been revoked.",
-				}),
+		meta:
+			loaderData?.status === "ready"
+				? buildPublicMeta({
+						title: `Join ${loaderData.value.workspaceName}`,
+						description: `${loaderData.value.inviterName} invited you to join ${loaderData.value.workspaceName} on ThinkEx.`,
+						openGraphImageAlt: `Join ${loaderData.value.workspaceName} on ThinkEx`,
+					})
+				: buildPublicMeta({
+						title: "Invite unavailable",
+						description: "This ThinkEx invite link is invalid, expired, or has been revoked.",
+					}),
 	}),
-	component: InviteLandingPage,
-	errorComponent: InviteUnavailablePage,
+	component: InviteRoutePage,
 });
 
 function InviteScreen({ children }: { children: ReactNode }) {
@@ -69,9 +68,14 @@ function InviteScreen({ children }: { children: ReactNode }) {
 	);
 }
 
-function InviteLandingPage() {
+function InviteRoutePage() {
 	const { token } = Route.useParams();
-	const preview = Route.useLoaderData();
+	const result = Route.useLoaderData();
+	if (result.status === "unavailable") {
+		return <InviteUnavailablePage />;
+	}
+
+	const preview = result.value;
 	const callbackURL = buildInvitePath(token);
 
 	return (

@@ -14,6 +14,7 @@ import {
 	acceptWorkspaceInvite,
 	getOrCreateWorkspaceInviteLink,
 	getWorkspaceInvitePreview,
+	WorkspaceInviteError,
 } from "#/features/workspaces/invites/workspace-invites.server";
 import { withDb, withWorkspaceDb } from "#/features/workspaces/server/workspace-db";
 
@@ -37,18 +38,38 @@ const cancelWorkspaceEmailInviteInputSchema = z.object({
 	inviteId: z.string().min(1),
 });
 
+type WorkspaceInviteResolution<T> = { status: "ready"; value: T } | { status: "unavailable" };
+
+async function resolveWorkspaceInvite<T>(
+	operation: () => Promise<T>,
+): Promise<WorkspaceInviteResolution<T>> {
+	try {
+		return { status: "ready", value: await operation() };
+	} catch (error) {
+		if (error instanceof WorkspaceInviteError) {
+			return { status: "unavailable" };
+		}
+
+		throw error;
+	}
+}
+
 export const getWorkspaceInvitePreviewFn = createServerFn({ method: "GET" })
 	.validator(workspaceInviteTokenSchema)
-	.handler(async ({ data }) => withDb((db) => getWorkspaceInvitePreview(db, data.token)));
+	.handler(async ({ data }) =>
+		resolveWorkspaceInvite(() => withDb((db) => getWorkspaceInvitePreview(db, data.token))),
+	);
 
 export const acceptWorkspaceInviteFn = createServerFn({ method: "POST" })
 	.validator(workspaceInviteTokenSchema)
 	.handler(async ({ data }) =>
-		withWorkspaceDb(({ db, userId }) =>
-			acceptWorkspaceInvite(db, {
-				token: data.token,
-				userId,
-			}),
+		resolveWorkspaceInvite(() =>
+			withWorkspaceDb(({ db, userId }) =>
+				acceptWorkspaceInvite(db, {
+					token: data.token,
+					userId,
+				}),
+			),
 		),
 	);
 
