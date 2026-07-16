@@ -103,6 +103,14 @@ export const rateLimit = sqliteTable("rate_limit", {
 	lastRequest: integer("last_request").notNull(),
 });
 
+export const jwks = sqliteTable("jwks", {
+	id: text("id").primaryKey(),
+	publicKey: text("public_key").notNull(),
+	privateKey: text("private_key").notNull(),
+	createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+	expiresAt: integer("expires_at", { mode: "timestamp" }),
+});
+
 export const oauthClient = sqliteTable(
 	"oauth_client",
 	{
