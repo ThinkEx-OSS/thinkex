@@ -13,6 +13,7 @@ import {
 	mcpScopes,
 	type McpPrincipal,
 } from "#/features/mcp/mcp-operation-catalog";
+import { mcpCorsPreflightResponse, withMcpCors } from "#/features/mcp/mcp-cors";
 import { mcpOpenApiSpec } from "#/features/mcp/mcp-openapi";
 import { getAppOrigin } from "#/lib/app-origin";
 import { withAuth } from "#/lib/auth.server";
@@ -160,12 +161,21 @@ export async function routeMcpRequest(
 	ctx: ExecutionContext,
 ): Promise<Response | null> {
 	const pathname = new URL(request.url).pathname;
+	const isMcpProtocolPath =
+		pathname === mcpPath ||
+		pathname.startsWith("/.well-known/oauth-protected-resource") ||
+		pathname.startsWith("/.well-known/oauth-authorization-server") ||
+		pathname.startsWith("/.well-known/openid-configuration");
+
+	if (request.method === "OPTIONS" && isMcpProtocolPath) {
+		return mcpCorsPreflightResponse();
+	}
 
 	if (
 		pathname === "/.well-known/oauth-protected-resource" ||
 		pathname === `/.well-known/oauth-protected-resource${mcpPath}`
 	) {
-		return protectedResourceMetadata();
+		return withMcpCors(protectedResourceMetadata());
 	}
 
 	if (
@@ -173,7 +183,7 @@ export async function routeMcpRequest(
 		pathname === "/.well-known/oauth-authorization-server/api/auth"
 	) {
 		return await withAuth(async (auth) => {
-			return await oauthProviderAuthServerMetadata(auth)(request);
+			return withMcpCors(await oauthProviderAuthServerMetadata(auth)(request));
 		});
 	}
 
@@ -182,7 +192,7 @@ export async function routeMcpRequest(
 		pathname === "/.well-known/openid-configuration/api/auth"
 	) {
 		return await withAuth(async (auth) => {
-			return await oauthProviderOpenIdConfigMetadata(auth)(request);
+			return withMcpCors(await oauthProviderOpenIdConfigMetadata(auth)(request));
 		});
 	}
 
@@ -190,5 +200,5 @@ export async function routeMcpRequest(
 		return null;
 	}
 
-	return await handleAuthenticatedMcpRequest(request, env, ctx);
+	return withMcpCors(await handleAuthenticatedMcpRequest(request, env, ctx));
 }
