@@ -6,6 +6,7 @@ import { tanstackStartCookies } from "better-auth/tanstack-start";
 import { oauthProvider } from "@better-auth/oauth-provider";
 import { sql } from "drizzle-orm";
 
+import { getMcpResource, mcpOAuthScopes } from "#/features/mcp/mcp-config";
 import {
 	purgeUserAccountResources,
 	transferLinkedAccountResources,
@@ -175,7 +176,7 @@ function createAuth(database: Db, env: AuthRuntimeEnv) {
 	const baseURL = getAuthBaseURL();
 	const appOrigin =
 		typeof baseURL === "string" ? baseURL : (baseURL.fallback ?? "http://localhost:3000");
-	const mcpResource = `${appOrigin}/mcp`;
+	const mcpResource = getMcpResource(appOrigin);
 
 	return betterAuth({
 		database: drizzleAdapter(database, {
@@ -226,16 +227,11 @@ function createAuth(database: Db, env: AuthRuntimeEnv) {
 			oauthProvider({
 				allowDynamicClientRegistration: true,
 				allowUnauthenticatedClientRegistration: true,
-				clientRegistrationDefaultScopes: [
-					"openid",
-					"offline_access",
-					"workspaces:read",
-					"workspaces:write",
-				],
+				clientRegistrationDefaultScopes: [...mcpOAuthScopes],
 				consentPage: "/oauth/consent",
 				grantTypes: ["authorization_code", "refresh_token"],
 				loginPage: "/login",
-				scopes: ["openid", "offline_access", "workspaces:read", "workspaces:write"],
+				scopes: [...mcpOAuthScopes],
 				silenceWarnings: { oauthAuthServerConfig: true },
 				validAudiences: [mcpResource],
 			}),

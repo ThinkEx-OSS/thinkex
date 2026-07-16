@@ -4,13 +4,13 @@ import { useState } from "react";
 import { z } from "zod";
 
 import { Button } from "#/components/ui/button";
+import { mcpScopeDescriptions } from "#/features/mcp/mcp-config";
 import { authClient } from "#/lib/auth-client";
 
 const scopeLabels: Record<string, string> = {
 	openid: "Identify your ThinkEx account",
 	offline_access: "Stay connected until you revoke access",
-	"workspaces:read": "View your workspaces and their contents",
-	"workspaces:write": "Create, edit, move, link, and delete workspace content",
+	...mcpScopeDescriptions,
 };
 
 export const Route = createFileRoute("/oauth/consent")({
@@ -26,10 +26,17 @@ function OAuthConsentPage() {
 	const [pendingDecision, setPendingDecision] = useState<"allow" | "deny" | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const scopes = scope?.split(" ").filter(Boolean) ?? [];
+	const hasRequestedScopes = scopes.length > 0;
 
 	async function decide(accept: boolean) {
 		setPendingDecision(accept ? "allow" : "deny");
 		setError(null);
+
+		if (accept && !hasRequestedScopes) {
+			setError("This client did not specify any permissions.");
+			setPendingDecision(null);
+			return;
+		}
 
 		const result = await authClient.oauth2.consent({
 			accept,
@@ -70,6 +77,11 @@ function OAuthConsentPage() {
 						</li>
 					))}
 				</ul>
+				{!hasRequestedScopes ? (
+					<p className="text-sm text-destructive">
+						This client did not specify any permissions. Deny this request and reconnect.
+					</p>
+				) : null}
 
 				<p className="text-xs leading-5 text-muted-foreground">
 					Your current role is checked again for every workspace operation. This connection cannot
@@ -90,7 +102,7 @@ function OAuthConsentPage() {
 					</Button>
 					<Button
 						type="button"
-						disabled={pendingDecision !== null}
+						disabled={pendingDecision !== null || !hasRequestedScopes}
 						onClick={() => void decide(true)}
 					>
 						{pendingDecision === "allow" ? <Loader2 className="animate-spin" /> : null}

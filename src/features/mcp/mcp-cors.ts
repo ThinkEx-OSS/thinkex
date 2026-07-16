@@ -2,7 +2,7 @@ const mcpCorsRequestHeaders = "authorization, content-type, mcp-protocol-version
 const mcpCorsResponseHeaders = "mcp-session-id, www-authenticate";
 
 export function isMcpOAuthPath(pathname: string) {
-	return pathname === "/api/auth/jwks" || pathname.startsWith("/api/auth/oauth2/");
+	return pathname === `${mcpAuthPath}/jwks` || pathname.startsWith(`${mcpAuthPath}/oauth2/`);
 }
 
 export function withMcpCors(response: Response) {
@@ -28,3 +28,4 @@ export function mcpCorsPreflightResponse() {
 		},
 	});
 }
+import { mcpAuthPath } from "#/features/mcp/mcp-config";

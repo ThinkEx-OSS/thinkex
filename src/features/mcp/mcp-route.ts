@@ -1,33 +1,37 @@
 import { DynamicWorkerExecutor } from "@cloudflare/codemode";
 import { openApiMcpServer } from "@cloudflare/codemode/mcp";
 import {
-	mcpHandler,
 	oauthProviderAuthServerMetadata,
 	oauthProviderOpenIdConfigMetadata,
 } from "@better-auth/oauth-provider";
 import { createMcpHandler } from "agents/mcp";
 
+import { authenticateMcpRequest } from "#/features/mcp/mcp-auth";
 import {
-	executeMcpOperation,
-	getMcpOperation,
+	getMcpUrls,
+	mcpAuthPath,
+	mcpOperationPathPrefix,
+	mcpPath,
 	mcpScopes,
-	type McpPrincipal,
-} from "#/features/mcp/mcp-operation-catalog";
+} from "#/features/mcp/mcp-config";
+import { executeMcpOperation, type McpPrincipal } from "#/features/mcp/mcp-operation-catalog";
 import { mcpCorsPreflightResponse, withMcpCors } from "#/features/mcp/mcp-cors";
 import { mcpOpenApiSpec } from "#/features/mcp/mcp-openapi";
 import { getAppOrigin } from "#/lib/app-origin";
 import { withAuth } from "#/lib/auth.server";
 
-const mcpPath = "/mcp";
-const operationPathPrefix = "/operations/";
-
-function getOAuthUrls() {
-	const origin = getAppOrigin();
-	return {
-		issuer: `${origin}/api/auth`,
-		resource: `${origin}${mcpPath}`,
-	};
-}
+const protectedResourceMetadataPaths = new Set([
+	"/.well-known/oauth-protected-resource",
+	`/.well-known/oauth-protected-resource${mcpPath}`,
+]);
+const authorizationServerMetadataPaths = new Set([
+	"/.well-known/oauth-authorization-server",
+	`/.well-known/oauth-authorization-server${mcpAuthPath}`,
+]);
+const openIdMetadataPaths = new Set([
+	"/.well-known/openid-configuration",
+	`/.well-known/openid-configuration${mcpAuthPath}`,
+]);
 
 function getPrincipal(payload: { scope?: unknown; sub?: string }): McpPrincipal {
 	if (!payload.sub) {
@@ -54,16 +58,11 @@ function createThinkExMcpServer(env: Cloudflare.Env, principal: McpPrincipal) {
 			globalOutbound: null,
 		}),
 		request: async (options, context) => {
-			if (options.method !== "POST" || !options.path.startsWith(operationPathPrefix)) {
+			if (options.method !== "POST" || !options.path.startsWith(mcpOperationPathPrefix)) {
 				throw new Error("Unsupported MCP operation request.");
 			}
 
-			const operationName = options.path.slice(operationPathPrefix.length);
-			const operation = getMcpOperation(operationName);
-
-			if (!operation) {
-				throw new Error("Unknown MCP operation.");
-			}
+			const operationName = options.path.slice(mcpOperationPathPrefix.length);
 
 			return await executeMcpOperation({
 				name: operationName,
@@ -78,7 +77,7 @@ function createThinkExMcpServer(env: Cloudflare.Env, principal: McpPrincipal) {
 }
 
 function protectedResourceMetadata() {
-	const { issuer, resource } = getOAuthUrls();
+	const { issuer, resource } = getMcpUrls(getAppOrigin());
 
 	return Response.json({
 		resource,
@@ -93,26 +92,27 @@ async function handleAuthenticatedMcpRequest(
 	env: Cloudflare.Env,
 	ctx: ExecutionContext,
 ) {
-	const { issuer, resource } = getOAuthUrls();
-	const getLocalJwks = () => withAuth((auth) => auth.api.getJwks());
-	const authenticate = mcpHandler(
-		{
-			// Better Auth supports a JWKS callback at runtime, but its public type only
-			// exposes URL strings. A local callback avoids a Worker self-fetch through
-			// the public hostname while retaining Better Auth's token verifier.
-			jwksUrl: getLocalJwks as unknown as string,
-			verifyOptions: {
-				audience: resource,
-				issuer,
-			},
-		},
-		async (authenticatedRequest, payload) => {
+	const { issuer, resource } = getMcpUrls(getAppOrigin());
+
+	return await authenticateMcpRequest({
+		getJwks: () => withAuth((auth) => auth.api.getJwks()),
+		handle: async (authenticatedRequest, payload) => {
 			const server = createThinkExMcpServer(env, getPrincipal(payload));
 			return await createMcpHandler(server, { route: mcpPath })(authenticatedRequest, env, ctx);
 		},
-	);
+		issuer,
+		request,
+		resource,
+	});
+}
 
-	return await authenticate(request);
+function isMcpProtocolPath(pathname: string) {
+	return (
+		pathname === mcpPath ||
+		protectedResourceMetadataPaths.has(pathname) ||
+		authorizationServerMetadataPaths.has(pathname) ||
+		openIdMetadataPaths.has(pathname)
+	);
 }
 
 export async function routeMcpRequest(
@@ -121,36 +121,22 @@ export async function routeMcpRequest(
 	ctx: ExecutionContext,
 ): Promise<Response | null> {
 	const pathname = new URL(request.url).pathname;
-	const isMcpProtocolPath =
-		pathname === mcpPath ||
-		pathname.startsWith("/.well-known/oauth-protected-resource") ||
-		pathname.startsWith("/.well-known/oauth-authorization-server") ||
-		pathname.startsWith("/.well-known/openid-configuration");
 
-	if (request.method === "OPTIONS" && isMcpProtocolPath) {
+	if (request.method === "OPTIONS" && isMcpProtocolPath(pathname)) {
 		return mcpCorsPreflightResponse();
 	}
 
-	if (
-		pathname === "/.well-known/oauth-protected-resource" ||
-		pathname === `/.well-known/oauth-protected-resource${mcpPath}`
-	) {
+	if (protectedResourceMetadataPaths.has(pathname)) {
 		return withMcpCors(protectedResourceMetadata());
 	}
 
-	if (
-		pathname === "/.well-known/oauth-authorization-server" ||
-		pathname === "/.well-known/oauth-authorization-server/api/auth"
-	) {
+	if (authorizationServerMetadataPaths.has(pathname)) {
 		return await withAuth(async (auth) => {
 			return withMcpCors(await oauthProviderAuthServerMetadata(auth)(request));
 		});
 	}
 
-	if (
-		pathname === "/.well-known/openid-configuration" ||
-		pathname === "/.well-known/openid-configuration/api/auth"
-	) {
+	if (openIdMetadataPaths.has(pathname)) {
 		return await withAuth(async (auth) => {
 			return withMcpCors(await oauthProviderOpenIdConfigMetadata(auth)(request));
 		});

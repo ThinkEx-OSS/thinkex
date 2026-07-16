@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import type { McpScope } from "#/features/mcp/mcp-config";
 import { workspaceSummarySchema } from "#/features/workspaces/contracts";
 import { createAccountAccessContext } from "#/features/workspaces/operations/account-access-context";
 import { listAccountWorkspacesOperation } from "#/features/workspaces/operations/list-workspaces";
@@ -10,10 +11,6 @@ import {
 	type WorkspaceToolEffects,
 	workspaceToolDefinitions,
 } from "#/features/workspaces/operations/workspace-tool-definitions";
-
-export const mcpScopes = ["workspaces:read", "workspaces:write"] as const;
-
-export type McpScope = (typeof mcpScopes)[number];
 
 export interface McpPrincipal {
 	scopes: ReadonlySet<string>;

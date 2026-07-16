@@ -1,5 +1,10 @@
 import { z } from "zod";
 
+import {
+	mcpAuthPath,
+	mcpOperationPathPrefix,
+	mcpScopeDescriptions,
+} from "#/features/mcp/mcp-config";
 import { mcpOperations } from "#/features/mcp/mcp-operation-catalog";
 
 function toOpenApiSchema(schema: z.ZodType) {
@@ -47,7 +52,7 @@ export const mcpOpenApiSpec: Record<string, unknown> = {
 	},
 	paths: Object.fromEntries(
 		mcpOperations.map((operation) => [
-			`/operations/${operation.name}`,
+			`${mcpOperationPathPrefix}${operation.name}`,
 			buildOperationPath(operation),
 		]),
 	),
@@ -57,12 +62,9 @@ export const mcpOpenApiSpec: Record<string, unknown> = {
 				type: "oauth2",
 				flows: {
 					authorizationCode: {
-						authorizationUrl: "/api/auth/oauth2/authorize",
-						tokenUrl: "/api/auth/oauth2/token",
-						scopes: {
-							"workspaces:read": "Read workspaces the user belongs to.",
-							"workspaces:write": "Modify workspaces when the user's role permits it.",
-						},
+						authorizationUrl: `${mcpAuthPath}/oauth2/authorize`,
+						tokenUrl: `${mcpAuthPath}/oauth2/token`,
+						scopes: mcpScopeDescriptions,
 					},
 				},
 			},
