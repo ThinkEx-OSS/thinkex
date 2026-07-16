@@ -236,6 +236,7 @@ function createAuth(database: Db, env: AuthRuntimeEnv) {
 				grantTypes: ["authorization_code", "refresh_token"],
 				loginPage: "/login",
 				scopes: ["openid", "offline_access", "workspaces:read", "workspaces:write"],
+				silenceWarnings: { oauthAuthServerConfig: true },
 				validAudiences: [mcpResource],
 			}),
 			tanstackStartCookies(),
