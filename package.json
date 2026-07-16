@@ -26,7 +26,7 @@
 		"test": "vp test --run",
 		"test:workers": "vp test --run --passWithNoTests --config vitest.cloudflare.config.ts",
 		"deploy:worker": "CLOUDFLARE_ENV=production wrangler deploy",
-		"deploy:worker:staging": "CLOUDFLARE_ENV=staging wrangler deploy",
+		"deploy:worker:staging": "CLOUDFLARE_ENV=staging wrangler deploy --containers-rollout=none",
 		"deploy": "vp run build:production && vp run deploy:worker",
 		"deploy:staging": "vp run build:staging && vp run deploy:worker:staging",
 		"db:generate": "drizzle-kit generate",
