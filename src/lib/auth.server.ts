@@ -233,6 +233,8 @@ function createAuth(database: Db, env: AuthRuntimeEnv) {
 				loginPage: "/login",
 				scopes: [...mcpOAuthScopes],
 				silenceWarnings: { oauthAuthServerConfig: true },
+				// Keep this to one audience while Better Auth 1.6.x is in use. Its
+				// resource indicator is not bound to the original authorization grant.
 				validAudiences: [mcpResource],
 			}),
 			tanstackStartCookies(),

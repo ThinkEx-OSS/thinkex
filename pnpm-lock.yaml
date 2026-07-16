@@ -5,6 +5,7 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
+  dompurify: 3.4.11
   vite: npm:@voidzero-dev/vite-plus-core@0.2.2
   vitest: 4.1.9
 
@@ -5557,8 +5558,8 @@ packages:
   dom-accessibility-api@0.5.16:
     resolution: {integrity: sha512-X7BJ2yElsnOJ30pZF4uIIDfBEVgF4XEBxL9Bxhy6dnrm5hkzqmsWHGTiHqRiITNhMyFLyAiWndIJP7Z1NTteDg==}
 
-  dompurify@3.4.3:
-    resolution: {integrity: sha512-VVwJidIJcp1hpg2OMXML3ZVRPYSZiq4aX7qBh83BSIpOaRDqI+qxhXjjIWnpzkOXhmp0L81lnoME1mnCc9H48A==}
+  dompurify@3.4.11:
+    resolution: {integrity: sha512-zhlUV12GsaRzMsf9q5M254YhA4+VuF0fG+QFqu6aYpoGlKtz+w8//jBcGVYBgQkR5GHjUomejY84AV+/uPbWdw==}
 
   dot-prop@10.1.0:
     resolution: {integrity: sha512-MVUtAugQMOff5RnBy2d9N31iG0lNwg1qAoAOn7pOK5wf94WIaE3My2p3uwTQuvS2AcqchkcR3bHByjaM0mmi7Q==}
@@ -13192,7 +13193,7 @@ snapshots:
 
   dom-accessibility-api@0.5.16: {}
 
-  dompurify@3.4.3:
+  dompurify@3.4.11:
     optionalDependencies:
       '@types/trusted-types': 2.0.7
 
@@ -14626,7 +14627,7 @@ snapshots:
       d3-sankey: 0.12.3
       dagre-d3-es: 7.0.14
       dayjs: 1.11.21
-      dompurify: 3.4.3
+      dompurify: 3.4.11
       es-toolkit: 1.46.1
       katex: 0.16.47
       khroma: 2.1.0
@@ -15492,7 +15493,7 @@ snapshots:
       '@posthog/core': 1.39.6
       '@posthog/types': 1.392.1
       core-js: 3.49.0
-      dompurify: 3.4.3
+      dompurify: 3.4.11
       fflate: 0.4.8
       preact: 10.29.2
       query-selector-shadow-dom: 1.0.1
