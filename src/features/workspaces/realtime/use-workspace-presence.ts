@@ -69,7 +69,7 @@ export function useWorkspaceRealtime({
 		onEventRef.current = onEvent;
 		onReconnectRef.current = onReconnect;
 		onRevisionGapRef.current = onRevisionGap;
-	}, [onEvent, onReconnect, onRevisionGap]);
+	});
 
 	let currentPresence = presence;
 	if (presence.workspaceId !== workspaceId) {

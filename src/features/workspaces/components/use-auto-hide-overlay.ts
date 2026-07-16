@@ -1,4 +1,4 @@
-import { type FocusEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type FocusEvent, useEffect, useRef, useState } from "react";
 
 export type AutoHideControls = {
 	show: () => void;
@@ -21,16 +21,16 @@ export function useAutoHideControls(delayMs: number): {
 	const isPinnedRef = useRef(false);
 	const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-	const show = useCallback(() => {
+	const show = () => {
 		setIsVisible(true);
 
 		if (hideTimeoutRef.current) {
 			clearTimeout(hideTimeoutRef.current);
 			hideTimeoutRef.current = null;
 		}
-	}, []);
+	};
 
-	const scheduleHide = useCallback(() => {
+	const scheduleHide = () => {
 		if (hideTimeoutRef.current) {
 			clearTimeout(hideTimeoutRef.current);
 		}
@@ -40,27 +40,24 @@ export function useAutoHideControls(delayMs: number): {
 				setIsVisible(false);
 			}
 		}, delayMs);
-	}, [delayMs]);
+	};
 
-	const pin = useCallback(() => {
+	const pin = () => {
 		isPinnedRef.current = true;
 		show();
-	}, [show]);
+	};
 
-	const unpin = useCallback(() => {
+	const unpin = () => {
 		isPinnedRef.current = false;
 		scheduleHide();
-	}, [scheduleHide]);
+	};
 
-	const controls = useMemo(
-		(): AutoHideControls => ({
-			show,
-			scheduleHide,
-			pin,
-			unpin,
-		}),
-		[pin, scheduleHide, show, unpin],
-	);
+	const controls: AutoHideControls = {
+		show,
+		scheduleHide,
+		pin,
+		unpin,
+	};
 
 	useEffect(
 		() => () => {

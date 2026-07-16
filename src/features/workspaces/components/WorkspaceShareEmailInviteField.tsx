@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Send, X } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Badge } from "#/components/ui/badge";
@@ -26,7 +26,7 @@ export function WorkspaceShareEmailInviteField({
 }) {
 	const queryClient = useQueryClient();
 	const inputRef = useRef<HTMLInputElement>(null);
-	const grantableRoles = useMemo(() => getGrantableInviteRoles(membershipRole), [membershipRole]);
+	const grantableRoles = getGrantableInviteRoles(membershipRole);
 	const [draftEmails, setDraftEmails] = useState<string[]>([]);
 	const [inputValue, setInputValue] = useState("");
 	const [inviteRoleSelection, setInviteRoleSelection] = useState<WorkspaceMembershipRole>(() =>

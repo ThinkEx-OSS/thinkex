@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useId, useRef, useState } from "react";
 import type Matter from "matter-js";
 
 import { cn } from "#/lib/utils";
@@ -52,15 +52,13 @@ export function MatterBody({
 	angle = 0,
 }: MatterBodyProps) {
 	const elementRef = useRef<HTMLDivElement | null>(null);
-	const idRef = useRef(crypto.randomUUID());
+	const id = useId();
 	const context = useContext(GravityContext);
 
 	useEffect(() => {
 		if (!context || !elementRef.current) {
 			return;
 		}
-
-		const id = idRef.current;
 
 		context.registerElement(id, elementRef.current, {
 			isDraggable,
@@ -71,7 +69,7 @@ export function MatterBody({
 		});
 
 		return () => context.unregisterElement(id);
-	}, [angle, context, isDraggable, matterBodyOptions, x, y]);
+	}, [angle, context, id, isDraggable, matterBodyOptions, x, y]);
 
 	return (
 		<div

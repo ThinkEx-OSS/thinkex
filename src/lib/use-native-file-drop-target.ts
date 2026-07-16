@@ -1,4 +1,4 @@
-import { type RefObject, useEffect } from "react";
+import { type RefObject, useEffect, useEffectEvent } from "react";
 
 import { hasNativeFiles } from "#/lib/native-file-drag";
 
@@ -26,6 +26,12 @@ export function useNativeFileDropTarget({
 	shouldHandle?: (event: DragEvent) => boolean;
 	targetRef: RefObject<HTMLElement | null>;
 }) {
+	const setActive = useEffectEvent((isActive: boolean) => {
+		onActiveChange?.(isActive);
+	});
+	const dropFiles = useEffectEvent(onDrop);
+	const canHandleEvent = useEffectEvent(shouldHandle);
+
 	useEffect(() => {
 		if (!enabled) {
 			return;
@@ -36,12 +42,8 @@ export function useNativeFileDropTarget({
 			return;
 		}
 
-		const setActive = (isActive: boolean) => {
-			onActiveChange?.(isActive);
-		};
-
 		const canHandle = (event: DragEvent) => {
-			if (!shouldHandle(event)) {
+			if (!canHandleEvent(event)) {
 				setActive(false);
 				return false;
 			}
@@ -90,7 +92,7 @@ export function useNativeFileDropTarget({
 			setActive(false);
 
 			if (dataTransfer.files.length > 0) {
-				onDrop(dataTransfer.files);
+				dropFiles(dataTransfer.files);
 			}
 		};
 
@@ -106,5 +108,5 @@ export function useNativeFileDropTarget({
 			target.removeEventListener("drop", handleDrop);
 			setActive(false);
 		};
-	}, [enabled, onActiveChange, onDrop, shouldHandle, targetRef]);
+	}, [enabled, targetRef]);
 }

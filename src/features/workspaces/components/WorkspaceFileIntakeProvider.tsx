@@ -1,4 +1,4 @@
-import { createContext, type ReactNode, use, useCallback, useState } from "react";
+import { createContext, type ReactNode, use, useState } from "react";
 
 import { WorkspaceFileIntakeReviewDialog } from "#/features/workspaces/components/WorkspaceFileIntakeReviewDialog";
 import { useWorkspaceFileUpload } from "#/features/workspaces/components/WorkspaceFileUploadProvider";
@@ -20,33 +20,27 @@ export function WorkspaceFileIntakeProvider({ children }: { children: ReactNode 
 	const { requestFileSelection, uploadFiles: uploadRawFiles } = useWorkspaceFileUpload();
 	const [rejectedFiles, setRejectedFiles] = useState<ReviewedIncomingFile[]>([]);
 
-	const handleWorkspaceFiles = useCallback(
-		(files: Iterable<File>, parentId: string | null) => {
-			const review = classifyIncomingWorkspaceFiles(Array.from(files), {
-				canUploadToWorkspace: capabilities.canMutateContent,
-			});
+	const handleWorkspaceFiles = (files: Iterable<File>, parentId: string | null) => {
+		const review = classifyIncomingWorkspaceFiles(Array.from(files), {
+			canUploadToWorkspace: capabilities.canMutateContent,
+		});
 
-			if (review.accepted.length > 0) {
-				uploadRawFiles(review.accepted, parentId);
-			}
+		if (review.accepted.length > 0) {
+			uploadRawFiles(review.accepted, parentId);
+		}
 
-			setRejectedFiles(review.rejected);
-		},
-		[capabilities.canMutateContent, uploadRawFiles],
-	);
+		setRejectedFiles(review.rejected);
+	};
 
-	const requestFileUpload = useCallback(
-		(parentId: string | null) => {
-			if (!capabilities.canMutateContent) {
-				return;
-			}
+	const requestFileUpload = (parentId: string | null) => {
+		if (!capabilities.canMutateContent) {
+			return;
+		}
 
-			requestFileSelection((files) => {
-				handleWorkspaceFiles(files, parentId);
-			});
-		},
-		[capabilities.canMutateContent, handleWorkspaceFiles, requestFileSelection],
-	);
+		requestFileSelection((files) => {
+			handleWorkspaceFiles(files, parentId);
+		});
+	};
 
 	return (
 		<WorkspaceFileIntakeContext.Provider
