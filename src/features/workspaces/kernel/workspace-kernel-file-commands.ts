@@ -118,12 +118,16 @@ export class WorkspaceKernelFileCommands {
 		const now = Date.now();
 		const itemId = input.id;
 		const requestedName = normalizeWorkspaceUploadFileName(input.fileName, descriptor);
-		const name = this.store.resolveItemName({
+		const nameResolution = this.store.resolveItemName({
 			itemId,
 			type: "file",
 			parentId,
 			requestedName,
 		});
+		if (nameResolution.status === "conflict") {
+			throw new Error("Automatic file naming unexpectedly produced a conflict.");
+		}
+		const name = nameResolution.name;
 		const shellPath = getWorkspaceKernelFileShellPath({
 			itemId,
 			extension: getWorkspaceFileShellExtension({

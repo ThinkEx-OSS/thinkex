@@ -36,6 +36,7 @@ import type {
 	UpdateWorkspaceKernelItemColorArgs,
 	UpsertWorkspaceKernelFileProjectionArgs,
 	WorkspaceKernelPage,
+	WorkspaceKernelMutationOutcome,
 	WriteWorkspaceKernelItemArgs,
 } from "#/features/workspaces/kernel/workspace-kernel-types";
 import { getChatAttachmentWorkspacePrefix } from "#/features/workspaces/ai/chat-attachment-storage";
@@ -142,7 +143,7 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 
 	async createItem(
 		input: CreateWorkspaceKernelItemArgs,
-	): Promise<WorkspaceCommandResult<WorkspaceItemSummary>> {
+	): Promise<WorkspaceKernelMutationOutcome<WorkspaceItemSummary>> {
 		return this.runMutation("create_item", input, 1, () => this.itemCommands.createItem(input));
 	}
 
@@ -170,13 +171,13 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 
 	async renameItem(
 		input: RenameWorkspaceKernelItemArgs,
-	): Promise<WorkspaceCommandResult<WorkspaceItemSummary>> {
+	): Promise<WorkspaceKernelMutationOutcome<WorkspaceItemSummary>> {
 		return this.runMutation("rename_item", input, 1, () => this.itemCommands.renameItem(input));
 	}
 
 	async moveItems(
 		input: MoveWorkspaceKernelItemsArgs,
-	): Promise<WorkspaceCommandResult<MoveWorkspaceKernelItemsResult>> {
+	): Promise<WorkspaceKernelMutationOutcome<MoveWorkspaceKernelItemsResult>> {
 		return this.runMutation("move_items", input, input.items.length, () =>
 			this.itemCommands.moveItems(input),
 		);

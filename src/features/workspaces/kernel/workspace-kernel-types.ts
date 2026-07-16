@@ -10,6 +10,7 @@ import type {
 	WorkspaceFileAssetKind,
 	WorkspaceUploadConversion,
 } from "#/features/workspaces/model/workspace-file";
+import type { WorkspaceCommandResult } from "#/features/workspaces/realtime/messages";
 
 export interface WorkspaceKernelPage {
 	workspaceId: string;
@@ -45,6 +46,34 @@ export interface ListWorkspaceKernelItemsArgs {
 
 export type WorkspaceKernelNameConflictPolicy = "rename" | "error";
 
+export interface WorkspaceKernelNameConflict {
+	code: "name_conflict";
+	itemId: string | null;
+	requestedName: string | null;
+}
+
+export type WorkspaceKernelMutationOutcome<T> =
+	| {
+			command: WorkspaceCommandResult<T>;
+			status: "applied";
+	  }
+	| {
+			conflict: WorkspaceKernelNameConflict;
+			status: "conflict";
+	  };
+
+export function requireAppliedWorkspaceKernelMutation<T>(
+	outcome: WorkspaceKernelMutationOutcome<T>,
+): WorkspaceCommandResult<T> {
+	if (outcome.status === "conflict") {
+		throw new Error("Workspace kernel unexpectedly returned a name conflict.", {
+			cause: outcome.conflict,
+		});
+	}
+
+	return outcome.command;
+}
+
 export interface CreateWorkspaceKernelItemArgs {
 	id?: string;
 	parentId?: string | null;
@@ -54,6 +83,7 @@ export interface CreateWorkspaceKernelItemArgs {
 	color?: WorkspaceItemColor;
 	metadataJson?: Record<string, JsonValue>;
 	initialContent?: string;
+	initialRelations?: CreateWorkspaceKernelRelationArgs[];
 	actorUserId?: string | null;
 	clientMutationId?: string | null;
 }

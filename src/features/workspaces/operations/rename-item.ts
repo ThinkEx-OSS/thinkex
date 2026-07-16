@@ -8,7 +8,6 @@ import {
 	getParentWorkspacePath,
 	joinWorkspaceItemPath,
 } from "#/features/workspaces/kernel/workspace-kernel-paths";
-import { isWorkspaceKernelNameConflictError } from "#/features/workspaces/kernel/workspace-kernel-errors";
 
 export interface RenameWorkspaceItemOperationInput {
 	name: string;
@@ -63,35 +62,34 @@ export async function renameWorkspaceItemOperation(
 		};
 	}
 
-	try {
-		const command = await workspaceContext.kernel.renameItem({
-			itemId: resolution.item.id,
-			name: input.name,
-			onNameConflict: "error",
-			actorUserId: accessContext.actor.userId,
-			clientMutationId: accessContext.operationId,
-		});
+	const outcome = await workspaceContext.kernel.renameItem({
+		itemId: resolution.item.id,
+		name: input.name,
+		onNameConflict: "error",
+		actorUserId: accessContext.actor.userId,
+		clientMutationId: accessContext.operationId,
+	});
 
+	if (outcome.status === "conflict") {
 		return {
-			failed: [],
-			item: {
-				path: joinWorkspaceItemPath(getParentWorkspacePath(resolution.path), command.result.name),
-				previousPath: resolution.path,
-				type: command.result.type,
-			},
+			failed: [
+				{
+					code: "path_already_exists",
+					path: resolution.path,
+				},
+			],
 		};
-	} catch (error) {
-		if (isWorkspaceKernelNameConflictError(error)) {
-			return {
-				failed: [
-					{
-						code: "path_already_exists",
-						path: resolution.path,
-					},
-				],
-			};
-		}
-
-		throw error;
 	}
+
+	return {
+		failed: [],
+		item: {
+			path: joinWorkspaceItemPath(
+				getParentWorkspacePath(resolution.path),
+				outcome.command.result.name,
+			),
+			previousPath: resolution.path,
+			type: outcome.command.result.type,
+		},
+	};
 }

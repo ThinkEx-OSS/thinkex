@@ -13,6 +13,7 @@ import {
 	createWorkspaceFileFromUpload,
 	getWorkspaceKernel,
 } from "#/features/workspaces/kernel/workspace-kernel-access";
+import { requireAppliedWorkspaceKernelMutation } from "#/features/workspaces/kernel/workspace-kernel-types";
 import {
 	resolveWorkspaceFileAiReadStrategy,
 	WorkspaceFileUploadError,
@@ -268,16 +269,18 @@ async function createWorkspaceDocumentFromUpload(input: {
 		getWorkspaceKernel(input.claims.workspaceId),
 	]);
 
-	return kernel.createItem({
-		id: input.claims.itemId,
-		actorUserId: input.claims.userId,
-		clientMutationId: input.claims.clientMutationId,
-		initialContent: documentContent.initialContent,
-		metadataJson: documentContent.metadataJson,
-		name: documentContent.name,
-		parentId: input.claims.parentId,
-		type: "document",
-	});
+	return requireAppliedWorkspaceKernelMutation(
+		await kernel.createItem({
+			id: input.claims.itemId,
+			actorUserId: input.claims.userId,
+			clientMutationId: input.claims.clientMutationId,
+			initialContent: documentContent.initialContent,
+			metadataJson: documentContent.metadataJson,
+			name: documentContent.name,
+			parentId: input.claims.parentId,
+			type: "document",
+		}),
+	);
 }
 
 async function authorizeWorkspaceUpload(request: Request, workspaceId: string) {
