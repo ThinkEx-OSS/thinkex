@@ -15,13 +15,11 @@ export function isWorkspaceKernelNameConflictError(
 		return true;
 	}
 
-	if (!(error instanceof Error)) {
-		return false;
-	}
+	const serialized = String(error);
 
-	return (
-		error.name === "WorkspaceKernelNameConflictError" ||
-		error.message === "Workspace item name already exists." ||
-		error.message === "WorkspaceKernelNameConflictError: Workspace item name already exists."
-	);
+	return [
+		"WorkspaceKernelNameConflictError: Workspace item name already exists.",
+		"Error: WorkspaceKernelNameConflictError: Workspace item name already exists.",
+		"Error: Workspace item name already exists.",
+	].includes(serialized);
 }

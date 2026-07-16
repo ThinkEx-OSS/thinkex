@@ -12,9 +12,9 @@ describe("isWorkspaceKernelNameConflictError", () => {
 
 	it("recognizes name conflict errors serialized across Durable Object RPC", () => {
 		expect(
-			isWorkspaceKernelNameConflictError(
-				new Error("WorkspaceKernelNameConflictError: Workspace item name already exists."),
-			),
+			isWorkspaceKernelNameConflictError({
+				toString: () => "WorkspaceKernelNameConflictError: Workspace item name already exists.",
+			}),
 		).toBe(true);
 	});
 
