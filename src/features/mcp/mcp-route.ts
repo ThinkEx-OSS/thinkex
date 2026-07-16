@@ -42,40 +42,7 @@ function getPrincipal(payload: { scope?: unknown; sub?: string }): McpPrincipal 
 	};
 }
 
-async function confirmDelete(
-	server: ReturnType<typeof openApiMcpServer>,
-	requestId: string | number,
-) {
-	if (!server.server.getClientCapabilities()?.elicitation) {
-		throw new Error("This MCP client must support elicitation before deleting workspace items.");
-	}
-
-	const result = await server.server.elicitInput(
-		{
-			mode: "form",
-			message: "Confirm deletion of the requested ThinkEx workspace items.",
-			requestedSchema: {
-				type: "object",
-				properties: {
-					confirm: {
-						type: "boolean",
-						title: "Delete workspace items",
-						description: "This action cannot be undone.",
-					},
-				},
-				required: ["confirm"],
-			},
-		},
-		{ relatedRequestId: requestId },
-	);
-
-	if (result.action !== "accept" || result.content?.confirm !== true) {
-		throw new Error("Workspace deletion was not confirmed.");
-	}
-}
-
 function createThinkExMcpServer(env: Cloudflare.Env, principal: McpPrincipal) {
-	const holder: { server?: ReturnType<typeof openApiMcpServer> } = {};
 	const server = openApiMcpServer({
 		name: "ThinkEx",
 		version: "1.0.0",
@@ -98,16 +65,6 @@ function createThinkExMcpServer(env: Cloudflare.Env, principal: McpPrincipal) {
 				throw new Error("Unknown MCP operation.");
 			}
 
-			if (operation.name === "workspace_delete_items") {
-				const activeServer = holder.server;
-
-				if (!activeServer) {
-					throw new Error("MCP server is not ready.");
-				}
-
-				await confirmDelete(activeServer, context.requestId);
-			}
-
 			return await executeMcpOperation({
 				name: operationName,
 				body: options.body,
@@ -117,7 +74,6 @@ function createThinkExMcpServer(env: Cloudflare.Env, principal: McpPrincipal) {
 		},
 	});
 
-	holder.server = server;
 	return server;
 }
 
