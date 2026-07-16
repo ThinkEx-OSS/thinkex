@@ -1,6 +1,6 @@
 import { PostHogProvider as PostHogReactProvider } from "@posthog/react";
 import { useQuery } from "@tanstack/react-query";
-import posthog from "posthog-js";
+import posthog, { type CaptureResult } from "posthog-js";
 import type { ReactNode } from "react";
 import { useEffect, useRef } from "react";
 
@@ -19,6 +19,76 @@ import type { AuthSession } from "#/lib/session-query";
 import { getAuthSessionQueryOptions } from "#/lib/session-query";
 
 const posthogUiHost = "https://us.posthog.com";
+
+/**
+ * PostHog's session-replay recorder wraps `window.fetch` to capture network
+ * activity and attach tracing headers. When a wrapped request fails (offline, an
+ * ad blocker, an aborted in-flight request) the recorder re-throws a
+ * `Failed to fetch` TypeError, which our global `unhandledrejection` handler then
+ * forwards to `captureException`. These are transient failures inside PostHog's
+ * own instrumentation — not ThinkEx application errors — so we drop any
+ * `$exception` whose message is `Failed to fetch` and whose stack resolves into
+ * the recorder (`network-plugin` / `tracing-headers` / `rrweb-plugins/patch` /
+ * `posthog-recorder`). Matching on markers rather than exact fingerprints covers
+ * both current issues plus any future ones from the same source.
+ */
+const RECORDER_FRAME_MARKERS = [
+	"network-plugin",
+	"tracing-headers",
+	"rrweb-plugins/patch",
+	"posthog-recorder",
+];
+
+type ExceptionStackFrame = { filename?: unknown };
+type ExceptionListItem = {
+	value?: unknown;
+	stacktrace?: { frames?: unknown } | null;
+};
+
+function isRecorderNetworkFailure(result: CaptureResult): boolean {
+	if (result.event !== "$exception") {
+		return false;
+	}
+
+	const exceptions = result.properties?.$exception_list;
+	if (!Array.isArray(exceptions)) {
+		return false;
+	}
+
+	let sawFailedToFetch = false;
+	let sawRecorderFrame = false;
+
+	for (const exception of exceptions as ExceptionListItem[]) {
+		if (typeof exception?.value === "string" && exception.value.includes("Failed to fetch")) {
+			sawFailedToFetch = true;
+		}
+
+		const frames = exception?.stacktrace?.frames;
+		if (!Array.isArray(frames)) {
+			continue;
+		}
+
+		for (const frame of frames as ExceptionStackFrame[]) {
+			const filename = frame?.filename;
+			if (
+				typeof filename === "string" &&
+				RECORDER_FRAME_MARKERS.some((marker) => filename.includes(marker))
+			) {
+				sawRecorderFrame = true;
+			}
+		}
+	}
+
+	return sawFailedToFetch && sawRecorderFrame;
+}
+
+function dropRecorderNetworkFailures(result: CaptureResult | null): CaptureResult | null {
+	if (result && isRecorderNetworkFailure(result)) {
+		return null;
+	}
+
+	return result;
+}
 
 function getPostHogTracingHostnames() {
 	const hostnames = new Set<string>();
@@ -43,6 +113,7 @@ if (typeof window !== "undefined" && isPostHogEnabled) {
 		ui_host: posthogUiHost,
 		defaults: "2026-05-30",
 		debug: false,
+		before_send: dropRecorderNetworkFailures,
 		...(isPostHogSessionReplayEnabled ? {} : { disable_session_recording: true }),
 		...(tracingHeaders.length > 0 ? { tracing_headers: tracingHeaders } : {}),
 		loaded: (client) => {
