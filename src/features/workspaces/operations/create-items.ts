@@ -154,7 +154,7 @@ export async function createWorkspaceItemsOperation(
 				onNameConflict: "error",
 				initialContent: initialContent.content,
 				actorUserId: accessContext.actor.userId,
-				clientMutationId: accessContext.operationId,
+				clientMutationId: `${accessContext.operationId}:${index}`,
 			});
 		} catch (error) {
 			if (error instanceof WorkspaceKernelNameConflictError) {
