@@ -16,6 +16,10 @@ import {
 	initializeWorkspaceKernelStorage,
 	type WorkspaceKernelSql,
 } from "#/features/workspaces/kernel/workspace-kernel-schema";
+import {
+	isTransientStorageError,
+	runKernelSqlWithRetry,
+} from "#/features/workspaces/kernel/workspace-kernel-storage";
 import { WorkspaceKernelRelations } from "#/features/workspaces/kernel/workspace-kernel-relations";
 import { WorkspaceKernelStore } from "#/features/workspaces/kernel/workspace-kernel-store";
 import type {
@@ -54,7 +58,7 @@ export { setWorkspaceKernelUserHeaders };
 
 export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 	private readonly kernelSql: WorkspaceKernelSql = (strings, ...values) =>
-		this.sql(strings, ...values);
+		runKernelSqlWithRetry(() => this.sql(strings, ...values));
 	private readonly workspace = new ShellWorkspace({
 		sql: this.ctx.storage.sql,
 		r2: this.env.WORKSPACE_KERNEL_FILES,
@@ -225,15 +229,23 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 			failure = error;
 			throw error;
 		} finally {
+			// A transient Durable Object reset that outlives the bounded SQL retry
+			// is infrastructure noise, not a broken flow — log it as a rejected
+			// outcome instead of capturing it as an unhandled exception.
+			const transientReset = failure !== undefined && isTransientStorageError(failure);
+
 			recordOperationalOutcome({
 				distinctId: input.actorUserId ?? undefined,
-				error: failure,
+				error: transientReset ? undefined : failure,
 				event: "workspace_mutation",
+				outcome: transientReset ? "rejected" : undefined,
 				fields: {
 					duration_ms: Date.now() - startedAt,
+					error_type: transientReset && failure instanceof Error ? failure.name : undefined,
 					operation,
 					operation_id: input.clientMutationId,
 					requested_count: requestedCount,
+					transient_storage_reset: transientReset ? true : undefined,
 					user_id: input.actorUserId,
 					workspace_id: this.name,
 				},
