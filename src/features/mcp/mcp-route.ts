@@ -138,9 +138,13 @@ async function handleAuthenticatedMcpRequest(
 	ctx: ExecutionContext,
 ) {
 	const { issuer, resource } = getOAuthUrls();
+	const getLocalJwks = () => withAuth((auth) => auth.api.getJwks());
 	const authenticate = mcpHandler(
 		{
-			jwksUrl: `${issuer}/jwks`,
+			// Better Auth supports a JWKS callback at runtime, but its public type only
+			// exposes URL strings. A local callback avoids a Worker self-fetch through
+			// the public hostname while retaining Better Auth's token verifier.
+			jwksUrl: getLocalJwks as unknown as string,
 			verifyOptions: {
 				audience: resource,
 				issuer,
