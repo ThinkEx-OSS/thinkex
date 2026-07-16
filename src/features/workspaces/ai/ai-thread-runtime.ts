@@ -100,7 +100,7 @@ export function createAIThreadTurnToolConfig(input: {
 
 interface AIThreadToolEntry {
 	codemode: boolean;
-	mutating: boolean;
+	access: "read" | "write";
 	name: string;
 	tool: ToolSet[string];
 }
@@ -111,7 +111,7 @@ const AI_THREAD_SANDBOX_TOOL_DESCRIPTORS: AIThreadToolDescriptor[] = [
 	{
 		name: "sandbox_bash",
 		codemode: false,
-		mutating: false,
+		access: "read",
 	},
 ];
 
@@ -119,7 +119,7 @@ const AI_THREAD_CODE_RUN_TOOL_DESCRIPTORS: AIThreadToolDescriptor[] = [
 	{
 		name: "compute",
 		codemode: true,
-		mutating: false,
+		access: "read",
 	},
 ];
 
@@ -127,17 +127,17 @@ const AI_THREAD_WEB_TOOL_DESCRIPTORS: AIThreadToolDescriptor[] = [
 	{
 		name: "web_search",
 		codemode: true,
-		mutating: false,
+		access: "read",
 	},
 	{
 		name: "web_markdown",
 		codemode: true,
-		mutating: false,
+		access: "read",
 	},
 	{
 		name: "web_links",
 		codemode: true,
-		mutating: false,
+		access: "read",
 	},
 ];
 
@@ -145,12 +145,12 @@ const AI_THREAD_RESEARCH_TOOL_DESCRIPTORS: AIThreadToolDescriptor[] = [
 	{
 		name: "research_discover",
 		codemode: true,
-		mutating: false,
+		access: "read",
 	},
 	{
 		name: "research_deepen",
 		codemode: true,
-		mutating: false,
+		access: "read",
 	},
 ];
 
@@ -158,20 +158,20 @@ const AI_THREAD_TIME_TOOL_DESCRIPTORS: AIThreadToolDescriptor[] = [
 	{
 		name: "time_get_current",
 		codemode: true,
-		mutating: false,
+		access: "read",
 	},
 	{
 		name: "time_calculate_relative",
 		codemode: true,
-		mutating: false,
+		access: "read",
 	},
 ];
 
 const AI_THREAD_WORKSPACE_TOOL_DESCRIPTORS: AIThreadToolDescriptor[] = [
-	...workspaceToolDefinitions.map(({ name, mutating }) => ({
+	...workspaceToolDefinitions.map(({ access, name }) => ({
 		name,
 		codemode: true,
-		mutating,
+		access,
 	})),
 ];
 
@@ -208,7 +208,7 @@ function createAIThreadToolCatalog(input: {
 		tools: createAIThreadToolSet(entries),
 		getActiveToolNames(canMutate: boolean) {
 			const names = entries
-				.filter((entry) => canMutate || !entry.mutating)
+				.filter((entry) => canMutate || entry.access === "read")
 				.map((entry) => entry.name);
 
 			return names.includes("sandbox_bash")
@@ -221,7 +221,7 @@ function createAIThreadToolCatalog(input: {
 		},
 		getCodemodeTools(canMutate: boolean) {
 			return createAIThreadToolSet(
-				entries.filter((entry) => entry.codemode && (canMutate || !entry.mutating)),
+				entries.filter((entry) => entry.codemode && (canMutate || entry.access === "read")),
 			);
 		},
 	};
