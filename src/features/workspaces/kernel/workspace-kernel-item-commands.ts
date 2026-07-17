@@ -43,6 +43,7 @@ export class WorkspaceKernelItemCommands {
 	private readonly relations: WorkspaceKernelRelations;
 	private readonly sql: WorkspaceKernelSql;
 	private readonly store: WorkspaceKernelStore;
+	private readonly transactionSync: <T>(closure: () => T) => T;
 	private readonly workspace: ShellWorkspace;
 	private readonly workspaceId: () => string;
 
@@ -51,6 +52,7 @@ export class WorkspaceKernelItemCommands {
 		relations: WorkspaceKernelRelations;
 		sql: WorkspaceKernelSql;
 		store: WorkspaceKernelStore;
+		transactionSync: <T>(closure: () => T) => T;
 		workspace: ShellWorkspace;
 		workspaceId: () => string;
 	}) {
@@ -58,6 +60,7 @@ export class WorkspaceKernelItemCommands {
 		this.relations = input.relations;
 		this.sql = input.sql;
 		this.store = input.store;
+		this.transactionSync = input.transactionSync;
 		this.workspace = input.workspace;
 		this.workspaceId = input.workspaceId;
 	}
@@ -143,45 +146,49 @@ export class WorkspaceKernelItemCommands {
 			return { command: concurrentResult, status: "applied" };
 		}
 
-		this.sql`
-			INSERT INTO kernel_items (
-				id,
-				parent_id,
-				type,
-				name,
-				color,
-				metadata_json,
-				sort_order,
-				shell_path,
-				created_at,
-				updated_at,
-				deleted_at
-			)
-			VALUES (
-				${id},
-				${parentId},
-				${type},
-				${name},
-				${color},
-				${JSON.stringify(metadataJson)},
-				${this.store.getNextSortOrder(parentId)},
-				${shellPath},
-				${now},
-				${now},
-				NULL
-			)
-		`;
+		const command = this.transactionSync(() => {
+			this.sql`
+				INSERT INTO kernel_items (
+					id,
+					parent_id,
+					type,
+					name,
+					color,
+					metadata_json,
+					sort_order,
+					shell_path,
+					created_at,
+					updated_at,
+					deleted_at
+				)
+				VALUES (
+					${id},
+					${parentId},
+					${type},
+					${name},
+					${color},
+					${JSON.stringify(metadataJson)},
+					${this.store.getNextSortOrder(parentId)},
+					${shellPath},
+					${now},
+					${now},
+					NULL
+				)
+			`;
 
-		const item = this.store.requireItem(id);
-		this.relations.createRelations(initialRelations);
-		const event = this.events.commit({
-			type: "workspace.item.created",
-			actorUserId: input.actorUserId ?? null,
-			clientMutationId: input.clientMutationId ?? null,
-			payload: { item },
+			const item = this.store.requireItem(id);
+			this.relations.createRelations(initialRelations);
+			const event = this.events.commit({
+				type: "workspace.item.created",
+				actorUserId: input.actorUserId ?? null,
+				clientMutationId: input.clientMutationId ?? null,
+				payload: { item },
+			});
+
+			return { result: item, event };
 		});
 
-		return { command: { result: item, event }, status: "applied" };
+		return { command, status: "applied" };
 	}
 
 	async renameItem(
