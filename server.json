@@ -1,0 +1,25 @@
+{
+	"$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+	"name": "app.thinkex/thinkex",
+	"title": "ThinkEx",
+	"description": "Search and update the workspaces you can access in ThinkEx.",
+	"version": "1.0.0",
+	"websiteUrl": "https://thinkex.app",
+	"icons": [
+		{
+			"src": "https://thinkex.app/apple-touch-icon.png",
+			"mimeType": "image/png",
+			"sizes": ["180x180"]
+		}
+	],
+	"repository": {
+		"url": "https://github.com/ThinkEx-OSS/thinkex",
+		"source": "github"
+	},
+	"remotes": [
+		{
+			"type": "streamable-http",
+			"url": "https://thinkex.app/mcp"
+		}
+	]
+}

@@ -1,8 +1,7 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import type { ReactNode } from "react";
 
 import AuthPanel from "#/components/AuthPanel";
-import ThinkExLogo from "#/components/ThinkExLogo";
+import AuthPageLayout from "#/components/AuthPageLayout";
 import { workspaceRoleLabels } from "#/features/workspaces/contracts";
 import {
 	acceptWorkspaceInviteFn,
@@ -55,19 +54,6 @@ export const Route = createFileRoute("/invite/$token")({
 	component: InviteRoutePage,
 });
 
-function InviteScreen({ children }: { children: ReactNode }) {
-	return (
-		<div className="min-h-screen bg-background text-foreground">
-			<main className="flex min-h-screen items-center justify-center p-6 sm:p-10">
-				<div className="flex w-full max-w-md flex-col items-center gap-8 px-8 text-center sm:px-12">
-					<ThinkExLogo size={36} />
-					{children}
-				</div>
-			</main>
-		</div>
-	);
-}
-
 function InviteRoutePage() {
 	const { token } = Route.useParams();
 	const result = Route.useLoaderData();
@@ -79,7 +65,7 @@ function InviteRoutePage() {
 	const callbackURL = buildInvitePath(token);
 
 	return (
-		<InviteScreen>
+		<AuthPageLayout>
 			<div className="space-y-2">
 				<h1 className="text-2xl font-medium tracking-tight">Join {preview.workspaceName}</h1>
 				<p className="text-sm leading-6 text-muted-foreground">
@@ -90,13 +76,13 @@ function InviteRoutePage() {
 			<div className="w-full">
 				<AuthPanel callbackURL={callbackURL} />
 			</div>
-		</InviteScreen>
+		</AuthPageLayout>
 	);
 }
 
 function InviteUnavailablePage() {
 	return (
-		<InviteScreen>
+		<AuthPageLayout>
 			<div className="space-y-2">
 				<h1 className="text-2xl font-medium tracking-tight">Invite unavailable</h1>
 				<p className="text-sm leading-6 text-muted-foreground">
@@ -106,6 +92,6 @@ function InviteUnavailablePage() {
 			<div className="w-full">
 				<AuthPanel callbackURL="/home" />
 			</div>
-		</InviteScreen>
+		</AuthPageLayout>
 	);
 }

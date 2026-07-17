@@ -77,10 +77,15 @@ function createThinkExMcpServer(env: Cloudflare.Env, principal: McpPrincipal) {
 }
 
 function protectedResourceMetadata() {
-	const { issuer, resource } = getMcpUrls(getAppOrigin());
+	const origin = getAppOrigin();
+	const { issuer, resource } = getMcpUrls(origin);
 
 	return Response.json({
 		resource,
+		resource_name: "ThinkEx",
+		resource_documentation: `${origin}/`,
+		resource_policy_uri: `${origin}/privacy`,
+		resource_tos_uri: `${origin}/terms`,
 		authorization_servers: [issuer],
 		bearer_methods_supported: ["header"],
 		scopes_supported: mcpScopes,
