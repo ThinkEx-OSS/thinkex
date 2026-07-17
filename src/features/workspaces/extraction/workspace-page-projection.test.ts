@@ -99,6 +99,33 @@ describe("workspace page projections", () => {
 		).rejects.toMatchObject({ code: "page_selection_too_large" });
 	});
 
+	it("keeps open R2 connections under the Workers limit when reading many pages", async () => {
+		const storage = createObjectStorage({ connectionLimit: 6 });
+		const reference = await writeWorkspacePageProjection({
+			bucket: storage.bucket,
+			itemId: "item-1",
+			pages: Array.from({ length: 20 }, (_, index) => ({
+				pageNumber: index + 1,
+				markdown: `Page ${index + 1}`,
+			})),
+			provider: "liteparse",
+			providerMode: "fast",
+			runId: "run-1",
+			sourceHash: "etag-1",
+			tier: "fast",
+			workspaceId: "workspace-1",
+		});
+
+		const result = await readWorkspacePageProjection({
+			bucket: storage.bucket,
+			manifestObjectKey: reference.manifestObjectKey,
+			pages: "1-20",
+		});
+
+		expect(result.pages.returned).toHaveLength(20);
+		expect(storage.maxOpenConnections).toBeLessThanOrEqual(6);
+	});
+
 	it("removes partial artifacts when publication fails", async () => {
 		const storage = createObjectStorage();
 
@@ -122,9 +149,10 @@ describe("workspace page projections", () => {
 	});
 });
 
-function createObjectStorage() {
+function createObjectStorage(options: { connectionLimit?: number } = {}) {
 	const values = new Map<string, string>();
 	const readKeys: string[] = [];
+	const state = { maxOpenConnections: 0, openConnections: 0 };
 	const bucket = {
 		async delete(keys: string | string[]) {
 			for (const key of Array.isArray(keys) ? keys : [keys]) {
@@ -137,11 +165,22 @@ function createObjectStorage() {
 			if (value === undefined) {
 				return null;
 			}
+			// An R2 response body counts as an open connection from get() until it is
+			// consumed, mirroring the Cloudflare Workers connection limit.
+			state.openConnections += 1;
+			state.maxOpenConnections = Math.max(state.maxOpenConnections, state.openConnections);
+			if (options.connectionLimit && state.openConnections > options.connectionLimit) {
+				throw new Error("Response closed due to connection limit");
+			}
+			const consume = <T>(result: T) => {
+				state.openConnections -= 1;
+				return result;
+			};
 			return {
 				key,
 				size: new TextEncoder().encode(value).byteLength,
-				text: async () => value,
-				json: async () => JSON.parse(value) as unknown,
+				text: async () => consume(value),
+				json: async () => consume(JSON.parse(value) as unknown),
 			};
 		},
 		async put(key: string, value: string) {
@@ -156,5 +195,12 @@ function createObjectStorage() {
 		},
 	} as R2Bucket;
 
-	return { bucket, readKeys, values };
+	return {
+		bucket,
+		readKeys,
+		values,
+		get maxOpenConnections() {
+			return state.maxOpenConnections;
+		},
+	};
 }
