@@ -11,6 +11,7 @@ import { deleteR2Prefix } from "#/lib/r2";
 const projectionSchemaVersion = 1;
 const pageNumberWidth = 6;
 const pageWriteConcurrency = 8;
+const pageReadConcurrency = 6;
 const maxPageMarkdownBytes = 1024 * 1024;
 const maxPageReadBytes = 2 * 1024 * 1024;
 
@@ -121,26 +122,36 @@ export async function readWorkspacePageProjection(input: {
 	const selectedPageNumbers = parseWorkspacePageRange(requested, manifest.pageCount);
 
 	const prefix = getManifestPrefix(input.manifestObjectKey);
-	const objects = await Promise.all(
-		selectedPageNumbers.map(async (pageNumber) => {
-			const object = await input.bucket.get(getWorkspacePageObjectKey(prefix, pageNumber));
-			if (!object) {
-				throw new Error(`Extracted page ${pageNumber} was not found.`);
-			}
-			return { object, pageNumber };
-		}),
-	);
-	const totalBytes = objects.reduce((total, entry) => total + entry.object.size, 0);
-	if (totalBytes > maxPageReadBytes) {
-		throw new WorkspacePageSelectionError("page_selection_too_large");
-	}
+	const pages: { markdown: string; pageNumber: number }[] = [];
+	let totalBytes = 0;
 
-	const pages = await Promise.all(
-		objects.map(async ({ object, pageNumber }) => ({
-			markdown: (await object.text()).trim(),
-			pageNumber,
-		})),
-	);
+	// Fetch and consume each page within the same task, in bounded batches, so R2
+	// response bodies are read and released immediately instead of being held open
+	// all at once. Reading up to maxWorkspacePageReadCount (20) pages concurrently
+	// exceeds the Workers ~6 open-connection limit and makes object.text() throw
+	// "Response closed due to connection limit"; this mirrors pageWriteConcurrency.
+	for (let index = 0; index < selectedPageNumbers.length; index += pageReadConcurrency) {
+		const batch = selectedPageNumbers.slice(index, index + pageReadConcurrency);
+		const readPages = await Promise.all(
+			batch.map(async (pageNumber) => {
+				const object = await input.bucket.get(getWorkspacePageObjectKey(prefix, pageNumber));
+				if (!object) {
+					throw new Error(`Extracted page ${pageNumber} was not found.`);
+				}
+				const bytes = object.size;
+				const markdown = (await object.text()).trim();
+				return { bytes, markdown, pageNumber };
+			}),
+		);
+
+		for (const page of readPages) {
+			totalBytes += page.bytes;
+			if (totalBytes > maxPageReadBytes) {
+				throw new WorkspacePageSelectionError("page_selection_too_large");
+			}
+			pages.push({ markdown: page.markdown, pageNumber: page.pageNumber });
+		}
+	}
 
 	return {
 		content: pages
