@@ -16,6 +16,7 @@ describe("MCP protocol CORS", () => {
 		expect(response.headers.get("access-control-allow-origin")).toBe("*");
 		expect(response.headers.get("access-control-allow-methods")).toContain("POST");
 		expect(response.headers.get("access-control-allow-headers")).toContain("authorization");
+		expect(response.headers.get("access-control-allow-headers")).toContain("mcp-session-id");
 	});
 
 	it("preserves the response while exposing MCP headers", async () => {

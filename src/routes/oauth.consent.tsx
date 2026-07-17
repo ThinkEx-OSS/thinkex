@@ -38,23 +38,21 @@ function OAuthConsentPage() {
 			return;
 		}
 
-		const result = await authClient.oauth2.consent({
-			accept,
-			scope,
-		});
+		try {
+			const result = await authClient.oauth2.consent({ accept, scope });
 
-		if (result.error) {
-			setError(result.error.message ?? "Unable to complete authorization.");
-			setPendingDecision(null);
-			return;
+			if (result.error) {
+				setError(result.error.message ?? "Unable to complete authorization.");
+			} else if (result.data && "url" in result.data && typeof result.data.url === "string") {
+				window.location.assign(result.data.url);
+				return;
+			} else {
+				setError("The authorization server did not return a redirect.");
+			}
+		} catch {
+			setError("Unable to complete authorization.");
 		}
 
-		if (result.data && "url" in result.data && typeof result.data.url === "string") {
-			window.location.assign(result.data.url);
-			return;
-		}
-
-		setError("The authorization server did not return a redirect.");
 		setPendingDecision(null);
 	}
 

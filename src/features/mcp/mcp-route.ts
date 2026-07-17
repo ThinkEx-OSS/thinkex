@@ -30,7 +30,7 @@ const authorizationServerMetadataPaths = new Set([
 ]);
 const openIdMetadataPaths = new Set([
 	"/.well-known/openid-configuration",
-	`/.well-known/openid-configuration${mcpAuthPath}`,
+	`${mcpAuthPath}/.well-known/openid-configuration`,
 ]);
 
 function getPrincipal(payload: { scope?: unknown; sub?: string }): McpPrincipal {

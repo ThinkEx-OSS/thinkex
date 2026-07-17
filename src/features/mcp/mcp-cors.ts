@@ -1,4 +1,4 @@
-const mcpCorsRequestHeaders = "authorization, content-type, mcp-protocol-version";
+const mcpCorsRequestHeaders = "authorization, content-type, mcp-protocol-version, mcp-session-id";
 const mcpCorsResponseHeaders = "mcp-session-id, www-authenticate";
 
 export function isMcpOAuthPath(pathname: string) {
