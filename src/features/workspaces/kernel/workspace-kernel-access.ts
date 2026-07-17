@@ -1,5 +1,3 @@
-import { getAgentByName } from "agents";
-
 import { createDbContext } from "#/db/server";
 import { workspaceKernelAgentName } from "#/features/workspaces/agent-routes";
 import type { ResourcePurgeResult } from "#/features/workspaces/resource-purge-result";
@@ -14,19 +12,21 @@ import type {
 	WorkspaceItemSummary,
 	WorkspacePage,
 } from "#/features/workspaces/contracts";
-import type {
-	CreateWorkspaceKernelFileFromUploadArgs,
-	CreateWorkspaceKernelRelationArgs,
-	DeleteWorkspaceKernelItemsResult,
-	ListWorkspaceKernelItemRelationsArgs,
-	MoveWorkspaceKernelItemsResult,
-	ReadWorkspaceKernelFilePreviewResult,
-	ReadWorkspaceKernelFileProjectionArgs,
-	ReadWorkspaceKernelFileProjectionResult,
-	UpsertWorkspaceKernelFileProjectionArgs,
-	WorkspaceKernelFileSource,
-	WorkspaceKernelItemRelation,
-	WorkspaceKernelNameConflictPolicy,
+import {
+	requireAppliedWorkspaceKernelMutation,
+	type CreateWorkspaceKernelFileFromUploadArgs,
+	type CreateWorkspaceKernelRelationArgs,
+	type DeleteWorkspaceKernelItemsResult,
+	type ListWorkspaceKernelItemRelationsArgs,
+	type MoveWorkspaceKernelItemsResult,
+	type ReadWorkspaceKernelFilePreviewResult,
+	type ReadWorkspaceKernelFileProjectionArgs,
+	type ReadWorkspaceKernelFileProjectionResult,
+	type UpsertWorkspaceKernelFileProjectionArgs,
+	type WorkspaceKernelFileSource,
+	type WorkspaceKernelItemRelation,
+	type WorkspaceKernelNameConflictPolicy,
+	type WorkspaceKernelMutationOutcome,
 } from "#/features/workspaces/kernel/workspace-kernel-types";
 import type { WorkspaceFileAssetKind } from "#/features/workspaces/model/workspace-file";
 import type { WorkspaceCommandResult } from "#/features/workspaces/realtime/messages";
@@ -61,9 +61,10 @@ export interface WorkspaceKernelClient {
 		color?: CreateWorkspaceItemInput["color"];
 		metadataJson?: Record<string, JsonValue>;
 		initialContent?: string;
+		initialRelations?: CreateWorkspaceKernelRelationArgs[];
 		actorUserId?: string | null;
 		clientMutationId?: string | null;
-	}): Promise<WorkspaceCommandResult<WorkspaceItemSummary>>;
+	}): Promise<WorkspaceKernelMutationOutcome<WorkspaceItemSummary>>;
 	createFileFromUpload(
 		input: CreateWorkspaceKernelFileFromUploadArgs,
 	): Promise<WorkspaceCommandResult<WorkspaceItemSummary>>;
@@ -73,7 +74,7 @@ export interface WorkspaceKernelClient {
 		onNameConflict?: WorkspaceKernelNameConflictPolicy;
 		actorUserId?: string | null;
 		clientMutationId?: string | null;
-	}): Promise<WorkspaceCommandResult<WorkspaceItemSummary>>;
+	}): Promise<WorkspaceKernelMutationOutcome<WorkspaceItemSummary>>;
 	moveItems(input: {
 		items: Array<{
 			itemId: string;
@@ -83,7 +84,7 @@ export interface WorkspaceKernelClient {
 		onNameConflict?: WorkspaceKernelNameConflictPolicy;
 		actorUserId?: string | null;
 		clientMutationId?: string | null;
-	}): Promise<WorkspaceCommandResult<MoveWorkspaceKernelItemsResult>>;
+	}): Promise<WorkspaceKernelMutationOutcome<MoveWorkspaceKernelItemsResult>>;
 	updateItemColor(input: {
 		itemId: string;
 		color: UpdateWorkspaceItemColorInput["color"];
@@ -179,16 +180,18 @@ export async function createWorkspaceKernelItem(
 		await assertCanMutateWorkspace(dbContext.db, input);
 		const kernel = await getWorkspaceKernel(input.workspaceId);
 
-		return await kernel.createItem({
-			id: input.id,
-			parentId: input.parentId ?? null,
-			type: input.type,
-			name: input.name,
-			color: input.color,
-			initialContent: input.initialContent,
-			actorUserId: input.userId,
-			clientMutationId: input.clientMutationId ?? null,
-		});
+		return requireAppliedWorkspaceKernelMutation(
+			await kernel.createItem({
+				id: input.id,
+				parentId: input.parentId ?? null,
+				type: input.type,
+				name: input.name,
+				color: input.color,
+				initialContent: input.initialContent,
+				actorUserId: input.userId,
+				clientMutationId: input.clientMutationId ?? null,
+			}),
+		);
 	} finally {
 		await dbContext.dispose();
 	}
@@ -241,12 +244,14 @@ export async function renameWorkspaceKernelItem(
 		await assertCanMutateWorkspace(dbContext.db, input);
 		const kernel = await getWorkspaceKernel(input.workspaceId);
 
-		return await kernel.renameItem({
-			itemId: input.itemId,
-			name: input.name,
-			actorUserId: input.userId,
-			clientMutationId: input.clientMutationId ?? null,
-		});
+		return requireAppliedWorkspaceKernelMutation(
+			await kernel.renameItem({
+				itemId: input.itemId,
+				name: input.name,
+				actorUserId: input.userId,
+				clientMutationId: input.clientMutationId ?? null,
+			}),
+		);
 	} finally {
 		await dbContext.dispose();
 	}
@@ -261,12 +266,14 @@ export async function moveWorkspaceKernelItems(
 		await assertCanMutateWorkspace(dbContext.db, input);
 		const kernel = await getWorkspaceKernel(input.workspaceId);
 
-		return await kernel.moveItems({
-			items: input.items,
-			parentId: input.parentId ?? null,
-			actorUserId: input.userId,
-			clientMutationId: input.clientMutationId ?? null,
-		});
+		return requireAppliedWorkspaceKernelMutation(
+			await kernel.moveItems({
+				items: input.items,
+				parentId: input.parentId ?? null,
+				actorUserId: input.userId,
+				clientMutationId: input.clientMutationId ?? null,
+			}),
+		);
 	} finally {
 		await dbContext.dispose();
 	}
@@ -328,8 +335,23 @@ export async function getWorkspaceKernelFromEnv(
 	env: Cloudflare.Env,
 	workspaceId: string,
 ): Promise<WorkspaceKernelClient> {
-	return getAgentByName(
-		env[workspaceKernelAgentName],
-		workspaceId,
-	) as unknown as WorkspaceKernelClient;
+	// The generated recursive Agent stub exceeds TypeScript's instantiation depth.
+	// Keep that SDK limitation at this binding boundary instead of leaking casts to callers.
+	const namespace: unknown = Reflect.get(env as object, workspaceKernelAgentName);
+	if (!isWorkspaceKernelNamespace(namespace)) {
+		throw new Error("Workspace kernel binding is unavailable.");
+	}
+
+	return namespace.getByName(workspaceId);
+}
+
+function isWorkspaceKernelNamespace(
+	value: unknown,
+): value is { getByName(name: string): WorkspaceKernelClient } {
+	return (
+		typeof value === "object" &&
+		value !== null &&
+		"getByName" in value &&
+		typeof value.getByName === "function"
+	);
 }

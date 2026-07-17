@@ -10,7 +10,6 @@ import {
 	joinWorkspaceItemPath,
 	type WorkspaceKernelTree,
 } from "#/features/workspaces/kernel/workspace-kernel-paths";
-import { WorkspaceKernelNameConflictError } from "#/features/workspaces/kernel/workspace-kernel-store";
 
 export interface MoveWorkspaceItemsOperationInput {
 	destinationPath: string;
@@ -141,58 +140,51 @@ export async function moveWorkspaceItemsOperation(
 	const pendingItems = [...resolvedItems];
 
 	while (pendingItems.length > 0) {
-		try {
-			const command = await workspaceContext.kernel.moveItems({
-				items: pendingItems.map((resolved) => ({ itemId: resolved.item.id })),
-				parentId: destination.parentId,
-				onNameConflict: "error",
-				actorUserId: accessContext.actor.userId,
-				clientMutationId: accessContext.operationId,
-			});
-			const pendingItemsById = new Map<string, (typeof pendingItems)[number]>();
+		const outcome = await workspaceContext.kernel.moveItems({
+			items: pendingItems.map((resolved) => ({ itemId: resolved.item.id })),
+			parentId: destination.parentId,
+			onNameConflict: "error",
+			actorUserId: accessContext.actor.userId,
+			clientMutationId: accessContext.operationId,
+		});
 
-			for (const pendingItem of pendingItems) {
-				if (!pendingItemsById.has(pendingItem.item.id)) {
-					pendingItemsById.set(pendingItem.item.id, pendingItem);
-				}
-			}
-
-			items.push(
-				...command.result.map((item) => {
-					const resolved = pendingItemsById.get(item.id);
-
-					if (!resolved) {
-						throw new Error(`Moved workspace item was not resolved: ${item.id}`);
-					}
-
-					return {
-						path: joinWorkspaceItemPath(destination.path, item.name),
-						previousPath: resolved.path,
-						type: item.type,
-					};
-				}),
+		if (outcome.status === "conflict") {
+			const conflictIndex = pendingItems.findIndex(
+				(resolved) => resolved.item.id === outcome.conflict.itemId,
 			);
-			break;
-		} catch (error) {
-			if (error instanceof WorkspaceKernelNameConflictError && error.itemId) {
-				const conflictIndex = pendingItems.findIndex(
-					(resolved) => resolved.item.id === error.itemId,
-				);
 
-				if (conflictIndex >= 0) {
-					const [conflictedItem] = pendingItems.splice(conflictIndex, 1);
-
-					failed.push({
-						code: "path_already_exists",
-						index: conflictedItem.index,
-						path: conflictedItem.path,
-					});
-					continue;
-				}
+			if (conflictIndex < 0) {
+				throw new Error("Workspace move conflict did not identify a pending item.");
 			}
 
-			throw error;
+			const [conflictedItem] = pendingItems.splice(conflictIndex, 1);
+			failed.push({
+				code: "path_already_exists",
+				index: conflictedItem.index,
+				path: conflictedItem.path,
+			});
+			continue;
 		}
+
+		const pendingItemsById = new Map(
+			pendingItems.map((pendingItem) => [pendingItem.item.id, pendingItem] as const),
+		);
+		items.push(
+			...outcome.command.result.map((item) => {
+				const resolved = pendingItemsById.get(item.id);
+
+				if (!resolved) {
+					throw new Error(`Moved workspace item was not resolved: ${item.id}`);
+				}
+
+				return {
+					path: joinWorkspaceItemPath(destination.path, item.name),
+					previousPath: resolved.path,
+					type: item.type,
+				};
+			}),
+		);
+		break;
 	}
 
 	return {

@@ -30,12 +30,14 @@ import type {
 	RenameWorkspaceKernelItemArgs,
 	UpdateWorkspaceKernelItemColorArgs,
 	WriteWorkspaceKernelItemArgs,
+	WorkspaceKernelMutationOutcome,
 } from "#/features/workspaces/kernel/workspace-kernel-types";
 import {
 	resolveWorkspaceItemColorForCreate,
 	workspaceItemSupportsCustomColor,
 } from "#/features/workspaces/model/workspace-item-colors";
 import type { WorkspaceCommandResult } from "#/features/workspaces/realtime/messages";
+import { recordOperationalFailure } from "#/integrations/observability/operational-events";
 
 export class WorkspaceKernelItemCommands {
 	private readonly events: WorkspaceKernelEventBus;
@@ -63,7 +65,7 @@ export class WorkspaceKernelItemCommands {
 
 	async createItem(
 		input: CreateWorkspaceKernelItemArgs,
-	): Promise<WorkspaceCommandResult<WorkspaceItemSummary>> {
+	): Promise<WorkspaceKernelMutationOutcome<WorkspaceItemSummary>> {
 		const type = workspaceItemTypeSchema.parse(input.type);
 
 		if (type === "file") {
@@ -86,7 +88,7 @@ export class WorkspaceKernelItemCommands {
 		const priorResult = getPriorResult();
 
 		if (priorResult) {
-			return priorResult;
+			return { command: priorResult, status: "applied" };
 		}
 
 		const color = resolveWorkspaceItemColorForCreate({
@@ -100,13 +102,28 @@ export class WorkspaceKernelItemCommands {
 		}
 
 		this.store.assertParentIsValid(parentId);
-		const name = this.store.resolveItemName({
+		const nameResolution = this.store.resolveItemName({
 			itemId: id,
 			type,
 			parentId,
 			requestedName: input.name,
 			onNameConflict: input.onNameConflict,
 		});
+
+		if (nameResolution.status === "conflict") {
+			return nameResolution;
+		}
+
+		const name = nameResolution.name;
+		const initialRelations = input.initialRelations ?? [];
+
+		for (const relation of initialRelations) {
+			if (relation.fromItemId !== id) {
+				throw new Error("Initial workspace relations must originate from the created item.");
+			}
+
+			this.store.assertActiveItem(relation.toItemId);
+		}
 		const shellPath = getWorkspaceKernelShellPath({ id, type });
 		const { initialContent, metadataJson } = buildWorkspaceItemCreateBootstrap({
 			type,
@@ -124,9 +141,11 @@ export class WorkspaceKernelItemCommands {
 
 		const concurrentResult = getPriorResult();
 		if (concurrentResult) {
-			return concurrentResult;
+			return { command: concurrentResult, status: "applied" };
 		}
 
+		// Keep these writes synchronous. SQLite-backed Durable Objects coalesce
+		// writes without an intervening await into one atomic implicit transaction.
 		this.sql`
 			INSERT INTO kernel_items (
 				id,
@@ -157,6 +176,7 @@ export class WorkspaceKernelItemCommands {
 		`;
 
 		const item = this.store.requireItem(id);
+		this.relations.createRelations(initialRelations);
 		const event = this.events.commit({
 			type: "workspace.item.created",
 			actorUserId: input.actorUserId ?? null,
@@ -164,19 +184,19 @@ export class WorkspaceKernelItemCommands {
 			payload: { item },
 		});
 
-		return { result: item, event };
+		return { command: { result: item, event }, status: "applied" };
 	}
 
 	async renameItem(
 		input: RenameWorkspaceKernelItemArgs,
-	): Promise<WorkspaceCommandResult<WorkspaceItemSummary>> {
+	): Promise<WorkspaceKernelMutationOutcome<WorkspaceItemSummary>> {
 		if (!input.name.trim()) {
 			throw new Error("Item name is required.");
 		}
 
 		const existingItem = this.store.assertActiveItem(input.itemId);
 		const type = workspaceItemTypeSchema.parse(existingItem.type);
-		const name = this.store.resolveItemName({
+		const nameResolution = this.store.resolveItemName({
 			itemId: existingItem.id,
 			type,
 			parentId: existingItem.parent_id,
@@ -185,23 +205,30 @@ export class WorkspaceKernelItemCommands {
 			onNameConflict: input.onNameConflict,
 		});
 
+		if (nameResolution.status === "conflict") {
+			return nameResolution;
+		}
+
 		this.sql`
 			UPDATE kernel_items
-			SET name = ${name}, updated_at = ${Date.now()}
+		SET name = ${nameResolution.name}, updated_at = ${Date.now()}
 			WHERE id = ${input.itemId} AND deleted_at IS NULL
 		`;
 
-		return this.commitItemEvent({
-			type: "workspace.item.renamed",
-			itemId: input.itemId,
-			actorUserId: input.actorUserId,
-			clientMutationId: input.clientMutationId,
-		});
+		return {
+			command: this.commitItemEvent({
+				type: "workspace.item.renamed",
+				itemId: input.itemId,
+				actorUserId: input.actorUserId,
+				clientMutationId: input.clientMutationId,
+			}),
+			status: "applied",
+		};
 	}
 
 	async moveItems(
 		input: MoveWorkspaceKernelItemsArgs,
-	): Promise<WorkspaceCommandResult<MoveWorkspaceKernelItemsResult>> {
+	): Promise<WorkspaceKernelMutationOutcome<MoveWorkspaceKernelItemsResult>> {
 		const parentId = input.parentId ?? null;
 		const movesByItemId = new Map(input.items.map((item) => [item.itemId, item]));
 		const roots = this.getUniqueRootRows(input.items.map((item) => item.itemId));
@@ -220,7 +247,11 @@ export class WorkspaceKernelItemCommands {
 			rows: roots,
 		});
 
-		for (const plannedMove of plannedMoves) {
+		if (plannedMoves.status === "conflict") {
+			return plannedMoves;
+		}
+
+		for (const plannedMove of plannedMoves.rows) {
 			movedItems.push(
 				this.moveItemRow({
 					name: plannedMove.name,
@@ -238,7 +269,7 @@ export class WorkspaceKernelItemCommands {
 			payload: { items: movedItems },
 		});
 
-		return { result: movedItems, event };
+		return { command: { result: movedItems, event }, status: "applied" };
 	}
 
 	async updateItemColor(
@@ -277,15 +308,6 @@ export class WorkspaceKernelItemCommands {
 
 		this.store.softDeleteItems(deleteIds, Date.now());
 		this.relations.deleteRelationsForItems(deleteIds);
-		await Promise.all(
-			rowsToRemove.map((row) =>
-				this.workspace.rm(row.shell_path, {
-					recursive: true,
-					force: true,
-				}),
-			),
-		);
-
 		const result = { itemIds: rootIds, deletedItemIds: deleteIds };
 		const event = this.events.commit({
 			type: "workspace.item.deleted",
@@ -293,6 +315,26 @@ export class WorkspaceKernelItemCommands {
 			clientMutationId: input.clientMutationId ?? null,
 			payload: { itemIds: rootIds, deletedItemIds: deleteIds },
 		});
+
+		try {
+			await Promise.all(
+				rowsToRemove.map((row) =>
+					this.workspace.rm(row.shell_path, {
+						recursive: true,
+						force: true,
+					}),
+				),
+			);
+		} catch (error) {
+			recordOperationalFailure({
+				error,
+				event: "workspace_shell_cleanup",
+				fields: {
+					item_count: rowsToRemove.length,
+					workspace_id: this.workspaceId(),
+				},
+			});
+		}
 
 		return { result, event };
 	}
@@ -422,9 +464,15 @@ export class WorkspaceKernelItemCommands {
 	}) {
 		const reservedNames: string[] = [];
 
-		return input.rows.map((row) => {
+		const rows: Array<{
+			name: string;
+			row: KernelItemRow;
+			sortOrder?: number;
+		}> = [];
+
+		for (const row of input.rows) {
 			const type = workspaceItemTypeSchema.parse(row.type);
-			const name = this.store.resolveItemName({
+			const nameResolution = this.store.resolveItemName({
 				itemId: row.id,
 				type,
 				parentId: input.parentId,
@@ -434,14 +482,20 @@ export class WorkspaceKernelItemCommands {
 				reservedNames,
 			});
 
-			reservedNames.push(name);
+			if (nameResolution.status === "conflict") {
+				return nameResolution;
+			}
 
-			return {
-				name,
+			reservedNames.push(nameResolution.name);
+
+			rows.push({
+				name: nameResolution.name,
 				row,
 				sortOrder: input.movesByItemId.get(row.id)?.sortOrder,
-			};
-		});
+			});
+		}
+
+		return { rows, status: "resolved" as const };
 	}
 
 	private getUniqueRootRows(itemIds: string[]) {

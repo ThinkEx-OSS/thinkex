@@ -8,6 +8,7 @@ import {
 	getWorkspaceInviteFromEmail,
 	TRANSACTIONAL_FROM_NAME,
 } from "#/lib/transactional-email";
+import { recordOperationalFailure } from "#/integrations/observability/operational-events";
 
 export type WorkspaceInviteEmailDeliveryFailureReason = "missing_binding" | "send_failed";
 
@@ -87,7 +88,11 @@ export async function sendWorkspaceInviteEmails(input: {
 					text: content.text,
 				});
 				return null;
-			} catch {
+			} catch (error) {
+				recordOperationalFailure({
+					error,
+					event: "workspace_invite_email_send",
+				});
 				return {
 					email: invite.email,
 					reason: "send_failed",

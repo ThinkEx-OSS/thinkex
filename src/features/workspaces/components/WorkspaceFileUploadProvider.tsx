@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { type ChangeEvent, createContext, type ReactNode, use, useCallback, useRef } from "react";
+import { type ChangeEvent, createContext, type ReactNode, use, useRef } from "react";
 
 import { applyWorkspaceEventToCache } from "#/features/workspaces/cache";
 import { useWorkspaceMutationAccess } from "#/features/workspaces/components/workspace-mutation-access";
@@ -25,29 +25,26 @@ export function WorkspaceFileUploadProvider({
 	const inputRef = useRef<HTMLInputElement>(null);
 	const onSelectFilesRef = useRef<((files: File[]) => void) | null>(null);
 
-	const uploadFiles = useCallback(
-		(files: Iterable<File>, parentId: string | null) => {
-			if (!capabilities.canMutateContent) {
-				return;
-			}
+	const uploadFiles = (files: Iterable<File>, parentId: string | null) => {
+		if (!capabilities.canMutateContent) {
+			return;
+		}
 
-			const fileList = Array.from(files);
+		const fileList = Array.from(files);
 
-			if (fileList.length === 0) {
-				return;
-			}
+		if (fileList.length === 0) {
+			return;
+		}
 
-			void runWorkspaceFileUploadBatch({
-				workspaceId,
-				parentId,
-				files: fileList,
-				onSuccess: (command) => {
-					applyWorkspaceEventToCache(queryClient, command.event);
-				},
-			}).catch(() => undefined);
-		},
-		[capabilities.canMutateContent, queryClient, workspaceId],
-	);
+		void runWorkspaceFileUploadBatch({
+			workspaceId,
+			parentId,
+			files: fileList,
+			onSuccess: (command) => {
+				applyWorkspaceEventToCache(queryClient, command.event);
+			},
+		}).catch(() => undefined);
+	};
 
 	const requestFileSelection = (onSelectFiles: (files: File[]) => void) => {
 		onSelectFilesRef.current = onSelectFiles;

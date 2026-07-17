@@ -18,17 +18,8 @@ import {
 } from "#/features/workspaces/kernel/workspace-kernel-schema";
 import { parseWorkspaceMetadataJson } from "#/features/workspaces/kernel/workspace-kernel-metadata";
 import type { WorkspaceKernelNameConflictPolicy } from "#/features/workspaces/kernel/workspace-kernel-types";
+import type { WorkspaceKernelNameConflict } from "#/features/workspaces/kernel/workspace-kernel-types";
 import { getMetadataNumber } from "#/features/workspaces/model/workspace-file";
-
-export class WorkspaceKernelNameConflictError extends Error {
-	constructor(
-		readonly itemId?: string,
-		readonly requestedName?: string,
-	) {
-		super("Workspace item name already exists.");
-		this.name = "WorkspaceKernelNameConflictError";
-	}
-}
 
 export class WorkspaceKernelStore {
 	private readonly sql: WorkspaceKernelSql;
@@ -214,7 +205,9 @@ export class WorkspaceKernelStore {
 		excludeItemId?: string;
 		onNameConflict?: WorkspaceKernelNameConflictPolicy;
 		reservedNames?: string[];
-	}) {
+	}):
+		| { name: string; status: "resolved" }
+		| { conflict: WorkspaceKernelNameConflict; status: "conflict" } {
 		const existingNames = [
 			...this.getActiveSiblingNames(input.parentId, input.excludeItemId),
 			...(input.reservedNames ?? []),
@@ -225,21 +218,38 @@ export class WorkspaceKernelStore {
 
 		if (input.onNameConflict === "error") {
 			if (!requestedName) {
-				throw new WorkspaceKernelNameConflictError(input.itemId, input.requestedName);
+				return {
+					conflict: {
+						code: "name_conflict",
+						itemId: input.itemId ?? null,
+						requestedName: input.requestedName?.trim() || null,
+					},
+					status: "conflict",
+				};
 			}
 
 			if (existingNames.includes(requestedName)) {
-				throw new WorkspaceKernelNameConflictError(input.itemId, requestedName);
+				return {
+					conflict: {
+						code: "name_conflict",
+						itemId: input.itemId ?? null,
+						requestedName,
+					},
+					status: "conflict",
+				};
 			}
 
-			return requestedName;
+			return { name: requestedName, status: "resolved" };
 		}
 
-		return getAvailableWorkspaceItemName({
-			type: input.type,
-			requestedName: input.requestedName,
-			existingNames,
-		});
+		return {
+			name: getAvailableWorkspaceItemName({
+				type: input.type,
+				requestedName: input.requestedName,
+				existingNames,
+			}),
+			status: "resolved",
+		};
 	}
 
 	requireItem(itemId: string) {

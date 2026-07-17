@@ -4,6 +4,7 @@ import { tool } from "ai";
 import type { AIThreadContext } from "#/features/workspaces/ai/ai-thread-metadata";
 import {
 	workspaceToolDefinitions,
+	getWorkspaceToolScopes,
 	type WorkspaceToolDefinition,
 } from "#/features/workspaces/operations/workspace-tool-definitions";
 import {
@@ -31,7 +32,11 @@ function createWorkspaceThreadTool(input: WorkspaceThreadToolConfig) {
 
 			return await definition.execute(
 				args,
-				createThreadWorkspaceAccessContext(thread, definition.scopes, toolCallId),
+				createThreadWorkspaceAccessContext(
+					thread,
+					getWorkspaceToolScopes(definition.access),
+					toolCallId,
+				),
 			);
 		},
 	});

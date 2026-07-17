@@ -1,8 +1,9 @@
 import { createAuthClient } from "better-auth/react";
 import { anonymousClient } from "better-auth/client/plugins";
+import { oauthProviderClient } from "@better-auth/oauth-provider/client";
 
 export const authClient = createAuthClient({
-	plugins: [anonymousClient()],
+	plugins: [oauthProviderClient(), ...(import.meta.env.DEV ? [anonymousClient()] : [])],
 	sessionOptions: {
 		refetchInterval: 0,
 		refetchOnWindowFocus: false,

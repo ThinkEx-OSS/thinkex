@@ -36,6 +36,7 @@ import type {
 	UpdateWorkspaceKernelItemColorArgs,
 	UpsertWorkspaceKernelFileProjectionArgs,
 	WorkspaceKernelPage,
+	WorkspaceKernelMutationOutcome,
 	WriteWorkspaceKernelItemArgs,
 } from "#/features/workspaces/kernel/workspace-kernel-types";
 import { getChatAttachmentWorkspacePrefix } from "#/features/workspaces/ai/chat-attachment-storage";
@@ -45,7 +46,10 @@ import type {
 	WorkspaceRealtimeEvent,
 	WorkspaceRealtimeServerMessage,
 } from "#/features/workspaces/realtime/messages";
-import { recordOperationalOutcome } from "#/integrations/observability/operational-events";
+import {
+	recordOperationalFailure,
+	recordOperationalOutcome,
+} from "#/integrations/observability/operational-events";
 import { deleteR2Prefix } from "#/lib/r2";
 
 const workspaceKernelInlineThresholdBytes = 1_500_000;
@@ -142,7 +146,7 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 
 	async createItem(
 		input: CreateWorkspaceKernelItemArgs,
-	): Promise<WorkspaceCommandResult<WorkspaceItemSummary>> {
+	): Promise<WorkspaceKernelMutationOutcome<WorkspaceItemSummary>> {
 		return this.runMutation("create_item", input, 1, () => this.itemCommands.createItem(input));
 	}
 
@@ -170,13 +174,13 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 
 	async renameItem(
 		input: RenameWorkspaceKernelItemArgs,
-	): Promise<WorkspaceCommandResult<WorkspaceItemSummary>> {
+	): Promise<WorkspaceKernelMutationOutcome<WorkspaceItemSummary>> {
 		return this.runMutation("rename_item", input, 1, () => this.itemCommands.renameItem(input));
 	}
 
 	async moveItems(
 		input: MoveWorkspaceKernelItemsArgs,
-	): Promise<WorkspaceCommandResult<MoveWorkspaceKernelItemsResult>> {
+	): Promise<WorkspaceKernelMutationOutcome<MoveWorkspaceKernelItemsResult>> {
 		return this.runMutation("move_items", input, input.items.length, () =>
 			this.itemCommands.moveItems(input),
 		);
@@ -259,8 +263,16 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 					workspaceId,
 					itemId,
 				}).purgeForDeletion();
-			} catch {
+			} catch (error) {
 				failed += 1;
+				recordOperationalFailure({
+					error,
+					event: "workspace_document_purge",
+					fields: {
+						item_id: itemId,
+						workspace_id: workspaceId,
+					},
+				});
 			}
 		}
 

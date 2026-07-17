@@ -3,6 +3,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import { workspaceMembers, workspaces } from "#/db/schema";
 import { createDbContext } from "#/db/server";
 import type { AIThreadPromptScope } from "#/features/workspaces/ai/ai-thread-metadata";
+import { WorkspaceForbiddenError } from "#/features/workspaces/server/permissions";
 import { getWorkspaceMemberCapabilities } from "#/features/workspaces/workspace-member-capabilities";
 
 export async function getWorkspacePromptScope({
@@ -32,7 +33,7 @@ export async function getWorkspacePromptScope({
 			.limit(1);
 
 		if (!membership) {
-			throw new Error("Forbidden");
+			throw new WorkspaceForbiddenError();
 		}
 
 		return {

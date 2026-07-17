@@ -9,6 +9,7 @@ export const maxWorkspacePageReadCount = 20;
 export class WorkspacePageSelectionError extends Error {
 	constructor(readonly code: "page_range_out_of_range" | "page_selection_too_large") {
 		super(code);
+		this.name = "WorkspacePageSelectionError";
 	}
 }
 

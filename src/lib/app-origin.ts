@@ -51,8 +51,8 @@ export function getAppOrigin() {
 }
 
 function getOptionalEnvString(name: string) {
-	const env = workerEnv as unknown as Record<string, string | undefined>;
-	return env[name]?.trim() || undefined;
+	const value = Reflect.get(workerEnv as object, name);
+	return typeof value === "string" ? value.trim() || undefined : undefined;
 }
 
 function parseCommaList(value: string | undefined) {

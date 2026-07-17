@@ -4,10 +4,12 @@ packages:
 minimumReleaseAge: 1440
 minimumReleaseAgeStrict: true
 trustPolicy: no-downgrade
+trustPolicyIgnoreAfter: 10080
 trustPolicyExclude:
   - semver@6.3.1
 
 overrides:
+  dompurify: 3.4.11
   vite: npm:@voidzero-dev/vite-plus-core@0.2.2
   vitest: 4.1.9
 

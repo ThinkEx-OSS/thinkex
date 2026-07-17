@@ -1,5 +1,5 @@
 import { Check, ChevronUp, Waypoints } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 import { Popover, PopoverContent, PopoverTrigger } from "#/components/ui/popover";
 import {
@@ -21,6 +21,12 @@ interface AiChatModelPickerProps {
 	onModelChange?: (modelId: WorkspaceAiChatModelId) => void;
 }
 
+const AUTO_MODEL = WORKSPACE_AI_CHAT_MODELS.find((model) => model.provider === "auto");
+const MODEL_GROUPS = WORKSPACE_AI_CHAT_PROVIDERS.flatMap((provider) => {
+	const models = WORKSPACE_AI_CHAT_MODELS.filter((model) => model.provider === provider.id);
+	return models.length > 0 ? [{ ...provider, models }] : [];
+});
+
 export default function AiChatModelPicker({ modelId, onModelChange }: AiChatModelPickerProps) {
 	const [open, setOpen] = useState(false);
 	// The model whose details are shown in the side panel. Falls back to the
@@ -34,16 +40,6 @@ export default function AiChatModelPicker({ modelId, onModelChange }: AiChatMode
 
 	// The "Auto" option lives outside the provider groups — it's ThinkEx's own
 	// choice, not a provider's model.
-	const autoModel = WORKSPACE_AI_CHAT_MODELS.find((model) => model.provider === "auto");
-	const groups = useMemo(
-		() =>
-			WORKSPACE_AI_CHAT_PROVIDERS.map((provider) => ({
-				...provider,
-				models: WORKSPACE_AI_CHAT_MODELS.filter((model) => model.provider === provider.id),
-			})).filter((group) => group.models.length > 0),
-		[],
-	);
-
 	const handleSelect = (nextId: WorkspaceAiChatModelId) => {
 		onModelChange?.(nextId);
 		setOpen(false);
@@ -71,7 +67,7 @@ export default function AiChatModelPicker({ modelId, onModelChange }: AiChatMode
 			>
 				{/* Left: grouped, scrollable model list */}
 				<div className="h-full min-w-0 overflow-y-auto border-r border-border/70 p-1.5">
-					{autoModel ? (
+					{AUTO_MODEL ? (
 						<div className="mb-1">
 							<div className="flex items-center gap-1.5 px-2 pt-1.5 pb-1 text-xs font-medium text-muted-foreground">
 								<Waypoints className="size-3.5 shrink-0" />
@@ -79,24 +75,24 @@ export default function AiChatModelPicker({ modelId, onModelChange }: AiChatMode
 							</div>
 							<button
 								type="button"
-								onClick={() => handleSelect(autoModel.id)}
-								onMouseEnter={() => setPreviewId(autoModel.id)}
-								onFocus={() => setPreviewId(autoModel.id)}
+								onClick={() => handleSelect(AUTO_MODEL.id)}
+								onMouseEnter={() => setPreviewId(AUTO_MODEL.id)}
+								onFocus={() => setPreviewId(AUTO_MODEL.id)}
 								className={cn(
 									"flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-sm outline-none transition-colors",
-									autoModel.id === (previewId ?? modelId)
+									AUTO_MODEL.id === (previewId ?? modelId)
 										? "bg-accent text-accent-foreground"
 										: "text-foreground hover:bg-accent/60",
 								)}
 							>
-								<span className="truncate">{autoModel.name}</span>
-								{autoModel.id === modelId ? (
+								<span className="truncate">{AUTO_MODEL.name}</span>
+								{AUTO_MODEL.id === modelId ? (
 									<Check className="ml-auto size-3.5 shrink-0 text-foreground" />
 								) : null}
 							</button>
 						</div>
 					) : null}
-					{groups.map((group) => (
+					{MODEL_GROUPS.map((group) => (
 						<div key={group.id} className="mb-1 last:mb-0">
 							<div className="flex items-center gap-1.5 px-2 pt-1.5 pb-1 text-xs font-medium text-muted-foreground">
 								<ProviderLogo provider={group.id} className="size-3.5 opacity-65" />

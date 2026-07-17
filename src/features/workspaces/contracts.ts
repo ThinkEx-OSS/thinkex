@@ -332,7 +332,7 @@ export type WorkspaceMemberSummary = z.infer<typeof workspaceMemberSummarySchema
 
 export const workspaceEmailInviteSummarySchema = z.object({
 	id: z.string().min(1),
-	email: z.string().email(),
+	email: z.email(),
 	role: workspaceMembershipRoleSchema,
 	createdAt: z.coerce.date(),
 });

@@ -11,7 +11,6 @@ import type { WorkspaceAccessContext } from "#/features/workspaces/operations/wo
 import type { WorkspaceItemSummary } from "#/features/workspaces/contracts";
 import { parseMarkdownToTiptapDocumentProjection } from "#/features/workspaces/documents/document-markdown";
 import { stringifyTiptapDocumentJson } from "#/features/workspaces/documents/tiptap-document";
-import type { WorkspaceKernelClient } from "#/features/workspaces/kernel/workspace-kernel-access";
 import {
 	getParentWorkspacePath,
 	getWorkspacePathName,
@@ -20,7 +19,6 @@ import {
 	WorkspaceKernelPathError,
 	type WorkspaceKernelTree,
 } from "#/features/workspaces/kernel/workspace-kernel-paths";
-import { WorkspaceKernelNameConflictError } from "#/features/workspaces/kernel/workspace-kernel-store";
 
 export interface CreateWorkspaceItemOperationInput {
 	type: "document" | "folder";
@@ -143,35 +141,28 @@ export async function createWorkspaceItemsOperation(
 			continue;
 		}
 
-		let command: Awaited<ReturnType<WorkspaceKernelClient["createItem"]>>;
+		const outcome = await workspaceContext.kernel.createItem({
+			id,
+			parentId: parent.parentId,
+			type: itemInput.type,
+			name: path.name,
+			onNameConflict: "error",
+			initialContent: initialContent.content,
+			initialRelations: relations.relations,
+			actorUserId: accessContext.actor.userId,
+			clientMutationId: `${accessContext.operationId}:${index}`,
+		});
 
-		try {
-			command = await workspaceContext.kernel.createItem({
-				id,
-				parentId: parent.parentId,
-				type: itemInput.type,
-				name: path.name,
-				onNameConflict: "error",
-				initialContent: initialContent.content,
-				actorUserId: accessContext.actor.userId,
-				clientMutationId: accessContext.operationId,
+		if (outcome.status === "conflict") {
+			failed.push({
+				code: "path_already_exists",
+				index,
+				path: path.path,
 			});
-		} catch (error) {
-			if (error instanceof WorkspaceKernelNameConflictError) {
-				failed.push({
-					code: "path_already_exists",
-					index,
-					path: path.path,
-				});
-				continue;
-			}
-
-			throw error;
+			continue;
 		}
 
-		if (relations.relations.length > 0) {
-			await workspaceContext.kernel.createRelations({ relations: relations.relations });
-		}
+		const command = outcome.command;
 
 		const createdPath = joinWorkspaceItemPath(parent.path, command.result.name);
 
