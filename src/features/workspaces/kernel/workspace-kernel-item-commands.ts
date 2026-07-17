@@ -37,13 +37,13 @@ import {
 	workspaceItemSupportsCustomColor,
 } from "#/features/workspaces/model/workspace-item-colors";
 import type { WorkspaceCommandResult } from "#/features/workspaces/realtime/messages";
+import { recordOperationalFailure } from "#/integrations/observability/operational-events";
 
 export class WorkspaceKernelItemCommands {
 	private readonly events: WorkspaceKernelEventBus;
 	private readonly relations: WorkspaceKernelRelations;
 	private readonly sql: WorkspaceKernelSql;
 	private readonly store: WorkspaceKernelStore;
-	private readonly transactionSync: <T>(closure: () => T) => T;
 	private readonly workspace: ShellWorkspace;
 	private readonly workspaceId: () => string;
 
@@ -52,7 +52,6 @@ export class WorkspaceKernelItemCommands {
 		relations: WorkspaceKernelRelations;
 		sql: WorkspaceKernelSql;
 		store: WorkspaceKernelStore;
-		transactionSync: <T>(closure: () => T) => T;
 		workspace: ShellWorkspace;
 		workspaceId: () => string;
 	}) {
@@ -60,7 +59,6 @@ export class WorkspaceKernelItemCommands {
 		this.relations = input.relations;
 		this.sql = input.sql;
 		this.store = input.store;
-		this.transactionSync = input.transactionSync;
 		this.workspace = input.workspace;
 		this.workspaceId = input.workspaceId;
 	}
@@ -146,49 +144,47 @@ export class WorkspaceKernelItemCommands {
 			return { command: concurrentResult, status: "applied" };
 		}
 
-		const command = this.transactionSync(() => {
-			this.sql`
-				INSERT INTO kernel_items (
-					id,
-					parent_id,
-					type,
-					name,
-					color,
-					metadata_json,
-					sort_order,
-					shell_path,
-					created_at,
-					updated_at,
-					deleted_at
-				)
-				VALUES (
-					${id},
-					${parentId},
-					${type},
-					${name},
-					${color},
-					${JSON.stringify(metadataJson)},
-					${this.store.getNextSortOrder(parentId)},
-					${shellPath},
-					${now},
-					${now},
-					NULL
-				)
-			`;
+		// Keep these writes synchronous. SQLite-backed Durable Objects coalesce
+		// writes without an intervening await into one atomic implicit transaction.
+		this.sql`
+			INSERT INTO kernel_items (
+				id,
+				parent_id,
+				type,
+				name,
+				color,
+				metadata_json,
+				sort_order,
+				shell_path,
+				created_at,
+				updated_at,
+				deleted_at
+			)
+			VALUES (
+				${id},
+				${parentId},
+				${type},
+				${name},
+				${color},
+				${JSON.stringify(metadataJson)},
+				${this.store.getNextSortOrder(parentId)},
+				${shellPath},
+				${now},
+				${now},
+				NULL
+			)
+		`;
 
-			const item = this.store.requireItem(id);
-			this.relations.createRelations(initialRelations);
-			const event = this.events.commit({
-				type: "workspace.item.created",
-				actorUserId: input.actorUserId ?? null,
-				clientMutationId: input.clientMutationId ?? null,
-				payload: { item },
-			});
-
-			return { result: item, event };
+		const item = this.store.requireItem(id);
+		this.relations.createRelations(initialRelations);
+		const event = this.events.commit({
+			type: "workspace.item.created",
+			actorUserId: input.actorUserId ?? null,
+			clientMutationId: input.clientMutationId ?? null,
+			payload: { item },
 		});
 
-		return { command, status: "applied" };
+		return { command: { result: item, event }, status: "applied" };
 	}
 
 	async renameItem(
@@ -312,15 +308,6 @@ export class WorkspaceKernelItemCommands {
 
 		this.store.softDeleteItems(deleteIds, Date.now());
 		this.relations.deleteRelationsForItems(deleteIds);
-		await Promise.all(
-			rowsToRemove.map((row) =>
-				this.workspace.rm(row.shell_path, {
-					recursive: true,
-					force: true,
-				}),
-			),
-		);
-
 		const result = { itemIds: rootIds, deletedItemIds: deleteIds };
 		const event = this.events.commit({
 			type: "workspace.item.deleted",
@@ -328,6 +315,26 @@ export class WorkspaceKernelItemCommands {
 			clientMutationId: input.clientMutationId ?? null,
 			payload: { itemIds: rootIds, deletedItemIds: deleteIds },
 		});
+
+		try {
+			await Promise.all(
+				rowsToRemove.map((row) =>
+					this.workspace.rm(row.shell_path, {
+						recursive: true,
+						force: true,
+					}),
+				),
+			);
+		} catch (error) {
+			recordOperationalFailure({
+				error,
+				event: "workspace_shell_cleanup",
+				fields: {
+					item_count: rowsToRemove.length,
+					workspace_id: this.workspaceId(),
+				},
+			});
+		}
 
 		return { result, event };
 	}

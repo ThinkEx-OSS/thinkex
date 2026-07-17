@@ -82,7 +82,6 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 		relations: this.relations,
 		sql: this.kernelSql,
 		store: this.store,
-		transactionSync: (closure) => this.ctx.storage.transactionSync(closure),
 		workspace: this.workspace,
 		workspaceId: () => this.name,
 	});
