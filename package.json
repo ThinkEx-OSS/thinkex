@@ -166,7 +166,7 @@
 		"@vitejs/plugin-react": "^6.0.3",
 		"@voidzero-dev/vite-plus-core": "^0.2.2",
 		"babel-plugin-react-compiler": "^1.0.0",
-		"knip": "^6.17.1",
+		"knip": "^6.27.0",
 		"react-doctor": "0.6.0",
 		"tsx": "^4.23.0",
 		"typescript": "^6.0.2",
