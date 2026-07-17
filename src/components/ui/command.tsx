@@ -12,12 +12,35 @@ import { InputGroup, InputGroupAddon } from "#/components/ui/input-group.tsx";
 import { cn } from "#/lib/utils.ts";
 
 type CommandContextValue = {
-	registerItem: (id: string, visible: boolean) => void;
+	dispatchItem: React.Dispatch<CommandItemAction>;
 	search: string;
 	setSearch: (value: string) => void;
-	unregisterItem: (id: string) => void;
 	visibleCount: number;
 };
+
+type CommandItemAction =
+	| { id: string; type: "unregister" }
+	| { id: string; type: "register"; visible: boolean };
+
+function commandItemsReducer(current: Map<string, boolean>, action: CommandItemAction) {
+	if (action.type === "unregister") {
+		if (!current.has(action.id)) {
+			return current;
+		}
+
+		const next = new Map(current);
+		next.delete(action.id);
+		return next;
+	}
+
+	if (current.get(action.id) === action.visible) {
+		return current;
+	}
+
+	const next = new Map(current);
+	next.set(action.id, action.visible);
+	return next;
+}
 
 const CommandContext = React.createContext<CommandContextValue | null>(null);
 
@@ -31,37 +54,12 @@ function useCommandContext() {
 
 function Command({ className, children, ...props }: React.ComponentProps<"div">) {
 	const [search, setSearch] = React.useState("");
-	const [items, setItems] = React.useState(() => new Map<string, boolean>());
-
-	const registerItem = (id: string, visible: boolean) => {
-		setItems((current) => {
-			if (current.get(id) === visible) {
-				return current;
-			}
-
-			const next = new Map(current);
-			next.set(id, visible);
-			return next;
-		});
-	};
-
-	const unregisterItem = (id: string) => {
-		setItems((current) => {
-			if (!current.has(id)) {
-				return current;
-			}
-
-			const next = new Map(current);
-			next.delete(id);
-			return next;
-		});
-	};
+	const [items, dispatchItem] = React.useReducer(commandItemsReducer, new Map<string, boolean>());
 
 	const contextValue = {
-		registerItem,
+		dispatchItem,
 		search,
 		setSearch,
-		unregisterItem,
 		visibleCount: Array.from(items.values()).filter(Boolean).length,
 	};
 
@@ -220,14 +218,14 @@ function CommandItem({
 	value?: string;
 }) {
 	const id = React.useId();
-	const { registerItem, search, unregisterItem } = useCommandContext();
+	const { dispatchItem, search } = useCommandContext();
 	const itemValue = value ?? (typeof children === "string" ? children : "");
 	const visible = !search || itemValue.toLowerCase().includes(search.trim().toLowerCase());
 
 	React.useEffect(() => {
-		registerItem(id, visible);
-		return () => unregisterItem(id);
-	}, [id, registerItem, unregisterItem, visible]);
+		dispatchItem({ id, type: "register", visible });
+		return () => dispatchItem({ id, type: "unregister" });
+	}, [dispatchItem, id, visible]);
 
 	if (!visible) {
 		return null;
