@@ -1,7 +1,4 @@
-import type { KernelEventRow } from "#/features/workspaces/kernel/workspace-kernel-rows";
-import { mapKernelEventRow } from "#/features/workspaces/kernel/workspace-kernel-rows";
 import type { WorkspaceKernelSql } from "#/features/workspaces/kernel/workspace-kernel-schema";
-import type { ListWorkspaceKernelEventsArgs } from "#/features/workspaces/kernel/workspace-kernel-types";
 import type {
 	WorkspaceRealtimeEvent,
 	WorkspaceRealtimeServerMessage,
@@ -23,43 +20,6 @@ export class WorkspaceKernelEventBus {
 		this.workspaceId = input.workspaceId;
 		this.getNextRevision = input.getNextRevision;
 		this.broadcast = input.broadcast;
-	}
-
-	getEventsSince({
-		afterRevision,
-		limit = 100,
-	}: ListWorkspaceKernelEventsArgs): WorkspaceRealtimeEvent[] {
-		const rows = this.sql<KernelEventRow>`
-			SELECT *
-			FROM kernel_events
-			WHERE revision > ${Math.max(0, afterRevision)}
-			ORDER BY revision ASC
-			LIMIT ${Math.max(1, Math.min(limit, 500))}
-		`;
-
-		return rows.map((row) => mapKernelEventRow(row, this.workspaceId()));
-	}
-
-	getCreatedItemEvent(input: { clientMutationId: string; itemId: string }) {
-		const [row] = this.sql<KernelEventRow>`
-			SELECT *
-			FROM kernel_events
-			WHERE type = 'workspace.item.created'
-				AND client_mutation_id = ${input.clientMutationId}
-			ORDER BY revision ASC
-			LIMIT 1
-		`;
-
-		if (!row) {
-			return null;
-		}
-
-		const event = mapKernelEventRow(row, this.workspaceId());
-		if (event.type !== "workspace.item.created" || event.payload.item.id !== input.itemId) {
-			throw new Error("Workspace client mutation id was already used.");
-		}
-
-		return event;
 	}
 
 	commit(input: Omit<WorkspaceRealtimeEvent, "id" | "revision" | "workspaceId" | "createdAt">) {

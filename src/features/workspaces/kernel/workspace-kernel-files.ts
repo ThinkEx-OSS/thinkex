@@ -3,13 +3,15 @@ import {
 	createInitialTiptapDocumentJson,
 	stringifyTiptapDocumentJson,
 } from "#/features/workspaces/documents/tiptap-document";
+import { getWorkspaceItemRegistryEntry } from "#/features/workspaces/workspace-item-registry";
 
 export function getWorkspaceKernelShellPath(input: { id: string; type: WorkspaceItemType }) {
-	if (input.type === "folder") {
+	const extension = getWorkspaceItemRegistryEntry(input.type).extension;
+	if (!extension) {
 		return `/items/${input.id}`;
 	}
 
-	return `/items/${input.id}/content.${getContentExtension(input.type)}`;
+	return `/items/${input.id}/content.${extension}`;
 }
 
 export function getWorkspaceKernelFileShellPath(input: { itemId: string; extension: string }) {
@@ -17,43 +19,18 @@ export function getWorkspaceKernelFileShellPath(input: { itemId: string; extensi
 }
 
 export function getWorkspaceKernelContentMimeType(type: WorkspaceItemType) {
-	switch (type) {
-		case "document":
-			return "application/json";
-		case "flashcard":
-		case "quiz":
-			return "application/json";
-		case "file":
-			return "text/plain";
-		case "folder":
-			return "inode/directory";
-	}
+	return getWorkspaceItemRegistryEntry(type).mimeType;
 }
 
-export function getInitialWorkspaceKernelContent(type: WorkspaceItemType, _name: string) {
-	switch (type) {
+export function getInitialWorkspaceKernelContent(type: WorkspaceItemType) {
+	switch (getWorkspaceItemRegistryEntry(type).contentKind) {
 		case "document":
 			return stringifyTiptapDocumentJson(createInitialTiptapDocumentJson());
 		case "flashcard":
 			return JSON.stringify({ version: 1, cards: [] }, null, 2);
 		case "quiz":
 			return JSON.stringify({ version: 1, questions: [] }, null, 2);
-		case "file":
-		case "folder":
-			return "";
-	}
-}
-
-function getContentExtension(type: WorkspaceItemType) {
-	switch (type) {
-		case "document":
-			return "json";
-		case "flashcard":
-		case "quiz":
-			return "json";
-		case "file":
-			return "txt";
-		case "folder":
+		case "empty":
 			return "";
 	}
 }

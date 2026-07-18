@@ -29,13 +29,14 @@ export {
 	type WorkspaceFileItemLike,
 	workspaceItemRequiresHeavyViewerRuntime,
 } from "#/features/workspaces/model/workspace-file/resolve";
-export type {
-	WorkspaceFileAiReadStrategy,
-	WorkspaceFileAssetKind,
-	WorkspaceFileExtractionMode,
-	WorkspaceFileExtractionProviderId,
-	WorkspaceFileExtractionRoute,
-	WorkspaceFilePreviewGeneratorId,
+export {
+	type WorkspaceFileAiReadStrategy,
+	type WorkspaceFileAssetKind,
+	type WorkspaceFileExtractionMode,
+	type WorkspaceFileExtractionProviderId,
+	type WorkspaceFileExtractionRoute,
+	type WorkspaceFilePreviewGeneratorId,
+	workspaceFileAssetKindSchema,
 	workspaceFileAssetKinds,
 	workspaceFileExtractionProviders,
 } from "#/features/workspaces/model/workspace-file/types";

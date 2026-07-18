@@ -26,10 +26,10 @@ import type {
 	DeleteWorkspaceKernelItemsResult,
 	MoveWorkspaceKernelItemsArgs,
 	MoveWorkspaceKernelItemsResult,
-	ReadWorkspaceKernelItemArgs,
+	ReadWorkspaceDocumentCheckpointArgs,
 	RenameWorkspaceKernelItemArgs,
 	UpdateWorkspaceKernelItemColorArgs,
-	WriteWorkspaceKernelItemArgs,
+	CommitWorkspaceDocumentCheckpointArgs,
 	WorkspaceKernelMutationOutcome,
 } from "#/features/workspaces/kernel/workspace-kernel-types";
 import {
@@ -72,24 +72,8 @@ export class WorkspaceKernelItemCommands {
 			throw new Error("Binary workspace files must be created through the upload flow.");
 		}
 
-		const id = input.id ?? crypto.randomUUID();
+		const id = input.id;
 		const parentId = input.parentId ?? null;
-		const getPriorResult = () => {
-			const event =
-				input.id && input.clientMutationId
-					? this.events.getCreatedItemEvent({
-							clientMutationId: input.clientMutationId,
-							itemId: input.id,
-						})
-					: null;
-
-			return event ? { event, result: this.store.requireItem(id) } : null;
-		};
-		const priorResult = getPriorResult();
-
-		if (priorResult) {
-			return { command: priorResult, status: "applied" };
-		}
 
 		const color = resolveWorkspaceItemColorForCreate({
 			type,
@@ -127,22 +111,15 @@ export class WorkspaceKernelItemCommands {
 		const shellPath = getWorkspaceKernelShellPath({ id, type });
 		const { initialContent, metadataJson } = buildWorkspaceItemCreateBootstrap({
 			type,
-			name,
 			metadataJson: input.metadataJson ?? {},
 			initialContent: input.initialContent,
 		});
 
 		await this.createWorkspaceFile({
 			type,
-			name,
 			shellPath,
 			initialContent,
 		});
-
-		const concurrentResult = getPriorResult();
-		if (concurrentResult) {
-			return { command: concurrentResult, status: "applied" };
-		}
 
 		// Keep these writes synchronous. SQLite-backed Durable Objects coalesce
 		// writes without an intervening await into one atomic implicit transaction.
@@ -177,11 +154,17 @@ export class WorkspaceKernelItemCommands {
 
 		const item = this.store.requireItem(id);
 		this.relations.createRelations(initialRelations);
+		const factItemIds = Array.from(
+			new Set([id, ...initialRelations.flatMap((relation) => [relation.toItemId])]),
+		);
+		const itemFacts = this.store.getItemFacts(
+			factItemIds.map((itemId) => this.store.requireItem(itemId)),
+		);
 		const event = this.events.commit({
 			type: "workspace.item.created",
 			actorUserId: input.actorUserId ?? null,
 			clientMutationId: input.clientMutationId ?? null,
-			payload: { item },
+			payload: { item, itemFacts },
 		});
 
 		return { command: { result: item, event }, status: "applied" };
@@ -305,15 +288,19 @@ export class WorkspaceKernelItemCommands {
 		const rowsToRemove = deleteIds
 			.map((id) => this.store.getItemRowIncludingDeleted(id))
 			.filter((row): row is KernelItemRow => Boolean(row));
+		const relatedItemIds = this.relations.listRelatedItemIds(deleteIds);
 
 		this.store.softDeleteItems(deleteIds, Date.now());
 		this.relations.deleteRelationsForItems(deleteIds);
+		const itemFacts = this.store.getItemFacts(
+			relatedItemIds.map((itemId) => this.store.requireItem(itemId)),
+		);
 		const result = { itemIds: rootIds, deletedItemIds: deleteIds };
 		const event = this.events.commit({
 			type: "workspace.item.deleted",
 			actorUserId: input.actorUserId ?? null,
 			clientMutationId: input.clientMutationId ?? null,
-			payload: { itemIds: rootIds, deletedItemIds: deleteIds },
+			payload: { itemIds: rootIds, deletedItemIds: deleteIds, itemFacts },
 		});
 
 		try {
@@ -339,26 +326,26 @@ export class WorkspaceKernelItemCommands {
 		return { result, event };
 	}
 
-	async readItem(input: ReadWorkspaceKernelItemArgs) {
+	async readDocumentCheckpoint(input: ReadWorkspaceDocumentCheckpointArgs) {
 		const item = this.store.assertActiveItem(input.itemId);
+		if (item.type !== "document") {
+			throw new Error("Only document items have document checkpoints.");
+		}
 		const itemSummary = mapKernelItemRow(item, this.workspaceId());
-
-		return item.type === "folder" || item.type === "file"
-			? { item: itemSummary, content: null }
-			: {
-					item: itemSummary,
-					content: await this.workspace.readFile(item.shell_path),
-				};
+		return {
+			item: itemSummary,
+			content: await this.workspace.readFile(item.shell_path),
+		};
 	}
 
-	async writeItem(
-		input: WriteWorkspaceKernelItemArgs,
+	async commitDocumentCheckpoint(
+		input: CommitWorkspaceDocumentCheckpointArgs,
 	): Promise<WorkspaceCommandResult<WorkspaceItemSummary>> {
 		const item = this.store.assertActiveItem(input.itemId);
 		const type = workspaceItemTypeSchema.parse(item.type);
 
-		if (type === "folder" || type === "file") {
-			throw new Error("This workspace item does not have writable text content.");
+		if (type !== "document") {
+			throw new Error("Only document checkpoints can update workspace text content.");
 		}
 
 		await this.workspace.writeFile(
@@ -395,7 +382,6 @@ export class WorkspaceKernelItemCommands {
 
 	private async createWorkspaceFile(input: {
 		type: WorkspaceItemSummary["type"];
-		name: string;
 		shellPath: string;
 		initialContent?: string;
 	}) {
@@ -406,7 +392,7 @@ export class WorkspaceKernelItemCommands {
 
 		await this.workspace.writeFile(
 			input.shellPath,
-			input.initialContent ?? getInitialWorkspaceKernelContent(input.type, input.name),
+			input.initialContent ?? getInitialWorkspaceKernelContent(input.type),
 			getWorkspaceKernelContentMimeType(input.type),
 		);
 	}

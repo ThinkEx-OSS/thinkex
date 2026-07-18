@@ -6,10 +6,10 @@ import {
 	workspaceKernelAgentName,
 	workspaceKernelBasePath,
 } from "#/features/workspaces/agent-routes";
-import type {
-	WorkspacePresenceUser,
-	WorkspaceRealtimeEvent,
-	WorkspaceRealtimeServerMessage,
+import {
+	parseWorkspaceRealtimeServerMessage,
+	type WorkspacePresenceUser,
+	type WorkspaceRealtimeEvent,
 } from "./messages";
 
 type ConnectionStatus = "connecting" | "connected" | "disconnected";
@@ -24,8 +24,7 @@ interface UseWorkspaceRealtimeInput {
 	workspaceId: string;
 	lastSeenRevision?: number;
 	onEvent?: (event: WorkspaceRealtimeEvent) => void;
-	onReconnect?: () => void;
-	onRevisionGap?: (event: WorkspaceRealtimeEvent) => void;
+	onDesync?: () => void;
 }
 
 function parseServerMessage(data: unknown) {
@@ -34,7 +33,7 @@ function parseServerMessage(data: unknown) {
 	}
 
 	try {
-		return JSON.parse(data) as WorkspaceRealtimeServerMessage;
+		return parseWorkspaceRealtimeServerMessage(JSON.parse(data));
 	} catch {
 		return null;
 	}
@@ -52,8 +51,7 @@ export function useWorkspaceRealtime({
 	workspaceId,
 	lastSeenRevision,
 	onEvent,
-	onReconnect,
-	onRevisionGap,
+	onDesync,
 }: UseWorkspaceRealtimeInput) {
 	const [presence, setPresence] = useState(() => getInitialPresenceState(workspaceId));
 	const hasConnectedRef = useRef(false);
@@ -62,13 +60,11 @@ export function useWorkspaceRealtime({
 	const latestRevisionInputRef = useRef(lastSeenRevision ?? 0);
 	const revisionWorkspaceRef = useRef(workspaceId);
 	const onEventRef = useRef(onEvent);
-	const onReconnectRef = useRef(onReconnect);
-	const onRevisionGapRef = useRef(onRevisionGap);
+	const onDesyncRef = useRef(onDesync);
 
 	useEffect(() => {
 		onEventRef.current = onEvent;
-		onReconnectRef.current = onReconnect;
-		onRevisionGapRef.current = onRevisionGap;
+		onDesyncRef.current = onDesync;
 	});
 
 	let currentPresence = presence;
@@ -106,7 +102,7 @@ export function useWorkspaceRealtime({
 		}));
 
 		if (hasConnectedRef.current) {
-			onReconnectRef.current?.();
+			onDesyncRef.current?.();
 		}
 
 		hasConnectedRef.current = true;
@@ -131,6 +127,9 @@ export function useWorkspaceRealtime({
 	const handleMessage = useCallback(
 		(event: MessageEvent) => {
 			const message = parseServerMessage(event.data);
+			if (!message) {
+				return;
+			}
 
 			if (message?.type === "presence.snapshot" && message.workspaceId === workspaceId) {
 				setPresence((current) => ({
@@ -144,7 +143,7 @@ export function useWorkspaceRealtime({
 				const lastSeenRevision = lastSeenRevisionRef.current;
 
 				if (lastSeenRevision > 0 && message.event.revision > lastSeenRevision + 1) {
-					onRevisionGapRef.current?.(message.event);
+					onDesyncRef.current?.();
 					lastSeenRevisionRef.current = message.event.revision;
 					return;
 				}

@@ -1,15 +1,14 @@
 import {
-	getWorkspaceOperationContext,
+	getAuthorizedWorkspaceKernel,
 	resolveWorkspaceExistingItemPath,
-	resolveWorkspaceOperationPath,
 } from "#/features/workspaces/operations/workspace-operation-context";
 import type { WorkspaceAccessContext } from "#/features/workspaces/operations/workspace-access-context";
 import type { WorkspaceItemSummary } from "#/features/workspaces/contracts";
 import {
 	getParentWorkspacePath,
 	joinWorkspaceItemPath,
-	type WorkspaceKernelTree,
 } from "#/features/workspaces/kernel/workspace-kernel-paths";
+import type { WorkspaceKernelPathResolution } from "#/features/workspaces/kernel/workspace-kernel-types";
 
 export interface MoveWorkspaceItemsOperationInput {
 	destinationPath: string;
@@ -57,13 +56,18 @@ export async function moveWorkspaceItemsOperation(
 	accessContext: WorkspaceAccessContext,
 	input: MoveWorkspaceItemsOperationInput,
 ): Promise<MoveWorkspaceItemsOperationResult> {
-	const workspaceContext = await getWorkspaceOperationContext({
+	const kernel = await getAuthorizedWorkspaceKernel({
 		access: "mutate",
 		context: accessContext,
 	});
+	const [destinationResolution, ...itemResolutions] = await kernel.resolvePaths({
+		paths: [input.destinationPath, ...input.paths],
+	});
+	if (!destinationResolution) {
+		throw new Error("Workspace kernel did not resolve the requested move destination.");
+	}
 	const destination = resolveMoveWorkspaceDestination({
-		path: input.destinationPath,
-		tree: workspaceContext.tree,
+		resolution: destinationResolution,
 	});
 
 	if (destination.status === "failed") {
@@ -85,11 +89,10 @@ export async function moveWorkspaceItemsOperation(
 		path: string;
 	}> = [];
 
-	for (const [index, path] of input.paths.entries()) {
+	for (const [index, pathResolution] of itemResolutions.entries()) {
 		const resolution = resolveWorkspaceExistingItemPath({
-			path,
+			resolution: pathResolution,
 			rootFailureCode: "cannot_move_root",
-			tree: workspaceContext.tree,
 		});
 
 		if (resolution.status === "failed") {
@@ -140,7 +143,7 @@ export async function moveWorkspaceItemsOperation(
 	const pendingItems = [...resolvedItems];
 
 	while (pendingItems.length > 0) {
-		const outcome = await workspaceContext.kernel.moveItems({
+		const outcome = await kernel.moveItems({
 			items: pendingItems.map((resolved) => ({ itemId: resolved.item.id })),
 			parentId: destination.parentId,
 			onNameConflict: "error",
@@ -193,7 +196,7 @@ export async function moveWorkspaceItemsOperation(
 	};
 }
 
-function resolveMoveWorkspaceDestination(input: { path: string; tree: WorkspaceKernelTree }):
+function resolveMoveWorkspaceDestination(input: { resolution: WorkspaceKernelPathResolution }):
 	| {
 			failure: MoveWorkspaceDestinationFailure;
 			status: "failed";
@@ -203,7 +206,7 @@ function resolveMoveWorkspaceDestination(input: { path: string; tree: WorkspaceK
 			path: string;
 			status: "destination";
 	  } {
-	const resolution = resolveWorkspaceOperationPath(input);
+	const { resolution } = input;
 
 	if (resolution.status === "invalid_path") {
 		return {

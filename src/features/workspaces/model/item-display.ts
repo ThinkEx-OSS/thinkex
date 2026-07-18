@@ -1,16 +1,10 @@
-import { type LucideIcon, Mic, Upload } from "lucide-react";
+import { Mic, Upload } from "lucide-react";
 
-import {
-	creatableWorkspaceObjectEntries,
-	getWorkspaceObjectRegistryEntry,
-} from "#/features/workspaces/model/object-registry";
+import { getWorkspaceObjectRegistryEntry } from "#/features/workspaces/model/object-registry";
 import type { WorkspaceItem } from "#/features/workspaces/model/types";
 import { workspaceColors } from "#/features/workspaces/model/workspace-colors";
 import { resolveWorkspaceFileTypeFromItem } from "#/features/workspaces/model/workspace-file";
-import {
-	getWorkspaceItemPalette,
-	workspaceItemTypeColors,
-} from "#/features/workspaces/model/workspace-item-colors";
+import { getWorkspaceItemPalette } from "#/features/workspaces/model/workspace-item-colors";
 
 export function getWorkspaceItemDisplay(item: WorkspaceItem) {
 	const typeDisplay = getWorkspaceObjectRegistryEntry(item.type);
@@ -26,47 +20,32 @@ export function getWorkspaceItemDisplay(item: WorkspaceItem) {
 	};
 }
 
-export const workspaceItemCreateActions = creatableWorkspaceObjectEntries.map((display) => ({
-	type: display.type,
-	label: display.menuLabel,
-	group: display.menuGroup,
-	Icon: display.icon,
-	iconClassName: workspaceColors[workspaceItemTypeColors[display.type]].iconClassName,
-}));
-
 const workspaceItemPrimaryCreateActionOrder = ["document", "folder"] as const;
+const workspaceItemLearnCreateActionOrder = ["flashcard", "quiz"] as const;
 
-export const workspaceItemPrimaryCreateActions = workspaceItemPrimaryCreateActionOrder.map(
-	(type) => {
-		const action = workspaceItemCreateActions.find((item) => item.type === type);
+export const workspaceItemPrimaryCreateActions =
+	workspaceItemPrimaryCreateActionOrder.map(createWorkspaceItemAction);
 
-		if (!action) {
-			throw new Error(`Missing workspace create action for type: ${type}`);
-		}
+export const workspaceItemLearnCreateActions =
+	workspaceItemLearnCreateActionOrder.map(createWorkspaceItemAction);
 
-		return action;
-	},
-);
-
-export const workspaceItemLearnCreateActions = workspaceItemCreateActions.filter(
-	(action) => action.group === "learn",
-);
-
-export interface WorkspaceItemAcquisitionAction {
-	id: "upload-file" | "record-audio";
-	label: string;
-	description?: string;
-	Icon: LucideIcon;
-	iconClassName: string;
-	disabled: boolean;
+function createWorkspaceItemAction(type: "document" | "folder" | "flashcard" | "quiz") {
+	const display = getWorkspaceObjectRegistryEntry(type);
+	return {
+		type,
+		label: display.menuLabel,
+		Icon: display.icon,
+		iconClassName: workspaceColors[display.color].iconClassName,
+	};
 }
 
-export const workspaceItemAcquisitionActions: WorkspaceItemAcquisitionAction[] = [
+export const workspaceItemAcquisitionActions = [
 	{
 		id: "upload-file",
 		label: "Upload",
+		description: undefined,
 		Icon: Upload,
-		iconClassName: workspaceColors[workspaceItemTypeColors.file].iconClassName,
+		iconClassName: workspaceColors[getWorkspaceObjectRegistryEntry("file").color].iconClassName,
 		disabled: false,
 	},
 	{
@@ -77,4 +56,4 @@ export const workspaceItemAcquisitionActions: WorkspaceItemAcquisitionAction[] =
 		iconClassName: workspaceColors.orange.iconClassName,
 		disabled: true,
 	},
-];
+] as const;

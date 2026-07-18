@@ -7,6 +7,7 @@ export interface WorkspaceOperationSummary {
 	failureCodes: string[];
 	failedCount: number;
 	outcome: WorkspaceOperationOutcome;
+	pendingCount: number;
 	succeededCount: number;
 }
 
@@ -54,6 +55,24 @@ export function summarizeWorkspaceCollectionResult(input: {
 	return summarizeWorkspaceResult(input.items.length, input.failed);
 }
 
+export function summarizeWorkspaceReadResult(input: {
+	results: ReadonlyArray<{ code?: string; status: "failed" | "pending" | "ready" }>;
+}) {
+	const failures: Array<{ code: string }> = [];
+	let pendingCount = 0;
+	let succeededCount = 0;
+	for (const result of input.results) {
+		if (result.status === "failed") {
+			failures.push({ code: result.code ?? "unknown" });
+		} else if (result.status === "pending") {
+			pendingCount += 1;
+		} else {
+			succeededCount += 1;
+		}
+	}
+	return summarizeWorkspaceResult(succeededCount, failures, pendingCount);
+}
+
 export function summarizeWorkspaceItemResult(input: {
 	failed: ReadonlyArray<{ code: string }>;
 	item?: unknown;
@@ -83,7 +102,8 @@ function recordWorkspaceOperation(
 			mutating: input.mutating,
 			operation: input.operation,
 			operation_id: input.context.operationId,
-			requested_count: summary.succeededCount + summary.failedCount,
+			pending_count: summary.pendingCount,
+			requested_count: summary.succeededCount + summary.pendingCount + summary.failedCount,
 			succeeded_count: summary.succeededCount,
 			user_id: input.context.actor.userId,
 			workspace_id: input.context.workspaceId,
@@ -95,11 +115,18 @@ function recordWorkspaceOperation(
 function summarizeWorkspaceResult(
 	succeededCount: number,
 	failures: ReadonlyArray<{ code: string }>,
+	pendingCount = 0,
 ): WorkspaceOperationSummary {
 	return {
 		failureCodes: Array.from(new Set(failures.map((failure) => failure.code))),
 		failedCount: failures.length,
-		outcome: failures.length === 0 ? "success" : succeededCount === 0 ? "error" : "partial",
+		outcome:
+			failures.length === 0
+				? "success"
+				: succeededCount === 0 && pendingCount === 0
+					? "error"
+					: "partial",
+		pendingCount,
 		succeededCount,
 	};
 }

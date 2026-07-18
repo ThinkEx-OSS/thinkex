@@ -3,6 +3,7 @@ import type {
 	WorkspaceIcon,
 	WorkspaceItemType,
 } from "#/features/workspaces/contracts";
+import { getWorkspaceItemRegistryEntry } from "#/features/workspaces/workspace-item-registry";
 
 export const DEFAULT_WORKSPACE_NAME = "Untitled Workspace";
 export const DEFAULT_WORKSPACE_COLOR = "sky" satisfies WorkspaceColor;
@@ -10,33 +11,11 @@ export const DEFAULT_WORKSPACE_ICON = "compass" satisfies WorkspaceIcon;
 export const WORKSPACE_ITEM_SORT_STEP = 1024;
 
 export function getDefaultWorkspaceItemName(type: WorkspaceItemType) {
-	switch (type) {
-		case "folder":
-			return "New folder";
-		case "document":
-			return "New document";
-		case "file":
-			return "New file";
-		case "flashcard":
-			return "New flashcards";
-		case "quiz":
-			return "New quiz";
-	}
+	return getWorkspaceItemRegistryEntry(type).defaultName;
 }
 
 export function getWorkspaceItemTypeMeta(type: WorkspaceItemType) {
-	switch (type) {
-		case "folder":
-			return "Folder";
-		case "document":
-			return "Document";
-		case "file":
-			return "File";
-		case "flashcard":
-			return "Flashcards";
-		case "quiz":
-			return "Quiz";
-	}
+	return getWorkspaceItemRegistryEntry(type).menuLabel;
 }
 
 export function getAvailableWorkspaceItemName(input: {

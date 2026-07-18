@@ -63,6 +63,27 @@ export class WorkspaceKernelRelations {
 		}
 	}
 
+	listRelatedItemIds(itemIds: string[]) {
+		const relatedItemIds = new Set<string>();
+		const deletingIds = new Set(itemIds);
+		const itemIdsJson = JSON.stringify(itemIds);
+		const rows = this.sql<{ from_item_id: string; to_item_id: string }>`
+			SELECT from_item_id, to_item_id
+			FROM kernel_relations
+			WHERE from_item_id IN (SELECT value FROM json_each(${itemIdsJson}))
+				OR to_item_id IN (SELECT value FROM json_each(${itemIdsJson}))
+		`;
+		for (const row of rows) {
+			if (!deletingIds.has(row.from_item_id)) {
+				relatedItemIds.add(row.from_item_id);
+			}
+			if (!deletingIds.has(row.to_item_id)) {
+				relatedItemIds.add(row.to_item_id);
+			}
+		}
+		return Array.from(relatedItemIds);
+	}
+
 	listItemRelations(itemId: string, limit = 40): WorkspaceKernelRelation[] {
 		return this.sql<KernelRelationRow>`
 			SELECT id, from_item_id, to_item_id, kind, note

@@ -18,8 +18,17 @@ export function applyWorkspaceEventToPage(
 	page: WorkspacePage,
 	event: WorkspaceRealtimeEvent,
 ): WorkspacePage {
+	if (event.revision <= page.revision) {
+		return page;
+	}
+
 	switch (event.type) {
 		case "workspace.item.created":
+			return upsertWorkspaceItemFactsInPage(
+				upsertWorkspaceItemInPage(page, event.payload.item, event.revision),
+				event.payload.itemFacts,
+				event.revision,
+			);
 		case "workspace.item.renamed":
 		case "workspace.item.moved":
 		case "workspace.item.color.updated":
@@ -28,8 +37,32 @@ export function applyWorkspaceEventToPage(
 		case "workspace.items.moved":
 			return upsertWorkspaceItemsInPage(page, event.payload.items, event.revision);
 		case "workspace.item.deleted":
-			return removeWorkspaceItemsFromPage(page, event.payload.deletedItemIds, event.revision);
+			return upsertWorkspaceItemFactsInPage(
+				removeWorkspaceItemsFromPage(page, event.payload.deletedItemIds, event.revision),
+				event.payload.itemFacts,
+				event.revision,
+			);
+		case "workspace.relations.updated":
+		case "workspace.item.projection.updated":
+			return upsertWorkspaceItemFactsInPage(page, event.payload.itemFacts, event.revision);
 	}
+}
+
+function upsertWorkspaceItemFactsInPage(
+	page: WorkspacePage,
+	itemFacts: WorkspacePage["itemFacts"],
+	revision: number,
+): WorkspacePage {
+	const nextFactsByItemId = new Map(itemFacts.map((facts) => [facts.itemId, facts]));
+	const currentItemIds = new Set(page.itemFacts.map((facts) => facts.itemId));
+	return {
+		...page,
+		itemFacts: [
+			...page.itemFacts.map((facts) => nextFactsByItemId.get(facts.itemId) ?? facts),
+			...itemFacts.filter((facts) => !currentItemIds.has(facts.itemId)),
+		],
+		revision: Math.max(page.revision, revision),
+	};
 }
 
 export function createWorkspaceItemInPage(
@@ -47,7 +80,6 @@ export function createWorkspaceItemInPage(
 
 	const { metadataJson } = buildWorkspaceItemCreateBootstrap({
 		type: input.type,
-		name,
 		initialContent: input.initialContent,
 	});
 
@@ -196,6 +228,7 @@ export function removeWorkspaceItemsFromPage(
 		...page,
 		revision: Math.max(page.revision, revision),
 		items: page.items.filter((item) => !deletedIds.has(item.id)),
+		itemFacts: page.itemFacts.filter((facts) => !deletedIds.has(facts.itemId)),
 	};
 }
 

@@ -1,17 +1,23 @@
 import { z } from "zod";
 
+import {
+	workspaceReadItemsInputSchema,
+	workspaceReadItemsOutputSchema,
+} from "#/features/workspaces/content/workspace-content-contract";
 import { createWorkspaceItemsFailureCodes } from "#/features/workspaces/operations/create-items";
 import { deleteWorkspaceItemsFailureCodes } from "#/features/workspaces/operations/delete-items";
 import { editWorkspaceItemFailureCodes } from "#/features/workspaces/operations/edit-item";
 import { linkWorkspaceItemsFailureCodes } from "#/features/workspaces/operations/link-items";
 import { moveWorkspaceItemsFailureCodes } from "#/features/workspaces/operations/move-items";
-import { readWorkspaceItemsFailureCodes } from "#/features/workspaces/operations/read-items";
 import { renameWorkspaceItemFailureCodes } from "#/features/workspaces/operations/rename-item";
 import {
 	workspaceItemTypeSchema,
 	workspaceRelationKindSchema,
 } from "#/features/workspaces/contracts";
 import { documentMarkdownEditSchema } from "#/features/workspaces/documents/document-markdown-edits";
+import { workspaceFileAssetKindSchema } from "#/features/workspaces/model/workspace-file";
+
+export { workspaceReadItemsInputSchema, workspaceReadItemsOutputSchema };
 
 export const workspaceDocumentMarkdownMathInstruction =
 	"For document Markdown math, use `$...$` for inline math and `$$...$$` on separate lines for block math. Escape literal currency dollar signs as `\\$`.";
@@ -48,7 +54,7 @@ const workspaceListItemSchema = z.object({
 	pageCount: z.number().int().positive().optional(),
 	path: workspacePathSchema,
 	relationshipCount: z.number().int().nonnegative(),
-	type: z.enum(["folder", "document", "pdf", "image", "file", "flashcard", "quiz"]),
+	type: z.union([workspaceItemTypeSchema, workspaceFileAssetKindSchema]),
 });
 
 const workspacePreviousPathItemSchema = workspacePathItemSchema.extend({
@@ -65,12 +71,6 @@ function createWorkspaceItemsResultSchema<
 	});
 }
 
-export const workspaceReadPagesSchema = z.object({
-	requested: z.string().describe("Requested page range."),
-	returned: z.array(z.number().int().min(1)).describe("Page numbers included in content."),
-	total: z.number().int().min(1).describe("Total pages available."),
-});
-
 const workspaceRelationInputSchema = z.object({
 	kind: workspaceRelationKindSchema.describe(
 		"`derived_from` means this item was created or materially changed from the linked item. `references` means this item cites or points to the linked item.",
@@ -83,15 +83,6 @@ const workspaceRelationInputSchema = z.object({
 		.describe("Optional short source detail, like pages 12-14 or section on photosynthesis."),
 	path: z.string().min(1).describe("Absolute path of the related ThinkEx workspace item."),
 });
-
-export const workspacePageRangeSchema = z
-	.string()
-	.trim()
-	.min(1)
-	.regex(/^\d+(?:\s*-\s*\d+)?(?:\s*,\s*\d+(?:\s*-\s*\d+)?)*$/)
-	.describe(
-		"Up to 20 1-based pages to read, like 1, 3, 5-7, or 1,4-6. For PDFs, pages are PDF pages. For Markdown-backed items, each page is 1000 Markdown lines. Defaults to 1.",
-	);
 
 export const workspaceListItemsInputSchema = z.object({
 	offset: z
@@ -118,43 +109,16 @@ export const workspaceListItemsInputSchema = z.object({
 		.describe("Include nested descendants. Defaults to false for immediate children only."),
 });
 
-export const workspaceReadItemsInputSchema = z.object({
-	pages: workspacePageRangeSchema.optional(),
-	paths: z
-		.array(z.string().min(1))
+export const workspaceEditItemInputSchema = z.object({
+	path: z.string().min(1).describe("Absolute path of one actual ThinkEx workspace item to edit."),
+	edits: z
+		.array(documentMarkdownEditSchema)
 		.min(1)
-		.max(20)
-		.describe("Absolute paths in the actual ThinkEx workspace to read."),
+		.max(40)
+		.describe(
+			`Ordered text edits to apply to a document projection. ${workspaceDocumentMarkdownMathInstruction}`,
+		),
 });
-
-export const workspaceEditItemInputSchema = z
-	.object({
-		path: z.string().min(1).describe("Absolute path of one actual ThinkEx workspace item to edit."),
-		relations: z
-			.array(workspaceRelationInputSchema)
-			.max(20)
-			.optional()
-			.describe("Optional relationships from this item to other workspace items."),
-		edits: z
-			.array(documentMarkdownEditSchema)
-			.min(1)
-			.max(40)
-			.optional()
-			.describe(
-				`Ordered text edits to apply to a document projection. ${workspaceDocumentMarkdownMathInstruction}`,
-			),
-	})
-	.superRefine((input, ctx) => {
-		if ((input.edits?.length ?? 0) > 0 || (input.relations?.length ?? 0) > 0) {
-			return;
-		}
-
-		ctx.addIssue({
-			code: z.ZodIssueCode.custom,
-			message: "Provide edits or relations.",
-			path: ["edits"],
-		});
-	});
 
 export const workspaceLinkItemsInputSchema = z.object({
 	path: z.string().min(1).describe("Absolute path of the workspace item to link from."),
@@ -239,12 +203,16 @@ export const workspaceReadItemsInputExamples = createInputExamples<
 	z.input<typeof workspaceReadItemsInputSchema>
 >(
 	{
-		paths: ["/Demo Folder/Demo Document"],
-		pages: "1",
+		requests: [{ mode: "start", path: "/Demo Folder/Demo Document" }],
 	},
 	{
-		paths: ["/Demo Folder/Demo PDF.pdf"],
-		pages: "1-3",
+		requests: [
+			{
+				mode: "pages",
+				path: "/Demo Folder/Demo PDF.pdf",
+				range: "1-3",
+			},
+		],
 	},
 );
 
@@ -295,13 +263,6 @@ export const workspaceEditItemInputExamples = createInputExamples<
 	z.input<typeof workspaceEditItemInputSchema>
 >({
 	path: "/Demo Folder/Demo Document",
-	relations: [
-		{
-			kind: "references",
-			path: "/Demo Folder/Demo PDF.pdf",
-			note: "Source section used for the update.",
-		},
-	],
 	edits: [
 		{
 			type: "overwrite",
@@ -333,27 +294,6 @@ export const workspaceListItemsOutputSchema = z.object({
 			includeIndex: false,
 		}),
 	),
-});
-
-export const workspaceReadItemsOutputSchema = createWorkspaceItemsResultSchema({
-	itemSchema: z.object({
-		path: workspacePathSchema,
-		type: z.enum(["document", "file", "flashcard", "quiz"]),
-		status: z.enum(["failed", "pending", "ready", "unsupported"]),
-		content: z.string().optional(),
-		pages: workspaceReadPagesSchema.optional(),
-		relations: z
-			.array(
-				z.object({
-					direction: z.enum(["incoming", "outgoing"]),
-					kind: workspaceRelationKindSchema,
-					note: z.string().optional(),
-					path: workspacePathSchema,
-				}),
-			)
-			.optional(),
-	}),
-	failureSchema: createFailureSchema(readWorkspaceItemsFailureCodes),
 });
 
 export const workspaceCreateItemsOutputSchema = createWorkspaceItemsResultSchema({

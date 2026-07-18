@@ -1,16 +1,9 @@
 import { createDbContext } from "#/db/server";
-import type { WorkspaceItemFacts, WorkspaceItemSummary } from "#/features/workspaces/contracts";
 import {
 	getWorkspaceKernel,
 	type WorkspaceKernelClient,
 } from "#/features/workspaces/kernel/workspace-kernel-access";
-import {
-	buildWorkspaceKernelTree,
-	normalizeWorkspacePath,
-	resolveWorkspaceKernelItemPath,
-	WorkspaceKernelPathError,
-	type WorkspaceKernelTree,
-} from "#/features/workspaces/kernel/workspace-kernel-paths";
+import type { WorkspaceKernelPathResolution } from "#/features/workspaces/kernel/workspace-kernel-types";
 import {
 	assertCanMutateWorkspace,
 	assertCanReadWorkspace,
@@ -20,53 +13,12 @@ import {
 	type WorkspaceAccessContext,
 } from "#/features/workspaces/operations/workspace-access-context";
 
-export type WorkspaceOperationAccessMode = "read" | "mutate";
+type WorkspaceOperationAccessMode = "read" | "mutate";
 
-export interface WorkspaceOperationContext {
-	kernel: WorkspaceKernelClient;
-	itemFactsById: ReadonlyMap<string, WorkspaceItemFacts>;
-	pageItems: WorkspaceItemSummary[];
-	tree: WorkspaceKernelTree;
-}
-
-export type WorkspaceOperationPathResolution =
-	| {
-			code: "path_not_absolute";
-			path: string;
-			status: "invalid_path";
-	  }
-	| {
-			path: string;
-			status: "not_found";
-	  }
-	| {
-			path: string;
-			status: "root";
-	  }
-	| {
-			item: WorkspaceItemSummary;
-			path: string;
-			status: "item";
-	  };
-
-export type WorkspaceExistingItemResolution<TRootCode extends string> =
-	| {
-			failure: {
-				code: "path_not_absolute" | "path_not_found" | TRootCode;
-				path: string;
-			};
-			status: "failed";
-	  }
-	| {
-			item: WorkspaceItemSummary;
-			path: string;
-			status: "item";
-	  };
-
-export async function getWorkspaceOperationContext(input: {
+export async function getAuthorizedWorkspaceKernel(input: {
 	access: WorkspaceOperationAccessMode;
 	context: WorkspaceAccessContext;
-}): Promise<WorkspaceOperationContext> {
+}): Promise<WorkspaceKernelClient> {
 	const dbContext = await createDbContext();
 	const workspaceUser = {
 		userId: input.context.actor.userId,
@@ -82,67 +34,31 @@ export async function getWorkspaceOperationContext(input: {
 			await assertCanMutateWorkspace(dbContext.db, workspaceUser);
 		}
 
-		const kernel = await getWorkspaceKernel(input.context.workspaceId);
-		const page = await kernel.getPage();
-
-		return {
-			kernel,
-			itemFactsById: new Map(page.itemFacts.map((item) => [item.itemId, item])),
-			pageItems: page.items,
-			tree: buildWorkspaceKernelTree(page.items),
-		};
+		return await getWorkspaceKernel(input.context.workspaceId);
 	} finally {
 		await dbContext.dispose();
 	}
 }
 
-export function resolveWorkspaceOperationPath(input: {
-	path: string;
-	tree: WorkspaceKernelTree;
-}): WorkspaceOperationPathResolution {
-	try {
-		const normalizedPath = normalizeWorkspacePath(input.path);
-
-		if (normalizedPath === "/") {
-			return {
-				path: normalizedPath,
-				status: "root",
+export type WorkspaceExistingItemResolution<TRootCode extends string> =
+	| {
+			failure: {
+				code: "path_not_absolute" | "path_not_found" | TRootCode;
+				path: string;
 			};
-		}
-
-		const item = resolveWorkspaceKernelItemPath(normalizedPath, input.tree);
-
-		if (!item) {
-			return {
-				path: normalizedPath,
-				status: "not_found",
-			};
-		}
-
-		return {
-			item,
-			path: normalizedPath,
-			status: "item",
-		};
-	} catch (error) {
-		if (error instanceof WorkspaceKernelPathError && error.code === "path_not_absolute") {
-			return {
-				code: error.code,
-				path: input.path,
-				status: "invalid_path",
-			};
-		}
-
-		throw error;
-	}
-}
+			status: "failed";
+	  }
+	| {
+			item: Extract<WorkspaceKernelPathResolution, { status: "item" }>["item"];
+			path: string;
+			status: "item";
+	  };
 
 export function resolveWorkspaceExistingItemPath<TRootCode extends string>(input: {
-	path: string;
+	resolution: WorkspaceKernelPathResolution;
 	rootFailureCode: TRootCode;
-	tree: WorkspaceKernelTree;
 }): WorkspaceExistingItemResolution<TRootCode> {
-	const resolution = resolveWorkspaceOperationPath(input);
+	const { resolution } = input;
 
 	if (resolution.status === "invalid_path") {
 		return {

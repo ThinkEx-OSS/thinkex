@@ -14,12 +14,10 @@ export function prepareDocumentItemMetadata(
 /** Shared create-time content + metadata for kernel writes and optimistic UI. */
 export function buildWorkspaceItemCreateBootstrap(input: {
 	type: WorkspaceItemType;
-	name: string;
 	metadataJson?: Record<string, JsonValue>;
 	initialContent?: string;
 }) {
-	const initialContent =
-		input.initialContent ?? getInitialWorkspaceKernelContent(input.type, input.name);
+	const initialContent = input.initialContent ?? getInitialWorkspaceKernelContent(input.type);
 	const metadataJson =
 		input.type === "document"
 			? prepareDocumentItemMetadata(input.metadataJson ?? {}, initialContent)

@@ -66,6 +66,7 @@ export async function publishLiteParseProjection(
 						provisional: true,
 					},
 					actorUserId: params.actorUserId,
+					clientMutationId: `${runId}:projection:liteparse-ready`,
 				});
 
 				return {

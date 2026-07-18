@@ -4,7 +4,6 @@ import type { ResourcePurgeResult } from "#/features/workspaces/resource-purge-r
 import type {
 	CreateWorkspaceItemInput,
 	DeleteWorkspaceItemsInput,
-	JsonValue,
 	MoveWorkspaceItemsInput,
 	RenameWorkspaceItemInput,
 	UpdateWorkspaceItemColorInput,
@@ -15,19 +14,26 @@ import type {
 import {
 	requireAppliedWorkspaceKernelMutation,
 	type CreateWorkspaceKernelFileFromUploadArgs,
-	type CreateWorkspaceKernelRelationArgs,
+	type CreateWorkspaceKernelItemArgs,
 	type DeleteWorkspaceKernelItemsResult,
+	type GetWorkspaceKernelItemPathsArgs,
 	type ListWorkspaceKernelItemRelationsArgs,
+	type ListWorkspaceKernelItemsArgs,
+	type LinkWorkspaceKernelItemsArgs,
 	type MoveWorkspaceKernelItemsResult,
 	type ReadWorkspaceKernelFilePreviewResult,
 	type ReadWorkspaceKernelFileProjectionArgs,
 	type ReadWorkspaceKernelFileProjectionResult,
 	type UpsertWorkspaceKernelFileProjectionArgs,
+	type ResolveWorkspaceKernelPathsArgs,
 	type WorkspaceKernelFileSource,
 	type WorkspaceKernelItemRelation,
 	type WorkspaceKernelNameConflictPolicy,
 	type WorkspaceKernelMutationOutcome,
+	type WorkspaceKernelItemPath,
+	type WorkspaceKernelPathResolution,
 } from "#/features/workspaces/kernel/workspace-kernel-types";
+import type { ListWorkspaceKernelItemsResult } from "#/features/workspaces/kernel/workspace-kernel-list";
 import type { WorkspaceFileAssetKind } from "#/features/workspaces/model/workspace-file";
 import type { WorkspaceCommandResult } from "#/features/workspaces/realtime/messages";
 import {
@@ -48,23 +54,18 @@ export interface WorkspaceKernelClient {
 		itemFacts: WorkspaceItemFacts[];
 		revision: number;
 	}>;
-	createRelations(input: { relations: CreateWorkspaceKernelRelationArgs[] }): Promise<void>;
+	listTreeItems(input?: ListWorkspaceKernelItemsArgs): Promise<ListWorkspaceKernelItemsResult>;
+	resolvePaths(input: ResolveWorkspaceKernelPathsArgs): Promise<WorkspaceKernelPathResolution[]>;
+	getItemPaths(input: GetWorkspaceKernelItemPathsArgs): Promise<WorkspaceKernelItemPath[]>;
+	linkItems(
+		input: LinkWorkspaceKernelItemsArgs,
+	): Promise<WorkspaceCommandResult<WorkspaceItemFacts[]>>;
 	listItemRelations(
 		input: ListWorkspaceKernelItemRelationsArgs,
 	): Promise<WorkspaceKernelItemRelation[]>;
-	createItem(input: {
-		id?: string;
-		parentId?: string | null;
-		type: CreateWorkspaceItemInput["type"];
-		name?: string;
-		onNameConflict?: WorkspaceKernelNameConflictPolicy;
-		color?: CreateWorkspaceItemInput["color"];
-		metadataJson?: Record<string, JsonValue>;
-		initialContent?: string;
-		initialRelations?: CreateWorkspaceKernelRelationArgs[];
-		actorUserId?: string | null;
-		clientMutationId?: string | null;
-	}): Promise<WorkspaceKernelMutationOutcome<WorkspaceItemSummary>>;
+	createItem(
+		input: CreateWorkspaceKernelItemArgs,
+	): Promise<WorkspaceKernelMutationOutcome<WorkspaceItemSummary>>;
 	createFileFromUpload(
 		input: CreateWorkspaceKernelFileFromUploadArgs,
 	): Promise<WorkspaceCommandResult<WorkspaceItemSummary>>;
@@ -96,16 +97,18 @@ export interface WorkspaceKernelClient {
 		actorUserId?: string | null;
 		clientMutationId?: string | null;
 	}): Promise<WorkspaceCommandResult<DeleteWorkspaceKernelItemsResult>>;
-	readItem(input: {
+	readDocumentCheckpoint(input: {
 		itemId: string;
-	}): Promise<{ item: WorkspaceItemSummary; content: string | null }>;
+	}): Promise<{ item: WorkspaceItemSummary; content: string }>;
 	getFileSource(input: { itemId: string }): Promise<WorkspaceKernelFileSource>;
 	readFilePreview(input: { itemId: string }): Promise<ReadWorkspaceKernelFilePreviewResult | null>;
-	upsertFileProjection(input: UpsertWorkspaceKernelFileProjectionArgs): Promise<void>;
+	upsertFileProjection(
+		input: UpsertWorkspaceKernelFileProjectionArgs,
+	): Promise<WorkspaceCommandResult<WorkspaceItemFacts[]>>;
 	readFileProjection(
 		input: ReadWorkspaceKernelFileProjectionArgs,
 	): Promise<ReadWorkspaceKernelFileProjectionResult | null>;
-	writeItem(input: {
+	commitDocumentCheckpoint(input: {
 		itemId: string;
 		content: string;
 		actorUserId?: string | null;

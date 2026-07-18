@@ -12,12 +12,12 @@ import type { WorkspaceClipboardIntake } from "#/features/workspaces/clipboard/w
 import { getWorkspaceObjectRegistryEntry } from "#/features/workspaces/model/object-registry";
 import { workspaceColors } from "#/features/workspaces/model/workspace-colors";
 import { resolveWorkspaceFileTypeFromHint } from "#/features/workspaces/model/workspace-file";
-import { workspaceItemTypeColors } from "#/features/workspaces/model/workspace-item-colors";
 import { cn } from "#/lib/utils";
 
 const documentDisplay = getWorkspaceObjectRegistryEntry("document");
-const documentIconClassName = workspaceColors[workspaceItemTypeColors.document].iconClassName;
-const fileIconClassName = workspaceColors[workspaceItemTypeColors.file].iconClassName;
+const documentIconClassName = workspaceColors[documentDisplay.color].iconClassName;
+const fileIconClassName =
+	workspaceColors[getWorkspaceObjectRegistryEntry("file").color].iconClassName;
 
 export function WorkspaceClipboardIntakeDialog({
 	intake,

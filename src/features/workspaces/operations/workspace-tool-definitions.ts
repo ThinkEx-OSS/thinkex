@@ -45,6 +45,7 @@ import {
 	summarizeWorkspaceAppliedResult,
 	summarizeWorkspaceCollectionResult,
 	summarizeWorkspaceItemResult,
+	summarizeWorkspaceReadResult,
 	type WorkspaceOperationSummary,
 } from "#/features/workspaces/operations/workspace-operation-observability";
 
@@ -145,17 +146,14 @@ export const workspaceToolDefinitions = [
 		name: "workspace_read_items",
 		access: "read",
 		description:
-			"Read ThinkEx documents and files by absolute path. Use pages for continuation: PDF pages for PDFs, 1000-line Markdown pages for documents and extracted files. Defaults to page 1; read at most 20 pages per call and check pages.total before continuing.",
+			"Read ThinkEx documents and extracted files by absolute path. Documents return bounded line chunks; files support explicit physical-page selections. Continue either kind with the returned nextCursor.",
 		inputSchema: workspaceReadItemsInputSchema,
 		inputExamples: workspaceReadItemsInputExamples,
 		outputSchema: workspaceReadItemsOutputSchema,
-		summarizeResult: summarizeWorkspaceCollectionResult,
+		summarizeResult: summarizeWorkspaceReadResult,
 		effects: { destructive: false, idempotent: true },
-		execute: async ({ pages, paths }, context) => {
-			return await readWorkspaceItemsOperation(context, {
-				pages,
-				paths,
-			});
+		execute: async ({ requests }, context) => {
+			return await readWorkspaceItemsOperation(context, { requests });
 		},
 	}),
 	defineWorkspaceTool({
@@ -225,17 +223,16 @@ export const workspaceToolDefinitions = [
 	defineWorkspaceTool({
 		name: "workspace_edit_item",
 		access: "write",
-		description: `Edit one actual ThinkEx workspace document by absolute path, or add relationships from any workspace item. Read before editing unless the user requested a simple append or prepend. ${workspaceDocumentMarkdownMathInstruction}`,
+		description: `Edit one actual ThinkEx workspace document by absolute path. Use workspace_link_items to add relationships. Read before editing unless the user requested a simple append or prepend. ${workspaceDocumentMarkdownMathInstruction}`,
 		inputSchema: workspaceEditItemInputSchema,
 		inputExamples: workspaceEditItemInputExamples,
 		outputSchema: workspaceEditItemOutputSchema,
 		summarizeResult: summarizeWorkspaceAppliedResult,
 		effects: { destructive: true, idempotent: false },
-		execute: async ({ path, edits, relations }, context) => {
+		execute: async ({ path, edits }, context) => {
 			return await editWorkspaceItemOperation(context, {
 				path,
 				edits,
-				relations,
 			});
 		},
 	}),
@@ -243,7 +240,7 @@ export const workspaceToolDefinitions = [
 		name: "workspace_link_items",
 		access: "write",
 		description:
-			"Create relationships from one actual ThinkEx workspace item to other workspace items by absolute path.",
+			"Maintain internal navigation and provenance relationships between actual ThinkEx workspace items by absolute path. Use routine relationships silently as workspace context; do not announce them as separate work unless the user asked about relationships or one materially affects the answer.",
 		inputSchema: workspaceLinkItemsInputSchema,
 		inputExamples: workspaceLinkItemsInputExamples,
 		outputSchema: workspaceLinkItemsOutputSchema,

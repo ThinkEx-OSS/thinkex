@@ -17,33 +17,45 @@ import {
 	type WorkspaceKernelSql,
 } from "#/features/workspaces/kernel/workspace-kernel-schema";
 import { WorkspaceKernelRelations } from "#/features/workspaces/kernel/workspace-kernel-relations";
+import {
+	listWorkspaceKernelTreeItems,
+	type ListWorkspaceKernelItemsResult,
+} from "#/features/workspaces/kernel/workspace-kernel-list";
+import {
+	buildWorkspaceKernelItemPathIndex,
+	buildWorkspaceKernelTree,
+	normalizeWorkspacePath,
+	resolveWorkspaceKernelItemPath,
+	WorkspaceKernelPathError,
+} from "#/features/workspaces/kernel/workspace-kernel-paths";
 import { WorkspaceKernelStore } from "#/features/workspaces/kernel/workspace-kernel-store";
 import type {
 	CreateWorkspaceKernelFileFromUploadArgs,
 	CreateWorkspaceKernelItemArgs,
-	CreateWorkspaceKernelRelationArgs,
 	DeleteWorkspaceKernelItemsArgs,
 	DeleteWorkspaceKernelItemsResult,
-	ListWorkspaceKernelEventsArgs,
+	GetWorkspaceKernelItemPathsArgs,
 	ListWorkspaceKernelItemRelationsArgs,
 	ListWorkspaceKernelItemsArgs,
+	LinkWorkspaceKernelItemsArgs,
 	MoveWorkspaceKernelItemsArgs,
 	MoveWorkspaceKernelItemsResult,
 	ReadWorkspaceKernelFileSourceArgs,
 	ReadWorkspaceKernelFileProjectionArgs,
-	ReadWorkspaceKernelItemArgs,
+	ReadWorkspaceDocumentCheckpointArgs,
+	ResolveWorkspaceKernelPathsArgs,
 	RenameWorkspaceKernelItemArgs,
 	UpdateWorkspaceKernelItemColorArgs,
 	UpsertWorkspaceKernelFileProjectionArgs,
 	WorkspaceKernelPage,
 	WorkspaceKernelMutationOutcome,
-	WriteWorkspaceKernelItemArgs,
+	CommitWorkspaceDocumentCheckpointArgs,
+	WorkspaceKernelPathResolution,
 } from "#/features/workspaces/kernel/workspace-kernel-types";
 import { getChatAttachmentWorkspacePrefix } from "#/features/workspaces/ai/chat-attachment-storage";
 import type {
 	WorkspaceCommandResult,
 	WorkspaceConnectionState,
-	WorkspaceRealtimeEvent,
 	WorkspaceRealtimeServerMessage,
 } from "#/features/workspaces/realtime/messages";
 import {
@@ -126,17 +138,70 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 		};
 	}
 
-	async listItems(input: ListWorkspaceKernelItemsArgs = {}) {
-		return this.store.listItems(input);
+	async listTreeItems(
+		input: ListWorkspaceKernelItemsArgs = {},
+	): Promise<ListWorkspaceKernelItemsResult> {
+		const items = this.store.getPageItems();
+		return listWorkspaceKernelTreeItems({
+			getItemFacts: (listedItems) => this.store.getItemFacts(listedItems),
+			tree: buildWorkspaceKernelTree(items),
+			...input,
+		});
 	}
 
-	async createRelations(input: { relations: CreateWorkspaceKernelRelationArgs[] }) {
+	async resolvePaths(
+		input: ResolveWorkspaceKernelPathsArgs,
+	): Promise<WorkspaceKernelPathResolution[]> {
+		const tree = buildWorkspaceKernelTree(this.store.getPageItems());
+
+		return input.paths.map((path) => {
+			try {
+				const normalizedPath = normalizeWorkspacePath(path);
+				if (normalizedPath === "/") {
+					return { path: normalizedPath, status: "root" };
+				}
+
+				const item = resolveWorkspaceKernelItemPath(normalizedPath, tree);
+				return item
+					? { item, path: normalizedPath, status: "item" }
+					: { path: normalizedPath, status: "not_found" };
+			} catch (error) {
+				if (error instanceof WorkspaceKernelPathError && error.code === "path_not_absolute") {
+					return { code: error.code, path, status: "invalid_path" };
+				}
+				throw error;
+			}
+		});
+	}
+
+	async getItemPaths(input: GetWorkspaceKernelItemPathsArgs) {
+		const pathsByItemId = buildWorkspaceKernelItemPathIndex(this.store.getPageItems());
+		return input.itemIds.flatMap((itemId) => {
+			const path = pathsByItemId.get(itemId);
+			return path ? [{ itemId, path }] : [];
+		});
+	}
+
+	async linkItems(input: LinkWorkspaceKernelItemsArgs) {
 		for (const relation of input.relations) {
 			this.store.assertActiveItem(relation.fromItemId);
 			this.store.assertActiveItem(relation.toItemId);
 		}
 
 		this.relations.createRelations(input.relations);
+		const itemIds = Array.from(
+			new Set(input.relations.flatMap((relation) => [relation.fromItemId, relation.toItemId])),
+		);
+		const itemFacts = this.store.getItemFacts(
+			itemIds.map((itemId) => this.store.requireItem(itemId)),
+		);
+		const event = this.events.commit({
+			type: "workspace.relations.updated",
+			actorUserId: input.actorUserId ?? null,
+			clientMutationId: input.clientMutationId ?? null,
+			payload: { itemFacts },
+		});
+		return { event, result: itemFacts };
 	}
 
 	async listItemRelations(input: ListWorkspaceKernelItemRelationsArgs) {
@@ -165,7 +230,9 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 	}
 
 	async upsertFileProjection(input: UpsertWorkspaceKernelFileProjectionArgs) {
-		return await this.fileCommands.upsertFileProjection(input);
+		return await this.runMutation("upsert_file_projection", input, 1, () =>
+			this.fileCommands.upsertFileProjection(input),
+		);
 	}
 
 	async readFileProjection(input: ReadWorkspaceKernelFileProjectionArgs) {
@@ -204,14 +271,16 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 		});
 	}
 
-	async readItem(input: ReadWorkspaceKernelItemArgs) {
-		return await this.itemCommands.readItem(input);
+	async readDocumentCheckpoint(input: ReadWorkspaceDocumentCheckpointArgs) {
+		return await this.itemCommands.readDocumentCheckpoint(input);
 	}
 
-	async writeItem(
-		input: WriteWorkspaceKernelItemArgs,
+	async commitDocumentCheckpoint(
+		input: CommitWorkspaceDocumentCheckpointArgs,
 	): Promise<WorkspaceCommandResult<WorkspaceItemSummary>> {
-		return this.runMutation("write_item", input, 1, () => this.itemCommands.writeItem(input));
+		return this.runMutation("commit_document_checkpoint", input, 1, () =>
+			this.itemCommands.commitDocumentCheckpoint(input),
+		);
 	}
 
 	private async runMutation<T>(
@@ -243,13 +312,6 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 				},
 			});
 		}
-	}
-
-	async getEventsSince({
-		afterRevision,
-		limit = 100,
-	}: ListWorkspaceKernelEventsArgs): Promise<WorkspaceRealtimeEvent[]> {
-		return this.events.getEventsSince({ afterRevision, limit });
 	}
 
 	async purgeForDeletion(): Promise<ResourcePurgeResult> {

@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 
-import { sha256Base64UrlText } from "#/features/workspaces/extraction/binary";
+import { sha256Base64UrlText } from "#/lib/binary";
 import type { WorkspaceFileExtractionWorkflowParams } from "#/features/workspaces/extraction/types";
 import { getWorkspaceKernel } from "#/features/workspaces/kernel/workspace-kernel-access";
 import type { WorkspaceFileAssetKind } from "#/features/workspaces/model/workspace-file";
@@ -54,6 +54,7 @@ export async function requestWorkspaceFileExtraction(input: {
 				status: "failed",
 				errorMessage,
 				actorUserId: input.actorUserId,
+				clientMutationId: `${input.requestId}:projection:queue-failed`,
 			});
 		} catch (statusError) {
 			recordOperationalFailure({

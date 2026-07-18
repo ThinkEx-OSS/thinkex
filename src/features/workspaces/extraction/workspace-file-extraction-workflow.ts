@@ -31,6 +31,7 @@ export class WorkspaceFileExtractionWorkflow extends WorkflowEntrypoint<
 				format: "pages",
 				status: "processing",
 				actorUserId: params.actorUserId,
+				clientMutationId: `${event.instanceId}:projection:processing`,
 			});
 
 			return { status: "processing" };
@@ -132,6 +133,7 @@ export class WorkspaceFileExtractionWorkflow extends WorkflowEntrypoint<
 						sourceHash: extraction.sourceHash,
 						metadataJson,
 						actorUserId: params.actorUserId,
+						clientMutationId: `${event.instanceId}:projection:enhanced-ready`,
 					});
 
 					return {
@@ -183,6 +185,7 @@ export class WorkspaceFileExtractionWorkflow extends WorkflowEntrypoint<
 					status: "failed",
 					errorMessage,
 					actorUserId: params.actorUserId,
+					clientMutationId: `${event.instanceId}:projection:failed`,
 				});
 
 				return { status: "failed", errorMessage };

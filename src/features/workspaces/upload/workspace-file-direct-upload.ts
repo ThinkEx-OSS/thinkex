@@ -7,11 +7,11 @@ import {
 	getWorkspaceFileUploadObjectKey,
 } from "#/features/workspaces/files/workspace-file-object-keys";
 import type { WorkspaceDirectUploadTarget } from "#/features/workspaces/upload/workspace-upload-intake";
+import { decodeBase64Url, decodeBase64UrlText, encodeBase64Url } from "#/lib/binary";
 
 const uploadUrlLifetimeSeconds = 30 * 60;
 const uploadTokenVersion = 2;
 const encoder = new TextEncoder();
-const decoder = new TextDecoder();
 const uploadClaimsSchema = z.object({
 	clientMutationId: z.string().min(1),
 	contentType: z.string().min(1),
@@ -144,25 +144,4 @@ function createSigningKey(secret: string, usages: KeyUsage[]) {
 		false,
 		usages,
 	);
-}
-
-function encodeBase64Url(bytes: Uint8Array) {
-	let binary = "";
-
-	for (const byte of bytes) {
-		binary += String.fromCharCode(byte);
-	}
-
-	return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
-}
-
-function decodeBase64Url(value: string) {
-	const base64 = value.replaceAll("-", "+").replaceAll("_", "/");
-	const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, "=");
-	const binary = atob(padded);
-	return Uint8Array.from(binary, (character) => character.charCodeAt(0));
-}
-
-function decodeBase64UrlText(value: string) {
-	return decoder.decode(decodeBase64Url(value));
 }

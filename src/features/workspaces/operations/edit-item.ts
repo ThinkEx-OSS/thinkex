@@ -1,13 +1,8 @@
 import { getDocumentSessionFromEnv } from "#/features/workspaces/document-session-access";
 import {
-	getWorkspaceOperationContext,
+	getAuthorizedWorkspaceKernel,
 	resolveWorkspaceExistingItemPath,
 } from "#/features/workspaces/operations/workspace-operation-context";
-import {
-	resolveWorkspaceRelations,
-	type WorkspaceRelationInput,
-	workspaceRelationFailureCodes,
-} from "#/features/workspaces/operations/relations";
 import type { WorkspaceAccessContext } from "#/features/workspaces/operations/workspace-access-context";
 import {
 	type DocumentMarkdownEdit,
@@ -16,10 +11,8 @@ import {
 
 export const editWorkspaceItemFailureCodes = [
 	"cannot_edit_root",
-	"missing_edit_operation",
 	"path_not_absolute",
 	"path_not_found",
-	...workspaceRelationFailureCodes,
 	"unsupported_item_type",
 	...documentMarkdownEditFailureCodes,
 	"invalid_document_projection",
@@ -28,9 +21,8 @@ export const editWorkspaceItemFailureCodes = [
 type EditWorkspaceItemFailureCode = (typeof editWorkspaceItemFailureCodes)[number];
 
 export interface EditWorkspaceItemOperationInput {
-	edits?: DocumentMarkdownEdit[];
+	edits: DocumentMarkdownEdit[];
 	path: string;
-	relations?: WorkspaceRelationInput[];
 }
 
 interface EditWorkspaceItemFailure {
@@ -49,25 +41,19 @@ export async function editWorkspaceItemOperation(
 	accessContext: WorkspaceAccessContext,
 	input: EditWorkspaceItemOperationInput,
 ): Promise<EditWorkspaceItemOperationResult> {
-	const edits = input.edits ?? [];
-
-	if (edits.length === 0 && (input.relations?.length ?? 0) === 0) {
-		return {
-			path: input.path,
-			warnings: [],
-			...failedWorkspaceEditResult("missing_edit_operation", 1),
-		};
-	}
-
-	const workspaceContext = await getWorkspaceOperationContext({
+	const edits = input.edits;
+	const kernel = await getAuthorizedWorkspaceKernel({
 		access: "mutate",
 		context: accessContext,
 	});
 	const failureCount = Math.max(edits.length, 1);
+	const [pathResolution] = await kernel.resolvePaths({ paths: [input.path] });
+	if (!pathResolution) {
+		throw new Error("Workspace kernel did not resolve the requested edit path.");
+	}
 	const resolution = resolveWorkspaceExistingItemPath({
-		path: input.path,
+		resolution: pathResolution,
 		rootFailureCode: "cannot_edit_root",
-		tree: workspaceContext.tree,
 	});
 
 	if (resolution.status === "failed") {
@@ -75,34 +61,6 @@ export async function editWorkspaceItemOperation(
 			path: resolution.failure.path,
 			warnings: [],
 			...failedWorkspaceEditResult(resolution.failure.code, failureCount),
-		};
-	}
-
-	const relations = resolveWorkspaceRelations({
-		excludeItemId: resolution.item.id,
-		fromItemId: resolution.item.id,
-		relations: input.relations,
-		tree: workspaceContext.tree,
-	});
-
-	if (relations.status === "failed") {
-		return {
-			path: relations.failure.path,
-			warnings: [],
-			...failedWorkspaceEditResult(relations.failure.code, failureCount),
-		};
-	}
-
-	if (edits.length === 0) {
-		if (relations.relations.length > 0) {
-			await workspaceContext.kernel.createRelations({ relations: relations.relations });
-		}
-
-		return {
-			applied: 0,
-			failed: [],
-			path: resolution.path,
-			warnings: [],
 		};
 	}
 
@@ -122,10 +80,6 @@ export async function editWorkspaceItemOperation(
 	const result = await documentSession.applyMarkdownEdits({
 		edits,
 	});
-
-	if (result.failures.length === 0 && relations.relations.length > 0) {
-		await workspaceContext.kernel.createRelations({ relations: relations.relations });
-	}
 
 	return {
 		applied: result.applied,
