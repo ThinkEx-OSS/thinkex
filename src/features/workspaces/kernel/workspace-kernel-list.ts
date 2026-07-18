@@ -36,7 +36,7 @@ export interface ListWorkspaceKernelItemsFailure {
 	path: string;
 }
 
-export interface WorkspaceKernelListSelection {
+interface WorkspaceKernelListSelection {
 	failed: ListWorkspaceKernelItemsFailure[];
 	path: string;
 	rows: WorkspaceKernelListRow[];
@@ -44,12 +44,27 @@ export interface WorkspaceKernelListSelection {
 	nextOffset?: number;
 }
 
-export interface WorkspaceKernelListRow {
+interface WorkspaceKernelListRow {
 	item: WorkspaceItemSummary;
 	path: string;
 }
 
-export function selectWorkspaceKernelTreeItems(input: {
+export function listWorkspaceKernelTreeItems(input: {
+	getItemFacts: (items: WorkspaceItemSummary[]) => WorkspaceItemFacts[];
+	tree: WorkspaceKernelTree;
+	offset?: number;
+	path?: string;
+	recursive?: boolean;
+	limit?: number;
+}): ListWorkspaceKernelItemsResult {
+	const selection = selectWorkspaceKernelTreeItems(input);
+	return formatWorkspaceKernelListSelection(
+		selection,
+		input.getItemFacts(selection.rows.map((row) => row.item)),
+	);
+}
+
+function selectWorkspaceKernelTreeItems(input: {
 	tree: WorkspaceKernelTree;
 	offset?: number;
 	path?: string;
@@ -95,7 +110,7 @@ export function selectWorkspaceKernelTreeItems(input: {
 	}
 }
 
-export function formatWorkspaceKernelListSelection(
+function formatWorkspaceKernelListSelection(
 	selection: WorkspaceKernelListSelection,
 	itemFacts: WorkspaceItemFacts[],
 ): ListWorkspaceKernelItemsResult {

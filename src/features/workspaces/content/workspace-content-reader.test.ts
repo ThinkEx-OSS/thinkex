@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { WorkspaceItemSummary } from "#/features/workspaces/contracts";
 import type { WorkspaceContentReadRequest } from "#/features/workspaces/content/workspace-content-contract";
-import type { DocumentSessionClient } from "#/features/workspaces/document-session-access";
 import { createDocumentMarkdownSnapshot } from "#/features/workspaces/documents/document-markdown-chunk";
 import type { WorkspaceKernelClient } from "#/features/workspaces/kernel/workspace-kernel-access";
 import type { WorkspaceKernelPathResolution } from "#/features/workspaces/kernel/workspace-kernel-types";
@@ -187,8 +186,6 @@ describe("WorkspaceContentReader", () => {
 
 function createDocumentSession(snapshot: { markdown: string; revision: string }) {
 	return {
-		applyMarkdownEdits: vi.fn(),
-		purgeForDeletion: vi.fn(),
 		readMarkdownChunk: vi.fn(async ({ expectedRevision, offset }) => {
 			if (expectedRevision && expectedRevision !== snapshot.revision) {
 				return { status: "content_changed" as const };
@@ -198,7 +195,7 @@ function createDocumentSession(snapshot: { markdown: string; revision: string })
 				? { ...chunk, revision: snapshot.revision, status: "ready" as const }
 				: { status: "invalid_offset" as const };
 		}),
-	} satisfies DocumentSessionClient;
+	};
 }
 
 function createKernel() {

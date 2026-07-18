@@ -18,8 +18,7 @@ import {
 } from "#/features/workspaces/kernel/workspace-kernel-schema";
 import { WorkspaceKernelRelations } from "#/features/workspaces/kernel/workspace-kernel-relations";
 import {
-	formatWorkspaceKernelListSelection,
-	selectWorkspaceKernelTreeItems,
+	listWorkspaceKernelTreeItems,
 	type ListWorkspaceKernelItemsResult,
 } from "#/features/workspaces/kernel/workspace-kernel-list";
 import {
@@ -143,14 +142,11 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 		input: ListWorkspaceKernelItemsArgs = {},
 	): Promise<ListWorkspaceKernelItemsResult> {
 		const items = this.store.getPageItems();
-		const selection = selectWorkspaceKernelTreeItems({
+		return listWorkspaceKernelTreeItems({
+			getItemFacts: (listedItems) => this.store.getItemFacts(listedItems),
 			tree: buildWorkspaceKernelTree(items),
 			...input,
 		});
-		return formatWorkspaceKernelListSelection(
-			selection,
-			this.store.getItemFacts(selection.rows.map((row) => row.item)),
-		);
 	}
 
 	async resolvePaths(

@@ -3,7 +3,10 @@ import type {
 	WorkspaceContentReadRequest,
 	WorkspaceContentReadResult,
 } from "#/features/workspaces/content/workspace-content-contract";
-import type { DocumentSessionClient } from "#/features/workspaces/document-session-access";
+import type {
+	DocumentMarkdownChunkReadInput,
+	DocumentMarkdownChunkReadResult,
+} from "#/features/workspaces/documents/document-markdown-chunk";
 import { readWorkspacePageProjection } from "#/features/workspaces/extraction/workspace-page-projection";
 import type { WorkspaceKernelClient } from "#/features/workspaces/kernel/workspace-kernel-access";
 import { resolveWorkspaceFileTypeFromItem } from "#/features/workspaces/model/workspace-file";
@@ -15,6 +18,12 @@ import {
 } from "#/features/workspaces/content/workspace-content-cursor";
 
 const maxWorkspaceContentBatchBytes = 2 * 1024 * 1024 + 64 * 1024;
+
+interface DocumentContentReader {
+	readMarkdownChunk(
+		input: DocumentMarkdownChunkReadInput,
+	): Promise<DocumentMarkdownChunkReadResult>;
+}
 
 interface PendingReadyResult {
 	item: WorkspaceItemSummary;
@@ -28,7 +37,7 @@ export interface WorkspaceContentReader {
 
 export function createWorkspaceContentReader(input: {
 	bucket: R2Bucket;
-	getDocumentSession: (itemId: string) => DocumentSessionClient;
+	getDocumentSession: (itemId: string) => DocumentContentReader;
 	kernel: WorkspaceKernelClient;
 }): WorkspaceContentReader {
 	return {
@@ -111,7 +120,7 @@ export function createWorkspaceContentReader(input: {
 
 async function readWorkspaceItem(input: {
 	bucket: R2Bucket;
-	getDocumentSession: (itemId: string) => DocumentSessionClient;
+	getDocumentSession: (itemId: string) => DocumentContentReader;
 	item: WorkspaceItemSummary;
 	kernel: WorkspaceKernelClient;
 	path: string;
@@ -127,7 +136,7 @@ async function readWorkspaceItem(input: {
 }
 
 async function readDocument(input: {
-	getDocumentSession: (itemId: string) => DocumentSessionClient;
+	getDocumentSession: (itemId: string) => DocumentContentReader;
 	item: WorkspaceItemSummary;
 	path: string;
 	request: WorkspaceContentReadRequest;
