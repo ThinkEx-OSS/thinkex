@@ -26,7 +26,11 @@ export function getRunningToolReceipt(input: {
 		case "workspace_move_items":
 			return running(`Moving ${formatCount(getArray(toolInput.paths).length, "item")}`);
 		case "workspace_read_items":
-			return running(`Reading ${formatToolInputPaths(toolInput.paths)}`);
+			return running(
+				`Reading ${formatToolInputPaths(
+					getArray(toolInput.requests).map((request) => asRecord(request).path),
+				)}`,
+			);
 		case "workspace_rename_item":
 			return running(`Renaming ${quoteName(getBaseName(getString(toolInput.path)))}`);
 		case "web_links":
@@ -249,11 +253,11 @@ function summarizeWorkspaceList(output: unknown): AiChatToolReceipt {
 
 function summarizeWorkspaceRead(output: unknown): AiChatToolReceipt {
 	const record = asRecord(output);
-	const items = getArray(record.items);
-	const failedCount =
-		getArray(record.failed).length +
-		items.filter((item) => getString(asRecord(item).status) === "failed").length;
-	const readyItems = items.filter((item) => getString(asRecord(item).status) === "ready");
+	const results = getArray(record.results);
+	const failedCount = results.filter(
+		(result) => getString(asRecord(result).status) === "failed",
+	).length;
+	const readyItems = results.filter((item) => getString(asRecord(item).status) === "ready");
 
 	if (readyItems.length === 0 && failedCount > 0) {
 		return failed(`Couldn’t read ${formatCount(failedCount, "item")}`);

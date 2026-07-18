@@ -54,6 +54,21 @@ export function summarizeWorkspaceCollectionResult(input: {
 	return summarizeWorkspaceResult(input.items.length, input.failed);
 }
 
+export function summarizeWorkspaceReadResult(input: {
+	results: ReadonlyArray<{ code?: string; status: "failed" | "pending" | "ready" }>;
+}) {
+	const failures: Array<{ code: string }> = [];
+	let succeededCount = 0;
+	for (const result of input.results) {
+		if (result.status === "failed") {
+			failures.push({ code: result.code ?? "unknown" });
+		} else {
+			succeededCount += 1;
+		}
+	}
+	return summarizeWorkspaceResult(succeededCount, failures);
+}
+
 export function summarizeWorkspaceItemResult(input: {
 	failed: ReadonlyArray<{ code: string }>;
 	item?: unknown;
