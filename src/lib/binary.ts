@@ -35,5 +35,5 @@ export async function sha256Base64Url(bytes: Uint8Array) {
 }
 
 export async function sha256Base64UrlText(value: string) {
-	return await sha256Base64Url(textEncoder.encode(value));
+	return sha256Base64Url(textEncoder.encode(value));
 }

@@ -13,7 +13,7 @@ import {
 	type WorkspaceAccessContext,
 } from "#/features/workspaces/operations/workspace-access-context";
 
-export type WorkspaceOperationAccessMode = "read" | "mutate";
+type WorkspaceOperationAccessMode = "read" | "mutate";
 
 export async function getAuthorizedWorkspaceKernel(input: {
 	access: WorkspaceOperationAccessMode;

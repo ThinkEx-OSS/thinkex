@@ -4,7 +4,7 @@ import { workspaceRelationKindSchema } from "#/features/workspaces/contracts";
 
 const workspacePathSchema = z.string().min(1);
 
-export const readWorkspaceItemsFailureCodes = [
+const readWorkspaceItemsFailureCodes = [
 	"content_changed",
 	"invalid_cursor",
 	"invalid_selection",
@@ -18,7 +18,7 @@ export const readWorkspaceItemsFailureCodes = [
 	"unsupported_item_type",
 ] as const;
 
-export const workspacePageRangeSchema = z
+const workspacePageRangeSchema = z
 	.string()
 	.trim()
 	.min(1)

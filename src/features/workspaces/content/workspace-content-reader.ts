@@ -31,91 +31,85 @@ interface PendingReadyResult {
 	relations: Awaited<ReturnType<WorkspaceKernelClient["listItemRelations"]>>;
 }
 
-export interface WorkspaceContentReader {
-	read(requests: WorkspaceContentReadRequest[]): Promise<WorkspaceContentReadResult[]>;
-}
-
-export function createWorkspaceContentReader(input: {
+export async function readWorkspaceContent(input: {
 	bucket: R2Bucket;
 	getDocumentSession: (itemId: string) => DocumentContentReader;
 	kernel: WorkspaceKernelClient;
-}): WorkspaceContentReader {
-	return {
-		async read(requests) {
-			const encoder = new TextEncoder();
-			const resolutions = await input.kernel.resolvePaths({
-				paths: requests.map((request) => request.path),
+	requests: WorkspaceContentReadRequest[];
+}): Promise<WorkspaceContentReadResult[]> {
+	const { requests } = input;
+	const encoder = new TextEncoder();
+	const resolutions = await input.kernel.resolvePaths({
+		paths: requests.map((request) => request.path),
+	});
+	const results: WorkspaceContentReadResult[] = [];
+	const readyResults: PendingReadyResult[] = [];
+	let returnedContentBytes = 0;
+
+	// Reads stay ordered so each body is consumed before the shared byte budget advances.
+	for (const [index, resolution] of resolutions.entries()) {
+		const request = requests[index];
+		if (!request) {
+			throw new Error("Workspace content resolution did not match its request.");
+		}
+		if (resolution.status === "invalid_path") {
+			results.push({ code: resolution.code, path: resolution.path, status: "failed" });
+			continue;
+		}
+		if (resolution.status === "root") {
+			results.push({ code: "path_is_folder", path: resolution.path, status: "failed" });
+			continue;
+		}
+		if (resolution.status === "not_found") {
+			results.push({ code: "path_not_found", path: resolution.path, status: "failed" });
+			continue;
+		}
+		if (resolution.item.type === "folder") {
+			results.push({ code: "path_is_folder", path: resolution.path, status: "failed" });
+			continue;
+		}
+
+		try {
+			const read = await readWorkspaceItem({
+				...input,
+				item: resolution.item,
+				request,
+				path: resolution.path,
 			});
-			const results: WorkspaceContentReadResult[] = [];
-			const readyResults: PendingReadyResult[] = [];
-			let returnedContentBytes = 0;
-
-			// Reads stay ordered so each body is consumed before the shared byte budget advances.
-			for (const [index, resolution] of resolutions.entries()) {
-				const request = requests[index];
-				if (!request) {
-					throw new Error("Workspace content resolution did not match its request.");
-				}
-				if (resolution.status === "invalid_path") {
-					results.push({ code: resolution.code, path: resolution.path, status: "failed" });
-					continue;
-				}
-				if (resolution.status === "root") {
-					results.push({ code: "path_is_folder", path: resolution.path, status: "failed" });
-					continue;
-				}
-				if (resolution.status === "not_found") {
-					results.push({ code: "path_not_found", path: resolution.path, status: "failed" });
-					continue;
-				}
-				if (resolution.item.type === "folder") {
-					results.push({ code: "path_is_folder", path: resolution.path, status: "failed" });
-					continue;
-				}
-
-				try {
-					const read = await readWorkspaceItem({
-						...input,
-						item: resolution.item,
-						request,
-						path: resolution.path,
-					});
-					if (read.status !== "ready") {
-						results.push(read);
-						continue;
-					}
-					const contentBytes = encoder.encode(read.content).byteLength;
-					if (returnedContentBytes + contentBytes > maxWorkspaceContentBatchBytes) {
-						results.push({
-							code: "read_budget_exceeded",
-							path: resolution.path,
-							status: "failed",
-							...(resolution.item.type === "file" ? { type: "file" as const } : {}),
-						});
-						continue;
-					}
-					returnedContentBytes += contentBytes;
-
-					const pending = {
-						item: resolution.item,
-						read,
-						relations: await input.kernel.listItemRelations({ itemId: resolution.item.id }),
-					};
-					readyResults.push(pending);
-					results.push(read);
-				} catch (error) {
-					if (error instanceof WorkspacePageSelectionError) {
-						results.push({ code: error.code, path: resolution.path, status: "failed" });
-						continue;
-					}
-					throw error;
-				}
+			if (read.status !== "ready") {
+				results.push(read);
+				continue;
 			}
+			const contentBytes = encoder.encode(read.content).byteLength;
+			if (returnedContentBytes + contentBytes > maxWorkspaceContentBatchBytes) {
+				results.push({
+					code: "read_budget_exceeded",
+					path: resolution.path,
+					status: "failed",
+					...(resolution.item.type === "file" ? { type: "file" as const } : {}),
+				});
+				continue;
+			}
+			returnedContentBytes += contentBytes;
 
-			await attachRelationPaths(input.kernel, readyResults);
-			return results;
-		},
-	};
+			const pending = {
+				item: resolution.item,
+				read,
+				relations: await input.kernel.listItemRelations({ itemId: resolution.item.id }),
+			};
+			readyResults.push(pending);
+			results.push(read);
+		} catch (error) {
+			if (error instanceof WorkspacePageSelectionError) {
+				results.push({ code: error.code, path: resolution.path, status: "failed" });
+				continue;
+			}
+			throw error;
+		}
+	}
+
+	await attachRelationPaths(input.kernel, readyResults);
+	return results;
 }
 
 async function readWorkspaceItem(input: {
@@ -127,10 +121,10 @@ async function readWorkspaceItem(input: {
 	request: WorkspaceContentReadRequest;
 }): Promise<WorkspaceContentReadResult> {
 	if (input.item.type === "document") {
-		return await readDocument(input);
+		return readDocument(input);
 	}
 	if (input.item.type === "file") {
-		return await readFile(input);
+		return readFile(input);
 	}
 	return { code: "unsupported_item_type", path: input.path, status: "failed" };
 }

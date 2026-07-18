@@ -55,12 +55,7 @@ const workspaceRealtimeEventSchema = z.discriminatedUnion("type", [
 	}),
 	z.object({
 		...workspaceRealtimeEventBase,
-		type: z.literal("workspace.relations.updated"),
-		payload: z.object({ itemFacts: z.array(workspaceItemFactsSchema) }),
-	}),
-	z.object({
-		...workspaceRealtimeEventBase,
-		type: z.literal("workspace.item.projection.updated"),
+		type: z.enum(["workspace.relations.updated", "workspace.item.projection.updated"]),
 		payload: z.object({ itemFacts: z.array(workspaceItemFactsSchema) }),
 	}),
 ]);

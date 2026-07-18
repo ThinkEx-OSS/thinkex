@@ -5,7 +5,7 @@ import type { WorkspaceContentReadRequest } from "#/features/workspaces/content/
 import { createDocumentMarkdownSnapshot } from "#/features/workspaces/documents/document-markdown-chunk";
 import type { WorkspaceKernelClient } from "#/features/workspaces/kernel/workspace-kernel-access";
 import type { WorkspaceKernelPathResolution } from "#/features/workspaces/kernel/workspace-kernel-types";
-import { createWorkspaceContentReader } from "#/features/workspaces/content/workspace-content-reader";
+import { readWorkspaceContent } from "#/features/workspaces/content/workspace-content-reader";
 import { encodeWorkspaceContentCursor } from "#/features/workspaces/content/workspace-content-cursor";
 
 const documentItem: WorkspaceItemSummary = {
@@ -28,13 +28,13 @@ describe("WorkspaceContentReader", () => {
 	it("continues a large live document with a revision-guarded cursor", async () => {
 		const markdown = Array.from({ length: 20_000 }, (_, index) => `line ${index + 1}`).join("\n");
 		const session = createDocumentSession({ markdown, revision: "revision-1" });
-		const reader = createWorkspaceContentReader({
+		const read = createReader({
 			bucket: {} as R2Bucket,
 			getDocumentSession: () => session,
 			kernel: createKernel(),
 		});
 
-		const [first] = await reader.read([{ mode: "start", path: "/Notes" }]);
+		const [first] = await read([{ mode: "start", path: "/Notes" }]);
 		expect(first).toMatchObject({
 			format: "markdown",
 			location: { kind: "lines", startLine: 1, totalLines: 20_000 },
@@ -51,9 +51,7 @@ describe("WorkspaceContentReader", () => {
 			throw new Error("Expected the first document chunk to have a continuation cursor.");
 		}
 
-		const [second] = await reader.read([
-			{ cursor: first.nextCursor, mode: "continue", path: "/Notes" },
-		]);
+		const [second] = await read([{ cursor: first.nextCursor, mode: "continue", path: "/Notes" }]);
 		expect(second).toMatchObject({
 			location: { kind: "lines" },
 			path: "/Notes",
@@ -71,25 +69,25 @@ describe("WorkspaceContentReader", () => {
 			markdown: "a\n".repeat(40_000),
 			revision: "revision-1",
 		});
-		const reader = createWorkspaceContentReader({
+		const read = createReader({
 			bucket: {} as R2Bucket,
 			getDocumentSession: () => session,
 			kernel: createKernel(),
 		});
-		const [first] = await reader.read([{ mode: "start", path: "/Notes" }]);
+		const [first] = await read([{ mode: "start", path: "/Notes" }]);
 		if (!first || first.status !== "ready" || !first.nextCursor) {
 			throw new Error("Expected a continuation cursor.");
 		}
 
 		session.readMarkdownChunk = vi.fn(async () => ({ status: "content_changed" }));
 		await expect(
-			reader.read([{ cursor: first.nextCursor, mode: "continue", path: "/Notes" }]),
+			read([{ cursor: first.nextCursor, mode: "continue", path: "/Notes" }]),
 		).resolves.toEqual([{ code: "content_changed", path: "/Notes", status: "failed" }]);
 	});
 
 	it("preserves document whitespace across chunk boundaries", async () => {
 		const markdown = `heading  \n\n    indented code\n${"x".repeat(64_000)}\n`;
-		const reader = createWorkspaceContentReader({
+		const read = createReader({
 			bucket: {} as R2Bucket,
 			getDocumentSession: () => createDocumentSession({ markdown, revision: "revision-1" }),
 			kernel: createKernel(),
@@ -98,7 +96,7 @@ describe("WorkspaceContentReader", () => {
 		const contents: string[] = [];
 		let request: WorkspaceContentReadRequest = { mode: "start", path: "/Notes" };
 		for (;;) {
-			const [result] = await reader.read([request]);
+			const [result] = await read([request]);
 			expect(result).toMatchObject({ status: "ready", type: "document" });
 			if (!result || result.status !== "ready") {
 				throw new Error("Expected a document chunk.");
@@ -113,7 +111,7 @@ describe("WorkspaceContentReader", () => {
 	});
 
 	it("rejects a nonzero continuation offset for an empty document", async () => {
-		const reader = createWorkspaceContentReader({
+		const read = createReader({
 			bucket: {} as R2Bucket,
 			getDocumentSession: () => createDocumentSession({ markdown: "", revision: "revision-1" }),
 			kernel: createKernel(),
@@ -126,13 +124,13 @@ describe("WorkspaceContentReader", () => {
 			version: 1,
 		});
 
-		await expect(reader.read([{ cursor, mode: "continue", path: "/Notes" }])).resolves.toEqual([
+		await expect(read([{ cursor, mode: "continue", path: "/Notes" }])).resolves.toEqual([
 			{ code: "invalid_cursor", path: "/Notes", status: "failed" },
 		]);
 	});
 
 	it("bounds total content returned by a batch", async () => {
-		const reader = createWorkspaceContentReader({
+		const read = createReader({
 			bucket: {} as R2Bucket,
 			getDocumentSession: () =>
 				createDocumentSession({ markdown: "😀".repeat(40_000), revision: "revision-1" }),
@@ -143,7 +141,7 @@ describe("WorkspaceContentReader", () => {
 			path: `/Notes ${index + 1}`,
 		}));
 
-		const results = await reader.read(requests);
+		const results = await read(requests);
 		expect(results.filter((result) => result.status === "ready")).toHaveLength(16);
 		expect(results.slice(16)).toEqual(
 			requests.slice(16).map((request) => ({
@@ -164,14 +162,14 @@ describe("WorkspaceContentReader", () => {
 					{ path: "/", status: "root" },
 				] satisfies WorkspaceKernelPathResolution[],
 		);
-		const reader = createWorkspaceContentReader({
+		const read = createReader({
 			bucket: {} as R2Bucket,
 			getDocumentSession: () => createDocumentSession({ markdown: "", revision: "revision-1" }),
 			kernel,
 		});
 
 		await expect(
-			reader.read([
+			read([
 				{ mode: "start", path: "Notes" },
 				{ mode: "start", path: "/Missing" },
 				{ mode: "start", path: "/" },
@@ -206,4 +204,12 @@ function createKernel() {
 		listItemRelations: vi.fn(async () => []),
 		getItemPaths: vi.fn(async () => [{ itemId: documentItem.id, path: "/Notes" }]),
 	} as unknown as WorkspaceKernelClient;
+}
+
+function createReader(input: {
+	bucket: R2Bucket;
+	getDocumentSession: (itemId: string) => ReturnType<typeof createDocumentSession>;
+	kernel: WorkspaceKernelClient;
+}) {
+	return (requests: WorkspaceContentReadRequest[]) => readWorkspaceContent({ ...input, requests });
 }

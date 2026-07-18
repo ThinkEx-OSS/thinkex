@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 import { jsonValueSchema, type JsonValue } from "#/features/workspaces/contracts";
 import type { MarkdownProjectionPage } from "#/features/workspaces/extraction/page-markdown-projection";
 import { getWorkspaceFileItemObjectPrefix } from "#/features/workspaces/files/workspace-file-object-keys";
@@ -14,31 +16,32 @@ const pageWriteConcurrency = 8;
 const maxPageMarkdownBytes = 1024 * 1024;
 const maxPageReadBytes = 2 * 1024 * 1024;
 
-export interface WorkspacePageProjectionManifest {
-	createdAt: string;
-	itemId: string;
-	markdownBytes: number;
-	markdownLength: number;
-	metadata: Record<string, JsonValue>;
-	pageCount: number;
-	pages?: WorkspacePageProjectionManifestPage[];
-	provider: string;
-	providerMode: string;
-	runId: string;
-	schemaVersion: typeof projectionSchemaVersion;
-	sourceHash: string;
-	workspaceId: string;
-}
+const workspacePageProjectionManifestPageSchema = z.object({
+	markdownBytes: z.number().int().nonnegative(),
+	pageNumber: z.number().int().positive(),
+});
 
-interface WorkspacePageProjectionManifestPage {
-	markdownBytes: number;
-	pageNumber: number;
-}
+const workspacePageProjectionManifestSchema = z.object({
+	createdAt: z.string(),
+	itemId: z.string(),
+	markdownBytes: z.number().int().nonnegative(),
+	markdownLength: z.number().int().nonnegative(),
+	metadata: z.record(z.string(), jsonValueSchema),
+	pageCount: z.number().int().positive(),
+	pages: z.array(workspacePageProjectionManifestPageSchema).optional(),
+	provider: z.string(),
+	providerMode: z.string(),
+	runId: z.string(),
+	schemaVersion: z.literal(projectionSchemaVersion),
+	sourceHash: z.string(),
+	workspaceId: z.string(),
+});
 
-export interface WorkspacePageProjectionReference {
-	manifestObjectKey: string;
-	manifest: WorkspacePageProjectionManifest;
-}
+type WorkspacePageProjectionManifest = z.infer<typeof workspacePageProjectionManifestSchema>;
+
+type WorkspacePageProjectionManifestPage = z.infer<
+	typeof workspacePageProjectionManifestPageSchema
+>;
 
 export async function writeWorkspacePageProjection(input: {
 	bucket: R2Bucket;
@@ -51,7 +54,7 @@ export async function writeWorkspacePageProjection(input: {
 	sourceHash: string;
 	tier: "enhanced" | "fast";
 	workspaceId: string;
-}): Promise<WorkspacePageProjectionReference> {
+}) {
 	const prefix = getWorkspacePageProjectionPrefix(input);
 	const encoder = new TextEncoder();
 	const writes: Promise<void>[] = [];
@@ -242,73 +245,16 @@ export function getWorkspacePageObjectKey(prefix: string, pageNumber: number) {
 }
 
 function parseWorkspacePageProjectionManifest(value: unknown): WorkspacePageProjectionManifest {
-	if (!isRecord(value)) {
+	const manifest = workspacePageProjectionManifestSchema.parse(value);
+	if (manifest.pages && manifest.pages.length !== manifest.pageCount) {
 		throw new Error("Workspace page projection manifest is invalid.");
 	}
-	if (
-		value.schemaVersion !== projectionSchemaVersion ||
-		typeof value.workspaceId !== "string" ||
-		typeof value.itemId !== "string" ||
-		typeof value.runId !== "string" ||
-		typeof value.sourceHash !== "string" ||
-		typeof value.provider !== "string" ||
-		typeof value.providerMode !== "string" ||
-		typeof value.pageCount !== "number" ||
-		!Number.isInteger(value.pageCount) ||
-		value.pageCount < 1 ||
-		typeof value.markdownLength !== "number" ||
-		typeof value.markdownBytes !== "number" ||
-		typeof value.createdAt !== "string" ||
-		!isRecord(value.metadata)
-	) {
-		throw new Error("Workspace page projection manifest is invalid.");
-	}
-
-	const metadata = jsonValueSchema.parse(value.metadata);
-	if (!isJsonObject(metadata)) {
-		throw new Error("Workspace page projection manifest is invalid.");
-	}
-
-	const pages = value.pages === undefined ? undefined : parseManifestPages(value);
-
-	return {
-		createdAt: value.createdAt,
-		itemId: value.itemId,
-		markdownBytes: value.markdownBytes,
-		markdownLength: value.markdownLength,
-		metadata,
-		pageCount: value.pageCount,
-		...(pages ? { pages } : {}),
-		provider: value.provider,
-		providerMode: value.providerMode,
-		runId: value.runId,
-		schemaVersion: value.schemaVersion,
-		sourceHash: value.sourceHash,
-		workspaceId: value.workspaceId,
-	};
-}
-
-function parseManifestPages(value: Record<string, unknown>): WorkspacePageProjectionManifestPage[] {
-	if (!Array.isArray(value.pages) || value.pages.length !== value.pageCount) {
-		throw new Error("Workspace page projection manifest is invalid.");
-	}
-
-	return value.pages.map((page, index) => {
-		if (
-			!isRecord(page) ||
-			page.pageNumber !== index + 1 ||
-			typeof page.markdownBytes !== "number" ||
-			!Number.isInteger(page.markdownBytes) ||
-			page.markdownBytes < 0
-		) {
+	for (const [index, page] of (manifest.pages ?? []).entries()) {
+		if (page.pageNumber !== index + 1) {
 			throw new Error("Workspace page projection manifest is invalid.");
 		}
-
-		return {
-			markdownBytes: page.markdownBytes,
-			pageNumber: page.pageNumber,
-		};
-	});
+	}
+	return manifest;
 }
 
 async function schedulePageWrite(
@@ -364,12 +310,4 @@ function getManifestPrefix(manifestObjectKey: string) {
 
 function encodePathPart(value: string) {
 	return encodeURIComponent(value);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function isJsonObject(value: JsonValue): value is { [key: string]: JsonValue } {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
 }

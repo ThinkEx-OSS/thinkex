@@ -19,7 +19,7 @@ const workspaceContentCursorSchema = z.discriminatedUnion("kind", [
 	}),
 ]);
 
-export type WorkspaceContentCursor = z.infer<typeof workspaceContentCursorSchema>;
+type WorkspaceContentCursor = z.infer<typeof workspaceContentCursorSchema>;
 
 export function encodeWorkspaceContentCursor(cursor: WorkspaceContentCursor) {
 	return encodeBase64UrlText(JSON.stringify(cursor));

@@ -4,7 +4,7 @@ import {
 	type WorkspaceContentReadRequest,
 	type WorkspaceContentReadResult,
 } from "#/features/workspaces/content/workspace-content-contract";
-import { createWorkspaceContentReader } from "#/features/workspaces/content/workspace-content-reader";
+import { readWorkspaceContent } from "#/features/workspaces/content/workspace-content-reader";
 import { getDocumentSessionFromEnv } from "#/features/workspaces/document-session-access";
 import type { WorkspaceAccessContext } from "#/features/workspaces/operations/workspace-access-context";
 import { getAuthorizedWorkspaceKernel } from "#/features/workspaces/operations/workspace-operation-context";
@@ -25,7 +25,7 @@ export async function readWorkspaceItemsOperation(
 		access: "read",
 		context: accessContext,
 	});
-	const reader = createWorkspaceContentReader({
+	const results = await readWorkspaceContent({
 		bucket: env.WORKSPACE_KERNEL_FILES,
 		getDocumentSession: (itemId) =>
 			getDocumentSessionFromEnv(env, {
@@ -33,7 +33,8 @@ export async function readWorkspaceItemsOperation(
 				workspaceId: accessContext.workspaceId,
 			}),
 		kernel,
+		requests: input.requests,
 	});
 
-	return { results: await reader.read(input.requests) };
+	return { results };
 }
