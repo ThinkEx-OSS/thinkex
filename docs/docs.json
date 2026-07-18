@@ -43,7 +43,7 @@
 			},
 			{
 				"group": "Guides",
-				"pages": ["guides/import-files", "guides/collaboration"]
+				"pages": ["guides/import-files", "guides/collaboration", "guides/mcp"]
 			},
 			{
 				"group": "Configuration",

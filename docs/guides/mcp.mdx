@@ -1,0 +1,124 @@
+---
+title: Connect with MCP
+description: Give compatible AI clients access to your ThinkEx workspaces.
+---
+
+ThinkEx provides a remote [Model Context Protocol](https://modelcontextprotocol.io/) server for working with your workspace content from compatible AI clients.
+
+<Note>
+  Use `https://thinkex.app/mcp` as the server URL. ThinkEx uses browser-based
+  OAuth, so you do not need to create an API key, client ID, or client secret.
+</Note>
+
+## Connect a Client
+
+Your client must support remote Streamable HTTP MCP servers with OAuth.
+
+<Tabs>
+  <Tab title="Claude">
+    <Steps>
+      <Step title="Open connectors">
+        In Claude or Claude Desktop, open **Customize → Connectors**. Team and Enterprise owners add custom connectors from **Organization settings → Connectors**.
+      </Step>
+      <Step title="Add ThinkEx">
+        Choose **Add custom connector**, enter `ThinkEx` as the name, and use `https://thinkex.app/mcp` as the remote MCP server URL.
+      </Step>
+      <Step title="Connect">
+        Select **Connect**, sign in to ThinkEx, review the requested permissions, and choose **Allow**.
+      </Step>
+      <Step title="Enable it in a conversation">
+        Open the connectors menu from the chat composer and enable ThinkEx for the conversation.
+      </Step>
+    </Steps>
+
+    See [Claude's custom connector guide](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp) for plan and organization controls.
+
+  </Tab>
+
+  <Tab title="Cursor">
+    Add ThinkEx to your global `~/.cursor/mcp.json` or a project's `.cursor/mcp.json`:
+
+    ```json
+    {
+      "mcpServers": {
+        "thinkex": {
+          "url": "https://thinkex.app/mcp"
+        }
+      }
+    }
+    ```
+
+    Start or refresh the server from Cursor's MCP settings, then complete the browser sign-in and consent flow. See [Cursor's MCP documentation](https://docs.cursor.com/context/model-context-protocol) for configuration locations and controls.
+
+  </Tab>
+
+  <Tab title="VS Code">
+    Run **MCP: Add Server** from the Command Palette and choose an HTTP server, or add ThinkEx to your user or workspace `mcp.json`:
+
+    ```json
+    {
+      "servers": {
+        "thinkex": {
+          "type": "http",
+          "url": "https://thinkex.app/mcp"
+        }
+      }
+    }
+    ```
+
+    Start the server and use the **Auth** action above its configuration to complete sign-in. See [VS Code's MCP server guide](https://code.visualstudio.com/docs/agent-customization/mcp-servers) for user, workspace, and organization configuration.
+
+  </Tab>
+</Tabs>
+
+## Permissions
+
+The consent screen requests two permissions:
+
+| Permission               | Allows                                             |
+| ------------------------ | -------------------------------------------------- |
+| View workspaces          | List your workspaces and read their contents       |
+| Manage workspace content | Create, edit, move, link, rename, and delete items |
+
+OAuth permission does not override your workspace role. ThinkEx checks your current membership on every operation:
+
+| Workspace role          | MCP access                        |
+| ----------------------- | --------------------------------- |
+| Owner, admin, or editor | Read and modify workspace content |
+| Viewer                  | Read workspace content only       |
+| No membership           | No access                         |
+
+If your role changes or you lose access to a workspace, the change applies to subsequent MCP operations.
+
+## How Workspace Selection Works
+
+The client first asks ThinkEx for the workspaces available to your account. Each result includes the workspace name, stable ID, and your role. The client uses the name to understand your request and passes the exact ID back to ThinkEx for later operations.
+
+Within a selected workspace, items use readable absolute paths such as `/Research/Notes`. Workspace names are not used as identifiers, so duplicate or renamed workspaces remain unambiguous.
+
+## Available Actions
+
+Connected clients can:
+
+- List available workspaces and membership roles.
+- Browse folders and workspace items.
+- Read documents and extracted file content.
+- Create folders and documents.
+- Edit documents and item relationships.
+- Rename, move, link, and delete workspace items.
+
+ThinkEx exposes these capabilities through a compact code-mode interface so clients do not need to load every operation schema into the conversation at once.
+
+<Warning>
+  Connected clients can change or delete content when your workspace role allows
+  it. Review permission prompts and consequential tool calls in your AI client.
+</Warning>
+
+## Troubleshooting
+
+| Problem                             | What to check                                                                                                           |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| A workspace is missing              | Confirm that the same ThinkEx account is still a member and that the workspace is not archived                          |
+| Reads work but writes fail          | Your workspace role may be viewer, or the client may not have write permission                                          |
+| The client shows no ThinkEx actions | Confirm it supports remote Streamable HTTP MCP with OAuth, then restart or reconnect the server                         |
+| Authorization keeps restarting      | Remove the connection from the client, add `https://thinkex.app/mcp` again, and complete consent in one browser session |
