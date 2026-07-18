@@ -19,6 +19,8 @@ export function getWorkspaceKernelFileShellPath(input: { itemId: string; extensi
 export function getWorkspaceKernelContentMimeType(type: WorkspaceItemType) {
 	switch (type) {
 		case "document":
+		case "flashcard":
+		case "quiz":
 			return "application/json";
 		case "file":
 			return "text/plain";
@@ -31,6 +33,10 @@ export function getInitialWorkspaceKernelContent(type: WorkspaceItemType) {
 	switch (type) {
 		case "document":
 			return stringifyTiptapDocumentJson(createInitialTiptapDocumentJson());
+		case "flashcard":
+			return JSON.stringify({ version: 1, cards: [] }, null, 2);
+		case "quiz":
+			return JSON.stringify({ version: 1, questions: [] }, null, 2);
 		case "file":
 		case "folder":
 			return "";
@@ -40,6 +46,8 @@ export function getInitialWorkspaceKernelContent(type: WorkspaceItemType) {
 function getContentExtension(type: WorkspaceItemType) {
 	switch (type) {
 		case "document":
+		case "flashcard":
+		case "quiz":
 			return "json";
 		case "file":
 			return "txt";

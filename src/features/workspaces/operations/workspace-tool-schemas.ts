@@ -53,7 +53,7 @@ const workspaceListItemSchema = z.object({
 	pageCount: z.number().int().positive().optional(),
 	path: workspacePathSchema,
 	relationshipCount: z.number().int().nonnegative(),
-	type: z.enum(["folder", "document", "pdf", "image", "file"]),
+	type: z.enum(["folder", "document", "pdf", "image", "file", "flashcard", "quiz"]),
 });
 
 const workspacePreviousPathItemSchema = workspacePathItemSchema.extend({

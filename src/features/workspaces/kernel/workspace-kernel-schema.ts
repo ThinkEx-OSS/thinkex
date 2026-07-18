@@ -3,7 +3,6 @@ import { recordOperationalFailure } from "#/integrations/observability/operation
 
 export const workspaceRevisionKey = "workspace_revision";
 export const workspaceItemSortStep = WORKSPACE_ITEM_SORT_STEP;
-const retireLegacyLearningItemsMigration = 1;
 
 export type WorkspaceKernelSql = <T = Record<string, unknown>>(
 	strings: TemplateStringsArray,
@@ -89,44 +88,6 @@ export function initializeWorkspaceKernelStorage(sql: WorkspaceKernelSql) {
 	sql`CREATE INDEX IF NOT EXISTS kernel_events_client_mutation_idx
 		ON kernel_events (client_mutation_id, type, revision)
 		WHERE client_mutation_id IS NOT NULL`;
-	applyWorkspaceKernelMigrations(sql);
-}
-
-function applyWorkspaceKernelMigrations(sql: WorkspaceKernelSql) {
-	sql`
-		CREATE TABLE IF NOT EXISTS _sql_schema_migrations (
-			id INTEGER PRIMARY KEY,
-			applied_at INTEGER NOT NULL
-		)
-	`;
-	const appliedMigrationIds = new Set(
-		sql<{ id: number }>`SELECT id FROM _sql_schema_migrations`.map((row) => row.id),
-	);
-	if (!appliedMigrationIds.has(retireLegacyLearningItemsMigration)) {
-		retireLegacyLearningItems(sql);
-		sql`
-			INSERT INTO _sql_schema_migrations (id, applied_at)
-			VALUES (${retireLegacyLearningItemsMigration}, ${Date.now()})
-		`;
-	}
-}
-
-function retireLegacyLearningItems(sql: WorkspaceKernelSql) {
-	const retiredAt = Date.now();
-	sql`
-		DELETE FROM kernel_relations
-		WHERE from_item_id IN (SELECT id FROM kernel_items WHERE type IN ('flashcard', 'quiz'))
-			OR to_item_id IN (SELECT id FROM kernel_items WHERE type IN ('flashcard', 'quiz'))
-	`;
-	sql`
-		DELETE FROM kernel_item_projections
-		WHERE item_id IN (SELECT id FROM kernel_items WHERE type IN ('flashcard', 'quiz'))
-	`;
-	sql`
-		UPDATE kernel_items
-		SET deleted_at = COALESCE(deleted_at, ${retiredAt}), updated_at = ${retiredAt}
-		WHERE type IN ('flashcard', 'quiz')
-	`;
 }
 
 function createSiblingNameIndexes(sql: WorkspaceKernelSql) {

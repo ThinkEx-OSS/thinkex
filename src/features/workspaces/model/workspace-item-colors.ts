@@ -12,7 +12,9 @@ import {
 export const workspaceItemTypeColors = {
 	document: "sky",
 	file: "rose",
+	flashcard: "violet",
 	folder: "amber",
+	quiz: "emerald",
 } as const satisfies Record<WorkspaceItemType, WorkspaceItemColor>;
 
 export const workspaceItemColorOptions = workspaceColorOptions;

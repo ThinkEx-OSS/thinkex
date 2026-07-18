@@ -1,4 +1,4 @@
-import { FilePen, Folder, type LucideIcon, Paperclip } from "lucide-react";
+import { FilePen, Folder, Layers3, ListChecks, type LucideIcon, Paperclip } from "lucide-react";
 
 import type { WorkspaceItemType } from "#/features/workspaces/contracts";
 interface WorkspaceItemRegistryEntry {
@@ -26,6 +26,18 @@ export const workspaceObjectRegistry = {
 		label: "File",
 		menuLabel: "Upload file",
 		icon: Paperclip,
+	},
+	flashcard: {
+		type: "flashcard",
+		label: "Flashcard deck",
+		menuLabel: "Flashcards",
+		icon: Layers3,
+	},
+	quiz: {
+		type: "quiz",
+		label: "Quiz",
+		menuLabel: "Quiz",
+		icon: ListChecks,
 	},
 } satisfies Record<WorkspaceItemType, WorkspaceItemRegistryEntry>;
 

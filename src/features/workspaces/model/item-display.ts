@@ -1,4 +1,4 @@
-import { Upload } from "lucide-react";
+import { Mic, Upload } from "lucide-react";
 
 import { getWorkspaceObjectRegistryEntry } from "#/features/workspaces/model/object-registry";
 import type { WorkspaceItem } from "#/features/workspaces/model/types";
@@ -24,22 +24,39 @@ export function getWorkspaceItemDisplay(item: WorkspaceItem) {
 }
 
 const workspaceItemPrimaryCreateActionOrder = ["document", "folder"] as const;
+const workspaceItemLearnCreateActionOrder = ["flashcard", "quiz"] as const;
 
-export const workspaceItemPrimaryCreateActions = workspaceItemPrimaryCreateActionOrder.map(
-	(type) => {
-		const display = getWorkspaceObjectRegistryEntry(type);
-		return {
-			type,
-			label: display.menuLabel,
-			Icon: display.icon,
-			iconClassName: workspaceColors[workspaceItemTypeColors[type]].iconClassName,
-		};
+export const workspaceItemPrimaryCreateActions =
+	workspaceItemPrimaryCreateActionOrder.map(createWorkspaceItemAction);
+
+export const workspaceItemLearnCreateActions =
+	workspaceItemLearnCreateActionOrder.map(createWorkspaceItemAction);
+
+function createWorkspaceItemAction(type: "document" | "folder" | "flashcard" | "quiz") {
+	const display = getWorkspaceObjectRegistryEntry(type);
+	return {
+		type,
+		label: display.menuLabel,
+		Icon: display.icon,
+		iconClassName: workspaceColors[workspaceItemTypeColors[type]].iconClassName,
+	};
+}
+
+export const workspaceItemAcquisitionActions = [
+	{
+		id: "upload-file",
+		label: "Upload",
+		description: undefined,
+		Icon: Upload,
+		iconClassName: workspaceColors[workspaceItemTypeColors.file].iconClassName,
+		disabled: false,
 	},
-);
-
-export const workspaceFileUploadAction = {
-	id: "upload-file",
-	label: "Upload",
-	Icon: Upload,
-	iconClassName: workspaceColors[workspaceItemTypeColors.file].iconClassName,
-};
+	{
+		id: "record-audio",
+		label: "Record",
+		description: "Soon",
+		Icon: Mic,
+		iconClassName: workspaceColors.orange.iconClassName,
+		disabled: true,
+	},
+] as const;
