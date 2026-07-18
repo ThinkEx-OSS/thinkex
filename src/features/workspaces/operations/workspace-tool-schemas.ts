@@ -15,6 +15,7 @@ import {
 	workspaceRelationKindSchema,
 } from "#/features/workspaces/contracts";
 import { documentMarkdownEditSchema } from "#/features/workspaces/documents/document-markdown-edits";
+import { workspaceFileAssetKindSchema } from "#/features/workspaces/model/workspace-file";
 
 export { workspaceReadItemsInputSchema, workspaceReadItemsOutputSchema };
 
@@ -53,7 +54,7 @@ const workspaceListItemSchema = z.object({
 	pageCount: z.number().int().positive().optional(),
 	path: workspacePathSchema,
 	relationshipCount: z.number().int().nonnegative(),
-	type: z.enum(["folder", "document", "pdf", "image", "file", "flashcard", "quiz"]),
+	type: z.union([workspaceItemTypeSchema, workspaceFileAssetKindSchema]),
 });
 
 const workspacePreviousPathItemSchema = workspacePathItemSchema.extend({

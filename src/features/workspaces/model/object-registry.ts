@@ -1,46 +1,20 @@
-import { FilePen, Folder, Layers3, ListChecks, type LucideIcon, Paperclip } from "lucide-react";
+import { FilePen, Folder, Layers3, ListChecks, Paperclip } from "lucide-react";
 
 import type { WorkspaceItemType } from "#/features/workspaces/contracts";
-interface WorkspaceItemRegistryEntry {
-	type: WorkspaceItemType;
-	label: string;
-	menuLabel: string;
-	icon: LucideIcon;
-}
+import { getWorkspaceItemRegistryEntry } from "#/features/workspaces/workspace-item-registry";
 
-export const workspaceObjectRegistry = {
-	folder: {
-		type: "folder",
-		label: "Folder",
-		menuLabel: "Folder",
-		icon: Folder,
-	},
-	document: {
-		type: "document",
-		label: "Document",
-		menuLabel: "Document",
-		icon: FilePen,
-	},
-	file: {
-		type: "file",
-		label: "File",
-		menuLabel: "Upload file",
-		icon: Paperclip,
-	},
-	flashcard: {
-		type: "flashcard",
-		label: "Flashcard deck",
-		menuLabel: "Flashcards",
-		icon: Layers3,
-	},
-	quiz: {
-		type: "quiz",
-		label: "Quiz",
-		menuLabel: "Quiz",
-		icon: ListChecks,
-	},
-} satisfies Record<WorkspaceItemType, WorkspaceItemRegistryEntry>;
+const workspaceItemIcons = {
+	document: FilePen,
+	file: Paperclip,
+	flashcard: Layers3,
+	folder: Folder,
+	quiz: ListChecks,
+} satisfies Record<WorkspaceItemType, typeof FilePen>;
 
 export function getWorkspaceObjectRegistryEntry(type: WorkspaceItemType) {
-	return workspaceObjectRegistry[type];
+	return {
+		...getWorkspaceItemRegistryEntry(type),
+		icon: workspaceItemIcons[type],
+		type,
+	};
 }

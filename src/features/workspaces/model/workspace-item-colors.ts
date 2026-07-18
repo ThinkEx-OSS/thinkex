@@ -8,14 +8,7 @@ import {
 	workspaceColorOptions,
 	workspaceColors,
 } from "#/features/workspaces/model/workspace-colors";
-
-export const workspaceItemTypeColors = {
-	document: "sky",
-	file: "rose",
-	flashcard: "violet",
-	folder: "amber",
-	quiz: "emerald",
-} as const satisfies Record<WorkspaceItemType, WorkspaceItemColor>;
+import { getWorkspaceItemRegistryEntry } from "#/features/workspaces/workspace-item-registry";
 
 export const workspaceItemColorOptions = workspaceColorOptions;
 
@@ -29,16 +22,16 @@ export function getWorkspaceItemColorValue(color: string | null): WorkspaceItemC
 	return parsed.success ? parsed.data : null;
 }
 
-// Non-folder items ignore stored color; palette comes from workspaceItemTypeColors.
+// Non-folder items ignore stored color; palette comes from the item registry.
 export function resolveWorkspaceItemColor(input: {
 	type: WorkspaceItemType;
 	color: string | null;
 }): WorkspaceItemColor {
 	if (input.type === "folder") {
-		return getWorkspaceItemColorValue(input.color) ?? workspaceItemTypeColors.folder;
+		return getWorkspaceItemColorValue(input.color) ?? getWorkspaceItemRegistryEntry("folder").color;
 	}
 
-	return workspaceItemTypeColors[input.type];
+	return getWorkspaceItemRegistryEntry(input.type).color;
 }
 
 export function resolveWorkspaceItemColorForCreate(input: {

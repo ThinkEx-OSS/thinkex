@@ -4,10 +4,7 @@ import { getWorkspaceObjectRegistryEntry } from "#/features/workspaces/model/obj
 import type { WorkspaceItem } from "#/features/workspaces/model/types";
 import { workspaceColors } from "#/features/workspaces/model/workspace-colors";
 import { resolveWorkspaceFileTypeFromItem } from "#/features/workspaces/model/workspace-file";
-import {
-	getWorkspaceItemPalette,
-	workspaceItemTypeColors,
-} from "#/features/workspaces/model/workspace-item-colors";
+import { getWorkspaceItemPalette } from "#/features/workspaces/model/workspace-item-colors";
 
 export function getWorkspaceItemDisplay(item: WorkspaceItem) {
 	const typeDisplay = getWorkspaceObjectRegistryEntry(item.type);
@@ -38,7 +35,7 @@ function createWorkspaceItemAction(type: "document" | "folder" | "flashcard" | "
 		type,
 		label: display.menuLabel,
 		Icon: display.icon,
-		iconClassName: workspaceColors[workspaceItemTypeColors[type]].iconClassName,
+		iconClassName: workspaceColors[display.color].iconClassName,
 	};
 }
 
@@ -48,7 +45,7 @@ export const workspaceItemAcquisitionActions = [
 		label: "Upload",
 		description: undefined,
 		Icon: Upload,
-		iconClassName: workspaceColors[workspaceItemTypeColors.file].iconClassName,
+		iconClassName: workspaceColors[getWorkspaceObjectRegistryEntry("file").color].iconClassName,
 		disabled: false,
 	},
 	{
