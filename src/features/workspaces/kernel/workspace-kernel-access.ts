@@ -4,7 +4,6 @@ import type { ResourcePurgeResult } from "#/features/workspaces/resource-purge-r
 import type {
 	CreateWorkspaceItemInput,
 	DeleteWorkspaceItemsInput,
-	JsonValue,
 	MoveWorkspaceItemsInput,
 	RenameWorkspaceItemInput,
 	UpdateWorkspaceItemColorInput,
@@ -15,7 +14,7 @@ import type {
 import {
 	requireAppliedWorkspaceKernelMutation,
 	type CreateWorkspaceKernelFileFromUploadArgs,
-	type CreateWorkspaceKernelRelationArgs,
+	type CreateWorkspaceKernelItemArgs,
 	type DeleteWorkspaceKernelItemsResult,
 	type GetWorkspaceKernelItemPathsArgs,
 	type ListWorkspaceKernelItemRelationsArgs,
@@ -64,19 +63,9 @@ export interface WorkspaceKernelClient {
 	listItemRelations(
 		input: ListWorkspaceKernelItemRelationsArgs,
 	): Promise<WorkspaceKernelItemRelation[]>;
-	createItem(input: {
-		id?: string;
-		parentId?: string | null;
-		type: CreateWorkspaceItemInput["type"];
-		name?: string;
-		onNameConflict?: WorkspaceKernelNameConflictPolicy;
-		color?: CreateWorkspaceItemInput["color"];
-		metadataJson?: Record<string, JsonValue>;
-		initialContent?: string;
-		initialRelations?: CreateWorkspaceKernelRelationArgs[];
-		actorUserId?: string | null;
-		clientMutationId?: string | null;
-	}): Promise<WorkspaceKernelMutationOutcome<WorkspaceItemSummary>>;
+	createItem(
+		input: CreateWorkspaceKernelItemArgs,
+	): Promise<WorkspaceKernelMutationOutcome<WorkspaceItemSummary>>;
 	createFileFromUpload(
 		input: CreateWorkspaceKernelFileFromUploadArgs,
 	): Promise<WorkspaceCommandResult<WorkspaceItemSummary>>;
