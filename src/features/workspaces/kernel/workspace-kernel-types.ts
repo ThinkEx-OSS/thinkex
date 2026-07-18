@@ -116,7 +116,7 @@ export function requireAppliedWorkspaceKernelMutation<T>(
 }
 
 export interface CreateWorkspaceKernelItemArgs {
-	id?: string;
+	id: string;
 	parentId?: string | null;
 	type: WorkspaceItemType;
 	name?: string;

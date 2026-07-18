@@ -34,7 +34,8 @@ export function createDocumentMarkdownSnapshot(markdown: string): DocumentMarkdo
 				return undefined;
 			}
 
-			const hardEnd = Math.min(markdown.length, offset + maxDocumentChunkCharacters);
+			const candidateEnd = Math.min(markdown.length, offset + maxDocumentChunkCharacters);
+			const hardEnd = splitsSurrogatePair(markdown, candidateEnd) ? candidateEnd - 1 : candidateEnd;
 			const newlineEnd = markdown.lastIndexOf("\n", hardEnd);
 			const end =
 				hardEnd < markdown.length && newlineEnd > offset + minDocumentChunkCharacters
@@ -53,6 +54,12 @@ export function createDocumentMarkdownSnapshot(markdown: string): DocumentMarkdo
 			};
 		},
 	};
+}
+
+function splitsSurrogatePair(value: string, offset: number) {
+	const previous = value.charCodeAt(offset - 1);
+	const next = value.charCodeAt(offset);
+	return previous >= 0xd800 && previous <= 0xdbff && next >= 0xdc00 && next <= 0xdfff;
 }
 
 function getLineStarts(markdown: string) {

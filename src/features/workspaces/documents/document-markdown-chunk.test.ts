@@ -24,4 +24,18 @@ describe("document Markdown snapshots", () => {
 		expect(createDocumentMarkdownSnapshot("").readChunk(1)).toBeUndefined();
 		expect(createDocumentMarkdownSnapshot("text").readChunk(4)).toBeUndefined();
 	});
+
+	it("keeps surrogate pairs intact at a hard chunk boundary", () => {
+		const markdown = `${"a".repeat(63_999)}😀tail`;
+		const snapshot = createDocumentMarkdownSnapshot(markdown);
+		const first = snapshot.readChunk(0);
+		if (!first?.nextOffset) {
+			throw new Error("Expected a continuation offset.");
+		}
+		const second = snapshot.readChunk(first.nextOffset);
+
+		expect(first.content.endsWith("a")).toBe(true);
+		expect(second?.content.startsWith("😀")).toBe(true);
+		expect(first.content + second?.content).toBe(markdown);
+	});
 });

@@ -75,16 +75,15 @@ export class WorkspaceKernelItemCommands {
 			throw new Error("Binary workspace files must be created through the upload flow.");
 		}
 
-		const id = input.id ?? crypto.randomUUID();
+		const id = input.id;
 		const parentId = input.parentId ?? null;
 		const getPriorResult = () => {
-			const storedEvent =
-				input.id && input.clientMutationId
-					? this.events.findCreatedItemEvent({
-							clientMutationId: input.clientMutationId,
-							itemId: input.id,
-						})
-					: null;
+			const storedEvent = input.clientMutationId
+				? this.events.findCreatedItemEvent({
+						clientMutationId: input.clientMutationId,
+						itemId: id,
+					})
+				: null;
 
 			if (!storedEvent) {
 				return null;

@@ -128,7 +128,6 @@ export function useWorkspaceRealtime({
 		(event: MessageEvent) => {
 			const message = parseServerMessage(event.data);
 			if (!message) {
-				onDesyncRef.current?.();
 				return;
 			}
 

@@ -216,7 +216,7 @@ export const workspaceItemSummarySchema = z.object({
 
 export const createWorkspaceItemInputSchema = z
 	.object({
-		id: z.uuid().optional(),
+		id: z.uuid(),
 		workspaceId: z.string().min(1),
 		parentId: z.string().min(1).nullable().optional(),
 		type: workspaceItemTypeSchema,
