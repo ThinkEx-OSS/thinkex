@@ -8,7 +8,7 @@ import {
 } from "#/features/workspaces/read-page-selection";
 import { deleteR2Prefix } from "#/lib/r2";
 
-const projectionSchemaVersion = 1;
+const projectionSchemaVersion = 2;
 const pageNumberWidth = 6;
 const pageWriteConcurrency = 8;
 const maxPageMarkdownBytes = 1024 * 1024;
@@ -21,12 +21,18 @@ export interface WorkspacePageProjectionManifest {
 	markdownLength: number;
 	metadata: Record<string, JsonValue>;
 	pageCount: number;
+	pages: WorkspacePageProjectionManifestPage[];
 	provider: string;
 	providerMode: string;
 	runId: string;
 	schemaVersion: typeof projectionSchemaVersion;
 	sourceHash: string;
 	workspaceId: string;
+}
+
+interface WorkspacePageProjectionManifestPage {
+	markdownBytes: number;
+	pageNumber: number;
 }
 
 export interface WorkspacePageProjectionReference {
@@ -52,6 +58,7 @@ export async function writeWorkspacePageProjection(input: {
 	let lastPageNumber = 0;
 	let markdownBytes = 0;
 	let markdownLength = 0;
+	const pages: WorkspacePageProjectionManifestPage[] = [];
 	let usablePageCount = 0;
 
 	try {
@@ -63,6 +70,7 @@ export async function writeWorkspacePageProjection(input: {
 
 			for (let pageNumber = lastPageNumber + 1; pageNumber < page.pageNumber; pageNumber += 1) {
 				await schedulePageWrite(input.bucket, writes, prefix, pageNumber, "");
+				pages.push({ markdownBytes: 0, pageNumber });
 			}
 
 			const pageBytes = encoder.encode(page.markdown).byteLength;
@@ -71,6 +79,7 @@ export async function writeWorkspacePageProjection(input: {
 			}
 
 			await schedulePageWrite(input.bucket, writes, prefix, page.pageNumber, page.markdown);
+			pages.push({ markdownBytes: pageBytes, pageNumber: page.pageNumber });
 			lastPageNumber = page.pageNumber;
 			markdownBytes += pageBytes;
 			markdownLength += page.markdown.length;
@@ -91,6 +100,7 @@ export async function writeWorkspacePageProjection(input: {
 			markdownLength,
 			metadata: input.metadata ?? {},
 			pageCount: lastPageNumber,
+			pages,
 			provider: input.provider,
 			providerMode: input.providerMode,
 			runId: input.runId,
@@ -132,34 +142,55 @@ export async function writeWorkspacePageProjection(input: {
 
 export async function readWorkspacePageProjection(input: {
 	bucket: R2Bucket;
+	expectedSourceHash: string;
 	manifestObjectKey: string;
 	pages?: string;
 }): Promise<{ content: string; pages: WorkspaceReadPages }> {
 	const manifest = await readWorkspacePageProjectionManifest(input.bucket, input.manifestObjectKey);
+	if (manifest.sourceHash !== input.expectedSourceHash) {
+		throw new Error("Workspace page projection source does not match its published revision.");
+	}
 	const requested = input.pages?.trim() || "1";
 	const selectedPageNumbers = parseWorkspacePageRange(requested, manifest.pageCount);
-
-	const prefix = getManifestPrefix(input.manifestObjectKey);
-	const objects = await Promise.all(
-		selectedPageNumbers.map(async (pageNumber) => {
-			const object = await input.bucket.get(getWorkspacePageObjectKey(prefix, pageNumber));
-			if (!object) {
-				throw new Error(`Extracted page ${pageNumber} was not found.`);
-			}
-			return { object, pageNumber };
-		}),
+	const pageMetadataByNumber = new Map(
+		manifest.pages.map((page) => [page.pageNumber, page] as const),
 	);
-	const totalBytes = objects.reduce((total, entry) => total + entry.object.size, 0);
-	if (totalBytes > maxPageReadBytes) {
+	const selectedManifestBytes = selectedPageNumbers.reduce(
+		(total, pageNumber) =>
+			total + requireManifestPage(pageMetadataByNumber, pageNumber).markdownBytes,
+		0,
+	);
+	if (selectedManifestBytes > maxPageReadBytes) {
 		throw new WorkspacePageSelectionError("page_selection_too_large");
 	}
 
-	const pages = await Promise.all(
-		objects.map(async ({ object, pageNumber }) => ({
+	const prefix = getManifestPrefix(input.manifestObjectKey);
+	const pages: Array<{ markdown: string; pageNumber: number }> = [];
+	let totalBytes = 0;
+
+	for (const pageNumber of selectedPageNumbers) {
+		const object = await input.bucket.get(getWorkspacePageObjectKey(prefix, pageNumber));
+		if (!object) {
+			throw new Error(`Extracted page ${pageNumber} was not found.`);
+		}
+
+		totalBytes += object.size;
+		if (totalBytes > maxPageReadBytes) {
+			await object.body.cancel();
+			throw new WorkspacePageSelectionError("page_selection_too_large");
+		}
+
+		const manifestPage = requireManifestPage(pageMetadataByNumber, pageNumber);
+		if (manifestPage.markdownBytes !== object.size) {
+			await object.body.cancel();
+			throw new Error(`Extracted page ${pageNumber} does not match its manifest.`);
+		}
+
+		pages.push({
 			markdown: (await object.text()).trim(),
 			pageNumber,
-		})),
-	);
+		});
+	}
 
 	return {
 		content: pages
@@ -173,7 +204,18 @@ export async function readWorkspacePageProjection(input: {
 	};
 }
 
-export async function readWorkspacePageProjectionManifest(
+function requireManifestPage(
+	pagesByNumber: ReadonlyMap<number, WorkspacePageProjectionManifestPage>,
+	pageNumber: number,
+) {
+	const page = pagesByNumber.get(pageNumber);
+	if (!page) {
+		throw new Error(`Workspace page projection manifest is missing page ${pageNumber}.`);
+	}
+	return page;
+}
+
+async function readWorkspacePageProjectionManifest(
 	bucket: R2Bucket,
 	manifestObjectKey: string,
 ): Promise<WorkspacePageProjectionManifest> {
@@ -185,7 +227,7 @@ export async function readWorkspacePageProjectionManifest(
 	return parseWorkspacePageProjectionManifest(await object.json());
 }
 
-export function getWorkspacePageProjectionPrefix(input: {
+function getWorkspacePageProjectionPrefix(input: {
 	itemId: string;
 	runId: string;
 	tier: "enhanced" | "fast";
@@ -226,6 +268,8 @@ function parseWorkspacePageProjectionManifest(value: unknown): WorkspacePageProj
 		throw new Error("Workspace page projection manifest is invalid.");
 	}
 
+	const pages = parseManifestPages(value);
+
 	return {
 		createdAt: value.createdAt,
 		itemId: value.itemId,
@@ -233,13 +277,37 @@ function parseWorkspacePageProjectionManifest(value: unknown): WorkspacePageProj
 		markdownLength: value.markdownLength,
 		metadata,
 		pageCount: value.pageCount,
+		pages,
 		provider: value.provider,
 		providerMode: value.providerMode,
 		runId: value.runId,
-		schemaVersion: projectionSchemaVersion,
+		schemaVersion: value.schemaVersion,
 		sourceHash: value.sourceHash,
 		workspaceId: value.workspaceId,
 	};
+}
+
+function parseManifestPages(value: Record<string, unknown>): WorkspacePageProjectionManifestPage[] {
+	if (!Array.isArray(value.pages) || value.pages.length !== value.pageCount) {
+		throw new Error("Workspace page projection manifest is invalid.");
+	}
+
+	return value.pages.map((page, index) => {
+		if (
+			!isRecord(page) ||
+			page.pageNumber !== index + 1 ||
+			typeof page.markdownBytes !== "number" ||
+			!Number.isInteger(page.markdownBytes) ||
+			page.markdownBytes < 0
+		) {
+			throw new Error("Workspace page projection manifest is invalid.");
+		}
+
+		return {
+			markdownBytes: page.markdownBytes,
+			pageNumber: page.pageNumber,
+		};
+	});
 }
 
 async function schedulePageWrite(
