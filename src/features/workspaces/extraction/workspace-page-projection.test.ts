@@ -217,6 +217,78 @@ describe("workspace page projections", () => {
 		});
 	});
 
+	it("resolves to an empty projection when a PDF has no extractable text", async () => {
+		const storage = createObjectStorage();
+		const reference = await writeWorkspacePageProjection({
+			bucket: storage.bucket,
+			itemId: "item-1",
+			pages: [
+				{ pageNumber: 1, markdown: "" },
+				{ pageNumber: 2, markdown: "" },
+			],
+			provider: "liteparse",
+			providerMode: "fast",
+			runId: "run-1",
+			sourceHash: "etag-1",
+			tier: "fast",
+			workspaceId: "workspace-1",
+		});
+
+		expect(reference.hasExtractableText).toBe(false);
+		expect(reference.manifest.hasExtractableText).toBe(false);
+		expect(reference.manifest.markdownLength).toBe(0);
+		expect(reference.manifest.pageCount).toBe(2);
+
+		await expect(
+			readWorkspacePageProjection({
+				bucket: storage.bucket,
+				expectedSourceHash: "etag-1",
+				manifestObjectKey: reference.manifestObjectKey,
+				pages: "1-2",
+			}),
+		).resolves.toEqual({
+			content: "## Page 1\n\n## Page 2",
+			pages: { requested: "1-2", returned: [1, 2], total: 2 },
+		});
+	});
+
+	it("flags projections that contain extractable text", async () => {
+		const storage = createObjectStorage();
+		const reference = await writeWorkspacePageProjection({
+			bucket: storage.bucket,
+			itemId: "item-1",
+			pages: [{ pageNumber: 1, markdown: "First" }],
+			provider: "liteparse",
+			providerMode: "fast",
+			runId: "run-1",
+			sourceHash: "etag-1",
+			tier: "fast",
+			workspaceId: "workspace-1",
+		});
+
+		expect(reference.hasExtractableText).toBe(true);
+		expect(reference.manifest.hasExtractableText).toBe(true);
+	});
+
+	it("rejects extractions that produce no pages at all", async () => {
+		const storage = createObjectStorage();
+
+		await expect(
+			writeWorkspacePageProjection({
+				bucket: storage.bucket,
+				itemId: "item-1",
+				pages: [],
+				provider: "liteparse",
+				providerMode: "fast",
+				runId: "run-1",
+				sourceHash: "etag-1",
+				tier: "fast",
+				workspaceId: "workspace-1",
+			}),
+		).rejects.toThrow("Extraction did not produce any pages.");
+		expect(storage.values.size).toBe(0);
+	});
+
 	it("removes partial artifacts when publication fails", async () => {
 		const storage = createObjectStorage();
 

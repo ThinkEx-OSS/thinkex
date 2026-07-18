@@ -23,6 +23,7 @@ const workspacePageProjectionManifestPageSchema = z.object({
 
 const workspacePageProjectionManifestSchema = z.object({
 	createdAt: z.string(),
+	hasExtractableText: z.boolean().optional(),
 	itemId: z.string(),
 	markdownBytes: z.number().int().nonnegative(),
 	markdownLength: z.number().int().nonnegative(),
@@ -92,12 +93,18 @@ export async function writeWorkspacePageProjection(input: {
 		}
 
 		await flushPageWrites(writes);
-		if (lastPageNumber === 0 || usablePageCount === 0) {
-			throw new Error("Extraction did not produce usable page Markdown.");
+		// A page-less extraction means the provider gave us nothing to work with, which is a
+		// genuine failure. Pages that all trim to empty Markdown, on the other hand, are a valid
+		// outcome for scanned or image-only PDFs with no text layer: we keep the blank pages and
+		// record that the file has no extractable text rather than rejecting the extraction.
+		if (lastPageNumber === 0) {
+			throw new Error("Extraction did not produce any pages.");
 		}
+		const hasExtractableText = usablePageCount > 0;
 
 		const manifest: WorkspacePageProjectionManifest = {
 			createdAt: new Date().toISOString(),
+			hasExtractableText,
 			itemId: input.itemId,
 			markdownBytes,
 			markdownLength,
@@ -116,7 +123,7 @@ export async function writeWorkspacePageProjection(input: {
 			httpMetadata: { contentType: "application/json" },
 		});
 
-		return { manifest, manifestObjectKey };
+		return { hasExtractableText, manifest, manifestObjectKey };
 	} catch (error) {
 		const cleanupErrors: unknown[] = [];
 		try {
