@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { decodeBase64UrlText, encodeBase64UrlText } from "#/lib/binary";
+
 const workspaceContentCursorSchema = z.discriminatedUnion("kind", [
 	z.object({
 		itemId: z.string().min(1),
@@ -20,7 +22,7 @@ const workspaceContentCursorSchema = z.discriminatedUnion("kind", [
 export type WorkspaceContentCursor = z.infer<typeof workspaceContentCursorSchema>;
 
 export function encodeWorkspaceContentCursor(cursor: WorkspaceContentCursor) {
-	return btoa(JSON.stringify(cursor)).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
+	return encodeBase64UrlText(JSON.stringify(cursor));
 }
 
 export function decodeWorkspaceContentCursor(value: string): WorkspaceContentCursor | null {
@@ -28,9 +30,7 @@ export function decodeWorkspaceContentCursor(value: string): WorkspaceContentCur
 		return null;
 	}
 	try {
-		const base64 = value.replaceAll("-", "+").replaceAll("_", "/");
-		const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, "=");
-		return workspaceContentCursorSchema.parse(JSON.parse(atob(padded)));
+		return workspaceContentCursorSchema.parse(JSON.parse(decodeBase64UrlText(value)));
 	} catch {
 		return null;
 	}

@@ -42,6 +42,7 @@ import {
 	type WorkspaceKernelClient,
 } from "#/features/workspaces/kernel/workspace-kernel-access";
 import { recordOperationalFailure } from "#/integrations/observability/operational-events";
+import { sha256Base64Url } from "#/lib/binary";
 
 const persistedYDocUpdateKey = "document-session:yjs-update";
 const checkpointDelayMs = 1_500;
@@ -197,11 +198,8 @@ export class DocumentSession extends YServer {
 		let currentSnapshot = this.markdownSnapshot;
 		if (!currentSnapshot || !uint8ArraysEqual(currentSnapshot.stateVector, stateVector)) {
 			const markdown = serializeTiptapDocumentToMarkdown(this.getCurrentTiptapDocument());
-			const revisionBytes = await crypto.subtle.digest("SHA-256", stateVector.buffer);
 			currentSnapshot = {
-				revision: Array.from(new Uint8Array(revisionBytes), (byte) =>
-					byte.toString(16).padStart(2, "0"),
-				).join(""),
+				revision: await sha256Base64Url(stateVector),
 				snapshot: createDocumentMarkdownSnapshot(markdown),
 				stateVector,
 			};

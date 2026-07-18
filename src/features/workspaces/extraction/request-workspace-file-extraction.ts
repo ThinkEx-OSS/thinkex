@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 
-import { sha256Base64UrlText } from "#/features/workspaces/extraction/binary";
+import { sha256Base64UrlText } from "#/lib/binary";
 import type { WorkspaceFileExtractionWorkflowParams } from "#/features/workspaces/extraction/types";
 import { getWorkspaceKernel } from "#/features/workspaces/kernel/workspace-kernel-access";
 import type { WorkspaceFileAssetKind } from "#/features/workspaces/model/workspace-file";
