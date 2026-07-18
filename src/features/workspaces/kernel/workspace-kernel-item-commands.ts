@@ -79,9 +79,10 @@ export class WorkspaceKernelItemCommands {
 		const parentId = input.parentId ?? null;
 		const getPriorResult = () => {
 			const storedEvent = input.clientMutationId
-				? this.events.findCreatedItemEvent({
+				? this.events.findMutationEvent({
 						clientMutationId: input.clientMutationId,
-						itemId: id,
+						eventType: "workspace.item.created",
+						resultId: id,
 					})
 				: null;
 
@@ -190,12 +191,15 @@ export class WorkspaceKernelItemCommands {
 		const itemFacts = this.store.getItemFacts(
 			factItemIds.map((itemId) => this.store.requireItem(itemId)),
 		);
-		const event = this.events.commit({
-			type: "workspace.item.created",
-			actorUserId: input.actorUserId ?? null,
-			clientMutationId: input.clientMutationId ?? null,
-			payload: { item, itemFacts },
-		});
+		const event = this.events.commit(
+			{
+				type: "workspace.item.created",
+				actorUserId: input.actorUserId ?? null,
+				clientMutationId: input.clientMutationId ?? null,
+				payload: { item, itemFacts },
+			},
+			{ resultId: id },
+		);
 
 		return { command: { result: item, event }, status: "applied" };
 	}

@@ -66,9 +66,10 @@ export class WorkspaceKernelFileCommands {
 		const parentId = input.parentId ?? null;
 		const getPriorResult = () => {
 			const storedEvent = input.clientMutationId
-				? this.events.findCreatedItemEvent({
+				? this.events.findMutationEvent({
 						clientMutationId: input.clientMutationId,
-						itemId: input.id,
+						eventType: "workspace.item.created",
+						resultId: input.id,
 					})
 				: null;
 
@@ -210,12 +211,15 @@ export class WorkspaceKernelFileCommands {
 
 		const item = this.store.requireItem(itemId);
 		const itemFacts = this.store.getItemFacts([item]);
-		const event = this.events.commit({
-			type: "workspace.item.created",
-			actorUserId: input.actorUserId ?? null,
-			clientMutationId: input.clientMutationId ?? null,
-			payload: { item, itemFacts },
-		});
+		const event = this.events.commit(
+			{
+				type: "workspace.item.created",
+				actorUserId: input.actorUserId ?? null,
+				clientMutationId: input.clientMutationId ?? null,
+				payload: { item, itemFacts },
+			},
+			{ resultId: itemId },
+		);
 
 		return { result: item, event };
 	}
@@ -289,9 +293,10 @@ export class WorkspaceKernelFileCommands {
 			throw new Error("Workspace item is not a file.");
 		}
 		const storedEvent = input.clientMutationId
-			? this.events.findProjectionEvent({
+			? this.events.findMutationEvent({
 					clientMutationId: input.clientMutationId,
-					itemId: input.itemId,
+					eventType: "workspace.item.projection.updated",
+					resultId: input.itemId,
 				})
 			: null;
 		if (storedEvent) {
@@ -322,12 +327,15 @@ export class WorkspaceKernelFileCommands {
 			now,
 		});
 		const itemFacts = this.store.getItemFacts([this.store.requireItem(input.itemId)]);
-		const event = this.events.commit({
-			type: "workspace.item.projection.updated",
-			actorUserId: input.actorUserId ?? null,
-			clientMutationId: input.clientMutationId ?? null,
-			payload: { itemFacts },
-		});
+		const event = this.events.commit(
+			{
+				type: "workspace.item.projection.updated",
+				actorUserId: input.actorUserId ?? null,
+				clientMutationId: input.clientMutationId ?? null,
+				payload: { itemFacts },
+			},
+			{ resultId: input.itemId },
+		);
 		return { event, result: itemFacts };
 	}
 

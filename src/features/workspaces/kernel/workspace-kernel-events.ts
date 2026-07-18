@@ -1,4 +1,3 @@
-import { z } from "zod";
 import type { KernelEventRow } from "#/features/workspaces/kernel/workspace-kernel-rows";
 import type { WorkspaceKernelSql } from "#/features/workspaces/kernel/workspace-kernel-schema";
 import type { WorkspaceItemFacts, WorkspaceItemSummary } from "#/features/workspaces/contracts";
@@ -12,13 +11,7 @@ type WorkspaceKernelEventIdentity = Pick<
 	"actorUserId" | "clientMutationId" | "createdAt" | "id" | "revision" | "workspaceId"
 >;
 
-const storedCreatedItemPayloadSchema = z.object({
-	item: z.object({ id: z.string() }),
-});
-
-const storedProjectionPayloadSchema = z.object({
-	itemFacts: z.array(z.object({ itemId: z.string() })),
-});
+type MutationReceiptEventRow = KernelEventRow & { result_id: string };
 
 export class WorkspaceKernelEventBus {
 	private readonly sql: WorkspaceKernelSql;
@@ -38,34 +31,10 @@ export class WorkspaceKernelEventBus {
 		this.broadcast = input.broadcast;
 	}
 
-	findCreatedItemEvent(input: { clientMutationId: string; itemId: string }) {
-		const row = this.findEventRow("workspace.item.created", input.clientMutationId);
-		if (!row) {
-			return null;
-		}
-
-		const payload = storedCreatedItemPayloadSchema.parse(JSON.parse(row.payload_json));
-		if (payload.item.id !== input.itemId) {
-			throw new Error("Workspace client mutation id was already used.");
-		}
-
-		return mapEventIdentity(row, this.workspaceId());
-	}
-
-	findProjectionEvent(input: { clientMutationId: string; itemId: string }) {
-		const row = this.findEventRow("workspace.item.projection.updated", input.clientMutationId);
-		if (!row) {
-			return null;
-		}
-		const payload = storedProjectionPayloadSchema.parse(JSON.parse(row.payload_json));
-		if (!payload.itemFacts.some((facts) => facts.itemId === input.itemId)) {
-			throw new Error("Workspace client mutation id was already used.");
-		}
-
-		return mapEventIdentity(row, this.workspaceId());
-	}
-
-	commit(input: Omit<WorkspaceRealtimeEvent, "id" | "revision" | "workspaceId" | "createdAt">) {
+	commit(
+		input: Omit<WorkspaceRealtimeEvent, "id" | "revision" | "workspaceId" | "createdAt">,
+		receipt?: { resultId: string },
+	) {
 		const createdAt = Date.now();
 		const event = {
 			id: crypto.randomUUID(),
@@ -95,6 +64,22 @@ export class WorkspaceKernelEventBus {
 				${createdAt}
 			)
 		`;
+		if (event.clientMutationId && receipt) {
+			this.sql`
+				INSERT INTO kernel_mutation_receipts (
+					client_mutation_id,
+					result_id,
+					event_id,
+					created_at
+				)
+				VALUES (
+					${event.clientMutationId},
+					${receipt.resultId},
+					${event.id},
+					${createdAt}
+				)
+			`;
+		}
 		this.broadcast({
 			type: "workspace.event",
 			workspaceId: this.workspaceId(),
@@ -104,16 +89,25 @@ export class WorkspaceKernelEventBus {
 		return event;
 	}
 
-	private findEventRow(type: WorkspaceRealtimeEvent["type"], clientMutationId: string) {
-		const [row] = this.sql<KernelEventRow>`
-			SELECT *
-			FROM kernel_events
-			WHERE type = ${type}
-				AND client_mutation_id = ${clientMutationId}
-			ORDER BY revision ASC
+	findMutationEvent(input: {
+		clientMutationId: string;
+		eventType: WorkspaceRealtimeEvent["type"];
+		resultId: string;
+	}) {
+		const [row] = this.sql<MutationReceiptEventRow>`
+			SELECT kernel_events.*, kernel_mutation_receipts.result_id
+			FROM kernel_mutation_receipts
+			INNER JOIN kernel_events ON kernel_events.id = kernel_mutation_receipts.event_id
+			WHERE kernel_mutation_receipts.client_mutation_id = ${input.clientMutationId}
 			LIMIT 1
 		`;
-		return row ?? null;
+		if (!row) {
+			return null;
+		}
+		if (row.type !== input.eventType || row.result_id !== input.resultId) {
+			throw new Error("Workspace client mutation id was already used.");
+		}
+		return mapEventIdentity(row, this.workspaceId());
 	}
 }
 
