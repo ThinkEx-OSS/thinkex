@@ -8,7 +8,7 @@ import {
 } from "#/features/workspaces/read-page-selection";
 import { deleteR2Prefix } from "#/lib/r2";
 
-const projectionSchemaVersion = 2;
+const projectionSchemaVersion = 1;
 const pageNumberWidth = 6;
 const pageWriteConcurrency = 8;
 const maxPageMarkdownBytes = 1024 * 1024;
@@ -21,7 +21,7 @@ export interface WorkspacePageProjectionManifest {
 	markdownLength: number;
 	metadata: Record<string, JsonValue>;
 	pageCount: number;
-	pages: WorkspacePageProjectionManifestPage[];
+	pages?: WorkspacePageProjectionManifestPage[];
 	provider: string;
 	providerMode: string;
 	runId: string;
@@ -152,15 +152,17 @@ export async function readWorkspacePageProjection(input: {
 	}
 	const requested = input.pages?.trim() || "1";
 	const selectedPageNumbers = parseWorkspacePageRange(requested, manifest.pageCount);
-	const pageMetadataByNumber = new Map(
-		manifest.pages.map((page) => [page.pageNumber, page] as const),
-	);
-	const selectedManifestBytes = selectedPageNumbers.reduce(
-		(total, pageNumber) =>
-			total + requireManifestPage(pageMetadataByNumber, pageNumber).markdownBytes,
-		0,
-	);
-	if (selectedManifestBytes > maxPageReadBytes) {
+	const pageMetadataByNumber = manifest.pages
+		? new Map(manifest.pages.map((page) => [page.pageNumber, page] as const))
+		: null;
+	const selectedManifestBytes = pageMetadataByNumber
+		? selectedPageNumbers.reduce(
+				(total, pageNumber) =>
+					total + requireManifestPage(pageMetadataByNumber, pageNumber).markdownBytes,
+				0,
+			)
+		: null;
+	if (selectedManifestBytes !== null && selectedManifestBytes > maxPageReadBytes) {
 		throw new WorkspacePageSelectionError("page_selection_too_large");
 	}
 
@@ -168,6 +170,7 @@ export async function readWorkspacePageProjection(input: {
 	const pages: Array<{ markdown: string; pageNumber: number }> = [];
 	let totalBytes = 0;
 
+	// Consume each R2 body before opening the next one; never retain a batch of live responses.
 	for (const pageNumber of selectedPageNumbers) {
 		const object = await input.bucket.get(getWorkspacePageObjectKey(prefix, pageNumber));
 		if (!object) {
@@ -180,22 +183,20 @@ export async function readWorkspacePageProjection(input: {
 			throw new WorkspacePageSelectionError("page_selection_too_large");
 		}
 
-		const manifestPage = requireManifestPage(pageMetadataByNumber, pageNumber);
-		if (manifestPage.markdownBytes !== object.size) {
+		const manifestPage = pageMetadataByNumber?.get(pageNumber);
+		if (manifestPage && manifestPage.markdownBytes !== object.size) {
 			await object.body.cancel();
 			throw new Error(`Extracted page ${pageNumber} does not match its manifest.`);
 		}
 
 		pages.push({
-			markdown: (await object.text()).trim(),
+			markdown: await object.text(),
 			pageNumber,
 		});
 	}
 
 	return {
-		content: pages
-			.map((page) => `## Page ${page.pageNumber}\n\n${page.markdown}`.trimEnd())
-			.join("\n\n"),
+		content: pages.map(formatProjectionPage).join("\n\n"),
 		pages: {
 			requested,
 			returned: selectedPageNumbers,
@@ -268,7 +269,7 @@ function parseWorkspacePageProjectionManifest(value: unknown): WorkspacePageProj
 		throw new Error("Workspace page projection manifest is invalid.");
 	}
 
-	const pages = parseManifestPages(value);
+	const pages = value.pages === undefined ? undefined : parseManifestPages(value);
 
 	return {
 		createdAt: value.createdAt,
@@ -277,7 +278,7 @@ function parseWorkspacePageProjectionManifest(value: unknown): WorkspacePageProj
 		markdownLength: value.markdownLength,
 		metadata,
 		pageCount: value.pageCount,
-		pages,
+		...(pages ? { pages } : {}),
 		provider: value.provider,
 		providerMode: value.providerMode,
 		runId: value.runId,
@@ -345,7 +346,13 @@ function normalizeProjectionPage(page: MarkdownProjectionPage): MarkdownProjecti
 	if (typeof page.markdown !== "string") {
 		throw new Error("Extracted page Markdown is invalid.");
 	}
-	return { pageNumber: page.pageNumber, markdown: page.markdown.trim() };
+	return page;
+}
+
+function formatProjectionPage(page: { markdown: string; pageNumber: number }) {
+	return page.markdown
+		? `## Page ${page.pageNumber}\n\n${page.markdown}`
+		: `## Page ${page.pageNumber}`;
 }
 
 function getManifestPrefix(manifestObjectKey: string) {

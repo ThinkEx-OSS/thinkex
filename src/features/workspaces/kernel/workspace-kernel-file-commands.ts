@@ -5,7 +5,11 @@ import type {
 } from "#/features/workspaces/contracts";
 import { getWorkspaceFileItemObjectPrefix } from "#/features/workspaces/files/workspace-file-object-keys";
 import { WORKSPACE_FILE_PREVIEW_CONTENT_TYPE } from "#/features/workspaces/files/workspace-file-preview.constants";
-import type { WorkspaceKernelEventBus } from "#/features/workspaces/kernel/workspace-kernel-events";
+import {
+	hydrateCreatedItemEvent,
+	hydrateProjectionEvent,
+	type WorkspaceKernelEventBus,
+} from "#/features/workspaces/kernel/workspace-kernel-events";
 import { getWorkspaceKernelFileShellPath } from "#/features/workspaces/kernel/workspace-kernel-files";
 import { parseWorkspaceMetadataJson } from "#/features/workspaces/kernel/workspace-kernel-metadata";
 import type { WorkspaceKernelSql } from "#/features/workspaces/kernel/workspace-kernel-schema";
@@ -61,14 +65,21 @@ export class WorkspaceKernelFileCommands {
 	): Promise<WorkspaceCommandResult<WorkspaceItemSummary>> {
 		const parentId = input.parentId ?? null;
 		const getPriorResult = () => {
-			const event = input.clientMutationId
-				? this.events.getCreatedItemEvent({
+			const storedEvent = input.clientMutationId
+				? this.events.findCreatedItemEvent({
 						clientMutationId: input.clientMutationId,
 						itemId: input.id,
 					})
 				: null;
 
-			return event ? { event, result: this.store.requireItem(input.id) } : null;
+			if (!storedEvent) {
+				return null;
+			}
+			const item = this.store.requireItem(input.id);
+			return {
+				event: hydrateCreatedItemEvent(storedEvent, item, this.store.getItemFacts([item])),
+				result: item,
+			};
 		};
 		const priorResult = getPriorResult();
 
@@ -276,6 +287,16 @@ export class WorkspaceKernelFileCommands {
 
 		if (row.type !== "file") {
 			throw new Error("Workspace item is not a file.");
+		}
+		const storedEvent = input.clientMutationId
+			? this.events.findProjectionEvent({
+					clientMutationId: input.clientMutationId,
+					itemId: input.itemId,
+				})
+			: null;
+		if (storedEvent) {
+			const itemFacts = this.store.getItemFacts([this.store.requireItem(input.itemId)]);
+			return { event: hydrateProjectionEvent(storedEvent, itemFacts), result: itemFacts };
 		}
 		if (input.status === "ready") {
 			if (!row.object_key) {

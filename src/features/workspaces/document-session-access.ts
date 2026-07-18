@@ -1,4 +1,8 @@
 import { getDocumentSessionRoomName } from "#/features/workspaces/agent-routes";
+import type {
+	DocumentMarkdownChunkReadInput,
+	DocumentMarkdownChunkReadResult,
+} from "#/features/workspaces/documents/document-markdown-chunk";
 import type { DocumentSessionApplyMarkdownEditsResult } from "#/features/workspaces/documents/document-session";
 import type { DocumentMarkdownEdit } from "#/features/workspaces/documents/document-markdown-edits";
 
@@ -6,7 +10,9 @@ export interface DocumentSessionClient {
 	applyMarkdownEdits(input: {
 		edits: DocumentMarkdownEdit[];
 	}): Promise<DocumentSessionApplyMarkdownEditsResult>;
-	readMarkdown(): Promise<{ markdown: string; revision: string }>;
+	readMarkdownChunk(
+		input: DocumentMarkdownChunkReadInput,
+	): Promise<DocumentMarkdownChunkReadResult>;
 	purgeForDeletion(): Promise<void>;
 }
 

@@ -7,7 +7,10 @@ import {
 	persistDocumentItemContentUpdate,
 	touchWorkspaceItemUpdatedAt,
 } from "#/features/workspaces/documents/document-item-content";
-import type { WorkspaceKernelEventBus } from "#/features/workspaces/kernel/workspace-kernel-events";
+import {
+	hydrateCreatedItemEvent,
+	type WorkspaceKernelEventBus,
+} from "#/features/workspaces/kernel/workspace-kernel-events";
 import {
 	getInitialWorkspaceKernelContent,
 	getWorkspaceKernelContentMimeType,
@@ -75,15 +78,22 @@ export class WorkspaceKernelItemCommands {
 		const id = input.id ?? crypto.randomUUID();
 		const parentId = input.parentId ?? null;
 		const getPriorResult = () => {
-			const event =
+			const storedEvent =
 				input.id && input.clientMutationId
-					? this.events.getCreatedItemEvent({
+					? this.events.findCreatedItemEvent({
 							clientMutationId: input.clientMutationId,
 							itemId: input.id,
 						})
 					: null;
 
-			return event ? { event, result: this.store.requireItem(id) } : null;
+			if (!storedEvent) {
+				return null;
+			}
+			const item = this.store.requireItem(id);
+			return {
+				event: hydrateCreatedItemEvent(storedEvent, item, this.store.getItemFacts([item])),
+				result: item,
+			};
 		};
 		const priorResult = getPriorResult();
 

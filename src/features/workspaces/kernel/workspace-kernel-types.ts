@@ -286,8 +286,3 @@ export interface DeleteWorkspaceKernelItemsResult {
 	itemIds: string[];
 	deletedItemIds: string[];
 }
-
-export interface ListWorkspaceKernelEventsArgs {
-	afterRevision: number;
-	limit?: number;
-}

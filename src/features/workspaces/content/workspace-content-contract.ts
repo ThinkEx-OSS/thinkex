@@ -10,6 +10,7 @@ export const readWorkspaceItemsFailureCodes = [
 	"invalid_selection",
 	"page_range_out_of_range",
 	"page_selection_too_large",
+	"read_budget_exceeded",
 	"path_is_folder",
 	"path_not_absolute",
 	"path_not_found",

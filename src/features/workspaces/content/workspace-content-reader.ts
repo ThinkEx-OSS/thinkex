@@ -14,7 +14,7 @@ import {
 	encodeWorkspaceContentCursor,
 } from "#/features/workspaces/content/workspace-content-cursor";
 
-const maxDocumentChunkCharacters = 64_000;
+const maxWorkspaceContentBatchBytes = 2 * 1024 * 1024 + 64 * 1024;
 
 interface PendingReadyResult {
 	item: WorkspaceItemSummary;
@@ -33,12 +33,15 @@ export function createWorkspaceContentReader(input: {
 }): WorkspaceContentReader {
 	return {
 		async read(requests) {
+			const encoder = new TextEncoder();
 			const resolutions = await input.kernel.resolvePaths({
 				paths: requests.map((request) => request.path),
 			});
 			const results: WorkspaceContentReadResult[] = [];
 			const readyResults: PendingReadyResult[] = [];
+			let returnedContentBytes = 0;
 
+			// Reads stay ordered so each body is consumed before the shared byte budget advances.
 			for (const [index, resolution] of resolutions.entries()) {
 				const request = requests[index];
 				if (!request) {
@@ -72,6 +75,17 @@ export function createWorkspaceContentReader(input: {
 						results.push(read);
 						continue;
 					}
+					const contentBytes = encoder.encode(read.content).byteLength;
+					if (returnedContentBytes + contentBytes > maxWorkspaceContentBatchBytes) {
+						results.push({
+							code: "read_budget_exceeded",
+							path: resolution.path,
+							status: "failed",
+							...(resolution.item.type === "file" ? { type: "file" as const } : {}),
+						});
+						continue;
+					}
+					returnedContentBytes += contentBytes;
 
 					const pending = {
 						item: resolution.item,
@@ -128,26 +142,21 @@ async function readDocument(input: {
 		return { code: "invalid_cursor", path: input.path, status: "failed" };
 	}
 
-	const snapshot = await input.getDocumentSession(input.item.id).readMarkdown();
-	if (cursor?.kind === "document" && cursor.revision !== snapshot.revision) {
+	const chunk = await input.getDocumentSession(input.item.id).readMarkdownChunk({
+		expectedRevision: cursor?.kind === "document" ? cursor.revision : undefined,
+		offset: cursor?.kind === "document" ? cursor.offset : 0,
+	});
+	if (chunk.status === "content_changed") {
 		return { code: "content_changed", path: input.path, status: "failed" };
 	}
-	if (
-		cursor?.kind === "document" &&
-		cursor.offset >= snapshot.markdown.length &&
-		snapshot.markdown.length > 0
-	) {
+	if (chunk.status === "invalid_offset") {
 		return { code: "invalid_cursor", path: input.path, status: "failed" };
 	}
 
-	const chunk = createDocumentChunk(
-		snapshot.markdown,
-		cursor?.kind === "document" ? cursor.offset : 0,
-	);
 	return {
 		content: chunk.content,
 		format: "markdown",
-		location: chunk.location,
+		location: { kind: "lines", ...chunk.location },
 		...(chunk.nextOffset === undefined
 			? {}
 			: {
@@ -155,7 +164,7 @@ async function readDocument(input: {
 						itemId: input.item.id,
 						kind: "document",
 						offset: chunk.nextOffset,
-						revision: snapshot.revision,
+						revision: chunk.revision,
 						version: 1,
 					}),
 				}),
@@ -244,30 +253,6 @@ async function readFile(input: {
 		status: "ready",
 		type: "file",
 	};
-}
-
-function createDocumentChunk(markdown: string, offset: number) {
-	const hardEnd = Math.min(markdown.length, offset + maxDocumentChunkCharacters);
-	const newlineEnd = markdown.lastIndexOf("\n", hardEnd);
-	const end = hardEnd < markdown.length && newlineEnd > offset ? newlineEnd + 1 : hardEnd;
-	const content = markdown.slice(offset, end).trimEnd();
-	const startLine = content ? countLineBreaks(markdown.slice(0, offset)) + 1 : 0;
-	const endLine = content ? startLine + countLineBreaks(content) : 0;
-
-	return {
-		content,
-		location: {
-			endLine,
-			kind: "lines" as const,
-			startLine,
-			totalLines: markdown ? countLineBreaks(markdown) + 1 : 0,
-		},
-		...(end < markdown.length ? { nextOffset: end } : {}),
-	};
-}
-
-function countLineBreaks(value: string) {
-	return value.match(/\n/g)?.length ?? 0;
 }
 
 async function attachRelationPaths(

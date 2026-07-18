@@ -12,6 +12,12 @@ import {
 	serializeTiptapDocumentToMarkdown,
 } from "#/features/workspaces/documents/document-markdown";
 import {
+	createDocumentMarkdownSnapshot,
+	type DocumentMarkdownChunkReadInput,
+	type DocumentMarkdownChunkReadResult,
+	type DocumentMarkdownSnapshot,
+} from "#/features/workspaces/documents/document-markdown-chunk";
+import {
 	applyDocumentMarkdownEdits,
 	type DocumentMarkdownEdit,
 	type DocumentMarkdownEditFailureCode,
@@ -61,6 +67,12 @@ export class DocumentSession extends YServer {
 		hibernate: true,
 	};
 
+	private markdownSnapshot?: {
+		revision: string;
+		snapshot: DocumentMarkdownSnapshot;
+		stateVector: Uint8Array;
+	};
+
 	static override callbackOptions = {
 		debounceWait: checkpointDelayMs,
 		debounceMaxWait: checkpointMaxWaitMs,
@@ -105,15 +117,17 @@ export class DocumentSession extends YServer {
 	}
 
 	override async onLoad() {
-		const persistedUpdate = await this.ctx.storage.get<Uint8Array>(persistedYDocUpdateKey);
+		const room = getDocumentSessionRoomNameParts(this.name);
+		const kernel = await this.getWorkspaceKernel(room.workspaceId);
+		const [{ content }, persistedUpdate] = await Promise.all([
+			kernel.readDocumentCheckpoint({ itemId: room.itemId }),
+			this.ctx.storage.get<Uint8Array>(persistedYDocUpdateKey),
+		]);
 		if (persistedUpdate) {
 			Y.applyUpdate(this.document, persistedUpdate, this);
 			return;
 		}
 
-		const room = getDocumentSessionRoomNameParts(this.name);
-		const kernel = await this.getWorkspaceKernel(room.workspaceId);
-		const { content } = await kernel.readDocumentCheckpoint({ itemId: room.itemId });
 		const snapshot = parseTiptapDocumentJson(content);
 		const seededDoc = prosemirrorJSONToYDoc(
 			getTiptapDocumentSchema(),
@@ -176,15 +190,31 @@ export class DocumentSession extends YServer {
 		};
 	}
 
-	async readMarkdown() {
+	async readMarkdownChunk(
+		input: DocumentMarkdownChunkReadInput,
+	): Promise<DocumentMarkdownChunkReadResult> {
 		const stateVector = Uint8Array.from(Y.encodeStateVector(this.document));
-		const revisionBytes = await crypto.subtle.digest("SHA-256", stateVector.buffer);
-		return {
-			markdown: serializeTiptapDocumentToMarkdown(this.getCurrentTiptapDocument()),
-			revision: Array.from(new Uint8Array(revisionBytes), (byte) =>
-				byte.toString(16).padStart(2, "0"),
-			).join(""),
-		};
+		let currentSnapshot = this.markdownSnapshot;
+		if (!currentSnapshot || !uint8ArraysEqual(currentSnapshot.stateVector, stateVector)) {
+			const markdown = serializeTiptapDocumentToMarkdown(this.getCurrentTiptapDocument());
+			const revisionBytes = await crypto.subtle.digest("SHA-256", stateVector.buffer);
+			currentSnapshot = {
+				revision: Array.from(new Uint8Array(revisionBytes), (byte) =>
+					byte.toString(16).padStart(2, "0"),
+				).join(""),
+				snapshot: createDocumentMarkdownSnapshot(markdown),
+				stateVector,
+			};
+			this.markdownSnapshot = currentSnapshot;
+		}
+		if (input.expectedRevision && input.expectedRevision !== currentSnapshot.revision) {
+			return { status: "content_changed" };
+		}
+
+		const chunk = currentSnapshot.snapshot.readChunk(input.offset);
+		return chunk
+			? { ...chunk, revision: currentSnapshot.revision, status: "ready" }
+			: { status: "invalid_offset" };
 	}
 
 	async purgeForDeletion(): Promise<void> {
@@ -226,6 +256,10 @@ export class DocumentSession extends YServer {
 	private async getWorkspaceKernel(workspaceId: string): Promise<WorkspaceKernelClient> {
 		return getWorkspaceKernelFromEnv(this.env, workspaceId);
 	}
+}
+
+function uint8ArraysEqual(left: Uint8Array, right: Uint8Array) {
+	return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
 function getDocumentSessionRoomNameParts(roomName: string): DocumentSessionRouteParams {

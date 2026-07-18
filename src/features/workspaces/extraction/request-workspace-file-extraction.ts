@@ -54,6 +54,7 @@ export async function requestWorkspaceFileExtraction(input: {
 				status: "failed",
 				errorMessage,
 				actorUserId: input.actorUserId,
+				clientMutationId: `${input.requestId}:projection:queue-failed`,
 			});
 		} catch (statusError) {
 			recordOperationalFailure({

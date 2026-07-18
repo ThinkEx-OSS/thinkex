@@ -81,6 +81,7 @@ export async function createWorkspaceItemsOperation(
 	const items: CreatedWorkspaceItem[] = [];
 	const failed: CreateWorkspaceItemsFailure[] = [];
 
+	// Preserve order so path resolution observes items committed earlier in this batch.
 	for (const [index, itemInput] of input.items.entries()) {
 		const id = crypto.randomUUID();
 		const path = resolveCreateWorkspaceItemPath(itemInput.path);

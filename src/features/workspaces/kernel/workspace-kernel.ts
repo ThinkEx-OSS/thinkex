@@ -18,7 +18,8 @@ import {
 } from "#/features/workspaces/kernel/workspace-kernel-schema";
 import { WorkspaceKernelRelations } from "#/features/workspaces/kernel/workspace-kernel-relations";
 import {
-	listWorkspaceKernelTreeItems,
+	formatWorkspaceKernelListSelection,
+	selectWorkspaceKernelTreeItems,
 	type ListWorkspaceKernelItemsResult,
 } from "#/features/workspaces/kernel/workspace-kernel-list";
 import {
@@ -35,7 +36,6 @@ import type {
 	DeleteWorkspaceKernelItemsArgs,
 	DeleteWorkspaceKernelItemsResult,
 	GetWorkspaceKernelItemPathsArgs,
-	ListWorkspaceKernelEventsArgs,
 	ListWorkspaceKernelItemRelationsArgs,
 	ListWorkspaceKernelItemsArgs,
 	LinkWorkspaceKernelItemsArgs,
@@ -57,7 +57,6 @@ import { getChatAttachmentWorkspacePrefix } from "#/features/workspaces/ai/chat-
 import type {
 	WorkspaceCommandResult,
 	WorkspaceConnectionState,
-	WorkspaceRealtimeEvent,
 	WorkspaceRealtimeServerMessage,
 } from "#/features/workspaces/realtime/messages";
 import {
@@ -144,11 +143,14 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 		input: ListWorkspaceKernelItemsArgs = {},
 	): Promise<ListWorkspaceKernelItemsResult> {
 		const items = this.store.getPageItems();
-		return listWorkspaceKernelTreeItems({
+		const selection = selectWorkspaceKernelTreeItems({
 			tree: buildWorkspaceKernelTree(items),
-			itemFactsById: new Map(this.store.getItemFacts(items).map((facts) => [facts.itemId, facts])),
 			...input,
 		});
+		return formatWorkspaceKernelListSelection(
+			selection,
+			this.store.getItemFacts(selection.rows.map((row) => row.item)),
+		);
 	}
 
 	async resolvePaths(
@@ -314,13 +316,6 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 				},
 			});
 		}
-	}
-
-	async getEventsSince({
-		afterRevision,
-		limit = 100,
-	}: ListWorkspaceKernelEventsArgs): Promise<WorkspaceRealtimeEvent[]> {
-		return this.events.getEventsSince({ afterRevision, limit });
 	}
 
 	async purgeForDeletion(): Promise<ResourcePurgeResult> {

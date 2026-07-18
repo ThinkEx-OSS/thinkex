@@ -130,7 +130,7 @@ describe("workspace page projections", () => {
 		expect(storage.openBodies()).toBe(0);
 	});
 
-	it("rejects oversized v2 selections before opening page objects", async () => {
+	it("rejects oversized selections before opening page objects when sizes are published", async () => {
 		const storage = createObjectStorage();
 		const reference = await writeWorkspacePageProjection({
 			bucket: storage.bucket,
@@ -159,7 +159,7 @@ describe("workspace page projections", () => {
 		expect(storage.readKeys).toEqual([reference.manifestObjectKey]);
 	});
 
-	it("rejects obsolete projection manifests", async () => {
+	it("reads projections published before per-page sizes were added", async () => {
 		const storage = createObjectStorage();
 		const reference = await writeWorkspacePageProjection({
 			bucket: storage.bucket,
@@ -184,7 +184,37 @@ describe("workspace page projections", () => {
 				expectedSourceHash: "etag-1",
 				manifestObjectKey: reference.manifestObjectKey,
 			}),
-		).rejects.toThrow("manifest is invalid");
+		).resolves.toEqual({
+			content: "## Page 1\n\nPage 1",
+			pages: { requested: "1", returned: [1], total: 1 },
+		});
+	});
+
+	it("preserves extracted Markdown whitespace", async () => {
+		const storage = createObjectStorage();
+		const markdown = "    indented code  \n\ntrailing hard break  \n";
+		const reference = await writeWorkspacePageProjection({
+			bucket: storage.bucket,
+			itemId: "item-1",
+			pages: [{ pageNumber: 1, markdown }],
+			provider: "liteparse",
+			providerMode: "fast",
+			runId: "run-1",
+			sourceHash: "etag-1",
+			tier: "fast",
+			workspaceId: "workspace-1",
+		});
+
+		await expect(
+			readWorkspacePageProjection({
+				bucket: storage.bucket,
+				expectedSourceHash: "etag-1",
+				manifestObjectKey: reference.manifestObjectKey,
+			}),
+		).resolves.toEqual({
+			content: `## Page 1\n\n${markdown}`,
+			pages: { requested: "1", returned: [1], total: 1 },
+		});
 	});
 
 	it("removes partial artifacts when publication fails", async () => {
