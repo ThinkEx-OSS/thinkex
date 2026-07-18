@@ -7,10 +7,7 @@ import {
 	persistDocumentItemContentUpdate,
 	touchWorkspaceItemUpdatedAt,
 } from "#/features/workspaces/documents/document-item-content";
-import {
-	hydrateCreatedItemEvent,
-	type WorkspaceKernelEventBus,
-} from "#/features/workspaces/kernel/workspace-kernel-events";
+import type { WorkspaceKernelEventBus } from "#/features/workspaces/kernel/workspace-kernel-events";
 import {
 	getInitialWorkspaceKernelContent,
 	getWorkspaceKernelContentMimeType,
@@ -77,29 +74,6 @@ export class WorkspaceKernelItemCommands {
 
 		const id = input.id;
 		const parentId = input.parentId ?? null;
-		const getPriorResult = () => {
-			const storedEvent = input.clientMutationId
-				? this.events.findMutationEvent({
-						clientMutationId: input.clientMutationId,
-						eventType: "workspace.item.created",
-						resultId: id,
-					})
-				: null;
-
-			if (!storedEvent) {
-				return null;
-			}
-			const item = this.store.requireItem(id);
-			return {
-				event: hydrateCreatedItemEvent(storedEvent, item, this.store.getItemFacts([item])),
-				result: item,
-			};
-		};
-		const priorResult = getPriorResult();
-
-		if (priorResult) {
-			return { command: priorResult, status: "applied" };
-		}
 
 		const color = resolveWorkspaceItemColorForCreate({
 			type,
@@ -147,11 +121,6 @@ export class WorkspaceKernelItemCommands {
 			initialContent,
 		});
 
-		const concurrentResult = getPriorResult();
-		if (concurrentResult) {
-			return { command: concurrentResult, status: "applied" };
-		}
-
 		// Keep these writes synchronous. SQLite-backed Durable Objects coalesce
 		// writes without an intervening await into one atomic implicit transaction.
 		this.sql`
@@ -191,15 +160,12 @@ export class WorkspaceKernelItemCommands {
 		const itemFacts = this.store.getItemFacts(
 			factItemIds.map((itemId) => this.store.requireItem(itemId)),
 		);
-		const event = this.events.commit(
-			{
-				type: "workspace.item.created",
-				actorUserId: input.actorUserId ?? null,
-				clientMutationId: input.clientMutationId ?? null,
-				payload: { item, itemFacts },
-			},
-			{ resultId: id },
-		);
+		const event = this.events.commit({
+			type: "workspace.item.created",
+			actorUserId: input.actorUserId ?? null,
+			clientMutationId: input.clientMutationId ?? null,
+			payload: { item, itemFacts },
+		});
 
 		return { command: { result: item, event }, status: "applied" };
 	}

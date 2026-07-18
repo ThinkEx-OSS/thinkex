@@ -5,11 +5,7 @@ import type {
 } from "#/features/workspaces/contracts";
 import { getWorkspaceFileItemObjectPrefix } from "#/features/workspaces/files/workspace-file-object-keys";
 import { WORKSPACE_FILE_PREVIEW_CONTENT_TYPE } from "#/features/workspaces/files/workspace-file-preview.constants";
-import {
-	hydrateCreatedItemEvent,
-	hydrateProjectionEvent,
-	type WorkspaceKernelEventBus,
-} from "#/features/workspaces/kernel/workspace-kernel-events";
+import type { WorkspaceKernelEventBus } from "#/features/workspaces/kernel/workspace-kernel-events";
 import { getWorkspaceKernelFileShellPath } from "#/features/workspaces/kernel/workspace-kernel-files";
 import { parseWorkspaceMetadataJson } from "#/features/workspaces/kernel/workspace-kernel-metadata";
 import type { WorkspaceKernelSql } from "#/features/workspaces/kernel/workspace-kernel-schema";
@@ -64,29 +60,6 @@ export class WorkspaceKernelFileCommands {
 		input: CreateWorkspaceKernelFileFromUploadArgs,
 	): Promise<WorkspaceCommandResult<WorkspaceItemSummary>> {
 		const parentId = input.parentId ?? null;
-		const getPriorResult = () => {
-			const storedEvent = input.clientMutationId
-				? this.events.findMutationEvent({
-						clientMutationId: input.clientMutationId,
-						eventType: "workspace.item.created",
-						resultId: input.id,
-					})
-				: null;
-
-			if (!storedEvent) {
-				return null;
-			}
-			const item = this.store.requireItem(input.id);
-			return {
-				event: hydrateCreatedItemEvent(storedEvent, item, this.store.getItemFacts([item])),
-				result: item,
-			};
-		};
-		const priorResult = getPriorResult();
-
-		if (priorResult) {
-			return priorResult;
-		}
 
 		this.store.assertParentIsValid(parentId);
 
@@ -114,11 +87,6 @@ export class WorkspaceKernelFileCommands {
 		}
 		if (input.preview && previewObject?.size !== input.preview.sizeBytes) {
 			throw new Error("Uploaded file preview size did not match the upload request.");
-		}
-
-		const concurrentResult = getPriorResult();
-		if (concurrentResult) {
-			return concurrentResult;
 		}
 
 		const descriptor = getWorkspaceUploadFamily(input.assetKind);
@@ -211,15 +179,12 @@ export class WorkspaceKernelFileCommands {
 
 		const item = this.store.requireItem(itemId);
 		const itemFacts = this.store.getItemFacts([item]);
-		const event = this.events.commit(
-			{
-				type: "workspace.item.created",
-				actorUserId: input.actorUserId ?? null,
-				clientMutationId: input.clientMutationId ?? null,
-				payload: { item, itemFacts },
-			},
-			{ resultId: itemId },
-		);
+		const event = this.events.commit({
+			type: "workspace.item.created",
+			actorUserId: input.actorUserId ?? null,
+			clientMutationId: input.clientMutationId ?? null,
+			payload: { item, itemFacts },
+		});
 
 		return { result: item, event };
 	}
@@ -292,17 +257,6 @@ export class WorkspaceKernelFileCommands {
 		if (row.type !== "file") {
 			throw new Error("Workspace item is not a file.");
 		}
-		const storedEvent = input.clientMutationId
-			? this.events.findMutationEvent({
-					clientMutationId: input.clientMutationId,
-					eventType: "workspace.item.projection.updated",
-					resultId: input.itemId,
-				})
-			: null;
-		if (storedEvent) {
-			const itemFacts = this.store.getItemFacts([this.store.requireItem(input.itemId)]);
-			return { event: hydrateProjectionEvent(storedEvent, itemFacts), result: itemFacts };
-		}
 		if (input.status === "ready") {
 			if (!row.object_key) {
 				throw new Error("Ready file projections require a current source object.");
@@ -327,15 +281,12 @@ export class WorkspaceKernelFileCommands {
 			now,
 		});
 		const itemFacts = this.store.getItemFacts([this.store.requireItem(input.itemId)]);
-		const event = this.events.commit(
-			{
-				type: "workspace.item.projection.updated",
-				actorUserId: input.actorUserId ?? null,
-				clientMutationId: input.clientMutationId ?? null,
-				payload: { itemFacts },
-			},
-			{ resultId: input.itemId },
-		);
+		const event = this.events.commit({
+			type: "workspace.item.projection.updated",
+			actorUserId: input.actorUserId ?? null,
+			clientMutationId: input.clientMutationId ?? null,
+			payload: { itemFacts },
+		});
 		return { event, result: itemFacts };
 	}
 

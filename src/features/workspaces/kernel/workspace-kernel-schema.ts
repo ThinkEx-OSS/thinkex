@@ -85,14 +85,6 @@ export function initializeWorkspaceKernelStorage(sql: WorkspaceKernelSql) {
 	`;
 	sql`CREATE INDEX IF NOT EXISTS kernel_events_revision_idx
 		ON kernel_events (revision)`;
-	sql`
-		CREATE TABLE IF NOT EXISTS kernel_mutation_receipts (
-			client_mutation_id TEXT PRIMARY KEY,
-			result_id TEXT NOT NULL,
-			event_id TEXT NOT NULL UNIQUE,
-			created_at INTEGER NOT NULL
-		)
-	`;
 }
 
 function createSiblingNameIndexes(sql: WorkspaceKernelSql) {

@@ -22,16 +22,6 @@ export type KernelItemRow = {
 	deleted_at: number | null;
 };
 
-export type KernelEventRow = {
-	id: string;
-	revision: number;
-	type: string;
-	actor_user_id: string | null;
-	client_mutation_id: string | null;
-	payload_json: string;
-	created_at: number;
-};
-
 export type KernelItemProjectionRow = {
 	item_id: string;
 	format: WorkspaceKernelFileProjectionFormat;
