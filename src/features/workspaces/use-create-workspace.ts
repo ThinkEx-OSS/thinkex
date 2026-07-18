@@ -56,7 +56,12 @@ export function useCreateWorkspaceMutation() {
 			};
 
 			upsertWorkspaceInList(queryClient, optimisticWorkspace);
-			setWorkspacePageCache(queryClient, { workspace: optimisticWorkspace, items: [] });
+			setWorkspacePageCache(queryClient, {
+				workspace: optimisticWorkspace,
+				items: [],
+				itemFacts: [],
+				revision: 0,
+			});
 			markWorkspaceCreatedThisSession(id);
 
 			void navigate({

@@ -17,10 +17,6 @@ export function getDefaultWorkspaceItemName(type: WorkspaceItemType) {
 			return "New document";
 		case "file":
 			return "New file";
-		case "flashcard":
-			return "New flashcards";
-		case "quiz":
-			return "New quiz";
 	}
 }
 
@@ -32,10 +28,6 @@ export function getWorkspaceItemTypeMeta(type: WorkspaceItemType) {
 			return "Document";
 		case "file":
 			return "File";
-		case "flashcard":
-			return "Flashcards";
-		case "quiz":
-			return "Quiz";
 	}
 }
 

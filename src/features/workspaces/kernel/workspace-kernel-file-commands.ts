@@ -1,4 +1,8 @@
-import type { JsonValue, WorkspaceItemSummary } from "#/features/workspaces/contracts";
+import type {
+	JsonValue,
+	WorkspaceItemFacts,
+	WorkspaceItemSummary,
+} from "#/features/workspaces/contracts";
 import { getWorkspaceFileItemObjectPrefix } from "#/features/workspaces/files/workspace-file-object-keys";
 import { WORKSPACE_FILE_PREVIEW_CONTENT_TYPE } from "#/features/workspaces/files/workspace-file-preview.constants";
 import type { WorkspaceKernelEventBus } from "#/features/workspaces/kernel/workspace-kernel-events";
@@ -194,11 +198,12 @@ export class WorkspaceKernelFileCommands {
 		}
 
 		const item = this.store.requireItem(itemId);
+		const itemFacts = this.store.getItemFacts([item]);
 		const event = this.events.commit({
 			type: "workspace.item.created",
 			actorUserId: input.actorUserId ?? null,
 			clientMutationId: input.clientMutationId ?? null,
-			payload: { item },
+			payload: { item, itemFacts },
 		});
 
 		return { result: item, event };
@@ -264,7 +269,9 @@ export class WorkspaceKernelFileCommands {
 		};
 	}
 
-	async upsertFileProjection(input: UpsertWorkspaceKernelFileProjectionArgs): Promise<void> {
+	async upsertFileProjection(
+		input: UpsertWorkspaceKernelFileProjectionArgs,
+	): Promise<WorkspaceCommandResult<WorkspaceItemFacts[]>> {
 		const row = this.store.assertActiveItem(input.itemId);
 
 		if (row.type !== "file") {
@@ -293,6 +300,14 @@ export class WorkspaceKernelFileCommands {
 			projection: input,
 			now,
 		});
+		const itemFacts = this.store.getItemFacts([this.store.requireItem(input.itemId)]);
+		const event = this.events.commit({
+			type: "workspace.item.projection.updated",
+			actorUserId: input.actorUserId ?? null,
+			clientMutationId: input.clientMutationId ?? null,
+			payload: { itemFacts },
+		});
+		return { event, result: itemFacts };
 	}
 
 	private writeProjectionRow(input: {

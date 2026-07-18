@@ -190,7 +190,7 @@ export const workspaceSummarySchema = z.object({
 	membershipRole: workspaceMembershipRoleSchema,
 });
 
-export const workspaceItemTypeSchema = z.enum(["folder", "document", "file", "flashcard", "quiz"]);
+export const workspaceItemTypeSchema = z.enum(["folder", "document", "file"]);
 
 export const workspaceItemFactsSchema = z.object({
 	itemId: z.string(),

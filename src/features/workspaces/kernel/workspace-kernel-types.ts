@@ -26,6 +26,12 @@ export interface CreateWorkspaceKernelRelationArgs {
 	toItemId: string;
 }
 
+export interface LinkWorkspaceKernelItemsArgs {
+	actorUserId?: string | null;
+	clientMutationId?: string | null;
+	relations: CreateWorkspaceKernelRelationArgs[];
+}
+
 export interface ListWorkspaceKernelItemRelationsArgs {
 	itemId: string;
 	limit?: number;
@@ -40,8 +46,43 @@ export interface WorkspaceKernelItemRelation {
 }
 
 export interface ListWorkspaceKernelItemsArgs {
-	parentId?: string | null;
 	limit?: number;
+	offset?: number;
+	path?: string;
+	recursive?: boolean;
+}
+
+export type WorkspaceKernelPathResolution =
+	| {
+			code: "path_not_absolute";
+			path: string;
+			status: "invalid_path";
+	  }
+	| {
+			path: string;
+			status: "not_found";
+	  }
+	| {
+			path: string;
+			status: "root";
+	  }
+	| {
+			item: WorkspaceItemSummary;
+			path: string;
+			status: "item";
+	  };
+
+export interface ResolveWorkspaceKernelPathsArgs {
+	paths: string[];
+}
+
+export interface GetWorkspaceKernelItemPathsArgs {
+	itemIds: string[];
+}
+
+export interface WorkspaceKernelItemPath {
+	itemId: string;
+	path: string;
 }
 
 export type WorkspaceKernelNameConflictPolicy = "rename" | "error";
@@ -122,7 +163,7 @@ export interface DeleteWorkspaceKernelItemsArgs {
 	clientMutationId?: string | null;
 }
 
-export interface ReadWorkspaceKernelItemArgs {
+export interface ReadWorkspaceDocumentCheckpointArgs {
 	itemId: string;
 }
 
@@ -211,7 +252,7 @@ export interface ReadWorkspaceKernelFileProjectionResult {
 	updatedAt: string;
 }
 
-export interface WriteWorkspaceKernelItemArgs {
+export interface CommitWorkspaceDocumentCheckpointArgs {
 	itemId: string;
 	content: string;
 	actorUserId?: string | null;

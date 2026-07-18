@@ -1,14 +1,11 @@
-import {
-	getWorkspaceOperationContext,
-	resolveWorkspaceOperationPath,
-} from "#/features/workspaces/operations/workspace-operation-context";
+import { getAuthorizedWorkspaceKernel } from "#/features/workspaces/operations/workspace-operation-context";
 import {
 	resolveWorkspaceRelations,
 	type WorkspaceRelationInput,
 	workspaceRelationFailureCodes,
 } from "#/features/workspaces/operations/relations";
 import type { WorkspaceAccessContext } from "#/features/workspaces/operations/workspace-access-context";
-import type { WorkspaceItemSummary } from "#/features/workspaces/contracts";
+import type { WorkspaceKernelPathResolution } from "#/features/workspaces/kernel/workspace-kernel-types";
 import { parseMarkdownToTiptapDocumentProjection } from "#/features/workspaces/documents/document-markdown";
 import { stringifyTiptapDocumentJson } from "#/features/workspaces/documents/tiptap-document";
 import {
@@ -17,7 +14,6 @@ import {
 	joinWorkspaceItemPath,
 	normalizeWorkspacePath,
 	WorkspaceKernelPathError,
-	type WorkspaceKernelTree,
 } from "#/features/workspaces/kernel/workspace-kernel-paths";
 
 export interface CreateWorkspaceItemOperationInput {
@@ -78,13 +74,12 @@ export async function createWorkspaceItemsOperation(
 	accessContext: WorkspaceAccessContext,
 	input: CreateWorkspaceItemsOperationInput,
 ): Promise<CreateWorkspaceItemsOperationResult> {
-	const workspaceContext = await getWorkspaceOperationContext({
+	const kernel = await getAuthorizedWorkspaceKernel({
 		access: "mutate",
 		context: accessContext,
 	});
 	const items: CreatedWorkspaceItem[] = [];
 	const failed: CreateWorkspaceItemsFailure[] = [];
-	const createdItemsByPath = new Map<string, { id: string; type: WorkspaceItemSummary["type"] }>();
 
 	for (const [index, itemInput] of input.items.entries()) {
 		const id = crypto.randomUUID();
@@ -99,11 +94,13 @@ export async function createWorkspaceItemsOperation(
 			continue;
 		}
 
-		const parent = resolveCreateWorkspaceItemParent({
-			createdItemsByPath,
-			parentPath: path.parentPath,
-			tree: workspaceContext.tree,
+		const [parentResolution, ...relationTargets] = await kernel.resolvePaths({
+			paths: [path.parentPath, ...(itemInput.relations ?? []).map((relation) => relation.path)],
 		});
+		if (!parentResolution) {
+			throw new Error("Workspace kernel did not resolve the requested create parent.");
+		}
+		const parent = resolveCreateWorkspaceItemParent(parentResolution);
 
 		if (parent.status === "failed") {
 			failed.push({
@@ -126,10 +123,9 @@ export async function createWorkspaceItemsOperation(
 		}
 
 		const relations = resolveWorkspaceRelations({
-			createdItemsByPath,
 			fromItemId: id,
 			relations: itemInput.relations,
-			tree: workspaceContext.tree,
+			targets: relationTargets,
 		});
 
 		if (relations.status === "failed") {
@@ -141,7 +137,7 @@ export async function createWorkspaceItemsOperation(
 			continue;
 		}
 
-		const outcome = await workspaceContext.kernel.createItem({
+		const outcome = await kernel.createItem({
 			id,
 			parentId: parent.parentId,
 			type: itemInput.type,
@@ -177,10 +173,6 @@ export async function createWorkspaceItemsOperation(
 				? { warnings: initialContent.warnings }
 				: {}),
 		});
-		createdItemsByPath.set(createdPath, {
-			id: command.result.id,
-			type: command.result.type,
-		});
 	}
 
 	return {
@@ -189,11 +181,7 @@ export async function createWorkspaceItemsOperation(
 	};
 }
 
-function resolveCreateWorkspaceItemParent(input: {
-	createdItemsByPath: ReadonlyMap<string, { id: string; type: WorkspaceItemSummary["type"] }>;
-	parentPath: string;
-	tree: WorkspaceKernelTree;
-}):
+function resolveCreateWorkspaceItemParent(resolution: WorkspaceKernelPathResolution):
 	| {
 			code: "path_not_folder" | "path_not_found";
 			status: "failed";
@@ -203,52 +191,26 @@ function resolveCreateWorkspaceItemParent(input: {
 			path: string;
 			status: "parent";
 	  } {
-	if (input.parentPath === "/") {
+	if (resolution.status === "root") {
 		return {
 			parentId: null,
-			path: "/",
+			path: resolution.path,
 			status: "parent",
 		};
 	}
 
-	const createdParent = input.createdItemsByPath.get(input.parentPath);
-
-	if (createdParent) {
-		if (createdParent.type !== "folder") {
-			return {
-				code: "path_not_folder",
-				status: "failed",
-			};
-		}
-
-		return {
-			parentId: createdParent.id,
-			path: input.parentPath,
-			status: "parent",
-		};
+	if (resolution.status === "invalid_path") {
+		throw new Error(`Unexpected invalid create parent path: ${resolution.path}`);
 	}
 
-	const parent = resolveWorkspaceOperationPath({
-		path: input.parentPath,
-		tree: input.tree,
-	});
-
-	if (parent.status === "invalid_path") {
-		throw new Error(`Unexpected invalid create parent path: ${input.parentPath}`);
-	}
-
-	if (parent.status === "not_found") {
+	if (resolution.status === "not_found") {
 		return {
 			code: "path_not_found",
 			status: "failed",
 		};
 	}
 
-	if (parent.status === "root") {
-		throw new Error(`Unexpected root create parent path: ${input.parentPath}`);
-	}
-
-	if (parent.item.type !== "folder") {
+	if (resolution.item.type !== "folder") {
 		return {
 			code: "path_not_folder",
 			status: "failed",
@@ -256,8 +218,8 @@ function resolveCreateWorkspaceItemParent(input: {
 	}
 
 	return {
-		parentId: parent.item.id,
-		path: parent.path,
+		parentId: resolution.item.id,
+		path: resolution.path,
 		status: "parent",
 	};
 }

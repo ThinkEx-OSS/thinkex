@@ -1,4 +1,4 @@
-import type { WorkspaceItemSummary } from "#/features/workspaces/contracts";
+import type { WorkspaceItemFacts, WorkspaceItemSummary } from "#/features/workspaces/contracts";
 
 export interface WorkspacePresenceUser {
 	id: string;
@@ -18,8 +18,11 @@ interface WorkspaceRealtimeEventBase {
 
 export type WorkspaceRealtimeEvent =
 	| (WorkspaceRealtimeEventBase & {
+			type: "workspace.item.created";
+			payload: { item: WorkspaceItemSummary; itemFacts: WorkspaceItemFacts[] };
+	  })
+	| (WorkspaceRealtimeEventBase & {
 			type:
-				| "workspace.item.created"
 				| "workspace.item.renamed"
 				| "workspace.item.moved"
 				| "workspace.item.color.updated"
@@ -32,7 +35,15 @@ export type WorkspaceRealtimeEvent =
 	  })
 	| (WorkspaceRealtimeEventBase & {
 			type: "workspace.item.deleted";
-			payload: { itemIds: string[]; deletedItemIds: string[] };
+			payload: {
+				itemIds: string[];
+				deletedItemIds: string[];
+				itemFacts: WorkspaceItemFacts[];
+			};
+	  })
+	| (WorkspaceRealtimeEventBase & {
+			type: "workspace.relations.updated" | "workspace.item.projection.updated";
+			payload: { itemFacts: WorkspaceItemFacts[] };
 	  });
 
 export interface WorkspaceCommandResult<T> {

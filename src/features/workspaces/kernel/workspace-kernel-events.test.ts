@@ -48,7 +48,7 @@ function createItemEventRow(itemId: string): KernelEventRow {
 		client_mutation_id: "mutation-1",
 		created_at: Date.parse("2026-07-15T00:00:00Z"),
 		id: "event-1",
-		payload_json: JSON.stringify({ item: { id: itemId } }),
+		payload_json: JSON.stringify({ item: { id: itemId }, itemFacts: [] }),
 		revision: 1,
 		type: "workspace.item.created",
 	};

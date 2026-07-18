@@ -6,7 +6,7 @@ import {
 } from "#/features/workspaces/operations/relations";
 import type { WorkspaceAccessContext } from "#/features/workspaces/operations/workspace-access-context";
 import {
-	getWorkspaceOperationContext,
+	getAuthorizedWorkspaceKernel,
 	resolveWorkspaceExistingItemPath,
 } from "#/features/workspaces/operations/workspace-operation-context";
 
@@ -41,14 +41,19 @@ export async function linkWorkspaceItemsOperation(
 	accessContext: WorkspaceAccessContext,
 	input: LinkWorkspaceItemsOperationInput,
 ): Promise<LinkWorkspaceItemsOperationResult> {
-	const workspaceContext = await getWorkspaceOperationContext({
+	const kernel = await getAuthorizedWorkspaceKernel({
 		access: "mutate",
 		context: accessContext,
 	});
+	const [pathResolution, ...relationTargets] = await kernel.resolvePaths({
+		paths: [input.path, ...input.relations.map((relation) => relation.path)],
+	});
+	if (!pathResolution) {
+		throw new Error("Workspace kernel did not resolve the requested link source.");
+	}
 	const resolution = resolveWorkspaceExistingItemPath({
-		path: input.path,
+		resolution: pathResolution,
 		rootFailureCode: "cannot_link_root",
-		tree: workspaceContext.tree,
 	});
 
 	if (resolution.status === "failed") {
@@ -66,7 +71,7 @@ export async function linkWorkspaceItemsOperation(
 		excludeItemId: resolution.item.id,
 		fromItemId: resolution.item.id,
 		relations: input.relations,
-		tree: workspaceContext.tree,
+		targets: relationTargets,
 	});
 
 	if (relations.status === "failed") {
@@ -80,7 +85,11 @@ export async function linkWorkspaceItemsOperation(
 		};
 	}
 
-	await workspaceContext.kernel.createRelations({ relations: relations.relations });
+	await kernel.linkItems({
+		relations: relations.relations,
+		actorUserId: accessContext.actor.userId,
+		clientMutationId: accessContext.operationId,
+	});
 
 	return {
 		failed: [],

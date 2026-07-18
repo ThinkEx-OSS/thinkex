@@ -38,16 +38,16 @@ export function setWorkspacePageCache(
 	input: {
 		workspace: WorkspaceSummary;
 		items: WorkspaceItemSummary[];
-		itemFacts?: WorkspacePage["itemFacts"];
-		revision?: number;
+		itemFacts: WorkspacePage["itemFacts"];
+		revision: number;
 	},
 ) {
-	queryClient.setQueryData<WorkspacePage>(workspacePageQueryKey(input.workspace.id), (current) => ({
+	queryClient.setQueryData<WorkspacePage>(workspacePageQueryKey(input.workspace.id), {
 		workspace: input.workspace,
 		items: input.items,
-		itemFacts: input.itemFacts ?? current?.itemFacts ?? [],
-		revision: input.revision ?? current?.revision ?? 0,
-	}));
+		itemFacts: input.itemFacts,
+		revision: input.revision,
+	});
 }
 
 export function restoreWorkspaceListCache(

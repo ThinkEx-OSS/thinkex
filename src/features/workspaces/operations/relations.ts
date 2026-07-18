@@ -1,13 +1,8 @@
 import type { WorkspaceItemSummary, WorkspaceRelationKind } from "#/features/workspaces/contracts";
-import {
-	normalizeWorkspacePath,
-	resolveWorkspaceKernelItemPath,
-	WorkspaceKernelPathError,
-	type WorkspaceKernelTree,
-} from "#/features/workspaces/kernel/workspace-kernel-paths";
 import type {
 	CreateWorkspaceKernelRelationArgs,
 	WorkspaceKernelItemRelation,
+	WorkspaceKernelPathResolution,
 } from "#/features/workspaces/kernel/workspace-kernel-types";
 
 export interface WorkspaceRelationInput {
@@ -38,11 +33,10 @@ export interface WorkspaceRelationOutput {
 }
 
 export function resolveWorkspaceRelations(input: {
-	createdItemsByPath?: ReadonlyMap<string, { id: string }>;
 	excludeItemId?: string;
 	fromItemId: string;
 	relations?: WorkspaceRelationInput[];
-	tree: WorkspaceKernelTree;
+	targets: WorkspaceKernelPathResolution[];
 }):
 	| {
 			relations: CreateWorkspaceKernelRelationArgs[];
@@ -54,12 +48,14 @@ export function resolveWorkspaceRelations(input: {
 	  } {
 	const relations: CreateWorkspaceKernelRelationArgs[] = [];
 
-	for (const relation of input.relations ?? []) {
+	for (const [index, relation] of (input.relations ?? []).entries()) {
+		const resolution = input.targets[index];
+		if (!resolution) {
+			throw new Error("Workspace relation target resolution did not match its input.");
+		}
 		const target = resolveWorkspaceRelationTarget({
-			createdItemsByPath: input.createdItemsByPath,
 			excludeItemId: input.excludeItemId,
-			path: relation.path,
-			tree: input.tree,
+			resolution,
 		});
 
 		if (target.status === "failed") {
@@ -108,10 +104,8 @@ export function serializeWorkspaceRelations(input: {
 }
 
 function resolveWorkspaceRelationTarget(input: {
-	createdItemsByPath?: ReadonlyMap<string, { id: string }>;
 	excludeItemId?: string;
-	path: string;
-	tree: WorkspaceKernelTree;
+	resolution: WorkspaceKernelPathResolution;
 }):
 	| {
 			itemId: string;
@@ -121,58 +115,50 @@ function resolveWorkspaceRelationTarget(input: {
 			failure: WorkspaceRelationFailure;
 			status: "failed";
 	  } {
-	try {
-		const normalizedPath = normalizeWorkspacePath(input.path);
-
-		if (normalizedPath === "/") {
-			return {
-				failure: {
-					code: "relation_path_is_root",
-					path: normalizedPath,
-				},
-				status: "failed",
-			};
-		}
-
-		const itemId =
-			input.createdItemsByPath?.get(normalizedPath)?.id ??
-			resolveWorkspaceKernelItemPath(normalizedPath, input.tree)?.id;
-
-		if (!itemId) {
-			return {
-				failure: {
-					code: "relation_path_not_found",
-					path: normalizedPath,
-				},
-				status: "failed",
-			};
-		}
-
-		if (input.excludeItemId && itemId === input.excludeItemId) {
-			return {
-				failure: {
-					code: "relation_path_is_self",
-					path: normalizedPath,
-				},
-				status: "failed",
-			};
-		}
-
+	const { resolution } = input;
+	if (resolution.status === "invalid_path") {
 		return {
-			itemId,
-			status: "ready",
+			failure: {
+				code: "relation_path_not_absolute",
+				path: resolution.path,
+			},
+			status: "failed",
 		};
-	} catch (error) {
-		if (error instanceof WorkspaceKernelPathError && error.code === "path_not_absolute") {
-			return {
-				failure: {
-					code: "relation_path_not_absolute",
-					path: input.path,
-				},
-				status: "failed",
-			};
-		}
-
-		throw error;
 	}
+
+	if (resolution.status === "root") {
+		return {
+			failure: {
+				code: "relation_path_is_root",
+				path: resolution.path,
+			},
+			status: "failed",
+		};
+	}
+
+	if (resolution.status === "not_found") {
+		return {
+			failure: {
+				code: "relation_path_not_found",
+				path: resolution.path,
+			},
+			status: "failed",
+		};
+	}
+	const itemId = resolution.item.id;
+
+	if (input.excludeItemId && itemId === input.excludeItemId) {
+		return {
+			failure: {
+				code: "relation_path_is_self",
+				path: resolution.path,
+			},
+			status: "failed",
+		};
+	}
+
+	return {
+		itemId,
+		status: "ready",
+	};
 }

@@ -105,21 +105,15 @@ export class DocumentSession extends YServer {
 	}
 
 	override async onLoad() {
-		const room = getDocumentSessionRoomNameParts(this.name);
-		const kernel = await this.getWorkspaceKernel(room.workspaceId);
-		const { item, content } = await kernel.readItem({ itemId: room.itemId });
-
-		if (item.type !== "document") {
-			throw new Error("Document session can only open document items.");
-		}
-
 		const persistedUpdate = await this.ctx.storage.get<Uint8Array>(persistedYDocUpdateKey);
-
 		if (persistedUpdate) {
 			Y.applyUpdate(this.document, persistedUpdate, this);
 			return;
 		}
 
+		const room = getDocumentSessionRoomNameParts(this.name);
+		const kernel = await this.getWorkspaceKernel(room.workspaceId);
+		const { content } = await kernel.readDocumentCheckpoint({ itemId: room.itemId });
 		const snapshot = parseTiptapDocumentJson(content);
 		const seededDoc = prosemirrorJSONToYDoc(
 			getTiptapDocumentSchema(),
@@ -182,6 +176,17 @@ export class DocumentSession extends YServer {
 		};
 	}
 
+	async readMarkdown() {
+		const stateVector = Uint8Array.from(Y.encodeStateVector(this.document));
+		const revisionBytes = await crypto.subtle.digest("SHA-256", stateVector.buffer);
+		return {
+			markdown: serializeTiptapDocumentToMarkdown(this.getCurrentTiptapDocument()),
+			revision: Array.from(new Uint8Array(revisionBytes), (byte) =>
+				byte.toString(16).padStart(2, "0"),
+			).join(""),
+		};
+	}
+
 	async purgeForDeletion(): Promise<void> {
 		await this.ctx.storage.deleteAll();
 	}
@@ -193,7 +198,7 @@ export class DocumentSession extends YServer {
 		);
 		const kernel = await this.getWorkspaceKernel(room.workspaceId);
 
-		await kernel.writeItem({
+		await kernel.commitDocumentCheckpoint({
 			itemId: room.itemId,
 			content: stringifyTiptapDocumentJson(document),
 			actorUserId: null,

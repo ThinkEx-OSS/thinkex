@@ -6,6 +6,7 @@ export interface DocumentSessionClient {
 	applyMarkdownEdits(input: {
 		edits: DocumentMarkdownEdit[];
 	}): Promise<DocumentSessionApplyMarkdownEditsResult>;
+	readMarkdown(): Promise<{ markdown: string; revision: string }>;
 	purgeForDeletion(): Promise<void>;
 }
 

@@ -84,23 +84,6 @@ export class WorkspaceKernelStore {
 		`.map((row) => row.id);
 	}
 
-	listItems(input: { parentId?: string | null; limit?: number } = {}): WorkspaceItemSummary[] {
-		const parentFilter = input.parentId ?? null;
-		const rows = this.sql<KernelItemRow>`
-			SELECT *
-			FROM kernel_items
-			WHERE deleted_at IS NULL
-				AND (
-					(${parentFilter} IS NULL AND parent_id IS NULL)
-					OR parent_id = ${parentFilter}
-				)
-			ORDER BY sort_order ASC, name ASC
-			LIMIT ${Math.max(1, Math.min(input.limit ?? 80, 500))}
-		`;
-
-		return rows.map((row) => mapKernelItemRow(row, this.workspaceId()));
-	}
-
 	getCurrentRevision() {
 		const [row] = this.sql<{ value: string }>`
 			SELECT value

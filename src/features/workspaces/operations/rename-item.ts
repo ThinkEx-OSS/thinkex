@@ -1,5 +1,5 @@
 import {
-	getWorkspaceOperationContext,
+	getAuthorizedWorkspaceKernel,
 	resolveWorkspaceExistingItemPath,
 } from "#/features/workspaces/operations/workspace-operation-context";
 import type { WorkspaceAccessContext } from "#/features/workspaces/operations/workspace-access-context";
@@ -41,14 +41,17 @@ export async function renameWorkspaceItemOperation(
 	accessContext: WorkspaceAccessContext,
 	input: RenameWorkspaceItemOperationInput,
 ): Promise<RenameWorkspaceItemOperationResult> {
-	const workspaceContext = await getWorkspaceOperationContext({
+	const kernel = await getAuthorizedWorkspaceKernel({
 		access: "mutate",
 		context: accessContext,
 	});
+	const [pathResolution] = await kernel.resolvePaths({ paths: [input.path] });
+	if (!pathResolution) {
+		throw new Error("Workspace kernel did not resolve the requested rename path.");
+	}
 	const resolution = resolveWorkspaceExistingItemPath({
-		path: input.path,
+		resolution: pathResolution,
 		rootFailureCode: "cannot_rename_root",
-		tree: workspaceContext.tree,
 	});
 
 	if (resolution.status === "failed") {
@@ -62,7 +65,7 @@ export async function renameWorkspaceItemOperation(
 		};
 	}
 
-	const outcome = await workspaceContext.kernel.renameItem({
+	const outcome = await kernel.renameItem({
 		itemId: resolution.item.id,
 		name: input.name,
 		onNameConflict: "error",

@@ -1,5 +1,5 @@
 import {
-	getWorkspaceOperationContext,
+	getAuthorizedWorkspaceKernel,
 	resolveWorkspaceExistingItemPath,
 } from "#/features/workspaces/operations/workspace-operation-context";
 import type { WorkspaceAccessContext } from "#/features/workspaces/operations/workspace-access-context";
@@ -35,7 +35,7 @@ export async function deleteWorkspaceItemsOperation(
 	accessContext: WorkspaceAccessContext,
 	input: DeleteWorkspaceItemsOperationInput,
 ): Promise<DeleteWorkspaceItemsOperationResult> {
-	const workspaceContext = await getWorkspaceOperationContext({
+	const kernel = await getAuthorizedWorkspaceKernel({
 		access: "mutate",
 		context: accessContext,
 	});
@@ -44,12 +44,12 @@ export async function deleteWorkspaceItemsOperation(
 		item: WorkspaceItemSummary;
 		path: string;
 	}> = [];
+	const resolutions = await kernel.resolvePaths({ paths: input.paths });
 
-	for (const [index, path] of input.paths.entries()) {
+	for (const [index, pathResolution] of resolutions.entries()) {
 		const resolution = resolveWorkspaceExistingItemPath({
-			path,
+			resolution: pathResolution,
 			rootFailureCode: "cannot_delete_root",
-			tree: workspaceContext.tree,
 		});
 
 		if (resolution.status === "failed") {
@@ -74,7 +74,7 @@ export async function deleteWorkspaceItemsOperation(
 		};
 	}
 
-	const command = await workspaceContext.kernel.deleteItems({
+	const command = await kernel.deleteItems({
 		itemIds: resolvedItems.map((resolved) => resolved.item.id),
 		actorUserId: accessContext.actor.userId,
 		clientMutationId: accessContext.operationId,
