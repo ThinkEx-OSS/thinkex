@@ -87,12 +87,7 @@ export function WorkspaceShell({
 			}
 			applyWorkspaceEventToCache(queryClient, event);
 		},
-		onReconnect: () => {
-			void queryClient.invalidateQueries({
-				queryKey: workspacePageQueryKey(workspace.id),
-			});
-		},
-		onRevisionGap: () => {
+		onDesync: () => {
 			void queryClient.invalidateQueries({
 				queryKey: workspacePageQueryKey(workspace.id),
 			});

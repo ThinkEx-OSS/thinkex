@@ -36,43 +36,43 @@ export interface ListWorkspaceKernelItemsFailure {
 	path: string;
 }
 
-interface WorkspaceKernelListedItems {
-	items: ListWorkspaceKernelItem[];
+export interface WorkspaceKernelListSelection {
+	failed: ListWorkspaceKernelItemsFailure[];
+	path: string;
+	rows: WorkspaceKernelListRow[];
 	total: number;
 	nextOffset?: number;
 }
 
-interface WorkspaceKernelListRow {
+export interface WorkspaceKernelListRow {
 	item: WorkspaceItemSummary;
 	path: string;
 }
 
-export function listWorkspaceKernelTreeItems(input: {
+export function selectWorkspaceKernelTreeItems(input: {
 	tree: WorkspaceKernelTree;
-	itemFactsById: ReadonlyMap<string, WorkspaceItemFacts>;
 	offset?: number;
 	path?: string;
 	recursive?: boolean;
 	limit?: number;
-}): ListWorkspaceKernelItemsResult {
+}): WorkspaceKernelListSelection {
 	try {
 		const cwd = resolveWorkspaceKernelCwd(input.path ?? "/", input.tree);
 		const boundedLimit = clampWorkspaceListLimit(input.limit);
-		const listing = collectWorkspaceKernelListItems({
+		const listing = collectWorkspaceKernelListRows({
 			offset: input.offset ?? 0,
 			parentId: cwd.parentId,
 			basePath: cwd.path,
 			recursive: input.recursive ?? false,
 			limit: boundedLimit,
 			childrenByParentId: input.tree.childrenByParentId,
-			itemFactsById: input.itemFactsById,
 		});
 
 		return {
 			path: cwd.path,
 			total: listing.total,
 			...(listing.nextOffset !== undefined ? { nextOffset: listing.nextOffset } : {}),
-			items: listing.items,
+			rows: listing.rows,
 			failed: [],
 		};
 	} catch (error) {
@@ -81,7 +81,7 @@ export function listWorkspaceKernelTreeItems(input: {
 			return {
 				path,
 				total: 0,
-				items: [],
+				rows: [],
 				failed: [
 					{
 						code: error.code,
@@ -95,14 +95,33 @@ export function listWorkspaceKernelTreeItems(input: {
 	}
 }
 
-function collectWorkspaceKernelListItems({
+export function formatWorkspaceKernelListSelection(
+	selection: WorkspaceKernelListSelection,
+	itemFacts: WorkspaceItemFacts[],
+): ListWorkspaceKernelItemsResult {
+	const itemFactsById = new Map(itemFacts.map((facts) => [facts.itemId, facts]));
+	return {
+		failed: selection.failed,
+		items: selection.rows.map((row) =>
+			formatWorkspaceKernelListItem({
+				facts: itemFactsById.get(row.item.id),
+				item: row.item,
+				path: row.path,
+			}),
+		),
+		...(selection.nextOffset !== undefined ? { nextOffset: selection.nextOffset } : {}),
+		path: selection.path,
+		total: selection.total,
+	};
+}
+
+function collectWorkspaceKernelListRows({
 	offset,
 	parentId,
 	basePath,
 	recursive,
 	limit,
 	childrenByParentId,
-	itemFactsById,
 }: {
 	offset: number;
 	parentId: string | null;
@@ -110,8 +129,7 @@ function collectWorkspaceKernelListItems({
 	recursive: boolean;
 	limit: number;
 	childrenByParentId: Map<string | null, WorkspaceItemSummary[]>;
-	itemFactsById: ReadonlyMap<string, WorkspaceItemFacts>;
-}): WorkspaceKernelListedItems {
+}): Pick<WorkspaceKernelListSelection, "nextOffset" | "rows" | "total"> {
 	const rows: WorkspaceKernelListRow[] = [];
 	const visitedIds = new Set<string>();
 
@@ -140,13 +158,7 @@ function collectWorkspaceKernelListItems({
 	const nextOffset = offset + pageRows.length;
 
 	return {
-		items: pageRows.map((row) =>
-			formatWorkspaceKernelListItem({
-				facts: itemFactsById.get(row.item.id),
-				item: row.item,
-				path: row.path,
-			}),
-		),
+		rows: pageRows,
 		total: rows.length,
 		...(nextOffset < rows.length ? { nextOffset } : {}),
 	};

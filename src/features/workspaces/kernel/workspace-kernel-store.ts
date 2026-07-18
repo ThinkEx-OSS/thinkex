@@ -40,6 +40,10 @@ export class WorkspaceKernelStore {
 	}
 
 	getItemFacts(items: WorkspaceItemSummary[]): WorkspaceItemFacts[] {
+		if (items.length === 0) {
+			return [];
+		}
+		const itemIdsJson = JSON.stringify(items.map((item) => item.id));
 		const factsByItemId = new Map(
 			this.sql<{
 				id: string;
@@ -57,7 +61,8 @@ export class WorkspaceKernelStore {
 				FROM kernel_items i
 				LEFT JOIN kernel_item_projections p
 					ON p.item_id = i.id AND p.format = 'pages' AND p.status = 'ready'
-				WHERE i.deleted_at IS NULL
+					WHERE i.deleted_at IS NULL
+						AND i.id IN (SELECT value FROM json_each(${itemIdsJson}))
 			`.map((row) => [row.id, row] as const),
 		);
 

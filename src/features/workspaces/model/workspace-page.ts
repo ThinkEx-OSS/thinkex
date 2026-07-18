@@ -18,6 +18,10 @@ export function applyWorkspaceEventToPage(
 	page: WorkspacePage,
 	event: WorkspaceRealtimeEvent,
 ): WorkspacePage {
+	if (event.revision <= page.revision) {
+		return page;
+	}
+
 	switch (event.type) {
 		case "workspace.item.created":
 			return upsertWorkspaceItemFactsInPage(

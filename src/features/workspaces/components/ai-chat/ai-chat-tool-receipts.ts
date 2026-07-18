@@ -258,9 +258,18 @@ function summarizeWorkspaceRead(output: unknown): AiChatToolReceipt {
 		(result) => getString(asRecord(result).status) === "failed",
 	).length;
 	const readyItems = results.filter((item) => getString(asRecord(item).status) === "ready");
+	const pendingItems = results.filter((item) => getString(asRecord(item).status) === "pending");
 
-	if (readyItems.length === 0 && failedCount > 0) {
+	if (readyItems.length === 0 && pendingItems.length === 0 && failedCount > 0) {
 		return failed(`Couldn’t read ${formatCount(failedCount, "item")}`);
+	}
+	if (readyItems.length === 0) {
+		return completed(
+			appendFailureCount(
+				`Extraction in progress for ${formatCount(pendingItems.length, "item")}`,
+				failedCount,
+			),
+		);
 	}
 
 	const summary =
@@ -268,7 +277,11 @@ function summarizeWorkspaceRead(output: unknown): AiChatToolReceipt {
 			? `Read ${quoteName(getBaseName(getString(asRecord(readyItems[0]).path)))}`
 			: `Read ${formatCount(readyItems.length, "item")}`;
 
-	return completed(appendFailureCount(summary, failedCount));
+	const pendingSummary =
+		pendingItems.length > 0
+			? `${summary} · ${formatCount(pendingItems.length, "item")} still processing`
+			: summary;
+	return completed(appendFailureCount(pendingSummary, failedCount));
 }
 
 function summarizeWebSearch(output: unknown, toolInput: unknown) {
