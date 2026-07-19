@@ -6,10 +6,12 @@ import {
 } from "@better-auth/oauth-provider";
 import { createMcpHandler } from "agents/mcp";
 
+import { instrumentMcpAnalytics } from "#/features/mcp/mcp-analytics";
 import { authenticateMcpRequest } from "#/features/mcp/mcp-auth";
 import {
 	getMcpUrls,
 	mcpAuthPath,
+	mcpHandlerOptions,
 	mcpOperationPathPrefix,
 	mcpPath,
 	mcpScopes,
@@ -73,6 +75,8 @@ function createThinkExMcpServer(env: Cloudflare.Env, principal: McpPrincipal) {
 		},
 	});
 
+	instrumentMcpAnalytics(server, principal.userId);
+
 	return server;
 }
 
@@ -103,7 +107,7 @@ async function handleAuthenticatedMcpRequest(
 		getJwks: () => withAuth((auth) => auth.api.getJwks()),
 		handle: async (authenticatedRequest, payload) => {
 			const server = createThinkExMcpServer(env, getPrincipal(payload));
-			return await createMcpHandler(server, { route: mcpPath })(authenticatedRequest, env, ctx);
+			return await createMcpHandler(server, mcpHandlerOptions)(authenticatedRequest, env, ctx);
 		},
 		issuer,
 		request,
