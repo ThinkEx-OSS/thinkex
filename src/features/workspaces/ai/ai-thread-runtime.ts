@@ -1,5 +1,4 @@
 import { createWorkspaceStateBackend, type WorkspaceFsLike } from "@cloudflare/shell";
-import { createExecuteTool } from "@cloudflare/think/tools/execute";
 import type { WorkspaceLike } from "@cloudflare/think/tools/workspace";
 import { createWorkspaceTools } from "@cloudflare/think/tools/workspace";
 import type { LanguageModel, ToolSet, UIMessage } from "ai";
@@ -10,6 +9,10 @@ import type {
 	AIThreadPromptScope,
 } from "#/features/workspaces/ai/ai-thread-metadata";
 import {
+	requireAiToolDefinition,
+	type AiToolModelPolicy,
+} from "#/features/workspaces/ai/ai-tool-registry";
+import {
 	getAIThreadTitleGatewayRoutingOptions,
 	getWorkspaceAiGatewayRoutingOptions,
 } from "#/features/workspaces/ai/ai-gateway-routing";
@@ -19,11 +22,11 @@ import {
 	type resolveWorkspaceAiChatModelId,
 } from "#/features/workspaces/ai/models";
 import { createAIThreadCodeRunTools } from "#/features/workspaces/ai/code-run-tools";
+import { createAIThreadOrchestrationTool } from "#/features/workspaces/ai/ai-thread-orchestration";
 import { createAIThreadResearchTools } from "#/features/workspaces/ai/research-tools";
 import { createAIThreadTimeTools } from "#/features/workspaces/ai/time-tools";
 import { createAIThreadWebTools } from "#/features/workspaces/ai/web-tools";
 import { createAIThreadWorkspaceTools } from "#/features/workspaces/ai/workspace-tools";
-import { workspaceToolDefinitions } from "#/features/workspaces/operations/workspace-tool-definitions";
 import { formatWorkspaceAiContextForPrompt } from "#/features/workspaces/model/workspace-ai-context";
 
 const thinkPromptSectionDivider = "══════════════════════════════════════════════";
@@ -86,7 +89,7 @@ export function createAIThreadTurnToolConfig(input: {
 	return {
 		activeTools: activeToolNames,
 		tools: {
-			orchestrate: createExecuteTool({
+			orchestrate: createAIThreadOrchestrationTool({
 				ctx: input.ctx,
 				loader: input.env.LOADER,
 				state,
@@ -98,82 +101,10 @@ export function createAIThreadTurnToolConfig(input: {
 	};
 }
 
-interface AIThreadToolEntry {
-	codemode: boolean;
-	access: "read" | "write";
+interface AIThreadToolEntry extends AiToolModelPolicy {
 	name: string;
 	tool: ToolSet[string];
 }
-
-type AIThreadToolDescriptor = Omit<AIThreadToolEntry, "tool">;
-
-const AI_THREAD_SANDBOX_TOOL_DESCRIPTORS: AIThreadToolDescriptor[] = [
-	{
-		name: "sandbox_bash",
-		codemode: false,
-		access: "read",
-	},
-];
-
-const AI_THREAD_CODE_RUN_TOOL_DESCRIPTORS: AIThreadToolDescriptor[] = [
-	{
-		name: "compute",
-		codemode: true,
-		access: "read",
-	},
-];
-
-const AI_THREAD_WEB_TOOL_DESCRIPTORS: AIThreadToolDescriptor[] = [
-	{
-		name: "web_search",
-		codemode: true,
-		access: "read",
-	},
-	{
-		name: "web_markdown",
-		codemode: true,
-		access: "read",
-	},
-	{
-		name: "web_links",
-		codemode: true,
-		access: "read",
-	},
-];
-
-const AI_THREAD_RESEARCH_TOOL_DESCRIPTORS: AIThreadToolDescriptor[] = [
-	{
-		name: "research_discover",
-		codemode: true,
-		access: "read",
-	},
-	{
-		name: "research_deepen",
-		codemode: true,
-		access: "read",
-	},
-];
-
-const AI_THREAD_TIME_TOOL_DESCRIPTORS: AIThreadToolDescriptor[] = [
-	{
-		name: "time_get_current",
-		codemode: true,
-		access: "read",
-	},
-	{
-		name: "time_calculate_relative",
-		codemode: true,
-		access: "read",
-	},
-];
-
-const AI_THREAD_WORKSPACE_TOOL_DESCRIPTORS: AIThreadToolDescriptor[] = [
-	...workspaceToolDefinitions.map(({ access, name }) => ({
-		name,
-		codemode: true,
-		access,
-	})),
-];
 
 function createAIThreadToolCatalog(input: {
 	env: Cloudflare.Env;
@@ -197,19 +128,22 @@ function createAIThreadToolCatalog(input: {
 	});
 	const entries: AIThreadToolEntry[] = [];
 
-	addAIThreadToolEntries(entries, sandboxTools, AI_THREAD_SANDBOX_TOOL_DESCRIPTORS);
-	addAIThreadToolEntries(entries, codeRunTools, AI_THREAD_CODE_RUN_TOOL_DESCRIPTORS);
-	addAIThreadToolEntries(entries, webTools, AI_THREAD_WEB_TOOL_DESCRIPTORS);
-	addAIThreadToolEntries(entries, researchTools, AI_THREAD_RESEARCH_TOOL_DESCRIPTORS);
-	addAIThreadToolEntries(entries, timeTools, AI_THREAD_TIME_TOOL_DESCRIPTORS);
-	addAIThreadToolEntries(entries, workspaceTools, AI_THREAD_WORKSPACE_TOOL_DESCRIPTORS);
+	addAIThreadToolEntries(entries, sandboxTools);
+	addAIThreadToolEntries(entries, codeRunTools);
+	addAIThreadToolEntries(entries, webTools);
+	addAIThreadToolEntries(entries, researchTools);
+	addAIThreadToolEntries(entries, timeTools);
+	addAIThreadToolEntries(entries, workspaceTools);
 
 	return {
 		tools: createAIThreadToolSet(entries),
 		getActiveToolNames(canMutate: boolean) {
-			const names = entries
-				.filter((entry) => canMutate || entry.access === "read")
-				.map((entry) => entry.name);
+			const names: string[] = [];
+			for (const entry of entries) {
+				if (canMutate || entry.access === "read") {
+					names.push(entry.name);
+				}
+			}
 
 			return names.includes("sandbox_bash")
 				? [
@@ -303,26 +237,16 @@ function isWorkspaceFsLike(workspace: WorkspaceLike): workspace is WorkspaceFsLi
 	return WORKSPACE_FS_METHOD_NAMES.every((method) => typeof candidate[method] === "function");
 }
 
-function addAIThreadToolEntry(
-	entries: AIThreadToolEntry[],
-	entry: AIThreadToolEntry | { tool: undefined; name: string },
-) {
-	if (!entry.tool) {
-		return;
-	}
+function addAIThreadToolEntries(entries: AIThreadToolEntry[], tools: ToolSet) {
+	for (const [name, tool] of Object.entries(tools)) {
+		if (!tool) {
+			continue;
+		}
 
-	entries.push(entry);
-}
-
-function addAIThreadToolEntries(
-	entries: AIThreadToolEntry[],
-	tools: ToolSet,
-	descriptors: AIThreadToolDescriptor[],
-) {
-	for (const descriptor of descriptors) {
-		addAIThreadToolEntry(entries, {
-			...descriptor,
-			tool: tools[descriptor.name],
+		entries.push({
+			...requireAiToolDefinition(name).model,
+			name,
+			tool,
 		});
 	}
 }

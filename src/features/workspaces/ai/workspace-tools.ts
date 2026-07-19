@@ -1,7 +1,7 @@
 import type { ToolSet } from "ai";
-import { tool } from "ai";
 
 import type { AIThreadContext } from "#/features/workspaces/ai/ai-thread-metadata";
+import { defineAIThreadTool } from "#/features/workspaces/ai/ai-thread-tool";
 import {
 	workspaceToolDefinitions,
 	getWorkspaceToolScopes,
@@ -21,13 +21,13 @@ type WorkspaceThreadToolConfig = {
 function createWorkspaceThreadTool(input: WorkspaceThreadToolConfig) {
 	const { definition } = input;
 
-	return tool({
+	return defineAIThreadTool({
 		description: definition.description,
 		inputSchema: definition.inputSchema,
 		inputExamples: definition.inputExamples,
 		outputSchema: definition.outputSchema,
 		strict: true,
-		execute: async (args, { toolCallId }) => {
+		execute: async (args, context) => {
 			const thread = await requireThreadContext(input.getThreadContext);
 
 			return await definition.execute(
@@ -35,7 +35,7 @@ function createWorkspaceThreadTool(input: WorkspaceThreadToolConfig) {
 				createThreadWorkspaceAccessContext(
 					thread,
 					getWorkspaceToolScopes(definition.access),
-					toolCallId,
+					context.invocationId,
 				),
 			);
 		},

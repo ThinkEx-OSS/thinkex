@@ -4,9 +4,9 @@ import {
 	type QuickActionBinding,
 } from "@cloudflare/think/tools/browser";
 import type { ToolSet } from "ai";
-import { tool } from "ai";
 import { z } from "zod";
-import { searchPublicWeb } from "#/integrations/firecrawl/search";
+import { defineAIThreadTool } from "#/features/workspaces/ai/ai-thread-tool";
+import { publicWebSearchResultSchema, searchPublicWeb } from "#/integrations/firecrawl/search";
 import { assertPublicHttpUrl } from "#/features/workspaces/ai/web-access-policy";
 
 const MAX_BROWSER_RESULT_CHARS = 100_000;
@@ -22,6 +22,14 @@ const webSearchInputSchema = z.object({
 
 const browserPageInputSchema = z.object({
 	url: z.url().describe("Public HTTP(S) URL to load in Cloudflare Browser Run."),
+});
+const webMarkdownOutputSchema = z.object({
+	content: z.string(),
+	truncated: z.boolean(),
+});
+const webLinksOutputSchema = z.object({
+	items: z.array(z.string()),
+	truncated: z.boolean(),
 });
 
 const webSearchInputExamples = [
@@ -51,10 +59,11 @@ export function createAIThreadWebTools(env: Cloudflare.Env): ToolSet {
 	const browser: QuickActionBinding = env.BROWSER;
 
 	return {
-		web_search: tool({
+		web_search: defineAIThreadTool({
 			description: "Find relevant public web pages for a topic or question.",
 			inputSchema: webSearchInputSchema,
 			inputExamples: webSearchInputExamples,
+			outputSchema: publicWebSearchResultSchema,
 			strict: true,
 			execute: async ({ query, limit, include_domains }) =>
 				searchPublicWeb({
@@ -64,10 +73,11 @@ export function createAIThreadWebTools(env: Cloudflare.Env): ToolSet {
 					includeDomains: include_domains,
 				}),
 		}),
-		web_markdown: tool({
+		web_markdown: defineAIThreadTool({
 			description: "Load a public webpage and return its rendered content as Markdown.",
 			inputSchema: browserPageInputSchema,
 			inputExamples: browserPageInputExamples,
+			outputSchema: webMarkdownOutputSchema,
 			strict: true,
 			execute: async ({ url }) => {
 				const safeUrl = assertPublicHttpUrl(url);
@@ -78,10 +88,11 @@ export function createAIThreadWebTools(env: Cloudflare.Env): ToolSet {
 				);
 			},
 		}),
-		web_links: tool({
+		web_links: defineAIThreadTool({
 			description: "Load a public webpage and return its rendered links.",
 			inputSchema: browserPageInputSchema,
 			inputExamples: browserPageInputExamples,
+			outputSchema: webLinksOutputSchema,
 			strict: true,
 			execute: async ({ url }) => {
 				const safeUrl = assertPublicHttpUrl(url);

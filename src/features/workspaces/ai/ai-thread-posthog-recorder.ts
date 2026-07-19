@@ -12,6 +12,7 @@ import type {
 
 import type { AIThreadContext } from "#/features/workspaces/ai/ai-thread-metadata";
 import type { AIToolOutcome } from "#/features/workspaces/ai/ai-tool-outcome";
+import { getAIThreadOrchestrationTelemetryOutput } from "#/features/workspaces/ai/ai-thread-orchestration";
 import {
 	buildAiTelemetryInputFromPrompt,
 	buildAiTelemetryInputFromStep,
@@ -218,7 +219,9 @@ export class AIThreadPostHogRecorder {
 			spanName: ctx.toolName,
 			parentId: turn.currentGenerationSpanId ?? turn.turnRootSpanId,
 			inputState: ctx.input,
-			outputState: ctx.success ? ctx.output : undefined,
+			outputState: ctx.success
+				? getAIThreadToolTelemetryOutput(ctx.toolName, ctx.output)
+				: undefined,
 			latencySeconds: ctx.durationMs / 1000,
 			isError: outcome.status !== "success",
 			error: ctx.success ? undefined : ctx.error,
@@ -532,4 +535,8 @@ export class AIThreadPostHogRecorder {
 			...this.serverEventRuntime,
 		});
 	}
+}
+
+function getAIThreadToolTelemetryOutput(toolName: string, output: unknown) {
+	return toolName === "orchestrate" ? getAIThreadOrchestrationTelemetryOutput(output) : output;
 }

@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 import {
 	firecrawlJsonRequest,
 	getRecordArrayValue,
@@ -8,12 +10,22 @@ import {
 
 const MAX_WEB_SEARCH_SNIPPET_CHARS = 600;
 
+export const publicWebSearchResultSchema = z.object({
+	results: z.array(
+		z.object({
+			title: z.string().nullable(),
+			url: z.string().nullable(),
+			snippet: z.string().nullable(),
+		}),
+	),
+});
+
 export async function searchPublicWeb(input: {
 	env: Cloudflare.Env;
 	query: string;
 	limit: number;
 	includeDomains?: string[];
-}) {
+}): Promise<z.output<typeof publicWebSearchResultSchema>> {
 	const response = await firecrawlJsonRequest({
 		env: input.env,
 		path: "/v2/search",
