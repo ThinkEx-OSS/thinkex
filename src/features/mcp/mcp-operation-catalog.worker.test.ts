@@ -23,7 +23,10 @@ import {
 	mcpOperations,
 } from "#/features/mcp/mcp-operation-catalog";
 import { mcpOpenApiSpec } from "#/features/mcp/mcp-openapi";
-import { requireAiToolDefinition } from "#/features/workspaces/ai/ai-tool-registry";
+import {
+	AI_TOOL_REGISTRY,
+	requireAiToolDefinition,
+} from "#/features/workspaces/ai/ai-tool-registry";
 import { workspaceToolDefinitions } from "#/features/workspaces/operations/workspace-tool-definitions";
 
 describe("MCP operation catalog", () => {
@@ -50,6 +53,21 @@ describe("MCP operation catalog", () => {
 		for (const definition of workspaceToolDefinitions) {
 			expect(requireAiToolDefinition(definition.name).model.access).toBe(definition.access);
 		}
+	});
+
+	it("keeps every workspace operation synchronized with the AI registry", () => {
+		const operationNames = mcpOperations
+			.map(({ name }) => name)
+			.filter((name) => name !== "workspace_list")
+			.sort();
+		const registeredNames = Object.keys(AI_TOOL_REGISTRY)
+			.filter((name) => name.startsWith("workspace_"))
+			.sort();
+
+		for (const name of operationNames) {
+			expect(() => requireAiToolDefinition(name)).not.toThrow();
+		}
+		expect(operationNames).toEqual(registeredNames);
 	});
 
 	it("generates one allowlisted OpenAPI path per operation", () => {

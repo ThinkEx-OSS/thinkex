@@ -20,16 +20,18 @@ export function getAIToolOutcome(ctx: ToolCallResultContext): AIToolOutcome {
 	}
 
 	if (ctx.toolName === "orchestrate") {
-		return (
-			getEmbeddedAIToolOutcome(ctx.output) ?? {
-				failureCodes: ["invalid_orchestration_result"],
-				failedCount: 1,
-				status: "error",
-			}
-		);
+		return getEmbeddedAIToolOutcome(ctx.output) ?? getInvalidAIToolOutcome();
 	}
 
 	return getAIToolOutputOutcome(ctx.toolName, ctx.output);
+}
+
+export function getInvalidAIToolOutcome(): AIToolOutcome {
+	return {
+		failureCodes: ["invalid_orchestration_result"],
+		failedCount: 1,
+		status: "error",
+	};
 }
 
 export function getAIToolOutputOutcome(toolName: string, output: unknown): AIToolOutcome {

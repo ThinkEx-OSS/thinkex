@@ -1,6 +1,10 @@
 import { generateTypes } from "@cloudflare/codemode/ai";
 import { describe, expect, it } from "vitest";
 
+import {
+	AI_TOOL_REGISTRY,
+	requireAiToolDefinition,
+} from "#/features/workspaces/ai/ai-tool-registry";
 import { createAIThreadCodeRunTools } from "#/features/workspaces/ai/code-run-tools";
 import { createAIThreadResearchTools } from "#/features/workspaces/ai/research-tools";
 import { createAIThreadTimeTools } from "#/features/workspaces/ai/time-tools";
@@ -27,6 +31,25 @@ describe("AI Code Mode type generation", () => {
 		expect(declarations).toMatch(
 			/mode: "related"[\s\S]*relation: "similar" \| "citers" \| "references"/,
 		);
+	});
+
+	it("keeps every runtime tool factory synchronized with the registry", () => {
+		const env = {} as Cloudflare.Env;
+		const tools = {
+			...createAIThreadCodeRunTools({ env, sandboxId: "registry-test" }),
+			...createAIThreadResearchTools(env),
+			...createAIThreadTimeTools(),
+			...createAIThreadWebTools(env),
+		};
+		const runtimeNames = ["sandbox_bash", ...Object.keys(tools)].sort();
+		const registeredRuntimeNames = Object.keys(AI_TOOL_REGISTRY)
+			.filter((name) => name !== "orchestrate" && !name.startsWith("workspace_"))
+			.sort();
+
+		for (const name of runtimeNames) {
+			expect(() => requireAiToolDefinition(name)).not.toThrow();
+		}
+		expect(runtimeNames).toEqual(registeredRuntimeNames);
 	});
 });
 

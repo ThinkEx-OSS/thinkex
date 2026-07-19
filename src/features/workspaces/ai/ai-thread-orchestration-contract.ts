@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
 	aggregateAIToolOutcomes,
 	aiToolOutcomeSchema,
+	getInvalidAIToolOutcome,
 	getAIToolOutputOutcome,
 	type AIToolOutcome,
 } from "#/features/workspaces/ai/ai-tool-outcome";
@@ -15,57 +16,63 @@ const orchestrationCallStateSchema = z.enum([
 	"error",
 ]);
 
-const rawOrchestrationCallSchema = z
-	.object({
-		seq: z.number().int().nonnegative(),
-		connector: z.string().min(1),
-		method: z.string().min(1),
-		args: z.unknown(),
-		result: z.unknown().optional(),
-		requiresApproval: z.boolean(),
-		ephemeral: z.boolean().optional(),
-		state: orchestrationCallStateSchema,
-	})
-	.passthrough();
+const rawOrchestrationCallSchema = z.looseObject({
+	seq: z.number().int().nonnegative(),
+	connector: z.string().min(1),
+	method: z.string().min(1),
+	args: z.unknown(),
+	result: z.unknown().optional(),
+	requiresApproval: z.boolean(),
+	ephemeral: z.boolean().optional(),
+	state: orchestrationCallStateSchema,
+});
 
-const rawPendingActionSchema = z
-	.object({
-		executionId: z.string().min(1),
-		seq: z.number().int().nonnegative(),
-		connector: z.string().min(1),
-		method: z.string().min(1),
-		args: z.unknown(),
-	})
-	.passthrough();
+const rawPendingActionSchema = z.looseObject({
+	executionId: z.string().min(1),
+	seq: z.number().int().nonnegative(),
+	connector: z.string().min(1),
+	method: z.string().min(1),
+	args: z.unknown(),
+});
 
-const rawOrchestrationOutputSchema = z.discriminatedUnion("status", [
-	z
-		.object({
+const rawOrchestrationOutputSchema = z
+	.discriminatedUnion("status", [
+		z.looseObject({
 			status: z.literal("completed"),
 			executionId: z.string().min(1),
 			result: z.unknown().optional(),
 			logs: z.array(z.string()).optional(),
 			calls: z.array(rawOrchestrationCallSchema).optional().default([]),
-		})
-		.passthrough(),
-	z
-		.object({
+		}),
+		z.looseObject({
 			status: z.literal("paused"),
 			executionId: z.string().min(1),
 			pending: z.array(rawPendingActionSchema),
 			calls: z.array(rawOrchestrationCallSchema).optional().default([]),
-		})
-		.passthrough(),
-	z
-		.object({
+		}),
+		z.looseObject({
 			status: z.literal("error"),
 			executionId: z.string().min(1),
 			error: z.string(),
 			logs: z.array(z.string()).optional(),
 			calls: z.array(rawOrchestrationCallSchema).optional().default([]),
-		})
-		.passthrough(),
-]);
+		}),
+	])
+	.superRefine((output, context) => {
+		if (output.status !== "paused") {
+			return;
+		}
+
+		for (const [index, pending] of output.pending.entries()) {
+			if (pending.executionId !== output.executionId) {
+				context.addIssue({
+					code: "custom",
+					message: "Pending action belongs to another Code Mode execution",
+					path: ["pending", index, "executionId"],
+				});
+			}
+		}
+	});
 
 const orchestrationCallSchema = z.object({
 	id: z.string(),
@@ -165,7 +172,7 @@ export function getAIThreadOrchestrationTelemetryOutput(output: unknown) {
 	if (!parsed.success) {
 		return {
 			status: "invalid",
-			outcome: invalidOutcome(),
+			outcome: getInvalidAIToolOutcome(),
 		};
 	}
 
@@ -183,15 +190,7 @@ function invalidOrchestrationOutput(output: unknown): AIThreadOrchestrationOutpu
 		executionId: getExecutionId(output),
 		error: "Code Mode returned an invalid execution result",
 		calls: [],
-		outcome: invalidOutcome(),
-	};
-}
-
-function invalidOutcome(): AIToolOutcome {
-	return {
-		failureCodes: ["invalid_orchestration_result"],
-		failedCount: 1,
-		status: "error",
+		outcome: getInvalidAIToolOutcome(),
 	};
 }
 
@@ -223,7 +222,7 @@ function getOrchestrationCallStatus(
 	state: z.output<typeof orchestrationCallStateSchema>,
 	outcome: AIToolOutcome,
 ) {
-	if (state === "pending" || state === "executing") {
+	if (state === "pending") {
 		return "running" as const;
 	}
 

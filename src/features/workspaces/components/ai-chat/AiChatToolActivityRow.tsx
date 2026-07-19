@@ -309,7 +309,8 @@ function ToolActivityIcon({ icon }: { icon: AiToolActivityIconKind }) {
 		case "web":
 			return <Globe2 className="size-3.5" aria-hidden="true" />;
 		default:
-			return <Globe2 className="size-3.5" aria-hidden="true" />;
+			icon satisfies never;
+			return null;
 	}
 }
 

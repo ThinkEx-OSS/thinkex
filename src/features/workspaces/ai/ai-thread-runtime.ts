@@ -188,7 +188,7 @@ function createSandboxTools(workspace: WorkspaceLike): ToolSet {
 
 function getAIThreadOrchestrateDescription(hasState: boolean) {
 	const stateLine = hasState
-		? "- `state.*` is the private assistant sandbox filesystem for scratch files and directories only. Nothing in `state.*` becomes a real ThinkEx workspace item unless you explicitly call a real workspace mutation tool through `tools.*`."
+		? "- `state.*` is the private assistant sandbox filesystem for scratch files and directories only. Nothing in `state.*` becomes a real ThinkEx workspace item."
 		: "- `state.*` is unavailable in this runtime. Use `tools.*` for real workspace, web, and research operations.";
 	const workflowLine = hasState
 		? "3. Call the method shown by the docs, for example `await tools.workspace_list_items(args)` or `await state.readFile(args)`."
@@ -203,7 +203,8 @@ function getAIThreadOrchestrateDescription(hasState: boolean) {
 		"## Boundaries",
 		"",
 		stateLine,
-		"- `tools.*` exposes actual ThinkEx workspace, web, research, and time operations.",
+		"- `tools.*` exposes read-only ThinkEx workspace operations plus web, research, and time operations.",
+		"- Workspace mutations are direct tools outside Code Mode so each call retains its durable idempotency key.",
 		"- `tools.compute` executes private Python for calculations, data analysis, and charts.",
 		"",
 		"## Workflow",

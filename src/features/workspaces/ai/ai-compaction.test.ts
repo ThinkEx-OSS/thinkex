@@ -63,6 +63,12 @@ describe("AI thread compaction", () => {
 						toolName: "legacy_tool",
 						type: "dynamic-tool",
 					},
+					{
+						result: { nested: "object" },
+						toolCallId: "standard-tool-call",
+						toolName: "standard_tool",
+						type: "tool-result",
+					},
 				],
 				role: "assistant",
 			},
@@ -73,6 +79,7 @@ describe("AI thread compaction", () => {
 		expect(prompt).toContain('Input: {"path":"/workspace/report"}');
 		expect(prompt).toContain('Output: {"content":"');
 		expect(prompt).toContain('Output: {"accepted":true}');
+		expect(prompt).toContain('Output: {"nested":"object"}');
 		expect(prompt).not.toContain("[object Object]");
 	});
 });

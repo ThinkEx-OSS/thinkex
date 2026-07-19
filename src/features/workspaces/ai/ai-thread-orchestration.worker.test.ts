@@ -164,6 +164,107 @@ describe("AI thread orchestration", () => {
 		});
 	});
 
+	it("keeps pending calls partial and rejects cross-execution approvals", () => {
+		const valid = normalizeAIThreadOrchestrationOutput({
+			status: "paused",
+			executionId: "execution-paused",
+			pending: [
+				{
+					executionId: "execution-paused",
+					seq: 2,
+					connector: "tools",
+					method: "workspace_edit_item",
+					args: {},
+				},
+			],
+			calls: [
+				{
+					seq: 2,
+					connector: "tools",
+					method: "workspace_edit_item",
+					state: "pending",
+					requiresApproval: true,
+					args: {},
+				},
+			],
+		});
+
+		expect(valid).toMatchObject({
+			status: "paused",
+			outcome: {
+				failureCodes: ["approval_pending"],
+				failedCount: 0,
+				status: "partial",
+			},
+			calls: [
+				{
+					state: "pending",
+					status: "running",
+					outcome: { status: "partial" },
+				},
+			],
+		});
+
+		const invalid = normalizeAIThreadOrchestrationOutput({
+			status: "paused",
+			executionId: "execution-paused",
+			pending: [
+				{
+					executionId: "another-execution",
+					seq: 2,
+					connector: "tools",
+					method: "workspace_edit_item",
+					args: {},
+				},
+			],
+			calls: [],
+		});
+
+		expect(invalid).toMatchObject({
+			status: "error",
+			executionId: "execution-paused",
+			outcome: { failureCodes: ["invalid_orchestration_result"], status: "error" },
+		});
+	});
+
+	it("reports an unfinished executing call as failed, not running", () => {
+		const output = normalizeAIThreadOrchestrationOutput({
+			status: "error",
+			executionId: "execution-interrupted",
+			error: "result could not be recorded",
+			calls: [
+				{
+					seq: 1,
+					connector: "tools",
+					method: "workspace_read_items",
+					state: "executing",
+					requiresApproval: false,
+					args: {},
+				},
+			],
+		});
+
+		expect(output).toMatchObject({
+			status: "error",
+			calls: [
+				{
+					state: "executing",
+					status: "failed",
+					outcome: {
+						failureCodes: ["codemode_tool_error"],
+						failedCount: 1,
+						status: "error",
+					},
+				},
+			],
+			outcome: {
+				failureCodes: ["codemode_tool_error", "codemode_execution_error"],
+				failedCount: 1,
+				status: "error",
+			},
+		});
+	});
+
 	it("removes the final result from the telemetry projection", () => {
 		const telemetry = getAIThreadOrchestrationTelemetryOutput({
 			status: "completed",

@@ -93,7 +93,9 @@ function readTool(ui: AiToolPresentationInput, codemode = true): AiToolDefinitio
 }
 
 function writeTool(ui: AiToolPresentationInput): AiToolDefinition {
-	return toolDefinition("write", true, ui);
+	// Code Mode exposes only an execution ID, not a stable per-call ID. Keep
+	// mutations direct until it can preserve workspace operation idempotency.
+	return toolDefinition("write", false, ui);
 }
 
 function toolDefinition(
