@@ -16,9 +16,12 @@ import type {
 	TurnContext,
 } from "@cloudflare/think";
 import { defaultContextOverflowClassifier, Think } from "@cloudflare/think";
-import { createCompactFunction } from "agents/experimental/memory/utils";
 import { generateText, type LanguageModel, type ToolSet } from "ai";
 
+import {
+	AI_THREAD_COMPACTION_SYSTEM_PROMPT,
+	createAIThreadCompactFunction,
+} from "#/features/workspaces/ai/ai-compaction";
 import type { AIInspectorSnapshot } from "#/features/workspaces/ai/ai-inspector";
 import { resolveChatAttachmentModelMessages } from "#/features/workspaces/ai/chat-attachment-model";
 import type { AIThreadContext } from "#/features/workspaces/ai/ai-thread-metadata";
@@ -126,7 +129,7 @@ export function createAIThreadClass(getUserAIStore: () => typeof UserAIStore) {
 					maxTokens: 1500,
 				})
 				.onCompaction(
-					createCompactFunction({
+					createAIThreadCompactFunction({
 						summarize: (prompt) => this._summarizeCompactionPrompt(prompt),
 					}),
 				)
@@ -409,6 +412,7 @@ export function createAIThreadClass(getUserAIStore: () => typeof UserAIStore) {
 						tags: ["task:compaction"],
 					}),
 					prompt,
+					system: AI_THREAD_COMPACTION_SYSTEM_PROMPT,
 				});
 			} catch (error) {
 				await this._recordAuxiliaryError({
