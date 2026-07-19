@@ -13,8 +13,17 @@ vi.mock("#/integrations/observability/operational-events", () => ({
 	recordOperationalOutcome: vi.fn(),
 }));
 
-import { getMcpOperation, mcpOperations } from "#/features/mcp/mcp-operation-catalog";
+vi.mock("#/features/workspaces/operations/list-workspaces", () => ({
+	listAccountWorkspacesOperation: vi.fn(async () => ({ workspaces: "invalid" })),
+}));
+
+import {
+	executeMcpOperation,
+	getMcpOperation,
+	mcpOperations,
+} from "#/features/mcp/mcp-operation-catalog";
 import { mcpOpenApiSpec } from "#/features/mcp/mcp-openapi";
+import { requireAiToolDefinition } from "#/features/workspaces/ai/ai-tool-registry";
 import { workspaceToolDefinitions } from "#/features/workspaces/operations/workspace-tool-definitions";
 
 describe("MCP operation catalog", () => {
@@ -37,9 +46,29 @@ describe("MCP operation catalog", () => {
 		expect(getMcpOperation("workspace_delete_items")?.effects.destructive).toBe(true);
 	});
 
+	it("keeps AI model access aligned with workspace operation access", () => {
+		for (const definition of workspaceToolDefinitions) {
+			expect(requireAiToolDefinition(definition.name).model.access).toBe(definition.access);
+		}
+	});
+
 	it("generates one allowlisted OpenAPI path per operation", () => {
 		const paths = mcpOpenApiSpec.paths as Record<string, unknown>;
 
 		expect(Object.keys(paths)).toEqual(mcpOperations.map(({ name }) => `/operations/${name}`));
+	});
+
+	it("validates operation output before returning it to MCP", async () => {
+		await expect(
+			executeMcpOperation({
+				name: "workspace_list",
+				body: {},
+				operationId: "mcp:test",
+				principal: {
+					scopes: new Set(["workspaces:read"]),
+					userId: "test-user",
+				},
+			}),
+		).rejects.toThrow();
 	});
 });
