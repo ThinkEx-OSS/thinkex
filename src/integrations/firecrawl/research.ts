@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 import {
 	firecrawlJsonRequest,
 	getBooleanValue,
@@ -10,12 +12,57 @@ import {
 
 const MAX_RESEARCH_TEXT_CHARS = 4_000;
 
+export const researchPaperSchema = z.object({
+	paper_id: z.string().nullish(),
+	primary_id: z.string().nullable(),
+	title: z.string().nullable(),
+	abstract: z.string().nullish(),
+	score: z.number().nullish(),
+	url: z.string().nullable(),
+});
+
+export const researchGithubResultSchema = z.object({
+	repo: z.string().nullable(),
+	url: z.string().nullable(),
+	title: z.string().nullable(),
+	snippet: z.string().nullable(),
+});
+
+export const researchDiscoverResultSchema = z.object({
+	papers: z.array(researchPaperSchema),
+	github: z.array(researchGithubResultSchema),
+});
+
+export const researchPassagesResultSchema = z.object({
+	paper: researchPaperSchema,
+	passages: z.array(
+		z.object({
+			text: z.string().nullable(),
+			score: z.number().nullable(),
+			section: z.string().nullable(),
+		}),
+	),
+});
+
+export const researchRelatedResultSchema = z.object({
+	paper: researchPaperSchema,
+	relation: z.enum(["similar", "citers", "references"]),
+	papers: z.array(researchPaperSchema),
+	truncated: z.boolean(),
+	pool_size: z.number().nullable(),
+});
+
+export const researchDeepenResultSchema = z.union([
+	researchPassagesResultSchema,
+	researchRelatedResultSchema,
+]);
+
 export async function discoverResearch(input: {
 	env: Cloudflare.Env;
 	query: string;
 	limit: number;
 	includeGithub: boolean;
-}) {
+}): Promise<z.output<typeof researchDiscoverResultSchema>> {
 	const [papers, github] = await Promise.all([
 		searchResearchPapers(input),
 		input.includeGithub ? searchResearchGithub(input) : Promise.resolve([]),
@@ -32,7 +79,7 @@ export async function deepenResearchWithPassages(input: {
 	paperId: string;
 	question: string;
 	limit: number;
-}) {
+}): Promise<z.output<typeof researchPassagesResultSchema>> {
 	const response = await firecrawlJsonRequest({
 		env: input.env,
 		path: `/v2/search/research/papers/${encodeURIComponent(input.paperId)}?${new URLSearchParams({
@@ -54,7 +101,7 @@ export async function deepenResearchWithRelated(input: {
 	relation: "similar" | "citers" | "references";
 	intent: string;
 	limit: number;
-}) {
+}): Promise<z.output<typeof researchRelatedResultSchema>> {
 	const [paperResponse, relatedResponse] = await Promise.all([
 		firecrawlJsonRequest({
 			env: input.env,

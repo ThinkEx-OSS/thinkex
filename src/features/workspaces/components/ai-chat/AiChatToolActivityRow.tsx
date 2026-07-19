@@ -13,7 +13,10 @@ import { LazyMotion, domAnimation, m, useReducedMotion } from "motion/react";
 import type { ReactNode } from "react";
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "#/components/ui/collapsible";
-import { getAiToolActivityIconKind } from "#/features/workspaces/ai/ai-tool-presentation";
+import type {
+	AiToolActivityIconKind,
+	AiToolPresentation,
+} from "#/features/workspaces/ai/ai-tool-registry";
 import {
 	AiChatComputeDetails,
 	AiChatComputeImages,
@@ -134,12 +137,17 @@ function ActivitySummary({
 	canExpand = false,
 	sourcePreviews,
 }: {
-	activity: Pick<AiChatToolActivity, "status" | "summary" | "toolName">;
+	activity: {
+		presentation: AiToolPresentation;
+		status: AiChatToolActivity["status"];
+		summary: string;
+	};
 	canExpand?: boolean;
 	sourcePreviews: ToolSourcePreview[];
 }) {
 	const isRunning = activity.status === "running";
-	const label = activity.summary;
+	const { presentation } = activity;
+	const label = `${presentation.title}: ${activity.summary}`;
 
 	return (
 		<div
@@ -149,12 +157,13 @@ function ActivitySummary({
 			className="group/tool-row inline-flex min-w-0 max-w-full items-center gap-1.5 py-0.5 text-sm text-muted-foreground"
 		>
 			<span className="grid size-4 shrink-0 place-items-center self-center text-muted-foreground/80">
-				<ToolActivityIcon toolName={activity.toolName} />
+				<ToolActivityIcon icon={presentation.icon} />
 			</span>
-			<span
-				className={cn("min-w-0 truncate font-medium text-foreground/90", isRunning && "shimmer")}
-			>
-				{label}
+			<span className="grid min-w-0 leading-tight">
+				<span className={cn("truncate font-medium text-foreground/90", isRunning && "shimmer")}>
+					{presentation.title}
+				</span>
+				<span className="truncate text-muted-foreground text-xs">{activity.summary}</span>
 			</span>
 			<InlineSourceFavicons sources={sourcePreviews.slice(0, INLINE_SOURCE_LIMIT)} />
 			<ToolStatusIcon status={activity.status} />
@@ -287,8 +296,8 @@ function Favicon({
 	);
 }
 
-function ToolActivityIcon({ toolName }: { toolName: string }) {
-	switch (getAiToolActivityIconKind(toolName)) {
+function ToolActivityIcon({ icon }: { icon: AiToolActivityIconKind }) {
+	switch (icon) {
 		case "code":
 			return <Code2 className="size-3.5" aria-hidden="true" />;
 		case "edit":
@@ -300,7 +309,8 @@ function ToolActivityIcon({ toolName }: { toolName: string }) {
 		case "web":
 			return <Globe2 className="size-3.5" aria-hidden="true" />;
 		default:
-			return <Globe2 className="size-3.5" aria-hidden="true" />;
+			icon satisfies never;
+			return null;
 	}
 }
 

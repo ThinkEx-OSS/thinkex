@@ -5,8 +5,8 @@ import {
 	type SandboxOptions,
 } from "@cloudflare/sandbox";
 import type { ToolSet } from "ai";
-import { tool } from "ai";
 import { z } from "zod";
+import { defineAIThreadTool } from "#/features/workspaces/ai/ai-thread-tool";
 
 const COMPUTE_LANGUAGE = "python" as const;
 const COMPUTE_RUN_TIMEOUT_MS = 120_000;
@@ -20,6 +20,38 @@ const AI_THREAD_SANDBOX_OPTIONS = {
 
 const codeRunInputSchema = z.object({
 	code: z.string().min(1).describe("Python code to execute in the private code sandbox."),
+});
+const codeRunErrorSchema = z.object({
+	name: z.string(),
+	message: z.string(),
+	traceback: z.array(z.string()),
+	line_number: z.number().int().optional(),
+	code: z.string().optional(),
+	retryable: z.boolean().optional(),
+});
+const codeRunOutputSchema = z.object({
+	language: z.literal(COMPUTE_LANGUAGE),
+	execution_count: z.number().int().optional(),
+	logs: z.object({
+		stdout: z.array(z.string()),
+		stderr: z.array(z.string()),
+	}),
+	results: z.array(
+		z.object({
+			text: z.string().optional(),
+			html: z.string().optional(),
+			png: z.string().optional(),
+			jpeg: z.string().optional(),
+			svg: z.string().optional(),
+			latex: z.string().optional(),
+			markdown: z.string().optional(),
+			javascript: z.string().optional(),
+			json: z.unknown().optional(),
+			chart: z.unknown().optional(),
+			data: z.unknown().optional(),
+		}),
+	),
+	error: codeRunErrorSchema.optional(),
 });
 
 const codeRunInputExamples = [
@@ -53,11 +85,12 @@ export function createAIThreadCodeRunTools(input: {
 	sandboxId: string;
 }): ToolSet {
 	return {
-		compute: tool({
+		compute: defineAIThreadTool({
 			description:
 				"Execute private Python code for calculations, data analysis, tables, and charts. Uses the Sandbox default Python context, so variables can persist across compute calls in the same chat thread. The chat UI renders returned image results directly; do not paste base64 image data into the final answer.",
 			inputSchema: codeRunInputSchema,
 			inputExamples: codeRunInputExamples,
+			outputSchema: codeRunOutputSchema,
 			strict: true,
 			execute: async (args) => {
 				const { code } = args as CodeRunInput;
@@ -82,7 +115,7 @@ export function createAIThreadCodeRunTools(input: {
 	};
 }
 
-function serializeCodeRunResult(result: CodeRunResult) {
+function serializeCodeRunResult(result: CodeRunResult): z.output<typeof codeRunOutputSchema> {
 	return {
 		language: COMPUTE_LANGUAGE,
 		execution_count: result.executionCount,
@@ -115,7 +148,7 @@ function serializeCodeRunResultItem(item: CodeRunResultItem) {
 	};
 }
 
-function serializeCodeRunFailure(error: unknown) {
+function serializeCodeRunFailure(error: unknown): z.output<typeof codeRunOutputSchema> {
 	const details = getCodeRunFailureDetails(error);
 
 	return {

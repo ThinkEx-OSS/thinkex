@@ -1,6 +1,6 @@
 import type { ToolSet } from "ai";
-import { tool } from "ai";
 import { z } from "zod";
+import { defineAIThreadTool } from "#/features/workspaces/ai/ai-thread-tool";
 
 const DAY_IN_MILLISECONDS = 24 * 60 * 60 * 1000;
 const timeGetCurrentInputExamples = [{ input: {} }, { input: { time_zone: "America/New_York" } }];
@@ -67,7 +67,7 @@ const timeCalculateRelativeOutputSchema = z.object({
 
 export function createAIThreadTimeTools(options?: { defaultTimeZone?: string }): ToolSet {
 	return {
-		time_get_current: tool({
+		time_get_current: defineAIThreadTool({
 			description:
 				"Return the current time as exact UTC timestamps plus formatted local time in a requested IANA time zone. Defaults to the user's current time zone when available.",
 			inputSchema: timeGetCurrentInputSchema,
@@ -79,7 +79,7 @@ export function createAIThreadTimeTools(options?: { defaultTimeZone?: string }):
 				return formatTimeToolResult(new Date(), timeZone);
 			},
 		}),
-		time_calculate_relative: tool({
+		time_calculate_relative: defineAIThreadTool({
 			description:
 				"Return a past exact time relative to now and formatted local time in an optional IANA time zone. Use for exact date filters like 24 hours ago, 7 days ago, or 3 months ago.",
 			inputSchema: timeRelativeOffsetInputSchema,

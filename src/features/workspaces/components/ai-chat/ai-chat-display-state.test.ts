@@ -37,6 +37,11 @@ describe("Code Mode tool groups", () => {
 		expect(group.children).toEqual([
 			{
 				id: "1:tools:workspace_list_items",
+				presentation: {
+					icon: "file",
+					title: "List workspace",
+					visibility: "visible",
+				},
 				status: "completed",
 				summary: "Listed 1 item",
 				toolName: "workspace_list_items",
@@ -62,11 +67,38 @@ describe("Code Mode tool groups", () => {
 		expect(group.children).toEqual([
 			{
 				id: "tool-1",
+				presentation: {
+					icon: "file",
+					title: "List workspace",
+					visibility: "visible",
+				},
 				status: "completed",
 				summary: "Listed 0 items",
 				toolName: "workspace_list_items",
 			},
 		]);
+	});
+
+	it("applies registry visibility to nested Code Mode calls", () => {
+		const output = {
+			status: "completed",
+			calls: [
+				{
+					seq: 1,
+					connector: "tools",
+					method: "time_get_current",
+					args: {},
+					result: { isoUtc: "2026-01-01T00:00:00Z" },
+					requiresApproval: false,
+					state: "applied",
+				},
+			],
+		};
+		const [group] = getDisplayableParts(
+			createMessage([createOrchestratePart(output)]),
+		) as AiChatToolGroupPart[];
+
+		expect(group.children).toEqual([]);
 	});
 
 	it("does not absorb sibling tools when a durable call log is malformed", () => {

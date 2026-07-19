@@ -1,10 +1,13 @@
 import type { ToolSet } from "ai";
-import { tool, zodSchema } from "ai";
+import { zodSchema } from "ai";
 import { z } from "zod";
+import { defineAIThreadTool } from "#/features/workspaces/ai/ai-thread-tool";
 import {
 	deepenResearchWithPassages,
 	deepenResearchWithRelated,
 	discoverResearch,
+	researchDeepenResultSchema,
+	researchDiscoverResultSchema,
 } from "#/integrations/firecrawl/research";
 
 const researchDiscoverInputSchema = z.object({
@@ -16,27 +19,23 @@ const researchDiscoverInputSchema = z.object({
 		.describe("Whether to include related implementation discussions and repositories."),
 });
 
-const researchDeepenInputSchema = z.object({
-	mode: z.enum(["passages", "related"]).describe("Whether to read passages or find related work."),
-	paper_id: z.string().trim().min(1).describe("Paper identifier."),
-	question: z
-		.string()
-		.trim()
-		.min(1)
-		.optional()
-		.describe("Required when mode is passages. Question to answer from the paper."),
-	relation: z
-		.enum(["similar", "citers", "references"])
-		.optional()
-		.describe("Required when mode is related. Which related papers to return."),
-	intent: z
-		.string()
-		.trim()
-		.min(1)
-		.optional()
-		.describe("Required when mode is related. What kind of related work to prioritize."),
-	limit: z.number().int().min(1).max(50).optional().describe("Maximum results to return."),
-});
+const researchDeepenInputSchema = z.discriminatedUnion("mode", [
+	z.object({
+		mode: z.literal("passages"),
+		paper_id: z.string().trim().min(1).describe("Paper identifier."),
+		question: z.string().trim().min(1).describe("Question to answer from the paper."),
+		limit: z.number().int().min(1).max(40).optional().describe("Maximum passages to return."),
+	}),
+	z.object({
+		mode: z.literal("related"),
+		paper_id: z.string().trim().min(1).describe("Paper identifier."),
+		relation: z
+			.enum(["similar", "citers", "references"])
+			.describe("Which related papers to return."),
+		intent: z.string().trim().min(1).describe("What kind of related work to prioritize."),
+		limit: z.number().int().min(1).max(50).optional().describe("Maximum papers to return."),
+	}),
+]);
 
 const researchDiscoverInputExamples = [
 	{
@@ -55,11 +54,12 @@ const researchDiscoverInputExamples = [
 
 export function createAIThreadResearchTools(env: Cloudflare.Env): ToolSet {
 	return {
-		research_discover: tool({
+		research_discover: defineAIThreadTool({
 			description:
 				"Find relevant research papers for a topic or question. Optionally include related implementation discussions and repositories.",
 			inputSchema: researchDiscoverInputSchema,
 			inputExamples: researchDiscoverInputExamples,
+			outputSchema: researchDiscoverResultSchema,
 			strict: true,
 			execute: async ({ query, limit, include_github }) =>
 				discoverResearch({
@@ -69,30 +69,19 @@ export function createAIThreadResearchTools(env: Cloudflare.Env): ToolSet {
 					includeGithub: include_github ?? false,
 				}),
 		}),
-		research_deepen: tool({
+		research_deepen: defineAIThreadTool({
 			description: "Go deeper on one paper by reading relevant passages or finding related work.",
 			inputSchema: zodSchema(researchDeepenInputSchema),
+			outputSchema: researchDeepenResultSchema,
 			strict: true,
 			execute: async (input: z.infer<typeof researchDeepenInputSchema>) => {
 				if (input.mode === "passages") {
-					if (!input.question) {
-						throw new Error("question is required when mode is passages.");
-					}
-
 					return deepenResearchWithPassages({
 						env,
 						paperId: input.paper_id,
 						question: input.question,
 						limit: Math.min(input.limit ?? 6, 40),
 					});
-				}
-
-				if (!input.relation) {
-					throw new Error("relation is required when mode is related.");
-				}
-
-				if (!input.intent) {
-					throw new Error("intent is required when mode is related.");
 				}
 
 				return deepenResearchWithRelated({

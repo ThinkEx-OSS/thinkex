@@ -28,11 +28,40 @@ export interface McpOperation {
 	requiredScope: McpScope;
 }
 
+interface McpOperationDefinition<TInputSchema extends z.ZodType> extends Omit<
+	McpOperation,
+	"execute" | "inputSchema"
+> {
+	execute: (
+		input: z.output<TInputSchema>,
+		principal: McpPrincipal,
+		operationId: string,
+	) => Promise<unknown>;
+	inputSchema: TInputSchema;
+}
+
+function defineMcpOperation<TInputSchema extends z.ZodType>(
+	definition: McpOperationDefinition<TInputSchema>,
+): McpOperation {
+	return {
+		...definition,
+		execute: async (input, principal, operationId) => {
+			const output = await definition.execute(
+				definition.inputSchema.parse(input),
+				principal,
+				operationId,
+			);
+
+			return definition.outputSchema.parse(output);
+		},
+	};
+}
+
 const listWorkspacesOutputSchema = z.object({
 	workspaces: z.array(workspaceSummarySchema),
 });
 
-const listWorkspacesOperation: McpOperation = {
+const listWorkspacesOperation = defineMcpOperation({
 	name: "workspace_list",
 	access: "read",
 	description:
@@ -49,7 +78,7 @@ const listWorkspacesOperation: McpOperation = {
 			}),
 		);
 	},
-};
+});
 
 function adaptWorkspaceOperation(
 	definition: (typeof workspaceToolDefinitions)[number],
@@ -58,12 +87,7 @@ function adaptWorkspaceOperation(
 		workspaceId: z.string().min(1).describe("The workspace ID returned by workspace_list."),
 		args: definition.inputSchema,
 	});
-	const envelopeSchema = z.object({
-		workspaceId: z.string().min(1),
-		args: z.unknown(),
-	});
-
-	return {
+	return defineMcpOperation({
 		name: definition.name,
 		access: definition.access,
 		description: definition.description,
@@ -72,19 +96,17 @@ function adaptWorkspaceOperation(
 		outputSchema: definition.outputSchema,
 		requiredScope: definition.access === "read" ? "workspaces:read" : "workspaces:write",
 		execute: async (input, principal, operationId) => {
-			const parsed = envelopeSchema.parse(input);
-
 			return await definition.executeUnknown(
-				parsed.args,
+				input.args,
 				createWorkspaceAccessContext({
 					operationId,
 					scopes: getWorkspaceToolScopes(definition.access),
 					userId: principal.userId,
-					workspaceId: parsed.workspaceId,
+					workspaceId: input.workspaceId,
 				}),
 			);
 		},
-	};
+	});
 }
 
 export const mcpOperations: readonly McpOperation[] = [

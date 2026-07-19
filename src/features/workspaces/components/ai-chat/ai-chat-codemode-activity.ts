@@ -1,6 +1,10 @@
 import type { ToolLogEntry } from "@cloudflare/codemode";
 
 import {
+	getAiToolPresentation,
+	type AiToolPresentation,
+} from "#/features/workspaces/ai/ai-tool-registry";
+import {
 	getFinishedToolReceipt,
 	getRunningToolReceipt,
 	type AiChatToolReceiptStatus,
@@ -8,6 +12,7 @@ import {
 
 export interface AiChatToolChildActivity {
 	id: string;
+	presentation: AiToolPresentation;
 	status: AiChatToolReceiptStatus;
 	summary: string;
 	toolName: string;
@@ -23,11 +28,37 @@ const callStatusByState = {
 
 export function getCodemodeCallActivities(output: unknown): AiChatToolChildActivity[] | undefined {
 	const calls = getCalls(output);
-	return calls?.filter(isToolLogEntry).map(toToolActivity);
+	return calls?.flatMap((call) => {
+		if (isCompactToolActivity(call)) {
+			const presentation = getAiToolPresentation(call.toolName);
+			return presentation.visibility === "visible" ? [{ ...call, presentation }] : [];
+		}
+
+		return isToolLogEntry(call) && getAiToolPresentation(call.method).visibility === "visible"
+			? [toToolActivity(call)]
+			: [];
+	});
+}
+
+function isCompactToolActivity(
+	value: unknown,
+): value is Omit<AiChatToolChildActivity, "presentation"> {
+	if (!value || typeof value !== "object") {
+		return false;
+	}
+	const record = value as Record<string, unknown>;
+
+	return (
+		typeof record.id === "string" &&
+		isReceiptStatus(record.status) &&
+		typeof record.summary === "string" &&
+		typeof record.toolName === "string"
+	);
 }
 
 function toToolActivity(call: ToolLogEntry): AiChatToolChildActivity {
 	const status = callStatusByState[call.state];
+	const presentation = getAiToolPresentation(call.method);
 	const receipt =
 		status === "running"
 			? getRunningToolReceipt({ toolInput: call.args, toolName: call.method })
@@ -41,6 +72,7 @@ function toToolActivity(call: ToolLogEntry): AiChatToolChildActivity {
 
 	return {
 		id: `${call.seq}:${call.connector}:${call.method}`,
+		presentation,
 		status: receipt.status,
 		summary: needsApproval ? `Approval required · ${receipt.summary}` : receipt.summary,
 		toolName: call.method,
@@ -73,4 +105,8 @@ function isToolLogEntry(value: unknown): value is ToolLogEntry {
 
 function isCallState(value: unknown): value is ToolLogEntry["state"] {
 	return typeof value === "string" && Object.hasOwn(callStatusByState, value);
+}
+
+function isReceiptStatus(value: unknown): value is AiChatToolReceiptStatus {
+	return value === "completed" || value === "failed" || value === "running";
 }
