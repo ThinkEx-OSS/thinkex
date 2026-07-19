@@ -6,7 +6,10 @@ import type {
 	AiChatStatus,
 	AiChatToolPart,
 } from "#/features/workspaces/components/ai-chat/types";
-import { getAiToolPresentation } from "#/features/workspaces/ai/ai-tool-presentation";
+import {
+	getAiToolPresentation,
+	type AiToolPresentation,
+} from "#/features/workspaces/ai/ai-tool-registry";
 import {
 	getCodemodeCallActivities,
 	type AiChatToolChildActivity,
@@ -33,6 +36,7 @@ export type AssistantRowDisplay =
 
 export interface AiChatToolActivity {
 	detail: AiChatToolPart;
+	presentation: AiToolPresentation;
 	status: "completed" | "failed" | "running";
 	summary: string;
 	toolName: string;
@@ -191,6 +195,7 @@ function getLegacyCodemodeChildren(
 			? [
 					{
 						id: part.toolCallId,
+						presentation: activity.presentation,
 						status: activity.status,
 						summary: activity.summary,
 						toolName: activity.toolName,
@@ -231,10 +236,12 @@ export function getToolActivityForPart(part: AiChatToolPart): AiChatToolActivity
 	}
 
 	const toolName = getToolPartName(part);
+	const presentation = getAiToolPresentation(toolName);
 	const receipt = getToolActivityReceipt(part, toolName);
 
 	return {
 		detail: part,
+		presentation,
 		status: receipt.status,
 		summary: receipt.summary,
 		toolName,
