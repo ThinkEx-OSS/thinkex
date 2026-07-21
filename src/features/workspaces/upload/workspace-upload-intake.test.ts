@@ -9,7 +9,7 @@ import {
 } from "#/features/workspaces/upload/workspace-upload-intake";
 
 describe("workspace upload intake", () => {
-	it("accepts a binary file at the 200 MB limit", () => {
+	it("accepts a binary file at the 100 MB limit", () => {
 		expect(
 			validateWorkspaceUpload({
 				contentType: "application/pdf",
@@ -17,6 +17,19 @@ describe("workspace upload intake", () => {
 				sizeBytes: workspaceFileUploadLimits.maxFileBytes,
 			}),
 		).toMatchObject({ ok: true, plan: { kind: "file" } });
+	});
+
+	it("rejects a binary file above the 100 MB limit", () => {
+		expect(
+			validateWorkspaceUpload({
+				contentType: "application/pdf",
+				fileName: "research.pdf",
+				sizeBytes: workspaceFileUploadLimits.maxFileBytes + 1,
+			}),
+		).toMatchObject({
+			error: { code: "SELECTION_TOO_LARGE", status: 413 },
+			ok: false,
+		});
 	});
 
 	it("bounds document imports before they are materialized in Worker memory", () => {

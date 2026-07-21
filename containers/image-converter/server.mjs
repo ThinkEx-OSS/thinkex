@@ -8,7 +8,7 @@ import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
 const port = 8080;
-const maxInputBytes = 200 * 1024 * 1024;
+const maxInputBytes = 100 * 1024 * 1024;
 const jpegQuality = 92;
 const maxOutputBytes = 1024 * 1024;
 const outputProfiles = [
