@@ -159,12 +159,12 @@ function ActivitySummary({
 			<span className="grid size-4 shrink-0 place-items-center self-center text-muted-foreground/80">
 				<ToolActivityIcon icon={presentation.icon} />
 			</span>
-			<span className="grid min-w-0 leading-tight">
-				<span className={cn("truncate font-medium text-foreground/90", isRunning && "shimmer")}>
-					{presentation.title}
-				</span>
-				<span className="truncate text-muted-foreground text-xs">{activity.summary}</span>
+			<span
+				className={cn("shrink-0 truncate font-medium text-foreground/90", isRunning && "shimmer")}
+			>
+				{presentation.title}
 			</span>
+			<span className="min-w-0 truncate text-muted-foreground text-xs">{activity.summary}</span>
 			<InlineSourceFavicons sources={sourcePreviews.slice(0, INLINE_SOURCE_LIMIT)} />
 			<ToolStatusIcon status={activity.status} />
 			{canExpand ? (
