@@ -145,7 +145,7 @@ export function validateWorkspaceUpload(input: {
 		return {
 			error: {
 				code: "SELECTION_TOO_LARGE",
-				message: "Upload up to 200 MB at once.",
+				message: "Upload up to 100 MB at once.",
 				status: 413,
 			},
 			ok: false,
@@ -199,7 +199,7 @@ export function getWorkspaceUploadSelectionValidationError(input: {
 	if (input.selectionBytes + input.file.size > workspaceFileUploadLimits.maxSelectionBytes) {
 		return {
 			code: "SELECTION_TOO_LARGE",
-			message: "Upload up to 200 MB at once.",
+			message: "Upload up to 100 MB at once.",
 			status: 413,
 		};
 	}

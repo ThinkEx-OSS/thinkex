@@ -77,20 +77,6 @@ export function capturePostHogClientException(error: Error, properties?: Record<
 	posthog.captureException(error, properties);
 }
 
-function normalizeBrowserError(value: unknown, fallbackMessage: string) {
-	if (value instanceof Error) {
-		return value;
-	}
-
-	if (typeof value === "string" && value.trim()) {
-		return new Error(value);
-	}
-
-	const error = new Error(fallbackMessage);
-	(error as Error & { cause?: unknown }).cause = value;
-	return error;
-}
-
 type AuthenticatedSession = NonNullable<AuthSession>;
 
 function identifyPostHogUser(session: AuthenticatedSession) {
@@ -137,43 +123,6 @@ function PostHogAuthSync() {
 	return null;
 }
 
-function PostHogGlobalErrorCapture() {
-	useEffect(() => {
-		const handleError = (event: ErrorEvent) => {
-			capturePostHogClientException(
-				normalizeBrowserError(event.error ?? event.message, "Unhandled browser error"),
-				{
-					colno: event.colno,
-					error_boundary: "window.error",
-					filename: event.filename,
-					lineno: event.lineno,
-					message: event.message,
-				},
-			);
-		};
-
-		const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
-			capturePostHogClientException(
-				normalizeBrowserError(event.reason, "Unhandled promise rejection"),
-				{
-					error_boundary: "window.unhandledrejection",
-					reason_type: typeof event.reason,
-				},
-			);
-		};
-
-		window.addEventListener("error", handleError);
-		window.addEventListener("unhandledrejection", handleUnhandledRejection);
-
-		return () => {
-			window.removeEventListener("error", handleError);
-			window.removeEventListener("unhandledrejection", handleUnhandledRejection);
-		};
-	}, []);
-
-	return null;
-}
-
 export default function PostHogProvider({ children }: { children: ReactNode }) {
 	if (!isPostHogEnabled) {
 		return children;
@@ -181,7 +130,6 @@ export default function PostHogProvider({ children }: { children: ReactNode }) {
 
 	return (
 		<PostHogReactProvider client={posthog}>
-			<PostHogGlobalErrorCapture />
 			<PostHogAuthSync />
 			{children}
 		</PostHogReactProvider>

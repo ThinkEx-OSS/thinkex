@@ -19,7 +19,7 @@ const parser = new LiteParse({
 	quiet: true,
 });
 const parseTimeoutMs = 90_000;
-const maxInputBytes = 200 * 1024 * 1024;
+const maxInputBytes = 100 * 1024 * 1024;
 const execFileAsync = promisify(execFile);
 
 createServer(async (request, response) => {
