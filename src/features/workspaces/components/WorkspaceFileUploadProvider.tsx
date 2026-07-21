@@ -43,7 +43,7 @@ export function WorkspaceFileUploadProvider({
 			onSuccess: (command) => {
 				applyWorkspaceEventToCache(queryClient, command.event);
 			},
-		}).catch(() => undefined);
+		});
 	};
 
 	const requestFileSelection = (onSelectFiles: (files: File[]) => void) => {

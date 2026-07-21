@@ -48,9 +48,9 @@ export function shouldIgnoreWorkspaceClientMutationEcho(event: WorkspaceRealtime
 	return true;
 }
 
-export function prepareWorkspaceClientMutationInput<TInput extends WorkspaceClientMutationInput>(
-	input: TInput,
-) {
+export function prepareWorkspaceClientMutationInput<TInput extends object>(
+	input: TInput & WorkspaceClientMutationInput,
+): TInput & { clientMutationId: string } {
 	const clientMutationId = input.clientMutationId ?? crypto.randomUUID();
 	trackWorkspaceClientMutationId(clientMutationId);
 
