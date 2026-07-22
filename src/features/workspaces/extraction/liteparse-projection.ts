@@ -61,6 +61,7 @@ export async function publishLiteParseProjection(
 					providerMode: "fast",
 					sourceHash: object.etag,
 					metadataJson: {
+						hasExtractableText: projection.hasExtractableText,
 						markdownLength: projection.manifest.markdownLength,
 						pageCount: projection.manifest.pageCount,
 						provisional: true,
