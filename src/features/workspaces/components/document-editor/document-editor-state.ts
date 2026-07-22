@@ -15,6 +15,8 @@ export type DocumentInlineMark =
 	| "inlineMath"
 	| "italic"
 	| "link"
+	| "subscript"
+	| "superscript"
 	| "underline"
 	| "strike"
 	| "code";
@@ -55,6 +57,8 @@ const emptyDocumentEditorUiState: DocumentEditorUiState = {
 		italic: false,
 		link: false,
 		strike: false,
+		subscript: false,
+		superscript: false,
 		underline: false,
 	},
 	textAlign: "left",
@@ -87,6 +91,14 @@ export function getActiveInlineFormat(
 
 	if (inlineMarks.strike) {
 		return "strike";
+	}
+
+	if (inlineMarks.subscript) {
+		return "subscript";
+	}
+
+	if (inlineMarks.superscript) {
+		return "superscript";
 	}
 
 	if (inlineMarks.code) {
@@ -122,6 +134,8 @@ function getDocumentEditorUiState(editor: Editor): DocumentEditorUiState {
 			italic: editor.isActive("italic"),
 			link: editor.isActive("link"),
 			strike: editor.isActive("strike"),
+			subscript: editor.isActive("subscript"),
+			superscript: editor.isActive("superscript"),
 			underline: editor.isActive("underline"),
 		},
 		textAlign: getActiveTextAlign(editor),

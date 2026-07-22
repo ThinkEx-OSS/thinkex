@@ -20,6 +20,8 @@ import {
 	Pilcrow,
 	Sigma,
 	Strikethrough,
+	Subscript,
+	Superscript,
 	Table2,
 	Underline,
 } from "lucide-react";
@@ -204,6 +206,22 @@ export const documentInlineActions: DocumentToolbarAction[] = [
 		run: (editor) => editor.chain().focus().toggleStrike().run(),
 	},
 	{
+		id: "subscript",
+		icon: <Subscript />,
+		label: "Subscript",
+		active: (editorState) => editorState.inlineMarks.subscript,
+		disabled: isCodeBlock,
+		run: (editor) => editor.chain().focus().toggleSubscript().run(),
+	},
+	{
+		id: "superscript",
+		icon: <Superscript />,
+		label: "Superscript",
+		active: (editorState) => editorState.inlineMarks.superscript,
+		disabled: isCodeBlock,
+		run: (editor) => editor.chain().focus().toggleSuperscript().run(),
+	},
+	{
 		id: "inline-code",
 		icon: <Code />,
 		label: "Inline code",
@@ -296,6 +314,10 @@ export function getInlineMarkIcon(mark: DocumentInlineMark) {
 			return <Link2 />;
 		case "strike":
 			return <Strikethrough />;
+		case "subscript":
+			return <Subscript />;
+		case "superscript":
+			return <Superscript />;
 		case "underline":
 			return <Underline />;
 	}
