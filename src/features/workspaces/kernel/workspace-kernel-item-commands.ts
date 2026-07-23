@@ -95,7 +95,10 @@ export class WorkspaceKernelItemCommands {
 				: null;
 
 			if (priorEvent?.type === "workspace.item.created" && priorEvent.payload.item.id === id) {
-				return { command: { result: priorEvent.payload.item, event: priorEvent }, status: "applied" };
+				return {
+					command: { result: priorEvent.payload.item, event: priorEvent },
+					status: "applied",
+				};
 			}
 
 			// A genuine id collision (or a replay whose original mutation is no
