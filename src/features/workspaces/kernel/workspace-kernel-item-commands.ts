@@ -82,7 +82,26 @@ export class WorkspaceKernelItemCommands {
 		const now = Date.now();
 
 		if (this.store.getItemRowIncludingDeleted(id)) {
-			throw new Error("Workspace item id already exists.");
+			// The id already exists. A retried or replayed create RPC (agents
+			// WebSocket reconnect, server-fn retry) re-delivers the same id and
+			// clientMutationId, so if we already committed this exact create we
+			// treat the retry as an idempotent no-op and echo the original event
+			// instead of throwing an unhandled error.
+			const priorEvent = input.clientMutationId
+				? this.events.findCommittedEvent({
+						clientMutationId: input.clientMutationId,
+						type: "workspace.item.created",
+					})
+				: null;
+
+			if (priorEvent?.type === "workspace.item.created" && priorEvent.payload.item.id === id) {
+				return { command: { result: priorEvent.payload.item, event: priorEvent }, status: "applied" };
+			}
+
+			// A genuine id collision (or a replay whose original mutation is no
+			// longer recoverable): surface a typed conflict so callers can handle
+			// it the same way as a name conflict rather than a raw Error.
+			return { conflict: { code: "id_conflict", itemId: id }, status: "conflict" };
 		}
 
 		this.store.assertParentIsValid(parentId);
