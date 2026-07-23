@@ -90,7 +90,7 @@
 		"@tanstack/router-plugin": "^1.168.19",
 		"@tiptap/core": "^3.27.3",
 		"@tiptap/extension-character-count": "^3.27.3",
-		"@tiptap/extension-code-block": "^3.27.3",
+		"@tiptap/extension-code-block": "^3.28.0",
 		"@tiptap/extension-collaboration": "^3.27.3",
 		"@tiptap/extension-collaboration-caret": "^3.27.3",
 		"@tiptap/extension-highlight": "^3.27.3",
