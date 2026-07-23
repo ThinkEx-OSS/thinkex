@@ -93,13 +93,22 @@ export interface WorkspaceKernelNameConflict {
 	requestedName: string | null;
 }
 
+export interface WorkspaceKernelIdConflict {
+	code: "id_conflict";
+	itemId: string;
+}
+
+export type WorkspaceKernelMutationConflict =
+	| WorkspaceKernelNameConflict
+	| WorkspaceKernelIdConflict;
+
 export type WorkspaceKernelMutationOutcome<T> =
 	| {
 			command: WorkspaceCommandResult<T>;
 			status: "applied";
 	  }
 	| {
-			conflict: WorkspaceKernelNameConflict;
+			conflict: WorkspaceKernelMutationConflict;
 			status: "conflict";
 	  };
 
@@ -107,7 +116,7 @@ export function requireAppliedWorkspaceKernelMutation<T>(
 	outcome: WorkspaceKernelMutationOutcome<T>,
 ): WorkspaceCommandResult<T> {
 	if (outcome.status === "conflict") {
-		throw new Error("Workspace kernel unexpectedly returned a name conflict.", {
+		throw new Error("Workspace kernel unexpectedly returned a conflict.", {
 			cause: outcome.conflict,
 		});
 	}
