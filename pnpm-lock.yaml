@@ -117,8 +117,8 @@ importers:
         specifier: ^1.29.0
         version: 1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3)
       '@posthog/ai':
-        specifier: ^8.2.2
-        version: 8.2.2(@ai-sdk/provider@3.0.13)(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.8.0(@opentelemetry/api@1.9.1))(posthog-node@5.39.4)
+        specifier: ^8.4.0
+        version: 8.4.0(@ai-sdk/provider@3.0.13)(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.8.0(@opentelemetry/api@1.9.1))(posthog-node@5.39.4)
       '@posthog/mcp':
         specifier: 0.9.1
         version: 0.9.1(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(posthog-node@5.39.4)
@@ -1383,11 +1383,11 @@ packages:
 
   '@esbuild-kit/core-utils@3.3.2':
     resolution: {integrity: sha512-sPRAnw9CdSsRmEtnsl2WXWdyquogVpB3yZ3dgwJfe8zrOzTsV7cJvmwrKVa+0ma5BoiGJ+BoqkMvawbayKUsqQ==}
-    deprecated: 'Merged into tsx: https://tsx.is'
+    deprecated: 'Merged into tsx: https://tsx.hirok.io'
 
   '@esbuild-kit/esm-loader@2.6.5':
     resolution: {integrity: sha512-FxEMIkJKnodyA1OaCUoEvbYRkoZlLZ4d/eXFu9Fh8CbBBgP5EmZxrfTRyN0qpXZ4vOvqnE5YdRdcrmUUXuU+dA==}
-    deprecated: 'Merged into tsx: https://tsx.is'
+    deprecated: 'Merged into tsx: https://tsx.hirok.io'
 
   '@esbuild/aix-ppc64@0.25.12':
     resolution: {integrity: sha512-Hhmwd6CInZ3dwpuGTF8fJG6yoWmsToE+vYgD4nytZVxcu1ulHpUQRAB1UJ8+N1Am3Mz4+xOByoQoSZf4D+CpkA==}
@@ -2208,8 +2208,8 @@ packages:
     resolution: {integrity: sha512-IYqDGiTXab6FniAgnSdZwgWbomxpy9FtYvLKs7wCUs2a8RkITG+DFGO1DM9cr+E3/RgADRpFjrKVaJ1z6sjtEg==}
     engines: {node: '>= 20.19.0'}
 
-  '@nodable/entities@2.2.0':
-    resolution: {integrity: sha512-9uGyhaQavEUMC8AIddIjau4NsnsXhou+j5sBAGojCM1oxmQpVKTWR/9JxABD6UAv12vpIms55fPZKFQEhG6uBg==}
+  '@nodable/entities@3.0.0':
+    resolution: {integrity: sha512-8L9xFeTYKhm49xfIypoe2W5wV1m/3Z58kT+7kR9A8OyFxcPduI4VmxaUMQyKYrRjUoLLSXv6EKKID5Tvj9cUVw==}
 
   '@nodelib/fs.scandir@2.1.5':
     resolution: {integrity: sha512-vq24Bq3ym5HEQm2NKCr3yXDwjc7vTsEThRDnkp2DK9p1uqLR+DHurm/NOTo0KG7HYHU7eppKZj3MyqYuMBf62g==}
@@ -3206,8 +3206,8 @@ packages:
   '@poppinss/exception@1.2.3':
     resolution: {integrity: sha512-dCED+QRChTVatE9ibtoaxc+WkdzOSjYTKi/+uacHWIsfodVfpsueo3+DKpgU5Px8qXjgmXkSvhXvSCz3fnP9lw==}
 
-  '@posthog/ai@8.2.2':
-    resolution: {integrity: sha512-e0Z2LmMaAQbPV9YVh4WuvP0W5soy4k7oHbmj27ApnNjL1V51/PjJo6SP4Ea7flqLHeLYRTN91684vjvxURfYOA==}
+  '@posthog/ai@8.4.0':
+    resolution: {integrity: sha512-0HwEbk1QMvdEqE2jTMsKJRTGXpW7hyFSPSZWyUru6cSrTIztxFTRGiIFzpm/X63zqYvSvk07IFwC215Rg4g83g==}
     engines: {node: ^20.20.0 || >=22.22.0}
     peerDependencies:
       '@ai-sdk/provider': ^2.0.0 || ^3.0.0
@@ -3245,9 +3245,6 @@ packages:
     engines: {node: '>=14.14', npm: '>=6'}
     hasBin: true
 
-  '@posthog/core@1.38.0':
-    resolution: {integrity: sha512-QLrJh0hMVpEJXHNyiJR9YhvIO5tzLDedw4UHdvB+ub4fXHMtHCA8H44qgl11HWR3ajpjxtJ8hs3HyOGVF3Zc1w==}
-
   '@posthog/core@1.39.6':
     resolution: {integrity: sha512-o6ajIwN5zXoNP0D4H/QPmOyibNTUkSyOR6ya7AG5U2ywXx4awo72L2KnCoiZPQM5x/bXv6jPBdimH8M18Ax0aw==}
 
@@ -3278,9 +3275,6 @@ packages:
     resolution: {integrity: sha512-bJgQLKZ5gkq79PBGTNqC8S6OAE8QtNIPYbvHnoboIh8qoZ0PS7RRpxuunoeOflxrHxpnM0Id9OxvrkGKJ2JE6w==}
     peerDependencies:
       rollup: '>= 4.0.0'
-
-  '@posthog/types@1.391.1':
-    resolution: {integrity: sha512-ASwd7Nf4pViqdYRYaNRyPYRVKWa1CcHUAUWR0XeQJLGdNnsWACBwe0sSieb/cHnKsRXjRwO/23KIY83lm/Ccpw==}
 
   '@posthog/types@1.392.1':
     resolution: {integrity: sha512-Qg6Gl7/1vlr8+gPtBi5gwnLgAgiyFoKOVmTvTtDcvya9cpTwZfna7rQmkGQ4B63CunUYNNbOlqcwiUwUDyTK6w==}
@@ -5845,8 +5839,8 @@ packages:
     resolution: {integrity: sha512-Ap6G0WQwcU/LHsvLwON1fAQX9Zp0A2Y6Y/cJBl9r/JbW90Zyg4/zbG6zzKa2OTALELarYHmKu0GhpM5EO+7T0g==}
     engines: {node: '>=0.10'}
 
-  esrap@2.2.13:
-    resolution: {integrity: sha512-m8jH5hZgJE2RRUK/jjkGPcJEDAV+dYnZYFkosQaPTcE+Yw4xynXHOo6FUdwaWBtdR3b1MMa7wEDTSHeR2VWsGA==}
+  esrap@2.3.0:
+    resolution: {integrity: sha512-GQ/7RN8uOtEfNpzZzBMTzW9JBcX42oaSVtPzdF+6cEL8pqIL094iUpr9jzYGn4O4P/1S60dJ6izyT8F4LYARng==}
     peerDependencies:
       '@typescript-eslint/types': ^8.2.0
     peerDependenciesMeta:
@@ -5965,8 +5959,8 @@ packages:
   fast-xml-builder@1.3.0:
     resolution: {integrity: sha512-F74cZEdCvuw9P41GAC3rod4X04jjWGM1JPEv/GWSqFTWLsdyMSBMBMlm9Hk3GLBgLBbdBNY8yee0pQh2RBVESQ==}
 
-  fast-xml-parser@5.10.0:
-    resolution: {integrity: sha512-SLhnTEqE5QpJHq/6zl9bsmImEP2adv+y6Wy+cJa7nVTRzQh1OZfCe9k29M5xN74LWnu0xa1zrUrq3KnOKl92Fg==}
+  fast-xml-parser@5.10.1:
+    resolution: {integrity: sha512-IEMIf7298kXuZSRFoGfMYrl7is8LpavODgbNz1cwIudv7KwVFnuU+UsMporfq6PD6aXSlawZlARiA3UywCTfMw==}
     hasBin: true
 
   fastq@1.20.1:
@@ -7444,8 +7438,8 @@ packages:
     resolution: {integrity: sha512-vuwillviilfKZsg0VGj5R/YwwcHx4SLsIOI/7K6mQkWx+l5cUHTjj5g0AasTBcyXsbfTgrwsUNmVUb5xVwyPwg==}
     engines: {node: ^10 || ^12 || >=14}
 
-  postcss@8.5.18:
-    resolution: {integrity: sha512-xdB1oSLHbz1vRWgCDalrCqEFTWzFlhqFC5tIHLMOSUIjhm3XXQ1qrFy8S/ESr1JYRRXqM3c1QFiMZUJdUTqyMQ==}
+  postcss@8.5.19:
+    resolution: {integrity: sha512-Mz8SaolMd8nB+G13WkORcxQKHZ/NE4xXevtkJHVuG+guo9/wYKlIMTKAqGdEmYOXR2ijPjTYNHssizdaVSUNdQ==}
     engines: {node: ^10 || ^12 || >=14}
 
   postgres-array@2.0.0:
@@ -8158,11 +8152,11 @@ packages:
     resolution: {integrity: sha512-Bf+ILmBgretUrdJxzXM0SgXLZ3XfiaUuOj/IKQHuTXip+05Xn+uyEYdVg0kYDipTBcLrCVyUzAPz7QmArb0mmw==}
     engines: {node: '>=14.0.0'}
 
-  tldts-core@7.4.8:
-    resolution: {integrity: sha512-c1P7u0EhACHj7lPy4MJm8iTFEU8+nB0LCtddH0fhP7noaVoXAqafMtOOeX+ulpuPBqnrRgRhw494RICT3mbhnw==}
+  tldts-core@7.4.9:
+    resolution: {integrity: sha512-DxKfPBI52p2msTEu7MPhdpdDTBhhVQg1a/8PjQckeyAvO13eMYElX545grIp6nnTGIMZlRvFZPvFhvI/WIz2Vg==}
 
-  tldts@7.4.8:
-    resolution: {integrity: sha512-htwgN/8KRB3z3vnC0BOETVh2m499g5GmyTK9Wq5JBLX3FNz6tSBveAd+fQhzy9hkjif8vy2jwDMR1sGhLtZl2A==}
+  tldts@7.4.9:
+    resolution: {integrity: sha512-3kZ8wQQ/k5DrChD4X4FVvr2D7E5uoRgAqkPyLpSCGUvqOvqu+JEdr3mwMUaVWb+vMHZaKhF5fp2PBigKsui7hA==}
     hasBin: true
 
   to-buffer@1.2.2:
@@ -8565,6 +8559,18 @@ packages:
 
   ws@8.21.0:
     resolution: {integrity: sha512-Vsp28b7DRcimFQvrqu2Wek3z1iYxDCWqHYB8Qsnk/S4RfaCQzPGPyBNuVjJV3cd6UiKtUtp6sNM77gWvzcCH+g==}
+    engines: {node: '>=10.0.0'}
+    peerDependencies:
+      bufferutil: ^4.0.1
+      utf-8-validate: '>=5.0.2'
+    peerDependenciesMeta:
+      bufferutil:
+        optional: true
+      utf-8-validate:
+        optional: true
+
+  ws@8.21.1:
+    resolution: {integrity: sha512-+0NTnW77fFN/DjQi6k/Sq/Yvk4Sgajw7urW8V+asjXnRgDs9gyGkdb7EzgfhA4goXsRIZKE28fzIXBHEzhuiWw==}
     engines: {node: '>=10.0.0'}
     peerDependencies:
       bufferutil: ^4.0.1
@@ -10404,7 +10410,7 @@ snapshots:
 
   '@noble/hashes@2.2.0': {}
 
-  '@nodable/entities@2.2.0': {}
+  '@nodable/entities@3.0.0': {}
 
   '@nodelib/fs.scandir@2.1.5':
     dependencies:
@@ -10958,9 +10964,9 @@ snapshots:
 
   '@poppinss/exception@1.2.3': {}
 
-  '@posthog/ai@8.2.2(@ai-sdk/provider@3.0.13)(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.8.0(@opentelemetry/api@1.9.1))(posthog-node@5.39.4)':
+  '@posthog/ai@8.4.0(@ai-sdk/provider@3.0.13)(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.8.0(@opentelemetry/api@1.9.1))(posthog-node@5.39.4)':
     dependencies:
-      '@posthog/core': 1.38.0
+      '@posthog/core': 1.43.1
       posthog-node: 5.39.4
       uuid: 11.1.1
       zod: 4.4.3
@@ -10972,10 +10978,6 @@ snapshots:
   '@posthog/cli@0.7.30':
     dependencies:
       detect-libc: 2.1.2
-
-  '@posthog/core@1.38.0':
-    dependencies:
-      '@posthog/types': 1.391.1
 
   '@posthog/core@1.39.6':
     dependencies:
@@ -11007,8 +11009,6 @@ snapshots:
       '@posthog/cli': 0.7.30
       '@posthog/plugin-utils': 1.1.2
       rollup: 4.62.2
-
-  '@posthog/types@1.391.1': {}
 
   '@posthog/types@1.392.1': {}
 
@@ -12255,7 +12255,7 @@ snapshots:
       sirv: 3.0.2
       tinyrainbow: 3.1.0
       vitest: 4.1.9(@opentelemetry/api@1.9.1)(@types/node@26.1.0)(@vitest/browser-preview@4.1.9)(@voidzero-dev/vite-plus-core@0.2.2(@types/node@26.1.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.0)(typescript@6.0.3)(yaml@2.9.0))(jsdom@28.1.0(@noble/hashes@2.2.0))(msw@2.14.6(@types/node@26.1.0)(typescript@6.0.3))
-      ws: 8.21.0
+      ws: 8.21.1
     transitivePeerDependencies:
       - bufferutil
       - msw
@@ -12365,7 +12365,7 @@ snapshots:
       '@vue/shared': 3.5.38
       estree-walker: 2.0.2
       magic-string: 0.30.21
-      postcss: 8.5.18
+      postcss: 8.5.19
       source-map-js: 1.2.1
 
   '@vue/compiler-ssr@3.5.38':
@@ -13490,7 +13490,7 @@ snapshots:
     dependencies:
       estraverse: 5.3.0
 
-  esrap@2.2.13(@typescript-eslint/types@8.61.1):
+  esrap@2.3.0(@typescript-eslint/types@8.61.1):
     dependencies:
       '@jridgewell/sourcemap-codec': 1.5.5
     optionalDependencies:
@@ -13640,9 +13640,9 @@ snapshots:
       path-expression-matcher: 1.6.2
       xml-naming: 0.3.0
 
-  fast-xml-parser@5.10.0:
+  fast-xml-parser@5.10.1:
     dependencies:
-      '@nodable/entities': 2.2.0
+      '@nodable/entities': 3.0.0
       fast-xml-builder: 1.3.0
       is-unsafe: 2.0.0
       path-expression-matcher: 1.6.2
@@ -14278,7 +14278,7 @@ snapshots:
   just-bash@3.0.2:
     dependencies:
       diff: 8.0.4
-      fast-xml-parser: 5.10.0
+      fast-xml-parser: 5.10.1
       file-type: 21.3.4
       ini: 6.0.0
       minimatch: 10.2.5
@@ -15499,7 +15499,7 @@ snapshots:
       picocolors: 1.1.1
       source-map-js: 1.2.1
 
-  postcss@8.5.18:
+  postcss@8.5.19:
     dependencies:
       nanoid: 3.3.16
       picocolors: 1.1.1
@@ -16403,7 +16403,7 @@ snapshots:
       clsx: 2.1.1
       devalue: 5.8.1
       esm-env: 1.2.2
-      esrap: 2.2.13(@typescript-eslint/types@8.61.1)
+      esrap: 2.3.0(@typescript-eslint/types@8.61.1)
       is-reference: 3.0.3
       locate-character: 3.0.0
       magic-string: 0.30.21
@@ -16464,12 +16464,12 @@ snapshots:
 
   tinyrainbow@3.1.0: {}
 
-  tldts-core@7.4.8:
+  tldts-core@7.4.9:
     optional: true
 
-  tldts@7.4.8:
+  tldts@7.4.9:
     dependencies:
-      tldts-core: 7.4.8
+      tldts-core: 7.4.9
     optional: true
 
   to-buffer@1.2.2:
@@ -16494,7 +16494,7 @@ snapshots:
 
   tough-cookie@6.0.2:
     dependencies:
-      tldts: 7.4.8
+      tldts: 7.4.9
     optional: true
 
   tr46@6.0.0:
@@ -16911,6 +16911,8 @@ snapshots:
   wrappy@1.0.2: {}
 
   ws@8.21.0: {}
+
+  ws@8.21.1: {}
 
   wsl-utils@0.3.1:
     dependencies:
