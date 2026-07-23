@@ -98,7 +98,7 @@
 		"@tiptap/extension-link": "^3.27.3",
 		"@tiptap/extension-list": "^3.27.3",
 		"@tiptap/extension-mathematics": "^3.27.3",
-		"@tiptap/extension-placeholder": "^3.27.3",
+		"@tiptap/extension-placeholder": "^3.28.0",
 		"@tiptap/extension-table": "^3.27.3",
 		"@tiptap/extension-text-align": "^3.27.3",
 		"@tiptap/extension-underline": "^3.27.3",
