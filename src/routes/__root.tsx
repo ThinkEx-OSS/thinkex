@@ -15,10 +15,10 @@ import type { AuthSession } from "#/lib/auth.functions";
 import { AppHotkeysProvider } from "#/lib/hotkeys";
 import { seo } from "#/lib/seo";
 import { getAuthSessionQueryOptions } from "#/lib/session-query";
-import { ThemeProvider } from "../components/theme-provider";
-import PostHogProvider from "../integrations/posthog/provider";
-import TanStackQueryDevtools from "../integrations/tanstack-query/devtools";
-import appCss from "../styles.css?url";
+import { ThemeProvider } from "#/components/theme-provider";
+import PostHogProvider from "#/integrations/posthog/provider";
+import TanStackQueryDevtools from "#/integrations/tanstack-query/devtools";
+import appCss from "#/styles.css?url";
 
 const configureZodForStrictCsp =
 	"globalThis.__zod_globalConfig??={};globalThis.__zod_globalConfig.jitless=true";
