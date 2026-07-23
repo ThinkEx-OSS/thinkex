@@ -10,8 +10,6 @@ import TextAlign from "@tiptap/extension-text-align";
 import UnderlineExtension from "@tiptap/extension-underline";
 import StarterKit from "@tiptap/starter-kit";
 
-import { Subscript, Superscript } from "#/features/workspaces/documents/tiptap-script-marks";
-
 export const tiptapDocumentYjsField = "default";
 
 /**
@@ -41,8 +39,6 @@ export function getTiptapDocumentSchemaExtensions({
 		HorizontalRule,
 		UnderlineExtension,
 		Highlight,
-		Subscript,
-		Superscript,
 		Link.configure({
 			openOnClick: false,
 			autolink: true,
