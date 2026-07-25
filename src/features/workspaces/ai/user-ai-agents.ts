@@ -360,10 +360,10 @@ export class UserAIStore extends Agent<Cloudflare.Env, UserAIStoreState> {
 			return;
 		}
 
-		const anonymousStore = getAgentByName(
+		const anonymousStore: LinkedUserAIStore = await getAgentByName(
 			this.env[userAIAgentName],
 			input.anonymousUserId,
-		) as unknown as LinkedUserAIStore;
+		);
 		const snapshots = await anonymousStore.exportForAccountLinking();
 
 		for (const snapshot of snapshots) {

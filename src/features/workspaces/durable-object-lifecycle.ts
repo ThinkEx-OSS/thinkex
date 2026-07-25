@@ -38,7 +38,7 @@ async function purgeUserAIStore(userId: string) {
 	const { env } = await import("cloudflare:workers");
 
 	try {
-		const store = getUserAIStoreLifecycleAgent(env, userId);
+		const store = await getUserAIStoreLifecycleAgent(env, userId);
 		return await store.purgeForDeletion();
 	} catch (error) {
 		recordPurgeAgentFailure("user", userId, error);
@@ -55,7 +55,7 @@ export async function transferLinkedAccountResources(input: {
 	}
 
 	const { env } = await import("cloudflare:workers");
-	const store = getUserAIStoreLifecycleAgent(env, input.newUserId);
+	const store = await getUserAIStoreLifecycleAgent(env, input.newUserId);
 
 	await store.mergeLinkedAnonymousUser({ anonymousUserId: input.anonymousUserId });
 }
@@ -70,7 +70,7 @@ async function purgeWorkspaceResourcesResult(workspaceId: string): Promise<Resou
 	const { env } = await import("cloudflare:workers");
 
 	try {
-		const kernel = getWorkspaceKernelLifecycleAgent(env, workspaceId);
+		const kernel = await getWorkspaceKernelLifecycleAgent(env, workspaceId);
 		return await kernel.purgeForDeletion();
 	} catch (error) {
 		recordPurgeAgentFailure("workspace", workspaceId, error);
@@ -127,13 +127,16 @@ function recordPurgeOutcome(
 	});
 }
 
-function getUserAIStoreLifecycleAgent(env: Cloudflare.Env, userId: string) {
-	return getAgentByName(env[userAIAgentName], userId) as unknown as UserAIStoreLifecycleAgent;
+async function getUserAIStoreLifecycleAgent(
+	env: Cloudflare.Env,
+	userId: string,
+): Promise<UserAIStoreLifecycleAgent> {
+	return await getAgentByName(env[userAIAgentName], userId);
 }
 
-function getWorkspaceKernelLifecycleAgent(env: Cloudflare.Env, workspaceId: string) {
-	return getAgentByName(
-		env[workspaceKernelAgentName],
-		workspaceId,
-	) as unknown as WorkspaceKernelLifecycleAgent;
+async function getWorkspaceKernelLifecycleAgent(
+	env: Cloudflare.Env,
+	workspaceId: string,
+): Promise<WorkspaceKernelLifecycleAgent> {
+	return await getAgentByName(env[workspaceKernelAgentName], workspaceId);
 }
