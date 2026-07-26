@@ -1,9 +1,4 @@
 import type { WorkspaceTab } from "#/features/workspaces/model/tab-types";
-import {
-	createWorkspaceReferenceRegistry,
-	type WorkspaceReferenceRegistry,
-} from "#/features/workspaces/ai/workspace-reference";
-import type { WorkspaceLocation } from "#/features/workspaces/locations/workspace-location";
 import type {
 	WorkspacePane,
 	WorkspacePresentation,
@@ -37,7 +32,6 @@ export function buildWorkspaceAiContextSnapshot(
 	const openTabItemIds = getOpenTabItemIds(context.tabs);
 	const visibleItemIds = getWorkspaceAiContextVisibleItemIds(context);
 	const buildContext = { context, openTabItemIds, visibleItemIds };
-	const citationRegistry = createWorkspaceReferenceRegistry();
 	const activeItem =
 		context.activeItem && context.itemsById.has(context.activeItem.id)
 			? context.activeItem
@@ -84,7 +78,6 @@ export function buildWorkspaceAiContextSnapshot(
 		selectedQuotes: context.selectedQuotes.map((quote, index) =>
 			getWorkspaceAiContextSelectedQuoteReference({
 				buildContext,
-				citationRegistry,
 				order: index + 1,
 				quote,
 			}),
@@ -95,11 +88,10 @@ export function buildWorkspaceAiContextSnapshot(
 
 function getWorkspaceAiContextSelectedQuoteReference(input: {
 	buildContext: WorkspaceAiContextSnapshotBuildContext;
-	citationRegistry: WorkspaceReferenceRegistry;
 	order: number;
 	quote: WorkspaceSelectedQuote;
 }): WorkspaceAiContextSnapshotSelectedQuote {
-	const { buildContext, citationRegistry, order, quote } = input;
+	const { buildContext, order, quote } = input;
 	const { context } = buildContext;
 
 	if (quote.source.kind === "assistant-response") {
@@ -115,16 +107,8 @@ function getWorkspaceAiContextSelectedQuoteReference(input: {
 
 	if (quote.source.kind === "document-selection") {
 		const item = context.itemsById.get(quote.source.itemId);
-		const citation = item
-			? createSelectedQuoteCitation(citationRegistry, {
-					itemId: item.id,
-					kind: "item",
-					version: 1,
-				})
-			: undefined;
 
 		return {
-			...(citation ? { citation } : {}),
 			label: quote.label,
 			order,
 			source: {
@@ -141,27 +125,8 @@ function getWorkspaceAiContextSelectedQuoteReference(input: {
 	}
 
 	const item = context.itemsById.get(quote.source.itemId);
-	const firstPage = quote.source.pageNumbers[0];
-	const citation = item
-		? createSelectedQuoteCitation(
-				citationRegistry,
-				firstPage
-					? {
-							itemId: item.id,
-							kind: "pdf-page",
-							pageNumber: firstPage,
-							version: 1,
-						}
-					: {
-							itemId: item.id,
-							kind: "item",
-							version: 1,
-						},
-			)
-		: undefined;
 
 	return {
-		...(citation ? { citation } : {}),
 		label: quote.label,
 		order,
 		source: {
@@ -175,16 +140,6 @@ function getWorkspaceAiContextSelectedQuoteReference(input: {
 			pageNumbers: quote.source.pageNumbers,
 		},
 		text: quote.text,
-	};
-}
-
-function createSelectedQuoteCitation(
-	registry: WorkspaceReferenceRegistry,
-	location: WorkspaceLocation,
-) {
-	return {
-		location,
-		ref: registry.getOrCreate(location),
 	};
 }
 

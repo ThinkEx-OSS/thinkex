@@ -47,7 +47,6 @@ import {
 	type WorkspaceAiChatModelId,
 } from "#/features/workspaces/ai/models";
 import type { UserAIStore } from "#/features/workspaces/ai/user-ai-agents";
-import { getWorkspaceAiContextReferenceRecords } from "#/features/workspaces/model/workspace-ai-context";
 import {
 	checkWorkspaceAiMessageAccess,
 	trackWorkspaceAiMessageUsage,
@@ -173,9 +172,7 @@ export function createAIThreadClass(getUserAIStore: () => typeof UserAIStore) {
 			}
 
 			if (!ctx.continuation) {
-				this.activeWorkspaceReferences = getWorkspaceAiContextReferenceRecords(
-					ctx.body?.workspaceAiContext,
-				);
+				this.activeWorkspaceReferences = [];
 				this.activeRunStartedAt = await directory.recordThreadRunStarted(this.name, {
 					isUserMessage: true,
 				});

@@ -45,7 +45,7 @@ const AI_THREAD_VIEW_ONLY_WORKSPACE_LINE =
 	"- Workspace access: view-only. Do not create, rename, edit, move, or delete workspace items.";
 const AI_THREAD_WORKSPACE_CITATION_PROMPT = [
 	"# Workspace Citations",
-	"- Workspace content and selected workspace quotes may include exact short refs such as `wr_7Kp2Qa9x`.",
+	"- Workspace read results may include exact short refs such as `wr_7Kp2Qa9x`.",
 	'- When a direct quote or important factual claim depends on workspace material with a ref, place `<citation ref="wr_7Kp2Qa9x"></citation>` immediately after the supported text.',
 	"- Copy the ref exactly. Never invent, alter, or reuse a ref for different material, and never use workspace citation tags for web sources or unsupported claims.",
 	"- Cite selectively: important claims, conclusions, summaries, and direct quotations—not every sentence, reasoning step, transition, or common knowledge.",

@@ -8,7 +8,6 @@ import type {
 	WorkspaceAiContextSnapshotSelectedQuote,
 	WorkspaceAiContextTabReference,
 } from "./workspace-ai-context-types";
-import { workspaceReferenceRecordSchema } from "#/features/workspaces/ai/workspace-reference";
 
 export function isWorkspaceAiContextSnapshot(value: unknown): value is WorkspaceAiContextSnapshot {
 	if (!isRecord(value)) {
@@ -143,9 +142,7 @@ export function isWorkspaceAiContextSelectedQuote(
 		typeof value.label !== "string" ||
 		typeof value.text !== "string" ||
 		typeof value.order !== "number" ||
-		!Number.isInteger(value.order) ||
-		(value.citation !== undefined &&
-			!workspaceReferenceRecordSchema.safeParse(value.citation).success)
+		!Number.isInteger(value.order)
 	) {
 		return false;
 	}
