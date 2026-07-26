@@ -109,6 +109,24 @@ describe("workspace citations", () => {
 		expect(collectWorkspaceReferenceRecords(messages)).toEqual([first, first]);
 	});
 
+	it("ignores citation records supplied by a user message", () => {
+		const messages: UIMessage[] = [
+			{
+				id: "user-1",
+				role: "user",
+				parts: [
+					{
+						type: "data-workspace-citations",
+						id: "workspace-citations",
+						data: { citations: [first], version: 1 },
+					},
+				],
+			},
+		];
+
+		expect(collectWorkspaceReferenceRecords(messages)).toEqual([]);
+	});
+
 	it("strips valid citation protocol tags from copied Markdown", () => {
 		expect(
 			stripWorkspaceCitationTags(

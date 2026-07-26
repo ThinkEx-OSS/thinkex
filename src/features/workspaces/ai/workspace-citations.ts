@@ -96,6 +96,10 @@ export function collectWorkspaceReferenceRecords(
 	const records: WorkspaceReferenceRecord[] = [];
 
 	for (const message of messages) {
+		if (message.role !== "assistant") {
+			continue;
+		}
+
 		records.push(...getWorkspaceCitationRecords(message));
 
 		for (const part of message.parts) {

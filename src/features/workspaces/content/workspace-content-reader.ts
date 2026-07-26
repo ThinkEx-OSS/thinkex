@@ -141,7 +141,7 @@ async function readDocument(input: {
 
 	const encodedCursor = input.request.mode === "continue" ? input.request.cursor : undefined;
 	const cursor = encodedCursor ? decodeWorkspaceContentCursor(encodedCursor) : undefined;
-	if (encodedCursor && (!cursor || cursor.kind !== "document" || cursor.itemId !== input.item.id)) {
+	if (encodedCursor && (!cursor || cursor.kind !== "document" || cursor.path !== input.path)) {
 		return { code: "invalid_cursor", path: input.path, status: "failed" };
 	}
 
@@ -165,11 +165,11 @@ async function readDocument(input: {
 			? {}
 			: {
 					nextCursor: encodeWorkspaceContentCursor({
-						itemId: input.item.id,
 						kind: "document",
 						offset: chunk.nextOffset,
+						path: input.path,
 						revision: chunk.revision,
-						version: 1,
+						version: 2,
 					}),
 				}),
 		path: input.path,
@@ -212,7 +212,7 @@ async function readFile(input: {
 
 	const encodedCursor = input.request.mode === "continue" ? input.request.cursor : undefined;
 	const cursor = encodedCursor ? decodeWorkspaceContentCursor(encodedCursor) : undefined;
-	if (encodedCursor && (!cursor || cursor.kind !== "file" || cursor.itemId !== input.item.id)) {
+	if (encodedCursor && (!cursor || cursor.kind !== "file" || cursor.path !== input.path)) {
 		return { code: "invalid_cursor", path: input.path, status: "failed" };
 	}
 	if (cursor?.kind === "file" && cursor.sourceHash !== projection.sourceHash) {
@@ -248,11 +248,11 @@ async function readFile(input: {
 			? {}
 			: {
 					nextCursor: encodeWorkspaceContentCursor({
-						itemId: input.item.id,
 						kind: "file",
 						nextPage,
+						path: input.path,
 						sourceHash: projection.sourceHash,
-						version: 1,
+						version: 2,
 					}),
 				}),
 		path: input.path,

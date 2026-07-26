@@ -4,18 +4,18 @@ import { decodeBase64UrlText, encodeBase64UrlText } from "#/lib/binary";
 
 const workspaceContentCursorSchema = z.discriminatedUnion("kind", [
 	z.object({
-		itemId: z.string().min(1),
 		kind: z.literal("document"),
 		offset: z.number().int().nonnegative(),
+		path: z.string().min(1),
 		revision: z.string().min(1),
-		version: z.literal(1),
+		version: z.literal(2),
 	}),
 	z.object({
-		itemId: z.string().min(1),
 		kind: z.literal("file"),
 		nextPage: z.number().int().positive(),
+		path: z.string().min(1),
 		sourceHash: z.string().min(1),
-		version: z.literal(1),
+		version: z.literal(2),
 	}),
 ]);
 

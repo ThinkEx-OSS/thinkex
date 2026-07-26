@@ -1,6 +1,6 @@
 import { cjk } from "@streamdown/cjk";
 import { createMathPlugin } from "@streamdown/math";
-import type { ComponentProps } from "react";
+import { createContext, type ComponentProps, use } from "react";
 import { Streamdown, type StreamdownProps } from "streamdown";
 import "katex/dist/katex.min.css";
 import {
@@ -29,6 +29,9 @@ const streamdownComponents = { code: MarkdownCodeBlock };
 const streamdownAllowedTags = { citation: ["ref"] };
 const streamdownLiteralTagContent = ["citation"];
 const emptyWorkspaceCitationLocations = new Map<WorkspaceReference, WorkspaceLocation>();
+const WorkspaceCitationLocationsContext = createContext<
+	ReadonlyMap<WorkspaceReference, WorkspaceLocation>
+>(emptyWorkspaceCitationLocations);
 const streamdownAnimation = {
 	animation: "fadeIn",
 	duration: 160,
@@ -36,6 +39,31 @@ const streamdownAnimation = {
 	sep: "word",
 	stagger: 8,
 } satisfies NonNullable<StreamdownProps["animated"]>;
+
+type StreamdownCitationProps = Record<string, unknown> & {
+	readonly node?: {
+		readonly properties?: Readonly<Record<string, unknown>>;
+	};
+};
+
+function StreamdownWorkspaceCitation(citationProps: StreamdownCitationProps) {
+	const children = citationProps.children;
+	if (typeof children === "string" && children.trim().length > 0) {
+		return children;
+	}
+	if (children !== undefined && children !== null && typeof children !== "string") {
+		return null;
+	}
+
+	const parsed = parseWorkspaceReference(citationProps.node?.properties?.ref);
+	if (parsed.status === "invalid") {
+		return null;
+	}
+
+	const locations = use(WorkspaceCitationLocationsContext);
+	const location = locations.get(parsed.ref);
+	return location ? <WorkspaceCitation location={location} /> : null;
+}
 
 export function AiChatMessageResponse({
 	className,
@@ -47,29 +75,23 @@ export function AiChatMessageResponse({
 	const mergedComponents = {
 		...streamdownComponents,
 		...components,
-		citation: (citationProps: Record<string, unknown>) => {
-			const parsed = parseWorkspaceReference(citationProps.ref);
-			if (parsed.status === "invalid") {
-				return null;
-			}
-
-			const location = workspaceCitationLocations.get(parsed.ref);
-			return location ? <WorkspaceCitation location={location} /> : null;
-		},
+		citation: StreamdownWorkspaceCitation,
 	};
 
 	return (
-		<Streamdown
-			animated={streamdownAnimation}
-			className={cn("[&>ol]:pl-2 [&>ul]:pl-2", className)}
-			components={mergedComponents}
-			isAnimating={isStreaming}
-			linkSafety={{ enabled: false }}
-			mode="streaming"
-			plugins={streamdownPlugins}
-			{...props}
-			allowedTags={streamdownAllowedTags}
-			literalTagContent={streamdownLiteralTagContent}
-		/>
+		<WorkspaceCitationLocationsContext value={workspaceCitationLocations}>
+			<Streamdown
+				animated={streamdownAnimation}
+				className={cn("[&>ol]:pl-2 [&>ul]:pl-2", className)}
+				components={mergedComponents}
+				isAnimating={isStreaming}
+				linkSafety={{ enabled: false }}
+				mode="streaming"
+				plugins={streamdownPlugins}
+				{...props}
+				allowedTags={streamdownAllowedTags}
+				literalTagContent={streamdownLiteralTagContent}
+			/>
+		</WorkspaceCitationLocationsContext>
 	);
 }

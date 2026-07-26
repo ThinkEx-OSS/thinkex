@@ -117,11 +117,30 @@ describe("WorkspaceContentReader", () => {
 			kernel: createKernel(),
 		});
 		const cursor = encodeWorkspaceContentCursor({
-			itemId: documentItem.id,
 			kind: "document",
 			offset: 1,
+			path: "/Notes",
 			revision: "revision-1",
-			version: 1,
+			version: 2,
+		});
+
+		await expect(read([{ cursor, mode: "continue", path: "/Notes" }])).resolves.toEqual([
+			{ code: "invalid_cursor", path: "/Notes", status: "failed" },
+		]);
+	});
+
+	it("rejects a continuation cursor issued for another path", async () => {
+		const read = createReader({
+			bucket: {} as R2Bucket,
+			getDocumentSession: () => createDocumentSession({ markdown: "", revision: "revision-1" }),
+			kernel: createKernel(),
+		});
+		const cursor = encodeWorkspaceContentCursor({
+			kind: "document",
+			offset: 0,
+			path: "/Other",
+			revision: "revision-1",
+			version: 2,
 		});
 
 		await expect(read([{ cursor, mode: "continue", path: "/Notes" }])).resolves.toEqual([

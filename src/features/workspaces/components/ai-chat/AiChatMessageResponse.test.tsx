@@ -103,4 +103,34 @@ describe("AI chat message response citations", () => {
 		expect(html).not.toContain("citation");
 		expect(html).not.toContain("wr_AAAAAAAA");
 	});
+
+	it("renders non-empty citation markup as inert text", () => {
+		const ref = "wr_AAAAAAAA" as WorkspaceReference;
+		const html = renderToStaticMarkup(
+			<WorkspaceLocationProvider
+				itemsById={new Map()}
+				reveal={() => ({ status: "item_unavailable" })}
+			>
+				<AiChatMessageResponse
+					workspaceCitationLocations={
+						new Map([
+							[
+								ref,
+								{
+									itemId: "document-1",
+									kind: "item",
+									version: 1,
+								},
+							],
+						])
+					}
+				>
+					{`Claim <citation ref="${ref}">not a citation</citation>`}
+				</AiChatMessageResponse>
+			</WorkspaceLocationProvider>,
+		);
+
+		expect(html).toContain("not a citation");
+		expect(html).not.toContain("<button");
+	});
 });
