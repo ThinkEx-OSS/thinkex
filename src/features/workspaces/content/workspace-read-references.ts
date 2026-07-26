@@ -86,7 +86,7 @@ export function createWorkspaceReadItemsModelOutput(output: WorkspaceReadItemsOu
 				};
 			}
 
-			const pageReferences = result.location.returned.flatMap((pageNumber) => {
+			const references = result.location.returned.flatMap((pageNumber) => {
 				const ref = refsByLocation.get(
 					getWorkspaceLocationKey({
 						itemId: result.itemId,
@@ -101,8 +101,7 @@ export function createWorkspaceReadItemsModelOutput(output: WorkspaceReadItemsOu
 
 			return {
 				...omitWorkspaceReadItemId(result),
-				content: annotateWorkspaceReadPageHeadings(result.content, pageReferences),
-				pageReferences,
+				content: annotateWorkspaceReadPageHeadings(result.content, references),
 			};
 		}),
 	};
@@ -121,16 +120,14 @@ function annotateWorkspaceReadPageHeadings(
 	references: readonly { readonly pageNumber: number; readonly ref: WorkspaceReference }[],
 ) {
 	const refsByPage = new Map(references.map(({ pageNumber, ref }) => [pageNumber, ref]));
-	const annotatedPages = new Set<number>();
 
 	return content.replace(/^## Page (\d+)[ \t]*$/gm, (heading, pageNumberText: string) => {
 		const pageNumber = Number(pageNumberText);
 		const ref = refsByPage.get(pageNumber);
-		if (!ref || annotatedPages.has(pageNumber)) {
+		if (!ref) {
 			return heading;
 		}
 
-		annotatedPages.add(pageNumber);
 		return `${heading} [ref: ${ref}]`;
 	});
 }

@@ -25,23 +25,6 @@ export const workspaceLocationSchema = z.discriminatedUnion("kind", [
 /** A parsed durable workspace location. */
 export type WorkspaceLocation = Readonly<z.output<typeof workspaceLocationSchema>>;
 
-/** Result of parsing an untrusted workspace location. */
-export type WorkspaceLocationParseResult =
-	| { readonly status: "invalid" }
-	| { readonly location: WorkspaceLocation; readonly status: "parsed" };
-
-/**
- * Parses an untrusted value into a durable workspace location.
- *
- * @param input - Untrusted value from persisted or model-adjacent data.
- * @returns The parsed location, or an explicit invalid result.
- */
-export function parseWorkspaceLocation(input: unknown): WorkspaceLocationParseResult {
-	const parsed = workspaceLocationSchema.safeParse(input);
-
-	return parsed.success ? { location: parsed.data, status: "parsed" } : { status: "invalid" };
-}
-
 /**
  * Produces the canonical in-memory key for a workspace location.
  *

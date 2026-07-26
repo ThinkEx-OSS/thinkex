@@ -40,13 +40,10 @@ describe("workspace read references", () => {
 			type: "document",
 		});
 		expect(file).toMatchObject({
-			pageReferences: [
-				{ pageNumber: 12, ref: expect.stringMatching(/^wr_[0-9A-Za-z]{8}$/) },
-				{ pageNumber: 13, ref: expect.stringMatching(/^wr_[0-9A-Za-z]{8}$/) },
-			],
 			status: "ready",
 			type: "file",
 		});
+		expect(file).not.toHaveProperty("pageReferences");
 		expect(file && "content" in file ? file.content : "").toMatch(
 			/^## Page 12 \[ref: wr_[0-9A-Za-z]{8}\]$/m,
 		);

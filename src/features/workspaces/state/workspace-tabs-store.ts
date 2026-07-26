@@ -5,7 +5,6 @@ import {
 	moveWorkspaceTabByIndex,
 } from "#/features/workspaces/model/tab-primitives";
 import {
-	activateWorkspaceTabSession,
 	createRootWorkspaceTab,
 	createWorkspaceItemTab,
 	normalizeWorkspaceTabSession,
@@ -188,18 +187,17 @@ export const useWorkspaceTabsStore = create<WorkspaceTabsState>()(
 					set((state) => {
 						const session = state.sessionsByWorkspaceId[workspaceId];
 
-						if (!session) {
-							return state;
-						}
-						const nextSession = activateWorkspaceTabSession(session, tabId);
-						if (nextSession === session) {
+						if (!session?.tabs.some((tab) => tab.id === tabId)) {
 							return state;
 						}
 
 						return {
 							sessionsByWorkspaceId: {
 								...state.sessionsByWorkspaceId,
-								[workspaceId]: nextSession,
+								[workspaceId]: {
+									...session,
+									activeTabId: tabId,
+								},
 							},
 						};
 					});

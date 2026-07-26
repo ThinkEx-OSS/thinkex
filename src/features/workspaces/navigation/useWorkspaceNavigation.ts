@@ -1,9 +1,9 @@
 import { useNavigate } from "@tanstack/react-router";
 import { useCallback, useMemo } from "react";
 import type { WorkspaceSummary } from "#/features/workspaces/contracts";
+import type { WorkspaceLocation } from "#/features/workspaces/locations/workspace-location";
 import {
 	planWorkspaceRevealTab,
-	type WorkspaceRevealRequest,
 	type WorkspaceRevealResult,
 } from "#/features/workspaces/locations/workspace-location-reveal";
 import type { WorkspaceDragCommand } from "#/features/workspaces/model/drag";
@@ -218,13 +218,13 @@ export function useWorkspaceNavigation({
 
 		navigateToTab(tab);
 	};
-	const revealWorkspaceLocation = (request: WorkspaceRevealRequest): WorkspaceRevealResult => {
-		const item = itemsById.get(request.location.itemId);
+	const revealWorkspaceLocation = (location: WorkspaceLocation): WorkspaceRevealResult => {
+		const item = itemsById.get(location.itemId);
 		if (!item) {
 			return { status: "item_unavailable" };
 		}
 
-		const plan = planWorkspaceRevealTab({ request, session });
+		const plan = planWorkspaceRevealTab({ location, session });
 		switch (plan.action) {
 			case "activate": {
 				const tab = session?.tabs.find((candidate) => candidate.id === plan.tabId);

@@ -40,7 +40,7 @@ export type WorkspaceReferenceParseResult =
 	| { readonly ref: WorkspaceReference; readonly status: "parsed" };
 
 /** In-memory allocator used while assembling model-visible workspace content. */
-export type WorkspaceReferenceRegistry = {
+type WorkspaceReferenceRegistry = {
 	/**
 	 * Returns the existing ref for a location or allocates a collision-free one.
 	 *

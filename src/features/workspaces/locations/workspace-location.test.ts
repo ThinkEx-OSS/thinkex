@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
 	getWorkspaceLocationKey,
-	parseWorkspaceLocation,
+	workspaceLocationSchema,
 } from "#/features/workspaces/locations/workspace-location";
 
 describe("workspace location", () => {
@@ -10,11 +10,11 @@ describe("workspace location", () => {
 		[{ itemId: "item-1", kind: "item", version: 1 }, "1:item:item-1"],
 		[{ itemId: "item-1", kind: "pdf-page", pageNumber: 12, version: 1 }, "1:pdf-page:item-1:12"],
 	])("parses and keys %o", (input, expectedKey) => {
-		const result = parseWorkspaceLocation(input);
+		const result = workspaceLocationSchema.safeParse(input);
 
-		expect(result.status).toBe("parsed");
-		if (result.status === "parsed") {
-			expect(getWorkspaceLocationKey(result.location)).toBe(expectedKey);
+		expect(result.success).toBe(true);
+		if (result.success) {
+			expect(getWorkspaceLocationKey(result.data)).toBe(expectedKey);
 		}
 	});
 
@@ -25,6 +25,6 @@ describe("workspace location", () => {
 		{ itemId: "item-1", kind: "item", version: 2 },
 		{ extra: true, itemId: "item-1", kind: "item", version: 1 },
 	])("rejects invalid location %o", (input) => {
-		expect(parseWorkspaceLocation(input)).toEqual({ status: "invalid" });
+		expect(workspaceLocationSchema.safeParse(input).success).toBe(false);
 	});
 });
