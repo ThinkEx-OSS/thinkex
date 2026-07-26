@@ -102,7 +102,7 @@
 		},
 		{
 			"class_name": "WorkspaceFileProcessor",
-			"image": "./containers/liteparse/Dockerfile",
+			"image": "./containers/workspace-file-processor/Dockerfile",
 			"instance_type": "standard-2",
 			"max_instances": 2,
 		},
@@ -271,7 +271,7 @@
 				},
 				{
 					"class_name": "WorkspaceFileProcessor",
-					"image": "./containers/liteparse/Dockerfile",
+					"image": "./containers/workspace-file-processor/Dockerfile",
 					"instance_type": "standard-2",
 					"max_instances": 2,
 				},
@@ -395,7 +395,7 @@
 				},
 				{
 					"class_name": "WorkspaceFileProcessor",
-					"image": "./containers/liteparse/Dockerfile",
+					"image": "./containers/workspace-file-processor/Dockerfile",
 					"instance_type": "standard-2",
 					"max_instances": 2,
 					"name": "thinkex-liteparsepdfextractor-production",
