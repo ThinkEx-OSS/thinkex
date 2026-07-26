@@ -72,7 +72,7 @@ ThinkEx is a full-stack TypeScript app hosted on Cloudflare. The frontend is Rea
 ### AI, data, and product systems
 
 - **AI SDK**, **Cloudflare Think**, **Cloudflare Sandbox**, **Cloudflare Shell**, and **Cloudflare Codemode**.
-- **Better Auth**, **Drizzle ORM**, **Zod**, **PostHog**, **The Context Company**, **Autumn**, **Firecrawl**, and **LlamaCloud** integrations.
+- **Better Auth**, **Drizzle ORM**, **Zod**, **PostHog**, **The Context Company**, **Autumn**, **Firecrawl**, and **FileRouter** integrations.
 - **Streamdown**, **KaTeX**, **Shiki**, **PapaParse**, **dnd-kit**, **react-resizable-panels**, and **Zustand** for workspace interactions.
 
 See [`package.json`](package.json), [`wrangler.jsonc`](wrangler.jsonc), and [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md) for deeper implementation details.

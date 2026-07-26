@@ -30,7 +30,7 @@ BETTER_AUTH_URL="http://localhost:3000"
 # Autumn usage analytics. When unset, usage tracking is skipped.
 # AUTUMN_SECRET_KEY=""
 
-# Web search and URL/PDF extraction (Firecrawl).
+# Web search and URL extraction (Firecrawl).
 # FIRECRAWL_API_KEY=""
 
 # Agent observability export (The Context Company).
