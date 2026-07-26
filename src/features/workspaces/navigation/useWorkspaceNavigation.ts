@@ -1,6 +1,11 @@
 import { useNavigate } from "@tanstack/react-router";
 import { useCallback, useMemo } from "react";
 import type { WorkspaceSummary } from "#/features/workspaces/contracts";
+import {
+	planWorkspaceRevealTab,
+	type WorkspaceRevealRequest,
+	type WorkspaceRevealResult,
+} from "#/features/workspaces/locations/workspace-location-reveal";
 import type { WorkspaceDragCommand } from "#/features/workspaces/model/drag";
 import { getWorkspaceTabSearch } from "#/features/workspaces/model/tabs";
 import type { WorkspaceItem } from "#/features/workspaces/model/types";
@@ -213,6 +218,34 @@ export function useWorkspaceNavigation({
 
 		navigateToTab(tab);
 	};
+	const revealWorkspaceLocation = (request: WorkspaceRevealRequest): WorkspaceRevealResult => {
+		const item = itemsById.get(request.location.itemId);
+		if (!item) {
+			return { status: "item_unavailable" };
+		}
+
+		const plan = planWorkspaceRevealTab({ request, session });
+		switch (plan.action) {
+			case "activate": {
+				const tab = session?.tabs.find((candidate) => candidate.id === plan.tabId);
+				if (!tab) {
+					return { status: "item_unavailable" };
+				}
+				activateWorkspaceTab(tab);
+				break;
+			}
+			case "replace": {
+				const tab = replaceActiveTabView({ item, tabId: plan.tabId });
+				navigateToTab(tab);
+				break;
+			}
+			case "create":
+				openItemInNewTab({ item });
+				break;
+		}
+
+		return { status: "revealed" };
+	};
 	const openWorkspaceRoot = () => {
 		if (!activeTab?.viewItemId) {
 			return;
@@ -246,6 +279,7 @@ export function useWorkspaceNavigation({
 		itemsById,
 		openItem,
 		openWorkspaceRoot,
+		revealWorkspaceLocation,
 		scopedItems,
 		session,
 		validItemIds,

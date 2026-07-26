@@ -10,6 +10,10 @@ import { Message, MessageContent, MessageFooter } from "#/components/ui/message"
 import { Tooltip, TooltipContent, TooltipTrigger } from "#/components/ui/tooltip";
 import { AiChatMessagePartView } from "#/features/workspaces/components/ai-chat/AiChatMessagePartView";
 import {
+	getWorkspaceCitationLocations,
+	stripWorkspaceCitationTags,
+} from "#/features/workspaces/ai/workspace-citations";
+import {
 	type AiChatRenderablePart,
 	type AssistantRowDisplay,
 	getDisplayableParts,
@@ -40,6 +44,8 @@ export default function AiChatMessageRow({
 	message: AiChatMessage;
 	onRegenerate?: () => void;
 }) {
+	const workspaceCitationLocations = getWorkspaceCitationLocations(message);
+
 	if (message.role === "assistant" && display?.kind === "hidden") {
 		return null;
 	}
@@ -71,6 +77,7 @@ export default function AiChatMessageRow({
 									isStreaming={isStreaming}
 									message={message}
 									onRegenerate={onRegenerate}
+									workspaceCitationLocations={workspaceCitationLocations}
 								/>
 							) : (
 								<UserMessageBody message={message} parts={userBodyParts} />
@@ -181,11 +188,13 @@ function AssistantMessageBody({
 	isStreaming,
 	message,
 	onRegenerate,
+	workspaceCitationLocations,
 }: {
 	display: AssistantRowDisplay;
 	isStreaming: boolean;
 	message: AiChatMessage;
 	onRegenerate?: () => void;
+	workspaceCitationLocations: ReturnType<typeof getWorkspaceCitationLocations>;
 }) {
 	if (display.kind === "content") {
 		return display.parts.map((part, index) => (
@@ -193,6 +202,7 @@ function AssistantMessageBody({
 				key={getMessagePartKey(message.id, part, index)}
 				isStreaming={isStreaming}
 				part={part}
+				workspaceCitationLocations={workspaceCitationLocations}
 			/>
 		));
 	}
@@ -285,7 +295,7 @@ function getCopyableMessageText(message: AiChatMessage) {
 
 	for (const part of message.parts) {
 		if (part.type === "text") {
-			textParts.push(part.text);
+			textParts.push(stripWorkspaceCitationTags(part.text));
 		}
 	}
 

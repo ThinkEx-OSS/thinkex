@@ -77,4 +77,30 @@ describe("AI thread tool", () => {
 			),
 		).toThrow('Code Mode tool "foreign" must be defined with defineAIThreadTool');
 	});
+
+	it("preserves a compact model-output projection", async () => {
+		const aiTool = defineAIThreadTool({
+			inputSchema: z.object({}),
+			outputSchema: z.object({ internalId: z.string(), value: z.string() }),
+			execute: async () => ({ internalId: "private", value: "visible" }),
+			toModelOutput: ({ output }) => ({
+				type: "json",
+				value: { value: output.value },
+			}),
+		});
+		const toModelOutput = aiTool.toModelOutput;
+		if (!toModelOutput) {
+			throw new Error("Expected a model-output projection");
+		}
+		const output = await toModelOutput({
+			input: {},
+			output: { internalId: "private", value: "visible" },
+			toolCallId: "call-1",
+		});
+
+		expect(output).toEqual({
+			type: "json",
+			value: { value: "visible" },
+		});
+	});
 });

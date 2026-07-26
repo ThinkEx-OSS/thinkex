@@ -8,6 +8,7 @@ import type {
 	AIThreadContext,
 	AIThreadPromptScope,
 } from "#/features/workspaces/ai/ai-thread-metadata";
+import type { WorkspaceReferenceRecord } from "#/features/workspaces/ai/workspace-reference";
 import {
 	requireAiToolDefinition,
 	type AiToolModelPolicy,
@@ -42,6 +43,14 @@ const AI_THREAD_ORCHESTRATE_TOOL_NAME = "orchestrate";
 
 const AI_THREAD_VIEW_ONLY_WORKSPACE_LINE =
 	"- Workspace access: view-only. Do not create, rename, edit, move, or delete workspace items.";
+const AI_THREAD_WORKSPACE_CITATION_PROMPT = [
+	"# Workspace Citations",
+	"- Workspace content and selected workspace quotes may include exact short refs such as `wr_7Kp2Qa9x`.",
+	'- When a direct quote or important factual claim depends on workspace material with a ref, place `<citation ref="wr_7Kp2Qa9x"></citation>` immediately after the supported text.',
+	"- Copy the ref exactly. Never invent, alter, or reuse a ref for different material, and never use workspace citation tags for web sources or unsupported claims.",
+	"- Cite selectively: important claims, conclusions, summaries, and direct quotations—not every sentence, reasoning step, transition, or common knowledge.",
+	"- The citation element must be empty and contain only the `ref` attribute. If no supporting ref was provided, omit the citation.",
+].join("\n");
 const WORKSPACE_FS_METHOD_NAMES = [
 	"readFile",
 	"readFileBytes",
@@ -66,6 +75,7 @@ export function createAIThreadTools(input: {
 	threadId: string;
 	workspace: WorkspaceLike;
 	getThreadContext: () => Promise<AIThreadContext | null>;
+	onWorkspaceReferences?: (records: readonly WorkspaceReferenceRecord[]) => void;
 	timeZone?: string;
 }): ToolSet {
 	return createAIThreadToolCatalog(input).tools;
@@ -78,6 +88,7 @@ export function createAIThreadTurnToolConfig(input: {
 	workspace: WorkspaceLike;
 	getThreadContext: () => Promise<AIThreadContext | null>;
 	canMutate: boolean;
+	onWorkspaceReferences?: (records: readonly WorkspaceReferenceRecord[]) => void;
 	timeZone?: string;
 }) {
 	const toolCatalog = createAIThreadToolCatalog(input);
@@ -111,6 +122,7 @@ function createAIThreadToolCatalog(input: {
 	threadId: string;
 	workspace: WorkspaceLike;
 	getThreadContext: () => Promise<AIThreadContext | null>;
+	onWorkspaceReferences?: (records: readonly WorkspaceReferenceRecord[]) => void;
 	timeZone?: string;
 }) {
 	const sandboxTools = createSandboxTools(input.workspace);
@@ -125,6 +137,7 @@ function createAIThreadToolCatalog(input: {
 	});
 	const workspaceTools = createAIThreadWorkspaceTools({
 		getThreadContext: input.getThreadContext,
+		onWorkspaceReferences: input.onWorkspaceReferences,
 	});
 	const entries: AIThreadToolEntry[] = [];
 
@@ -482,6 +495,7 @@ export function getAIThreadSystemPromptForWorkspace(
 ) {
 	return [
 		stripThinkCapabilityBlock(system),
+		AI_THREAD_WORKSPACE_CITATION_PROMPT,
 		getThinkExRuntimeScopePrompt(promptScope, options),
 	].join("\n\n");
 }

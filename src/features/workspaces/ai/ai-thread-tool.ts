@@ -30,6 +30,7 @@ type AIThreadToolDefinition<INPUT, OUTPUT> = Pick<
 	| "providerOptions"
 	| "strict"
 	| "title"
+	| "toModelOutput"
 > & {
 	execute(
 		this: void,

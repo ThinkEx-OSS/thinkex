@@ -1,5 +1,6 @@
 import { isToolUIPart } from "ai";
 
+import { WORKSPACE_CITATIONS_DATA_PART_TYPE } from "#/features/workspaces/ai/workspace-citations";
 import type {
 	AiChatMessage,
 	AiChatMessagePart,
@@ -206,6 +207,10 @@ function getLegacyCodemodeChildren(
 }
 
 export function isDisplayableMessagePart(part: AiChatMessagePart): boolean {
+	if (part.type === WORKSPACE_CITATIONS_DATA_PART_TYPE) {
+		return false;
+	}
+
 	if (part.type === "text") {
 		return part.text.length > 0 || part.state === "streaming";
 	}

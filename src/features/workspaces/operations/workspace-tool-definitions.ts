@@ -1,5 +1,7 @@
+import type { Tool } from "ai";
 import type { z } from "zod";
 
+import { createWorkspaceReadItemsModelOutput } from "#/features/workspaces/content/workspace-read-references";
 import { createWorkspaceItemsOperation } from "#/features/workspaces/operations/create-items";
 import { deleteWorkspaceItemsOperation } from "#/features/workspaces/operations/delete-items";
 import { editWorkspaceItemOperation } from "#/features/workspaces/operations/edit-item";
@@ -79,6 +81,7 @@ export type WorkspaceToolDefinition<
 	name: TName;
 	outputSchema: TOutputSchema;
 	summarizeResult: (result: z.output<TOutputSchema>) => WorkspaceOperationSummary;
+	toModelOutput?: Tool<z.output<TInputSchema>, z.output<TOutputSchema>>["toModelOutput"];
 };
 
 type RegisteredWorkspaceToolDefinition<
@@ -151,6 +154,10 @@ export const workspaceToolDefinitions = [
 		inputExamples: workspaceReadItemsInputExamples,
 		outputSchema: workspaceReadItemsOutputSchema,
 		summarizeResult: summarizeWorkspaceReadResult,
+		toModelOutput: ({ output }) => ({
+			type: "json",
+			value: createWorkspaceReadItemsModelOutput(output),
+		}),
 		effects: { destructive: false, idempotent: true },
 		execute: async ({ requests }, context) => {
 			return await readWorkspaceItemsOperation(context, { requests });

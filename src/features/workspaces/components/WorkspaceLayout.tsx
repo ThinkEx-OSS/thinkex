@@ -31,6 +31,7 @@ import type { WorkspaceItem } from "#/features/workspaces/model/types";
 import { isWorkspaceItemView } from "#/features/workspaces/model/view";
 import { workspaceItemRequiresHeavyViewerRuntime } from "#/features/workspaces/model/workspace-file";
 import { getWorkspaceMobileChatSurfaceMode } from "#/features/workspaces/model/workspace-ui";
+import { WorkspaceLocationProvider } from "#/features/workspaces/locations/workspace-location-context";
 import { useWorkspaceNavigation } from "#/features/workspaces/navigation/useWorkspaceNavigation";
 import { useWorkspaceRealtime } from "#/features/workspaces/realtime/use-workspace-presence";
 import { useWorkspacePersistedStoresHydrated } from "#/features/workspaces/state/persisted-store-hydration";
@@ -108,6 +109,7 @@ export function WorkspaceShell({
 		itemsById,
 		openItem,
 		openWorkspaceRoot,
+		revealWorkspaceLocation,
 		scopedItems,
 		session,
 		validItemIds,
@@ -290,11 +292,13 @@ export function WorkspaceShell({
 
 	return (
 		<WorkspaceMutationAccessProvider membershipRole={workspace.membershipRole}>
-			{hasHeavyViewerRuntimeItems ? (
-				<WorkspacePdfEngineProvider>{workspaceInteractionContent}</WorkspacePdfEngineProvider>
-			) : (
-				workspaceInteractionContent
-			)}
+			<WorkspaceLocationProvider itemsById={itemsById} reveal={revealWorkspaceLocation}>
+				{hasHeavyViewerRuntimeItems ? (
+					<WorkspacePdfEngineProvider>{workspaceInteractionContent}</WorkspacePdfEngineProvider>
+				) : (
+					workspaceInteractionContent
+				)}
+			</WorkspaceLocationProvider>
 		</WorkspaceMutationAccessProvider>
 	);
 }

@@ -1,6 +1,7 @@
 import type { WorkspaceTab } from "#/features/workspaces/model/tab-types";
 import type { WorkspaceItem } from "#/features/workspaces/model/types";
 import type { WorkspaceItemFacts } from "#/features/workspaces/contracts";
+import type { WorkspaceReferenceRecord } from "#/features/workspaces/ai/workspace-reference";
 import type {
 	WorkspaceAiContextItemViewState,
 	WorkspaceItemViewState,
@@ -62,6 +63,7 @@ export type WorkspaceAiContextOutlineItem = {
 };
 
 export type WorkspaceAiContextSnapshotSelectedQuote = {
+	citation?: WorkspaceReferenceRecord;
 	label: string;
 	order: number;
 	source:

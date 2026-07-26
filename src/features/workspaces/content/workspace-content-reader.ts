@@ -159,6 +159,7 @@ async function readDocument(input: {
 	return {
 		content: chunk.content,
 		format: "markdown",
+		itemId: input.item.id,
 		location: { kind: "lines", ...chunk.location },
 		...(chunk.nextOffset === undefined
 			? {}
@@ -238,8 +239,10 @@ async function readFile(input: {
 	}
 	const nextPage = Math.max(...pageRead.pages.returned) + 1;
 	return {
+		assetKind: fileType.assetKind,
 		content: pageRead.content,
 		format: "markdown",
+		itemId: input.item.id,
 		location: { kind: "pages", ...pageRead.pages },
 		...(nextPage > pageRead.pages.total
 			? {}

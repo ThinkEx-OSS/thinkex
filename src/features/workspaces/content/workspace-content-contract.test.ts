@@ -51,18 +51,22 @@ describe("workspace read tool schemas", () => {
 	it("keeps document and file result shapes disjoint", () => {
 		expect(
 			workspaceReadItemsOutputSchema.safeParse({
+				references: [],
 				results: [
 					{
 						content: "# Notes",
 						format: "markdown",
+						itemId: "notes",
 						location: { endLine: 1, kind: "lines", startLine: 1, totalLines: 1 },
 						path: "/Notes",
 						status: "ready",
 						type: "document",
 					},
 					{
+						assetKind: "pdf",
 						content: "Page one",
 						format: "markdown",
+						itemId: "book",
 						location: { kind: "pages", requested: "1", returned: [1], total: 1 },
 						path: "/Book.pdf",
 						status: "ready",
@@ -73,10 +77,12 @@ describe("workspace read tool schemas", () => {
 		).toBe(true);
 		expect(
 			workspaceReadItemsOutputSchema.safeParse({
+				references: [],
 				results: [
 					{
 						content: "Page one",
 						format: "markdown",
+						itemId: "notes",
 						location: { kind: "pages", requested: "1", returned: [1], total: 1 },
 						path: "/Notes",
 						status: "ready",

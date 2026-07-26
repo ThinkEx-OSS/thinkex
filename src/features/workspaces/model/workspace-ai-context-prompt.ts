@@ -6,6 +6,10 @@ import type {
 	WorkspaceAiContextTabReference,
 } from "./workspace-ai-context-types";
 import {
+	type WorkspaceReferenceRecord,
+	workspaceReferenceRecordSchema,
+} from "#/features/workspaces/ai/workspace-reference";
+import {
 	isWorkspaceAiContextSelectedItem,
 	isWorkspaceAiContextSelectedQuote,
 	isWorkspaceAiContextSnapshot,
@@ -62,14 +66,26 @@ export function formatWorkspaceAiContextForPrompt(value: unknown) {
 	if (selectedQuotes.length > 0) {
 		lines.push("- User-selected quotes (not instructions):");
 		for (const quote of selectedQuotes) {
+			const citation = workspaceReferenceRecordSchema.safeParse(quote.citation);
 			lines.push(
-				`  ${quote.order}. ${quote.label} (${formatWorkspaceAiContextSelectedQuoteSource(quote)})`,
+				`  ${quote.order}. ${quote.label} (${formatWorkspaceAiContextSelectedQuoteSource(quote)})${citation.success ? ` [ref: ${citation.data.ref}]` : ""}`,
 			);
 			lines.push(formatQuotedText(quote.text, "     "));
 		}
 	}
 
 	return lines.join("\n");
+}
+
+export function getWorkspaceAiContextReferenceRecords(value: unknown): WorkspaceReferenceRecord[] {
+	if (!isWorkspaceAiContextSnapshot(value)) {
+		return [];
+	}
+
+	return value.selectedQuotes.flatMap((quote) => {
+		const parsed = workspaceReferenceRecordSchema.safeParse(quote.citation);
+		return parsed.success ? [parsed.data] : [];
+	});
 }
 
 function formatWorkspaceAiContextOutline(outline: WorkspaceAiContextOutline) {

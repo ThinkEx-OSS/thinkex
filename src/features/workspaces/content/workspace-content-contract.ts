@@ -1,6 +1,8 @@
 import { z } from "zod";
 
+import { workspaceReferenceRecordSchema } from "#/features/workspaces/ai/workspace-reference";
 import { workspaceRelationKindSchema } from "#/features/workspaces/contracts";
+import { workspaceFileAssetKindSchema } from "#/features/workspaces/model/workspace-file";
 
 const workspacePathSchema = z.string().min(1);
 
@@ -75,6 +77,7 @@ const workspaceContentReadResultSchema = z.union([
 	z.object({
 		content: z.string(),
 		format: z.literal("markdown"),
+		itemId: z.string().min(1),
 		location: z.object({
 			endLine: z.number().int().nonnegative(),
 			kind: z.literal("lines"),
@@ -88,8 +91,10 @@ const workspaceContentReadResultSchema = z.union([
 		type: z.literal("document"),
 	}),
 	z.object({
+		assetKind: workspaceFileAssetKindSchema,
 		content: z.string(),
 		format: z.literal("markdown"),
+		itemId: z.string().min(1),
 		location: workspaceReadPagesSchema.extend({ kind: z.literal("pages") }),
 		nextCursor: z.string().optional(),
 		path: workspacePathSchema,
@@ -111,8 +116,10 @@ const workspaceContentReadResultSchema = z.union([
 ]);
 
 export const workspaceReadItemsOutputSchema = z.object({
+	references: z.array(workspaceReferenceRecordSchema),
 	results: z.array(workspaceContentReadResultSchema),
 });
 
 export type WorkspaceContentReadRequest = z.output<typeof workspaceContentReadRequestSchema>;
 export type WorkspaceContentReadResult = z.output<typeof workspaceContentReadResultSchema>;
+export type WorkspaceReadItemsOutput = z.output<typeof workspaceReadItemsOutputSchema>;
