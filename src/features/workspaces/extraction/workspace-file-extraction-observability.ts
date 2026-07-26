@@ -32,7 +32,7 @@ type WorkspaceFileExtractionOutcome = WorkspaceFileExtractionOutcomeBase &
 		| {
 				outcome: "partial" | "success";
 				pageCount: number;
-				provider: MarkdownExtractionProviderId | "liteparse";
+				provider: MarkdownExtractionProviderId;
 				providerMode: MarkdownExtractionProviderMode;
 				routeReason: string;
 		  }

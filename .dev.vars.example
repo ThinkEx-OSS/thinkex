@@ -36,8 +36,8 @@ BETTER_AUTH_URL="http://localhost:3000"
 # Agent observability export (The Context Company).
 # TCC_API_KEY=""
 
-# Document extraction (LlamaParse).
-# LLAMA_CLOUD_API_KEY=""
+# Hosted document extraction (FileRouter).
+# FILEROUTER_API_KEY=""
 
 # Direct workspace-upload completion claims. Use a separate random 32+ byte value.
 # WORKSPACE_UPLOAD_TOKEN_SECRET=""

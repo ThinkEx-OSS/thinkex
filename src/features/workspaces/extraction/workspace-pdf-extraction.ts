@@ -1,0 +1,304 @@
+import type { WorkflowEvent, WorkflowStep } from "cloudflare:workers";
+
+import {
+	createFileRouterExtractionJob,
+	deleteFileRouterDocument,
+	type FileRouterDocumentReference,
+	stageFileRouterProjection,
+	uploadWorkspaceFileToFileRouter,
+} from "#/features/workspaces/extraction/filerouter-extraction";
+import type {
+	LiteParseStageOutcome,
+	WorkspaceFileExtractionWorkflowParams,
+} from "#/features/workspaces/extraction/types";
+import { recordWorkspaceFileExtractionOutcome } from "#/features/workspaces/extraction/workspace-file-extraction-observability";
+import {
+	markWorkspaceFileExtractionFailed,
+	publishWorkspaceFileProjection,
+} from "#/features/workspaces/extraction/workspace-file-extraction-state";
+import { recordOperationalFailure } from "#/integrations/observability/operational-events";
+import type { PostHogTelemetryScheduler } from "#/integrations/posthog/scheduler";
+
+const fastExtractionTimeoutMs = 5 * 60_000;
+const enhancedExtractionTimeoutMs = 10 * 60_000;
+
+interface PdfExtractionInput {
+	env: Cloudflare.Env;
+	event: Readonly<WorkflowEvent<WorkspaceFileExtractionWorkflowParams>>;
+	params: WorkspaceFileExtractionWorkflowParams;
+	schedule: PostHogTelemetryScheduler;
+	step: WorkflowStep;
+}
+
+export async function runWorkspacePdfExtraction(input: PdfExtractionInput) {
+	const document = await uploadSourceDocument(input);
+
+	try {
+		return await extractPdf(input, document);
+	} finally {
+		await deleteSourceDocument(input, document.documentId);
+	}
+}
+
+async function extractPdf(input: PdfExtractionInput, document: FileRouterDocumentReference) {
+	let failureStartedAt = Date.now();
+	let liteParse: LiteParseStageOutcome = { durationMs: 0, outcome: "skipped" };
+
+	try {
+		const { jobId } = await input.step.do(
+			"start FileRouter extraction",
+			{
+				retries: { limit: 2, delay: "10 seconds", backoff: "exponential" },
+				timeout: "2 minutes",
+			},
+			() =>
+				createFileRouterExtractionJob(input.env, {
+					documentId: document.documentId,
+					idempotencyKey: `${input.event.instanceId}:job`,
+				}),
+		);
+		liteParse = await publishFastProjection(input, document, jobId);
+		failureStartedAt = Date.now();
+		const extraction = await input.step.do(
+			"stage enhanced FileRouter projection",
+			{
+				retries: { limit: 2, delay: "30 seconds", backoff: "exponential" },
+				timeout: "12 minutes",
+			},
+			() =>
+				stageFileRouterProjection(input.env, {
+					documentId: document.documentId,
+					itemId: input.params.itemId,
+					jobId,
+					provider: "llamaparse",
+					runId: input.event.instanceId,
+					sourceHash: document.sourceHash,
+					tier: "enhanced",
+					timeoutMs: enhancedExtractionTimeoutMs,
+					workspaceId: input.params.workspaceId,
+				}),
+		);
+		const result = await publishWorkspaceFileProjection(
+			input.env,
+			input.step,
+			input.params,
+			input.event.instanceId,
+			extraction,
+			false,
+		);
+
+		await input.step.do("record extraction outcome", async () => {
+			recordWorkspaceFileExtractionOutcome({
+				durationMs: Date.now() - input.event.timestamp.getTime(),
+				enhancement: {
+					durationMs: Date.now() - failureStartedAt,
+					outcome: "success",
+				},
+				instanceId: input.event.instanceId,
+				liteParse,
+				outcome: "success",
+				pageCount: extraction.pageCount,
+				params: input.params,
+				provider: extraction.provider,
+				providerMode: extraction.providerMode,
+				routeReason: extraction.routeReason,
+				schedule: input.schedule,
+			});
+
+			return { outcome: "success" };
+		});
+
+		return result;
+	} catch (error) {
+		return handlePdfExtractionFailure(input, liteParse, failureStartedAt, error);
+	}
+}
+
+async function publishFastProjection(
+	input: PdfExtractionInput,
+	document: FileRouterDocumentReference,
+	jobId: string,
+): Promise<LiteParseStageOutcome> {
+	const startedAt = Date.now();
+	try {
+		const extraction = await input.step.do(
+			"stage fast FileRouter projection",
+			{
+				retries: { limit: 1, delay: "10 seconds", backoff: "constant" },
+				timeout: "7 minutes",
+			},
+			() =>
+				stageFileRouterProjection(input.env, {
+					documentId: document.documentId,
+					itemId: input.params.itemId,
+					jobId,
+					provider: "liteparse",
+					runId: input.event.instanceId,
+					sourceHash: document.sourceHash,
+					tier: "fast",
+					timeoutMs: fastExtractionTimeoutMs,
+					workspaceId: input.params.workspaceId,
+				}),
+		);
+		await publishWorkspaceFileProjection(
+			input.env,
+			input.step,
+			input.params,
+			input.event.instanceId,
+			extraction,
+			true,
+		);
+
+		return {
+			durationMs: Date.now() - startedAt,
+			markdownLength: extraction.markdownLength,
+			outcome: "success",
+			pageCount: extraction.pageCount,
+		};
+	} catch (error) {
+		recordOperationalFailure({
+			distinctId: input.params.actorUserId ?? undefined,
+			error,
+			event: "workspace_liteparse_projection",
+			fields: {
+				item_id: input.params.itemId,
+				request_id: input.params.requestId,
+				workflow_id: input.event.instanceId,
+				workspace_id: input.params.workspaceId,
+			},
+			schedule: input.schedule,
+		});
+
+		return {
+			durationMs: Date.now() - startedAt,
+			errorType: error instanceof Error ? error.name : "UnknownError",
+			outcome: "error",
+		};
+	}
+}
+
+async function handlePdfExtractionFailure(
+	input: PdfExtractionInput,
+	liteParse: LiteParseStageOutcome,
+	failureStartedAt: number,
+	error: unknown,
+) {
+	if (liteParse.outcome === "success") {
+		await input.step.do("record partial extraction outcome", async () => {
+			recordWorkspaceFileExtractionOutcome({
+				durationMs: Date.now() - input.event.timestamp.getTime(),
+				enhancement: {
+					durationMs: Date.now() - failureStartedAt,
+					error,
+					outcome: "error",
+				},
+				instanceId: input.event.instanceId,
+				liteParse,
+				outcome: "partial",
+				pageCount: liteParse.pageCount,
+				params: input.params,
+				provider: "liteparse",
+				providerMode: "fast",
+				routeReason: "filerouter_liteparse_fallback",
+				schedule: input.schedule,
+			});
+
+			return { outcome: "partial" };
+		});
+
+		return {
+			pageCount: liteParse.pageCount,
+			provider: "liteparse" as const,
+			providerMode: "fast" as const,
+			status: "ready" as const,
+		};
+	}
+
+	return failPdfExtraction(input, liteParse, failureStartedAt, error);
+}
+
+async function uploadSourceDocument(
+	input: PdfExtractionInput,
+): Promise<FileRouterDocumentReference> {
+	const startedAt = Date.now();
+
+	try {
+		return await input.step.do(
+			"upload source to FileRouter",
+			{
+				retries: { limit: 2, delay: "10 seconds", backoff: "exponential" },
+				timeout: "5 minutes",
+			},
+			() =>
+				uploadWorkspaceFileToFileRouter(
+					input.env,
+					input.params,
+					`${input.event.instanceId}:document`,
+				),
+		);
+	} catch (error) {
+		return failPdfExtraction(input, { durationMs: 0, outcome: "skipped" }, startedAt, error);
+	}
+}
+
+async function failPdfExtraction(
+	input: PdfExtractionInput,
+	liteParse: LiteParseStageOutcome,
+	failureStartedAt: number,
+	error: unknown,
+): Promise<never> {
+	await markWorkspaceFileExtractionFailed(
+		input.env,
+		input.step,
+		input.params,
+		input.event.instanceId,
+		error,
+	);
+	await input.step.do("record extraction failure", async () => {
+		recordWorkspaceFileExtractionOutcome({
+			durationMs: Date.now() - input.event.timestamp.getTime(),
+			enhancement: {
+				durationMs: Date.now() - failureStartedAt,
+				error,
+				outcome: "error",
+			},
+			error,
+			instanceId: input.event.instanceId,
+			liteParse,
+			outcome: "error",
+			params: input.params,
+			schedule: input.schedule,
+		});
+
+		return { outcome: "error" };
+	});
+
+	throw error;
+}
+
+async function deleteSourceDocument(input: PdfExtractionInput, documentId: string) {
+	try {
+		await input.step.do(
+			"delete FileRouter document",
+			{
+				retries: { limit: 3, delay: "10 seconds", backoff: "exponential" },
+				timeout: "2 minutes",
+			},
+			() => deleteFileRouterDocument(input.env, documentId),
+		);
+	} catch (error) {
+		recordOperationalFailure({
+			distinctId: input.params.actorUserId ?? undefined,
+			error,
+			event: "workspace_file_extraction_cleanup",
+			fields: {
+				document_id: documentId,
+				item_id: input.params.itemId,
+				request_id: input.params.requestId,
+				workflow_id: input.event.instanceId,
+				workspace_id: input.params.workspaceId,
+			},
+			schedule: input.schedule,
+		});
+	}
+}
