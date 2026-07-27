@@ -56,7 +56,7 @@ export default function AiChatMessageRow({
 	const userBodyParts = isAssistant
 		? []
 		: displayableParts.filter((part) => !isAttachmentPart(part));
-	const copyableText = isAssistant ? getCopyableMessageText(message) : "";
+	const copyableText = isAssistant && !isStreaming ? getCopyableMessageText(message) : "";
 
 	return (
 		<Message align={isAssistant ? "start" : "end"}>

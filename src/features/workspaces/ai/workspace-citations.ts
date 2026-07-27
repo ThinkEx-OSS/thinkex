@@ -1,4 +1,8 @@
 import { isToolUIPart, type UIMessage } from "ai";
+import remarkGfm from "remark-gfm";
+import remarkParse from "remark-parse";
+import { unified } from "unified";
+import { visit } from "unist-util-visit";
 import { z } from "zod";
 
 import {
@@ -15,10 +19,10 @@ import {
 export const WORKSPACE_CITATIONS_DATA_PART_TYPE = "data-workspace-citations";
 const WORKSPACE_CITATIONS_DATA_PART_ID = "workspace-citations";
 const MAX_WORKSPACE_CITATIONS_PER_MESSAGE = 50;
-const MAX_ORCHESTRATION_SCAN_DEPTH = 6;
 const workspaceCitationTagPattern =
 	/<citation\s+ref=(["'])(wr_[0-9A-Za-z]{8})\1\s*(?:\/>|>\s*<\/citation\s*>)/g;
 const anyCompleteWorkspaceCitationTagPattern = /<\/?citation\b[^>]*>/gi;
+const workspaceCitationMarkdownParser = unified().use(remarkParse).use(remarkGfm);
 
 export const workspaceCitationsDataSchema = z.strictObject({
 	citations: z.array(workspaceReferenceRecordSchema).max(MAX_WORKSPACE_CITATIONS_PER_MESSAGE),
@@ -84,8 +88,11 @@ export function getWorkspaceCitationRecords(
 }
 
 /**
- * Collects app-issued reference records from workspace reads and normalized
- * citation data in a persisted transcript.
+ * Collects app-issued reference records from direct workspace reads and
+ * normalized citation data in a persisted transcript.
+ *
+ * Code Mode's final result is model-authored, so genuine nested reads are
+ * captured during execution instead of trusted from the orchestration output.
  *
  * @param messages - UI messages on the active thread path.
  * @returns Candidate records in transcript order.
@@ -110,16 +117,13 @@ export function collectWorkspaceReferenceRecords(
 			const toolName =
 				part.type === "dynamic-tool" ? part.toolName : part.type.split("-").slice(1).join("-");
 
-			if (toolName === "workspace_read_items") {
-				const parsed = workspaceReadItemsOutputSchema.safeParse(part.output);
-				if (parsed.success) {
-					records.push(...parsed.data.references);
-				}
+			if (toolName !== "workspace_read_items") {
 				continue;
 			}
 
-			if (toolName === "orchestrate") {
-				collectWorkspaceReadReferencesFromValue(part.output, records);
+			const parsed = workspaceReadItemsOutputSchema.safeParse(part.output);
+			if (parsed.success) {
+				records.push(...parsed.data.references);
 			}
 		}
 	}
@@ -130,8 +134,9 @@ export function collectWorkspaceReferenceRecords(
 /**
  * Builds the unambiguous ref-to-location map available while rendering a message.
  *
- * Persisted citations and completed workspace-read outputs both contribute, so
- * direct tool citations can appear before post-response reconciliation arrives.
+ * Persisted citations and completed direct workspace-read outputs both
+ * contribute, so direct tool citations can appear before post-response
+ * reconciliation arrives.
  *
  * @param message - Streaming or persisted UI message.
  * @returns Unambiguous locations keyed by their exact model-facing refs.
@@ -158,7 +163,25 @@ export function getWorkspaceCitationLocations(
  * @returns Markdown without citation protocol markup.
  */
 export function stripWorkspaceCitationTags(text: string) {
-	return text.replace(anyCompleteWorkspaceCitationTagPattern, "");
+	const matches = [...text.matchAll(anyCompleteWorkspaceCitationTagPattern)];
+	if (matches.length === 0) {
+		return text;
+	}
+
+	const codeRanges = getMarkdownCodeRanges(text);
+	let result = "";
+	let sourceOffset = 0;
+
+	for (const match of matches) {
+		if (isOffsetInRanges(match.index, codeRanges)) {
+			continue;
+		}
+
+		result += text.slice(sourceOffset, match.index);
+		sourceOffset = match.index + match[0].length;
+	}
+
+	return result + text.slice(sourceOffset);
 }
 
 function resolveUsedWorkspaceCitations(
@@ -174,7 +197,17 @@ function resolveUsedWorkspaceCitations(
 			continue;
 		}
 
-		for (const match of part.text.matchAll(workspaceCitationTagPattern)) {
+		const matches = [...part.text.matchAll(workspaceCitationTagPattern)];
+		if (matches.length === 0) {
+			continue;
+		}
+
+		const codeRanges = getMarkdownCodeRanges(part.text);
+		for (const match of matches) {
+			if (isOffsetInRanges(match.index, codeRanges)) {
+				continue;
+			}
+
 			const ref = match[2] as WorkspaceReference;
 			if (usedRefs.has(ref)) {
 				continue;
@@ -194,6 +227,32 @@ function resolveUsedWorkspaceCitations(
 	}
 
 	return citations;
+}
+
+function getMarkdownCodeRanges(text: string) {
+	const ranges: Array<{ readonly end: number; readonly start: number }> = [];
+	const tree = workspaceCitationMarkdownParser.parse(text);
+
+	visit(tree, (node) => {
+		if (node.type !== "code" && node.type !== "inlineCode") {
+			return;
+		}
+
+		const start = node.position?.start.offset;
+		const end = node.position?.end.offset;
+		if (start !== undefined && end !== undefined) {
+			ranges.push({ end, start });
+		}
+	});
+
+	return ranges;
+}
+
+function isOffsetInRanges(
+	offset: number,
+	ranges: readonly { readonly end: number; readonly start: number }[],
+) {
+	return ranges.some((range) => offset >= range.start && offset < range.end);
 }
 
 function indexWorkspaceReferenceCandidates(candidates: readonly WorkspaceReferenceRecord[]) {
@@ -220,33 +279,6 @@ function indexWorkspaceReferenceCandidates(candidates: readonly WorkspaceReferen
 
 	return index;
 }
-
-function collectWorkspaceReadReferencesFromValue(
-	value: unknown,
-	records: WorkspaceReferenceRecord[],
-	depth = 0,
-	seen = new WeakSet<object>(),
-) {
-	if (depth > MAX_ORCHESTRATION_SCAN_DEPTH || value === null || typeof value !== "object") {
-		return;
-	}
-
-	const parsed = workspaceReadItemsOutputSchema.safeParse(value);
-	if (parsed.success) {
-		records.push(...parsed.data.references);
-		return;
-	}
-
-	if (seen.has(value)) {
-		return;
-	}
-	seen.add(value);
-
-	for (const child of Array.isArray(value) ? value : Object.values(value)) {
-		collectWorkspaceReadReferencesFromValue(child, records, depth + 1, seen);
-	}
-}
-
 function haveSameWorkspaceReferences(
 	left: readonly WorkspaceReferenceRecord[],
 	right: readonly WorkspaceReferenceRecord[],

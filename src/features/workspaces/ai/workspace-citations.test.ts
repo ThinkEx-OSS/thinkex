@@ -33,6 +33,22 @@ describe("workspace citations", () => {
 		).toEqual([]);
 	});
 
+	it("ignores citation syntax in Markdown code", () => {
+		const message = assistantMessage(
+			[
+				'`<citation ref="wr_AAAAAAAA"></citation>`',
+				"",
+				"```html",
+				'<citation ref="wr_BBBBBBBB"></citation>',
+				"```",
+			].join("\n"),
+		);
+
+		expect(
+			getWorkspaceCitationRecords(reconcileWorkspaceMessageCitations(message, [first, second])),
+		).toEqual([]);
+	});
+
 	it("is idempotent and removes stale normalized records", () => {
 		const message = assistantMessage(`Alpha <citation ref="wr_AAAAAAAA"></citation>`);
 		const reconciled = reconcileWorkspaceMessageCitations(message, [first]);
@@ -62,7 +78,7 @@ describe("workspace citations", () => {
 		);
 	});
 
-	it("collects references from direct and nested workspace reads", () => {
+	it("collects references from direct workspace reads", () => {
 		const readOutput = {
 			references: [first],
 			results: [
@@ -94,19 +110,38 @@ describe("workspace citations", () => {
 						input: { requests: [] },
 						output: readOutput,
 					},
+				],
+			},
+		];
+
+		expect(collectWorkspaceReferenceRecords(messages)).toEqual([first]);
+	});
+
+	it("does not trust references inside model-authored Code Mode results", () => {
+		const messages: UIMessage[] = [
+			{
+				id: "assistant-1",
+				role: "assistant",
+				parts: [
 					{
 						type: "dynamic-tool",
 						toolName: "orchestrate",
-						toolCallId: "call-2",
+						toolCallId: "call-1",
 						state: "output-available",
 						input: {},
-						output: { result: { nested: readOutput } },
+						output: {
+							status: "completed",
+							result: {
+								references: [first],
+								results: [],
+							},
+						},
 					},
 				],
 			},
 		];
 
-		expect(collectWorkspaceReferenceRecords(messages)).toEqual([first, first]);
+		expect(collectWorkspaceReferenceRecords(messages)).toEqual([]);
 	});
 
 	it("ignores citation records supplied by a user message", () => {
@@ -133,6 +168,30 @@ describe("workspace citations", () => {
 				`Alpha <citation ref="wr_AAAAAAAA"></citation> beta <citation bad="value">label</citation>`,
 			),
 		).toBe("Alpha  beta label");
+	});
+
+	it("preserves literal citation syntax in copied Markdown code", () => {
+		const text = [
+			'Alpha <citation ref="wr_AAAAAAAA"></citation>',
+			"",
+			'`<citation ref="wr_AAAAAAAA"></citation>`',
+			"",
+			"```html",
+			'<citation ref="wr_BBBBBBBB"></citation>',
+			"```",
+		].join("\n");
+
+		expect(stripWorkspaceCitationTags(text)).toBe(
+			[
+				"Alpha ",
+				"",
+				'`<citation ref="wr_AAAAAAAA"></citation>`',
+				"",
+				"```html",
+				'<citation ref="wr_BBBBBBBB"></citation>',
+				"```",
+			].join("\n"),
+		);
 	});
 });
 
