@@ -203,7 +203,6 @@ export default function AiChatPromptInput({
 								aria-label={dictation.isActive ? "Stop dictation" : "Start dictation"}
 								aria-pressed={dictation.isActive}
 								className={cn(
-									"rounded-full",
 									dictation.isActive &&
 										"bg-destructive/10 text-destructive hover:bg-destructive/20 hover:text-destructive",
 								)}

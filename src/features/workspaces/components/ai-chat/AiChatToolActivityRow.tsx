@@ -153,14 +153,12 @@ function ActivitySummary({
 			role={isRunning ? "status" : undefined}
 			aria-live={isRunning ? "polite" : undefined}
 			title={activity.summary}
-			className="group/tool-row inline-flex min-w-0 max-w-full items-center gap-1.5 py-0.5 text-sm text-muted-foreground"
+			className="group/tool-row inline-flex min-w-0 max-w-full items-center gap-1.5 py-0.5 text-muted-foreground text-xs"
 		>
-			<span className="grid size-4 shrink-0 place-items-center self-center text-muted-foreground/80">
+			<span className="grid size-3.5 shrink-0 place-items-center self-center text-muted-foreground/70">
 				<ToolActivityIcon icon={presentation.icon} />
 			</span>
-			<span
-				className={cn("min-w-0 truncate font-medium text-foreground/90", isRunning && "shimmer")}
-			>
+			<span className={cn("min-w-0 truncate font-medium", isRunning && "shimmer")}>
 				{activity.summary}
 			</span>
 			<InlineSourceFavicons sources={sourcePreviews.slice(0, INLINE_SOURCE_LIMIT)} />

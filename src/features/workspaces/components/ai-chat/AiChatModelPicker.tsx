@@ -11,10 +11,8 @@ import {
 	type WorkspaceAiChatModelLevel,
 } from "#/features/workspaces/ai/models";
 import { ProviderLogo } from "#/features/workspaces/components/ai-chat/ProviderLogo";
+import { WorkspaceToolbarTextButton } from "#/features/workspaces/components/WorkspaceToolbar";
 import { cn } from "#/lib/utils";
-
-const TRIGGER_CLASSNAME =
-	"flex h-8.5 items-center gap-1.5 rounded-md px-2 text-sm font-normal text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring aria-expanded:text-foreground";
 
 interface AiChatModelPickerProps {
 	modelId: WorkspaceAiChatModelId;
@@ -55,7 +53,11 @@ export default function AiChatModelPicker({ modelId, onModelChange }: AiChatMode
 				}
 			}}
 		>
-			<PopoverTrigger className={TRIGGER_CLASSNAME}>
+			<PopoverTrigger
+				render={
+					<WorkspaceToolbarTextButton className="min-w-0 max-w-48 px-2 font-normal sm:px-2" />
+				}
+			>
 				<span className="truncate">{selectedModel.name}</span>
 				<ChevronUp className="size-3.5 shrink-0 opacity-60" />
 			</PopoverTrigger>
