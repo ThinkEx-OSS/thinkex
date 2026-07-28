@@ -34,84 +34,66 @@ export const workspaceReferenceRecordSchema = z.strictObject({
 /** Durable record retained behind a short workspace reference. */
 export type WorkspaceReferenceRecord = Readonly<z.output<typeof workspaceReferenceRecordSchema>>;
 
-/** Result of parsing an untrusted workspace reference. */
-export type WorkspaceReferenceParseResult =
-	| { readonly status: "invalid" }
-	| { readonly ref: WorkspaceReference; readonly status: "parsed" };
-
-/** In-memory allocator used while assembling model-visible workspace content. */
-type WorkspaceReferenceRegistry = {
-	/**
-	 * Returns the existing ref for a location or allocates a collision-free one.
-	 *
-	 * @param location - Durable location being exposed to the model.
-	 * @returns The stable ref for this registry lifetime.
-	 */
-	getOrCreate(location: WorkspaceLocation): WorkspaceReference;
-
-	/**
-	 * Returns all allocated records in insertion order.
-	 *
-	 * @returns Immutable reference records suitable for persistence.
-	 */
-	records(): readonly WorkspaceReferenceRecord[];
-};
-
 /**
  * Parses an untrusted short workspace reference.
  *
  * @param input - Untrusted model or persisted value.
- * @returns A branded reference, or an explicit invalid result.
+ * @returns A branded reference when valid.
  */
-export function parseWorkspaceReference(input: unknown): WorkspaceReferenceParseResult {
+export function parseWorkspaceReference(input: unknown) {
 	const parsed = workspaceReferenceSchema.safeParse(input);
 
-	return parsed.success ? { ref: parsed.data, status: "parsed" } : { status: "invalid" };
+	return parsed.success ? parsed.data : undefined;
 }
 
 /**
- * Creates a location-aware, collision-checking workspace-reference registry.
+ * Creates deduplicated, collision-checked refs for durable locations.
  *
  * The optional candidate source is an internal test seam. Production callers
  * should use the default cryptographically strong Nano ID source.
  *
+ * @param locations - Durable locations in desired record order.
  * @param options - Optional candidate source for deterministic verification.
- * @returns A registry that reuses refs for identical durable locations.
+ * @returns One reference record per distinct location.
  */
-export function createWorkspaceReferenceRegistry(
+export function createWorkspaceReferenceRecords(
+	locations: readonly WorkspaceLocation[],
 	options: { readonly createCandidate?: () => string } = {},
-): WorkspaceReferenceRegistry {
+): WorkspaceReferenceRecord[] {
 	const createCandidate =
 		options.createCandidate ?? (() => `wr_${createRandomWorkspaceReferenceSuffix()}`);
-	const locationsByRef = new Map<WorkspaceReference, WorkspaceLocation>();
-	const refsByLocation = new Map<string, WorkspaceReference>();
+	const locationKeys = new Set<string>();
+	const refs = new Set<WorkspaceReference>();
+	const records: WorkspaceReferenceRecord[] = [];
 
-	return {
-		getOrCreate(location) {
-			const locationKey = getWorkspaceLocationKey(location);
-			const existing = refsByLocation.get(locationKey);
-			if (existing) {
-				return existing;
+	for (const location of locations) {
+		const locationKey = getWorkspaceLocationKey(location);
+		if (locationKeys.has(locationKey)) {
+			continue;
+		}
+
+		let allocatedRef: WorkspaceReference | undefined;
+		for (let attempt = 0; attempt < WORKSPACE_REFERENCE_COLLISION_ATTEMPTS; attempt += 1) {
+			const ref = parseWorkspaceReference(createCandidate());
+			if (!ref) {
+				throw new Error("Workspace reference candidate source returned an invalid value.");
+			}
+			if (refs.has(ref)) {
+				continue;
 			}
 
-			for (let attempt = 0; attempt < WORKSPACE_REFERENCE_COLLISION_ATTEMPTS; attempt += 1) {
-				const parsed = parseWorkspaceReference(createCandidate());
-				if (parsed.status === "invalid") {
-					throw new Error("Workspace reference candidate source returned an invalid value.");
-				}
-				if (locationsByRef.has(parsed.ref)) {
-					continue;
-				}
+			allocatedRef = ref;
+			break;
+		}
 
-				locationsByRef.set(parsed.ref, location);
-				refsByLocation.set(locationKey, parsed.ref);
-				return parsed.ref;
-			}
-
+		if (!allocatedRef) {
 			throw new Error("Unable to allocate a collision-free workspace reference.");
-		},
-		records() {
-			return Array.from(locationsByRef, ([ref, location]) => ({ location, ref }));
-		},
-	};
+		}
+
+		locationKeys.add(locationKey);
+		refs.add(allocatedRef);
+		records.push({ location, ref: allocatedRef });
+	}
+
+	return records;
 }

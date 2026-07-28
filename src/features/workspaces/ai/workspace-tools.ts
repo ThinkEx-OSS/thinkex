@@ -4,6 +4,7 @@ import type { AIThreadContext } from "#/features/workspaces/ai/ai-thread-metadat
 import { defineAIThreadTool } from "#/features/workspaces/ai/ai-thread-tool";
 import type { WorkspaceReferenceRecord } from "#/features/workspaces/ai/workspace-reference";
 import { workspaceReadItemsOutputSchema } from "#/features/workspaces/content/workspace-content-contract";
+import { createWorkspaceReadItemsModelOutput } from "#/features/workspaces/content/workspace-read-references";
 import {
 	workspaceToolDefinitions,
 	getWorkspaceToolScopes,
@@ -23,6 +24,7 @@ type WorkspaceThreadToolConfig = {
 
 function createWorkspaceThreadTool(input: WorkspaceThreadToolConfig) {
 	const { definition } = input;
+	const isWorkspaceRead = definition.name === "workspace_read_items";
 
 	return defineAIThreadTool({
 		description: definition.description,
@@ -30,7 +32,16 @@ function createWorkspaceThreadTool(input: WorkspaceThreadToolConfig) {
 		inputExamples: definition.inputExamples,
 		outputSchema: definition.outputSchema,
 		strict: true,
-		...(definition.toModelOutput ? { toModelOutput: definition.toModelOutput } : {}),
+		...(isWorkspaceRead
+			? {
+					toModelOutput: ({ output }) => ({
+						type: "json" as const,
+						value: createWorkspaceReadItemsModelOutput(
+							workspaceReadItemsOutputSchema.parse(output),
+						),
+					}),
+				}
+			: {}),
 		execute: async (args, context) => {
 			const thread = await requireThreadContext(input.getThreadContext);
 
@@ -43,7 +54,7 @@ function createWorkspaceThreadTool(input: WorkspaceThreadToolConfig) {
 				),
 			);
 
-			if (definition.name === "workspace_read_items" && input.onWorkspaceReferences) {
+			if (isWorkspaceRead && input.onWorkspaceReferences) {
 				const parsed = workspaceReadItemsOutputSchema.safeParse(output);
 				if (parsed.success) {
 					input.onWorkspaceReferences(parsed.data.references);
@@ -63,10 +74,7 @@ export function createAIThreadWorkspaceTools(input: {
 		workspaceToolDefinitions.map((definition) => [
 			definition.name,
 			createWorkspaceThreadTool({
-				// SAFETY: Every registered definition is created by defineWorkspaceTool, which binds
-				// toModelOutput to the same input/output schemas used by execute. This is the one
-				// heterogeneous registry seam where those individual generic types are erased.
-				definition: definition as WorkspaceToolDefinition,
+				definition,
 				getThreadContext: input.getThreadContext,
 				onWorkspaceReferences: input.onWorkspaceReferences,
 			}),

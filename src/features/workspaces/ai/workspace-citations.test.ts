@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 
 import {
 	collectWorkspaceReferenceRecords,
-	getWorkspaceCitationRecords,
 	reconcileWorkspaceMessageCitations,
 	stripWorkspaceCitationTags,
 } from "#/features/workspaces/ai/workspace-citations";
@@ -21,7 +20,7 @@ describe("workspace citations", () => {
 		);
 		const reconciled = reconcileWorkspaceMessageCitations(message, [first, second]);
 
-		expect(getWorkspaceCitationRecords(reconciled)).toEqual([second, first]);
+		expect(collectWorkspaceReferenceRecords([reconciled])).toEqual([second, first]);
 	});
 
 	it("rejects a ref that maps to different durable locations", () => {
@@ -29,23 +28,9 @@ describe("workspace citations", () => {
 		const message = assistantMessage(`Alpha <citation ref="wr_AAAAAAAA"></citation>`);
 
 		expect(
-			getWorkspaceCitationRecords(reconcileWorkspaceMessageCitations(message, [first, collision])),
-		).toEqual([]);
-	});
-
-	it("ignores citation syntax in Markdown code", () => {
-		const message = assistantMessage(
-			[
-				'`<citation ref="wr_AAAAAAAA"></citation>`',
-				"",
-				"```html",
-				'<citation ref="wr_BBBBBBBB"></citation>',
-				"```",
-			].join("\n"),
-		);
-
-		expect(
-			getWorkspaceCitationRecords(reconcileWorkspaceMessageCitations(message, [first, second])),
+			collectWorkspaceReferenceRecords([
+				reconcileWorkspaceMessageCitations(message, [first, collision]),
+			]),
 		).toEqual([]);
 	});
 
@@ -55,12 +40,12 @@ describe("workspace citations", () => {
 
 		expect(reconcileWorkspaceMessageCitations(reconciled, [first])).toBe(reconciled);
 		expect(
-			getWorkspaceCitationRecords(
+			collectWorkspaceReferenceRecords([
 				reconcileWorkspaceMessageCitations(
 					{ ...reconciled, parts: [{ type: "text", text: "No citation" }, reconciled.parts[1]] },
 					[first],
 				),
-			),
+			]),
 		).toEqual([]);
 	});
 
@@ -168,30 +153,6 @@ describe("workspace citations", () => {
 				`Alpha <citation ref="wr_AAAAAAAA"></citation> beta <citation bad="value">label</citation>`,
 			),
 		).toBe("Alpha  beta label");
-	});
-
-	it("preserves literal citation syntax in copied Markdown code", () => {
-		const text = [
-			'Alpha <citation ref="wr_AAAAAAAA"></citation>',
-			"",
-			'`<citation ref="wr_AAAAAAAA"></citation>`',
-			"",
-			"```html",
-			'<citation ref="wr_BBBBBBBB"></citation>',
-			"```",
-		].join("\n");
-
-		expect(stripWorkspaceCitationTags(text)).toBe(
-			[
-				"Alpha ",
-				"",
-				'`<citation ref="wr_AAAAAAAA"></citation>`',
-				"",
-				"```html",
-				'<citation ref="wr_BBBBBBBB"></citation>',
-				"```",
-			].join("\n"),
-		);
 	});
 });
 

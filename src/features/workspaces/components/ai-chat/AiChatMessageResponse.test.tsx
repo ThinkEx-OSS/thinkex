@@ -26,10 +26,7 @@ describe("AI chat message response citations", () => {
 	it("renders a validated citation as an app-owned source button", () => {
 		const ref = "wr_AAAAAAAA" as WorkspaceReference;
 		const html = renderToStaticMarkup(
-			<WorkspaceLocationProvider
-				itemsById={new Map()}
-				reveal={() => ({ status: "item_unavailable" })}
-			>
+			<WorkspaceLocationProvider itemsById={new Map()} reveal={() => false}>
 				<AiChatMessageResponse
 					workspaceCitationLocations={
 						new Map([
@@ -61,7 +58,7 @@ describe("AI chat message response citations", () => {
 		const html = renderToStaticMarkup(
 			<WorkspaceLocationProvider
 				itemsById={new Map([[documentItem.id, documentItem]])}
-				reveal={() => ({ status: "revealed" })}
+				reveal={() => true}
 			>
 				<AiChatMessageResponse
 					workspaceCitationLocations={
@@ -89,10 +86,7 @@ describe("AI chat message response citations", () => {
 
 	it("does not expose an incomplete streamed citation tag", () => {
 		const html = renderToStaticMarkup(
-			<WorkspaceLocationProvider
-				itemsById={new Map()}
-				reveal={() => ({ status: "item_unavailable" })}
-			>
+			<WorkspaceLocationProvider itemsById={new Map()} reveal={() => false}>
 				<AiChatMessageResponse isStreaming={true}>
 					{'Claim <citation ref="wr_AAAAAAAA'}
 				</AiChatMessageResponse>
@@ -107,10 +101,7 @@ describe("AI chat message response citations", () => {
 	it("renders non-empty citation markup as inert text", () => {
 		const ref = "wr_AAAAAAAA" as WorkspaceReference;
 		const html = renderToStaticMarkup(
-			<WorkspaceLocationProvider
-				itemsById={new Map()}
-				reveal={() => ({ status: "item_unavailable" })}
-			>
+			<WorkspaceLocationProvider itemsById={new Map()} reveal={() => false}>
 				<AiChatMessageResponse
 					workspaceCitationLocations={
 						new Map([

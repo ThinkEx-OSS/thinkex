@@ -1,11 +1,8 @@
 import { isToolUIPart, type UIMessage } from "ai";
-import remarkGfm from "remark-gfm";
-import remarkParse from "remark-parse";
-import { unified } from "unified";
-import { visit } from "unist-util-visit";
 import { z } from "zod";
 
 import {
+	parseWorkspaceReference,
 	type WorkspaceReference,
 	type WorkspaceReferenceRecord,
 	workspaceReferenceRecordSchema,
@@ -17,14 +14,12 @@ import {
 } from "#/features/workspaces/locations/workspace-location";
 
 export const WORKSPACE_CITATIONS_DATA_PART_TYPE = "data-workspace-citations";
-const WORKSPACE_CITATIONS_DATA_PART_ID = "workspace-citations";
 const MAX_WORKSPACE_CITATIONS_PER_MESSAGE = 50;
 const workspaceCitationTagPattern =
-	/<citation\s+ref=(["'])(wr_[0-9A-Za-z]{8})\1\s*(?:\/>|>\s*<\/citation\s*>)/g;
+	/<citation\s+ref=(["'])([^"']+)\1\s*(?:\/>|>\s*<\/citation\s*>)/g;
 const anyCompleteWorkspaceCitationTagPattern = /<\/?citation\b[^>]*>/gi;
-const workspaceCitationMarkdownParser = unified().use(remarkParse).use(remarkGfm);
 
-export const workspaceCitationsDataSchema = z.strictObject({
+const workspaceCitationsDataSchema = z.strictObject({
 	citations: z.array(workspaceReferenceRecordSchema).max(MAX_WORKSPACE_CITATIONS_PER_MESSAGE),
 	version: z.literal(1),
 });
@@ -53,7 +48,6 @@ export function reconcileWorkspaceMessageCitations(
 	if (citations.length > 0) {
 		parts.push({
 			type: WORKSPACE_CITATIONS_DATA_PART_TYPE,
-			id: WORKSPACE_CITATIONS_DATA_PART_ID,
 			data: {
 				citations,
 				version: 1,
@@ -70,9 +64,7 @@ export function reconcileWorkspaceMessageCitations(
  * @param message - Any persisted or streaming UI message.
  * @returns The first valid normalized citation list, or an empty list.
  */
-export function getWorkspaceCitationRecords(
-	message: UIMessage,
-): readonly WorkspaceReferenceRecord[] {
+function getWorkspaceCitationRecords(message: UIMessage): readonly WorkspaceReferenceRecord[] {
 	for (const part of message.parts) {
 		if (part.type !== WORKSPACE_CITATIONS_DATA_PART_TYPE || !("data" in part)) {
 			continue;
@@ -163,25 +155,7 @@ export function getWorkspaceCitationLocations(
  * @returns Markdown without citation protocol markup.
  */
 export function stripWorkspaceCitationTags(text: string) {
-	const matches = [...text.matchAll(anyCompleteWorkspaceCitationTagPattern)];
-	if (matches.length === 0) {
-		return text;
-	}
-
-	const codeRanges = getMarkdownCodeRanges(text);
-	let result = "";
-	let sourceOffset = 0;
-
-	for (const match of matches) {
-		if (isOffsetInRanges(match.index, codeRanges)) {
-			continue;
-		}
-
-		result += text.slice(sourceOffset, match.index);
-		sourceOffset = match.index + match[0].length;
-	}
-
-	return result + text.slice(sourceOffset);
+	return text.replace(anyCompleteWorkspaceCitationTagPattern, "");
 }
 
 function resolveUsedWorkspaceCitations(
@@ -197,19 +171,9 @@ function resolveUsedWorkspaceCitations(
 			continue;
 		}
 
-		const matches = [...part.text.matchAll(workspaceCitationTagPattern)];
-		if (matches.length === 0) {
-			continue;
-		}
-
-		const codeRanges = getMarkdownCodeRanges(part.text);
-		for (const match of matches) {
-			if (isOffsetInRanges(match.index, codeRanges)) {
-				continue;
-			}
-
-			const ref = match[2] as WorkspaceReference;
-			if (usedRefs.has(ref)) {
+		for (const match of part.text.matchAll(workspaceCitationTagPattern)) {
+			const ref = parseWorkspaceReference(match[2]);
+			if (!ref || usedRefs.has(ref)) {
 				continue;
 			}
 
@@ -227,32 +191,6 @@ function resolveUsedWorkspaceCitations(
 	}
 
 	return citations;
-}
-
-function getMarkdownCodeRanges(text: string) {
-	const ranges: Array<{ readonly end: number; readonly start: number }> = [];
-	const tree = workspaceCitationMarkdownParser.parse(text);
-
-	visit(tree, (node) => {
-		if (node.type !== "code" && node.type !== "inlineCode") {
-			return;
-		}
-
-		const start = node.position?.start.offset;
-		const end = node.position?.end.offset;
-		if (start !== undefined && end !== undefined) {
-			ranges.push({ end, start });
-		}
-	});
-
-	return ranges;
-}
-
-function isOffsetInRanges(
-	offset: number,
-	ranges: readonly { readonly end: number; readonly start: number }[],
-) {
-	return ranges.some((range) => offset >= range.start && offset < range.end);
 }
 
 function indexWorkspaceReferenceCandidates(candidates: readonly WorkspaceReferenceRecord[]) {
@@ -279,6 +217,7 @@ function indexWorkspaceReferenceCandidates(candidates: readonly WorkspaceReferen
 
 	return index;
 }
+
 function haveSameWorkspaceReferences(
 	left: readonly WorkspaceReferenceRecord[],
 	right: readonly WorkspaceReferenceRecord[],
@@ -310,7 +249,7 @@ function hasCanonicalWorkspaceCitationPart(
 	}
 
 	const [part] = citationParts;
-	if (!part || !("data" in part) || part.id !== WORKSPACE_CITATIONS_DATA_PART_ID) {
+	if (!part || !("data" in part)) {
 		return false;
 	}
 

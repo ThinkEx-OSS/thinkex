@@ -14,8 +14,7 @@ export function WorkspaceCitation({ location }: { readonly location: WorkspaceLo
 			aria-label={`Open ${label}`}
 			className="mx-0.5 inline-flex max-w-48 cursor-pointer items-center gap-1 rounded-sm bg-muted px-1.5 py-0.5 align-baseline font-medium text-[0.72em] text-muted-foreground leading-none transition-colors hover:bg-muted/80 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
 			onClick={() => {
-				const result = reveal(location);
-				if (result.status === "item_unavailable") {
+				if (!reveal(location)) {
 					toast.error("This source is no longer available.");
 				}
 			}}

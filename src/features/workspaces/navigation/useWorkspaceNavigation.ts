@@ -2,10 +2,6 @@ import { useNavigate } from "@tanstack/react-router";
 import { useCallback, useMemo } from "react";
 import type { WorkspaceSummary } from "#/features/workspaces/contracts";
 import type { WorkspaceLocation } from "#/features/workspaces/locations/workspace-location";
-import {
-	planWorkspaceRevealTab,
-	type WorkspaceRevealResult,
-} from "#/features/workspaces/locations/workspace-location-reveal";
 import type { WorkspaceDragCommand } from "#/features/workspaces/model/drag";
 import { getWorkspaceTabSearch } from "#/features/workspaces/model/tabs";
 import type { WorkspaceItem } from "#/features/workspaces/model/types";
@@ -218,33 +214,27 @@ export function useWorkspaceNavigation({
 
 		navigateToTab(tab);
 	};
-	const revealWorkspaceLocation = (location: WorkspaceLocation): WorkspaceRevealResult => {
+	const revealWorkspaceLocation = (location: WorkspaceLocation) => {
 		const item = itemsById.get(location.itemId);
 		if (!item) {
-			return { status: "item_unavailable" };
+			return false;
 		}
 
-		const plan = planWorkspaceRevealTab({ location, session });
-		switch (plan.action) {
-			case "activate": {
-				const tab = session?.tabs.find((candidate) => candidate.id === plan.tabId);
-				if (!tab) {
-					return { status: "item_unavailable" };
-				}
-				activateWorkspaceTab(tab);
-				break;
-			}
-			case "replace": {
-				const tab = replaceActiveTabView({ item, tabId: plan.tabId });
-				navigateToTab(tab);
-				break;
-			}
-			case "create":
-				openItemInNewTab({ item });
-				break;
+		if (activeTab?.viewItemId === item.id) {
+			return true;
 		}
 
-		return { status: "revealed" };
+		const matchingTab = session?.tabs.find((tab) => tab.viewItemId === item.id);
+		if (matchingTab) {
+			activateWorkspaceTab(matchingTab);
+		} else if (activeTab && !activeTab.viewItemId) {
+			const tab = replaceActiveTabView({ item });
+			navigateToTab(tab);
+		} else {
+			openItemInNewTab({ item });
+		}
+
+		return true;
 	};
 	const openWorkspaceRoot = () => {
 		if (!activeTab?.viewItemId) {

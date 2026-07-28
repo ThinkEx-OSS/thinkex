@@ -55,13 +55,13 @@ function StreamdownWorkspaceCitation(citationProps: StreamdownCitationProps) {
 		return null;
 	}
 
-	const parsed = parseWorkspaceReference(citationProps.node?.properties?.ref);
-	if (parsed.status === "invalid") {
+	const ref = parseWorkspaceReference(citationProps.node?.properties?.ref);
+	if (!ref) {
 		return null;
 	}
 
 	const locations = use(WorkspaceCitationLocationsContext);
-	const location = locations.get(parsed.ref);
+	const location = locations.get(ref);
 	return location ? <WorkspaceCitation location={location} /> : null;
 }
 

@@ -2,7 +2,6 @@ import { FileQuestion, type LucideIcon } from "lucide-react";
 import { createContext, type ReactNode, use } from "react";
 
 import type { WorkspaceLocation } from "#/features/workspaces/locations/workspace-location";
-import type { WorkspaceRevealResult } from "#/features/workspaces/locations/workspace-location-reveal";
 import { getWorkspaceItemDisplay } from "#/features/workspaces/model/item-display";
 import type { WorkspaceItem } from "#/features/workspaces/model/types";
 
@@ -14,7 +13,7 @@ type WorkspaceLocationPresentation = {
 
 type WorkspaceLocationActions = {
 	getPresentation: (location: WorkspaceLocation) => WorkspaceLocationPresentation;
-	reveal: (location: WorkspaceLocation) => WorkspaceRevealResult;
+	reveal: (location: WorkspaceLocation) => boolean;
 };
 
 const WorkspaceLocationContext = createContext<WorkspaceLocationActions | null>(null);

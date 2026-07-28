@@ -1,5 +1,5 @@
 import {
-	createWorkspaceReferenceRegistry,
+	createWorkspaceReferenceRecords,
 	type WorkspaceReference,
 	type WorkspaceReferenceRecord,
 } from "#/features/workspaces/ai/workspace-reference";
@@ -7,7 +7,10 @@ import type {
 	WorkspaceContentReadResult,
 	WorkspaceReadItemsOutput,
 } from "#/features/workspaces/content/workspace-content-contract";
-import { getWorkspaceLocationKey } from "#/features/workspaces/locations/workspace-location";
+import {
+	getWorkspaceLocationKey,
+	type WorkspaceLocation,
+} from "#/features/workspaces/locations/workspace-location";
 
 /**
  * Allocates durable-location records for every ready workspace read.
@@ -21,7 +24,7 @@ import { getWorkspaceLocationKey } from "#/features/workspaces/locations/workspa
 export function createWorkspaceReadReferences(
 	results: readonly WorkspaceContentReadResult[],
 ): WorkspaceReferenceRecord[] {
-	const registry = createWorkspaceReferenceRegistry();
+	const locations: WorkspaceLocation[] = [];
 
 	for (const result of results) {
 		if (result.status !== "ready") {
@@ -29,7 +32,7 @@ export function createWorkspaceReadReferences(
 		}
 
 		if (result.type === "document" || result.assetKind !== "pdf") {
-			registry.getOrCreate({
+			locations.push({
 				itemId: result.itemId,
 				kind: "item",
 				version: 1,
@@ -38,7 +41,7 @@ export function createWorkspaceReadReferences(
 		}
 
 		for (const pageNumber of result.location.returned) {
-			registry.getOrCreate({
+			locations.push({
 				itemId: result.itemId,
 				kind: "pdf-page",
 				pageNumber,
@@ -47,7 +50,7 @@ export function createWorkspaceReadReferences(
 		}
 	}
 
-	return [...registry.records()];
+	return createWorkspaceReferenceRecords(locations);
 }
 
 /**
