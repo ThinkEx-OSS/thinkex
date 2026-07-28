@@ -1,0 +1,15 @@
+{
+	"model": "chatgpt-mini",
+	"prompt": "rappel rapide: quel est le théorème de Pythagore",
+	"text": "Le **théorème de Pythagore** dit que, dans un **triangle rectangle**, le carré de l’hypoténuse est égal à la somme des carrés des deux autres côtés :\n\n\\[\nc^2 = a^2 + b^2\n\\]\n\n- **$c$** = l’hypoténuse, le côté le plus long, opposé à l’angle droit  \n- **$a$** et **$b$** = les deux autres côtés\n\n**Exemple :** si $a=3$ et $b=4$, alors\n\n\\[\nc^2 = 3^2 + 4^2 = 9 + 16 = 25\n\\Rightarrow c=5\n\\]\n\nSi tu veux, je peux aussi te donner une version **ultra simple** ou un **petit schéma**.",
+	"analysis": {
+		"backslashInline": 0,
+		"backslashBlock": 2,
+		"singleDollar": 5,
+		"doubleDollar": 0,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0,
+		"escapedCurrency": 0
+	}
+}

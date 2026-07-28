@@ -1,0 +1,14 @@
+{
+	"model": "gemini",
+	"prompt": "just explain what a mortgage is in one paragraph",
+	"text": "A mortgage is a long-term loan specifically used to purchase or maintain real estate, where the property itself serves as collateral to secure the debt. The borrower agrees to repay the lender—typically a bank—the principal amount plus interest over a set period, often 15 or 30 years, through regular monthly installments. While the borrower has the right to live in and use the home, the lender maintains a legal interest in the title; if the borrower fails to meet the repayment terms, the lender has the right to seize the property through a legal process known as foreclosure to recover the remaining balance of the loan.",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 0,
+		"doubleDollarBlocks": 0,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0
+	}
+}

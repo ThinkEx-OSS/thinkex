@@ -1,0 +1,14 @@
+{
+	"model": "chatgpt-mini",
+	"prompt": "how do i use $ in jquery to select an element by id",
+	"text": "In jQuery, `$` is just the shorthand for `jQuery`.\n\nTo select an element by **id**, use `#` followed by the id:\n\n```javascript\n$('#myId')\n```\n\n### Example\n```html\n<div id=\"myId\">Hello</div>\n```\n\n```javascript\nvar el = $('#myId');\n```\n\n### Notes\n- `#myId` selects the element with `id=\"myId\"`\n- If the id contains special characters, you may need to escape them\n\nIf you meant **how to use the `$` function itself**, you can also write:\n\n```javascript\njQuery('#myId')\n```\n\n",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 0,
+		"doubleDollarBlocks": 0,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0
+	}
+}

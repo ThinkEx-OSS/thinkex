@@ -1,0 +1,6 @@
+{
+	"model": "chatgpt-mini",
+	"variant": "nuclear",
+	"prompt": "i bought stuff for $12.50 + $8.75 + $23.99 whats my total",
+	"text": "Your total is **\\$45.24**.\n\nBreakdown:\n- \\$12.50\n- \\$8.75\n- \\$23.99\n\nSum: **\\$45.24**"
+}

@@ -1,0 +1,14 @@
+{
+	"model": "chatgpt-mini",
+	"prompt": "teach me the basics of LaTeX math syntax with 5 example expressions",
+	"text": "## LaTeX math basics\n\nLaTeX math is written either **inline** with `$...$` or in **display mode** with `$$...$$`:\n\n- `Inline math: $a^2 + b^2 = c^2$`\n- `Display math: $$a^2 + b^2 = c^2$$`\n\n### Common syntax\n- `^` for superscripts: `x^2`\n- `_` for subscripts: `a_1`\n- `\\frac{...}{...}` for fractions\n- `\\sqrt{...}` for square roots\n- `\\sum`, `\\int`, `\\pi`, `\\alpha`, etc. for symbols\n- Braces `{...}` group parts together\n\n### 5 example expressions\n\n1. **Pythagorean theorem**  \n   `$a^2 + b^2 = c^2$`\n\n2. **Fraction**  \n   `$\\frac{1}{2}$`\n\n3. **Square root**  \n   `$\\sqrt{x+1}$`\n\n4. **Summation**  \n   `$\\sum_{i=1}^{n} i$`\n\n5. **Integral**  \n   `$\\int_0^1 x^2\\,dx$`\n\n### Tiny tips\n- Use `{}` when an exponent or subscript has more than one character: `x^{10}`, `a_{ij}`\n- Use `\\,` for a small space in math mode\n- Greek letters are written with backslashes, like `\\theta`, `\\lambda`, `\\Omega`\n\nIf you want, I can also give you a **1-page LaTeX math cheat sheet** or show **how to write matrices, aligned equations, and cases**.",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 7,
+		"doubleDollarBlocks": 2,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0
+	}
+}

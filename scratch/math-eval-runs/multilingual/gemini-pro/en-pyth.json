@@ -1,0 +1,15 @@
+{
+	"model": "gemini-pro",
+	"prompt": "quick refresher: what's the pythagorean theorem",
+	"text": "The Pythagorean theorem states that in a right-angled triangle, the square of the longest side (the hypotenuse) is equal to the sum of the squares of the other two sides.\n\nThe formula is:\n$$a^2 + b^2 = c^2$$\n\nWhere:\n* **$c$** is the length of the hypotenuse (the side opposite the right angle).\n* **$a$** and **$b$** are the lengths of the other two sides (the legs).\n\n**Quick Example:**\nIf a right triangle has legs of length $3$ and $4$, the hypotenuse is $5$ because:\n$$3^2 + 4^2 = 9 + 16 = 25$$\nAnd the square root of $25$ is $5$.",
+	"analysis": {
+		"backslashInline": 0,
+		"backslashBlock": 0,
+		"singleDollar": 8,
+		"doubleDollar": 2,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0,
+		"escapedCurrency": 0
+	}
+}

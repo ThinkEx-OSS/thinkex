@@ -1,0 +1,14 @@
+{
+	"model": "claude-haiku",
+	"prompt": "if MRR grew from $10k to $18k in 3 months, whats the monthly growth rate",
+	"text": "The monthly growth rate is approximately **22.4%**.\n\nHere's the math:\n\n$$\\text{Monthly growth rate} = \\sqrt[3]{\\frac{18000}{10000}} - 1 = \\sqrt[3]{1.8} - 1 \\approx 0.224$$\n\nThis means MRR grew by about 22.4% each month on average over the 3-month period.\n\nTo verify: $10k × 1.224 × 1.224 × 1.224 ≈ $18.1k$ ✓",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 1,
+		"doubleDollarBlocks": 1,
+		"fencedMath": 0,
+		"unicodeMath": 3,
+		"rawCurrency": 2
+	}
+}

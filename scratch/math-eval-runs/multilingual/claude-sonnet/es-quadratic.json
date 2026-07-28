@@ -1,0 +1,15 @@
+{
+	"model": "claude-sonnet",
+	"prompt": "ayúdame a resolver x^2 + 5x + 6 = 0 paso a paso",
+	"text": "## Resolver $x^2 + 5x + 6 = 0$\n\n### Paso 1 — Factorizar\n\nBusca dos números que:\n- **Multipliquen** $6$ (término independiente)\n- **Sumen** $5$ (coeficiente de $x$)\n\nLos números son **2 y 3**, porque $2 \\times 3 = 6$ y $2 + 3 = 5$.\n\n$$x^2 + 5x + 6 = (x + 2)(x + 3) = 0$$\n\n### Paso 2 — Aplicar la propiedad del producto nulo\n\nSi $(x + 2)(x + 3) = 0$, entonces al menos uno de los factores debe ser cero:\n\n$$x + 2 = 0 \\implies x = -2$$\n$$x + 3 = 0 \\implies x = -3$$\n\n### Verificación\n\n| $x$ | $x^2 + 5x + 6$ |\n|-----|----------------|\n| $-2$ | $4 - 10 + 6 = 0$ ✓ |\n| $-3$ | $9 - 15 + 6 = 0$ ✓ |\n\n### Solución\n\n$$\\boxed{x = -2 \\quad \\text{o} \\quad x = -3}$$",
+	"analysis": {
+		"backslashInline": 0,
+		"backslashBlock": 0,
+		"singleDollar": 13,
+		"doubleDollar": 4,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0,
+		"escapedCurrency": 0
+	}
+}

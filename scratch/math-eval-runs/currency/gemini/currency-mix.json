@@ -1,0 +1,14 @@
+{
+	"model": "gemini",
+	"prompt": "$100 USD is roughly how much in EUR at 0.92 exchange rate",
+	"text": "$100 USD is **€92.00 EUR** at an exchange rate of 0.92.",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 0,
+		"doubleDollarBlocks": 0,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 1
+	}
+}

@@ -1,0 +1,14 @@
+{
+	"model": "chatgpt",
+	"prompt": "whats the derivative of x^3 * sin(x)",
+	"text": "Use the **product rule**:\n\nIf  \n$$f(x)=x^3\\sin(x)$$\n\nthen  \n$$f'(x)=(x^3)'\\sin(x)+x^3(\\sin(x))'$$\n\nCompute each part:\n\n- $(x^3)' = 3x^2$\n- $(\\sin x)' = \\cos x$\n\nSo the derivative is:\n\n$$f'(x)=3x^2\\sin(x)+x^3\\cos(x)$$\n\nYou can also factor it as:\n\n$$f'(x)=x^2\\left(3\\sin(x)+x\\cos(x)\\right)$$",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 2,
+		"doubleDollarBlocks": 4,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0
+	}
+}

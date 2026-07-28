@@ -1,0 +1,6 @@
+{
+	"model": "chatgpt-mini",
+	"variant": "baseline",
+	"prompt": "if i make $85k salary plus $15k bonus, what's my monthly gross",
+	"text": "Your **gross annual pay** is:\n\n- **Salary:** $85,000\n- **Bonus:** $15,000\n- **Total:** **$100,000/year**\n\n### Monthly gross\n$100,000 \\div 12 = $8,333.33$\n\nSo your **monthly gross pay is about $8,333.33**.\n\n> If you want, I can also estimate your **monthly net pay** after taxes/withholding."
+}

@@ -1,0 +1,6 @@
+{
+	"model": "claude-haiku",
+	"variant": "baseline",
+	"prompt": "if i make $85k salary plus $15k bonus, what's my monthly gross",
+	"text": "Your monthly gross is **$8,333.33**.\n\nHere's the breakdown:\n- Total annual compensation: $85k + $15k = $100k\n- Monthly gross: $100k ÷ 12 = $8,333.33"
+}

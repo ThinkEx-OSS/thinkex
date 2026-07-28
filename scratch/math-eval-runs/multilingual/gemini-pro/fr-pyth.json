@@ -1,0 +1,15 @@
+{
+	"model": "gemini-pro",
+	"prompt": "rappel rapide: quel est le théorème de Pythagore",
+	"text": "Le théorème de Pythagore affirme que dans un **triangle rectangle**, le carré de la longueur de l'hypoténuse (le côté opposé à l'angle droit) est égal à la somme des carrés des longueurs des deux autres côtés.\n\nLa formule s'écrit :\n$$a^2 + b^2 = c^2$$\n\noù $c$ représente la longueur de l'hypoténuse, et $a$ et $b$ représentent les longueurs des deux autres côtés.",
+	"analysis": {
+		"backslashInline": 0,
+		"backslashBlock": 0,
+		"singleDollar": 3,
+		"doubleDollar": 1,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0,
+		"escapedCurrency": 0
+	}
+}

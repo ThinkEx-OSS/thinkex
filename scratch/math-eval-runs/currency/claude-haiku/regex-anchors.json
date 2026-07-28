@@ -1,0 +1,14 @@
+{
+	"model": "claude-haiku",
+	"prompt": "explain ^ and $ in regex",
+	"text": "# Regex Anchors: `^` and `$`\n\n**`^`** matches the **start of a string** (or line, in multiline mode).\n\n**`$`** matches the **end of a string** (or line, in multiline mode).\n\n## Examples\n\n| Pattern | Matches | Doesn't match |\n|---------|---------|---------------|\n| `^hello` | `hello world` | `say hello` |\n| `world$` | `hello world` | `world peace` |\n| `^world$` | `world` | `hello world`, `world!` |\n| `^[A-Z]` | `Apple pie` | `apple pie` |\n| `\\d+$` | `abc123` | `123abc` |\n\n## Multiline Mode\n\nIn **single-line mode** (default), `^` and `$` match only the string boundaries.\n\nIn **multiline mode** (flag: `m` or `(?m)`), they match line boundaries instead:\n\n```regex\n^foo  # matches \"foo\" at the start of any line\nbar$  # matches \"bar\" at the end of any line\n```\n\nExample in JavaScript:\n```javascript\nconst text = \"foo\\nbar\\nbaz\";\n/^bar$/m.test(text);  // true (bar is on its own line)\n/^bar$/.test(text);   // false (bar is not the entire string)\n```\n\n## Common Patterns\n\n- `^[A-Z]` — string starts with uppercase letter\n- `\\w+@\\w+\\.\\w+$` — basic email validation\n- `^$` — matches empty string or blank line",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 0,
+		"doubleDollarBlocks": 0,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0
+	}
+}

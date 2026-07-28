@@ -1,0 +1,14 @@
+{
+	"model": "gemini",
+	"prompt": "how do i use $HOME and $PATH in a bash script",
+	"text": "In Bash, `$HOME` and `$PATH` are environment variables. `$HOME` points to your current user's home directory, and `$PATH` is a colon-separated list of directories where the shell looks for executable files.\n\n### 1. Using `$HOME`\nUse `$HOME` when you want to reference files relative to the user's directory without hardcoding a username (like `/home/alice`).\n\n```bash\n#!/bin/bash\n\n# Create a log file in the user's home directory\nLOG_FILE=\"$HOME/script_log.txt\"\n\necho \"Script started at $(date)\" >> \"$LOG_FILE\"\necho \"Files are being saved to: $HOME\"\n```\n\n**Key Tip:** Always wrap variables in double quotes (e.g., `\"$HOME\"`) to prevent the script from breaking if the path contains spaces.\n\n---\n\n### 2. Using `$PATH`\nYou rarely need to print `$PATH` in a script, but you often need to **modify** it so the script can find custom tools or scripts located in non-standard folders.\n\n#### Appending to PATH\nIf you have a folder of scripts in your home directory (`~/bin`) that you want to use:\n\n```bash\n#!/bin/bash\n\n# Add a local directory to the start of PATH for this script session\nexport PATH=\"$HOME/bin:$PATH\"\n\n# Now you can call 'myscript' without providing the full path\nmyscript --version\n```\n\n---\n\n### 3. Best Practices\n\n#### Avoid over-reliance on PATH\nIn production scripts, it is safer to define absolute paths for critical tools at the top of the script. This prevents \"path hijacking\" where a malicious file with the same name (like `ls`) is placed in a directory higher up in the `$PATH`.\n\n```bash\n#!/bin/bash\nreadonly GIT=\"/usr/bin/git\"\n\n# Use the variable instead of just 'git'\n$GIT pull origin main\n```\n\n#### Checking if a command exists in PATH\nUse the `command -v` utility to check if a program is available before trying to run it.\n\n```bash\nif ! command -v docker &> /dev/null; then\n    echo \"Error: docker is not installed or not in PATH.\"\n    exit 1\nfi\n```\n\n### Summary Comparison\n\n| Variable | Purpose | Common Usage |\n| :--- | :--- | :--- |\n| **`$HOME`** | User's base directory | Referencing config files, logs, or downloads. |\n| **`$PATH`** | Search list for binaries | Extending the shell's ability to find commands. |",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 4,
+		"doubleDollarBlocks": 0,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0
+	}
+}

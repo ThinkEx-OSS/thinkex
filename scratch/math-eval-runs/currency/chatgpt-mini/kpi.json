@@ -1,0 +1,14 @@
+{
+	"model": "chatgpt-mini",
+	"prompt": "if MRR grew from $10k to $18k in 3 months, whats the monthly growth rate",
+	"text": "The **monthly growth rate** is about **21.6% per month**.\n\n### Math\nYou want the compound monthly growth rate $r$ such that:\n\n\\[\n10{,}000 \\times (1+r)^3 = 18{,}000\n\\]\n\nSo:\n\n\\[\n(1+r)^3 = 1.8\n\\]\n\n\\[\n1+r = 1.8^{1/3}\n\\]\n\n\\[\nr = 1.8^{1/3} - 1 \\approx 0.216\n\\]\n\n### Answer\n- **Monthly growth rate:** **~21.6%**\n- Equivalent **monthly multiplier:** **~1.216x**\n\nIf you want, I can also show the **simple average monthly increase** vs the **compound growth rate**.",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 4,
+		"singleDollarPairs": 1,
+		"doubleDollarBlocks": 0,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0
+	}
+}

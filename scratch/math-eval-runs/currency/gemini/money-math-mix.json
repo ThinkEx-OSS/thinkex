@@ -1,0 +1,14 @@
+{
+	"model": "gemini",
+	"prompt": "i saved $1000 over 6 months. what is my monthly saving rate as a percentage of my $4500 monthly income",
+	"text": "Your monthly saving rate is approximately **3.7%**.\n\n### Breakdown\n1.  **Monthly Savings:** \\$1,000 ÷ 6 months = **\\$166.67 per month**\n2.  **Savings Rate:** (\\$166.67 ÷ \\$4,500) × 100 = **3.7037%**",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 2,
+		"doubleDollarBlocks": 0,
+		"fencedMath": 0,
+		"unicodeMath": 3,
+		"rawCurrency": 0
+	}
+}

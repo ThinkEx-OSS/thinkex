@@ -1,0 +1,14 @@
+{
+	"model": "claude-haiku",
+	"prompt": "$45 dinner with 8% tax and 20% tip, whats the total",
+	"text": "**Calculation:**\n\n- Base: $45\n- Tax (8%): $45 × 0.08 = $3.60\n- Subtotal: $45 + $3.60 = $48.60\n- Tip (20% of base): $45 × 0.20 = $9.00\n- **Total: $48.60 + $9.00 = $57.60**",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 4,
+		"doubleDollarBlocks": 0,
+		"fencedMath": 0,
+		"unicodeMath": 2,
+		"rawCurrency": 11
+	}
+}

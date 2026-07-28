@@ -1,0 +1,14 @@
+{
+	"model": "gemini",
+	"prompt": "explain ^ and $ in regex",
+	"text": "In regular expressions, `^` and `$` are **anchors**. They do not match actual characters; instead, they match a **position** relative to the string or line.\n\n### `^` The Caret (Start Anchor)\nThe `^` symbol matches the position at the very beginning of the string.\n\n*   **Pattern:** `^Apple`\n*   **Matches:** \"**Apple** pie\", \"**Apple**\"\n*   **Does not match:** \"Green Apple\" (because \"Apple\" is not at the start).\n\n### `$` The Dollar Sign (End Anchor)\nThe `$` symbol matches the position at the very end of the string.\n\n*   **Pattern:** `pie$`\n*   **Matches:** \"Apple **pie**\", \"Apple**pie**\"\n*   **Does not match:** \"piece of cake\" (because \"pie\" is not at the end).\n\n---\n\n### Combined: Exact Matching\nWhen you use both `^` and `$` together, you ensure the pattern matches the **entire** string from start to finish, with no extra characters allowed.\n\n| Pattern | String | Result | Reason |\n| :--- | :--- | :--- | :--- |\n| `cat` | \"catapult\" | Match | \"cat\" exists inside the string. |\n| `^cat$` | \"catapult\" | No Match | The string contains more than just \"cat\". |\n| `^cat$` | \"cat\" | **Match** | The string starts and ends exactly with \"cat\". |\n\n### Multiline Mode\nBy default, these anchors treat the entire input as one single string. However, if you enable **Multiline Mode** (usually the `/m` flag):\n*   `^` matches the start of the string **and** the start of every new line (`\\n`).\n*   `$` matches the end of the string **and** the end of every line.\n\n### Summary Table\n| Symbol | Meaning | Example |\n| :--- | :--- | :--- |\n| `^` | Start of string | `^Hello` matches \"Hello world\" |\n| `$` | End of string | `world$` matches \"Hello world\" |\n| `^...$` | Exact match | `^abc$` matches \"abc\" only |",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 2,
+		"doubleDollarBlocks": 0,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0
+	}
+}

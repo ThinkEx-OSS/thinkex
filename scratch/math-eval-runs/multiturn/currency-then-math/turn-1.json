@@ -1,0 +1,29 @@
+{
+	"conversation": "currency-then-math",
+	"turn": 1,
+	"messages": [
+		{
+			"role": "user",
+			"content": "if i earn $5000 a month and save 20%, how much per month is that"
+		},
+		{
+			"role": "assistant",
+			"content": "20% of $5,000 is **$1,000 per month**.\n\nCalculation:  \n$5,000 \\times 0.20 = 1,000$"
+		},
+		{
+			"role": "user",
+			"content": "unrelated switch — help me solve x^2 - 4 = 0"
+		}
+	],
+	"text": "Solve:\n\n$$x^2 - 4 = 0$$\n\nAdd 4 to both sides:\n\n$$x^2 = 4$$\n\nTake the square root:\n\n$$x = \\pm 2$$\n\n**Answer:** $x = 2$ or $x = -2$",
+	"analysis": {
+		"backslashInline": 0,
+		"backslashBlock": 0,
+		"singleDollar": 2,
+		"doubleDollar": 3,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0,
+		"escapedCurrency": 0
+	}
+}

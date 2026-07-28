@@ -1,0 +1,14 @@
+{
+	"model": "chatgpt-mini",
+	"prompt": "would a $0.99 vs $1.99 vs $2.99 price point make a difference for my app",
+	"text": "Yes—often **a meaningful one**, especially for consumer apps. The differences are usually less about the extra dollar itself and more about **conversion, perceived value, and App Store pricing psychology**.\n\n## Short answer\n- **$0.99**: usually maximizes impulse installs / trials.\n- **$1.99**: often still inexpensive, but can feel more “serious” than $0.99.\n- **$2.99**: can reduce conversion a bit, but sometimes improves perceived quality and revenue per buyer if your app has clear value.\n\n## What typically changes\n### 1) Conversion rate\nA higher price usually lowers conversion, but the drop is **not linear**.  \nFor some apps, going from:\n- **$0.99 → $1.99** can noticeably cut conversions\n- **$1.99 → $2.99** may hurt less, or even be neutral if the app is already trusted\n\n### 2) Perceived quality\nPricing acts as a signal:\n- **$0.99** can imply “cheap” or “toy”\n- **$1.99** is often a good middle ground\n- **$2.99** can suggest more substance, if your listing supports it\n\n### 3) Revenue optimization\nWhat matters is **price × conversion rate**.\n\nExample:\n\n| Price | Buyers out of 10,000 visitors | Revenue |\n|---|---:|---:|\n| $0.99 | 3% = 300 | $297 |\n| $1.99 | 2% = 200 | $398 |\n| $2.99 | 1.4% = 140 | $418.60 |\n\nIn this example, the highest price wins even with lower conversion.\n\n## Practical recommendation\nIf you don’t yet have data, start with:\n- **$1.99** if the app is useful but not essential\n- **$2.99** if the app solves a clear pain point or looks polished/premium\n- **$0.99** if you’re optimizing for volume, impulse buys, or early traction\n\n## Best way to know\nRun a test and compare:\n- install-to-purchase conversion\n- revenue per visitor\n- refund rate\n- long-term retention / satisfaction\n\nIf you want, I can help you choose a price based on:\n- your app category\n- whether it’s paid upfront or IAP/subscription\n- your target audience\n- competitor pricing",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 6,
+		"doubleDollarBlocks": 0,
+		"fencedMath": 0,
+		"unicodeMath": 1,
+		"rawCurrency": 20
+	}
+}

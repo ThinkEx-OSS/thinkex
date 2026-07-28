@@ -1,0 +1,14 @@
+{
+	"model": "gemini-pro",
+	"prompt": "write pseudocode for binary search and give me its big-O complexity",
+	"text": "Here is the pseudocode for an iterative binary search. It assumes the input array is already sorted.\n\n```text\nfunction binary_search(array, target):\n    low = 0\n    high = length(array) - 1\n\n    while low <= high:\n        // Calculate the middle index. \n        // (low + high) / 2 can be used, but this avoids potential integer overflow\n        mid = low + floor((high - low) / 2)\n\n        if array[mid] == target:\n            return mid                // Target found\n        else if array[mid] < target:\n            low = mid + 1             // Target is in the right half\n        else:\n            high = mid - 1            // Target is in the left half\n\n    return -1                         // Target not found\n```\n\n### Big-O Complexity\n\n* **Time Complexity:** \n  * **Worst-case:** $O(\\log n)$ — the search space is halved in each step until only one element remains.\n  * **Best-case:** $O(1)$ — the target happens to be the exact middle element on the first check.\n  * **Average-case:** $O(\\log n)$\n* **Space Complexity:** \n  * $O(1)$ for the iterative approach above, as it only requires a few pointers (`low`, `high`, `mid`). \n  * *(Note: A recursive implementation would have a space complexity of $O(\\log n)$ due to the call stack).*",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 5,
+		"doubleDollarBlocks": 0,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0
+	}
+}

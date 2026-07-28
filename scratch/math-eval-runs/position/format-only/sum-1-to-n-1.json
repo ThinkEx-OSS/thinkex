@@ -1,0 +1,14 @@
+{
+	"variant": "format-only",
+	"prompt": "prove that 1+2+...+n = n(n+1)/2",
+	"text": "A standard proof uses **pairing**.\n\nLet  \n$$S = 1 + 2 + 3 + \\cdots + n.$$\n\nWrite it again in reverse order:\n\n$$S = n + (n-1) + (n-2) + \\cdots + 1.$$\n\nNow add the two expressions term by term:\n\n$$2S = (1+n) + (2+n-1) + (3+n-2) + \\cdots.$$\n\nEach pair equals $n+1$, and there are $n$ such pairs, so:\n\n$$2S = n(n+1).$$\n\nDivide both sides by $2$:\n\n$$S = \\frac{n(n+1)}{2}.$$\n\nSo,\n\n$$1+2+\\cdots+n = \\frac{n(n+1)}{2}.$$\n\nIf you want, I can also show a proof by induction.",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 3,
+		"doubleDollarBlocks": 6,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 4
+	}
+}

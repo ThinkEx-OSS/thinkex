@@ -1,0 +1,14 @@
+{
+	"model": "chatgpt-mini",
+	"prompt": "whats the derivative of x^3 * sin(x)",
+	"text": "Use the **product rule**:\n\n\\[\n\\frac{d}{dx}\\big(x^3\\sin x\\big)\n= \\frac{d}{dx}(x^3)\\sin x + x^3\\frac{d}{dx}(\\sin x)\n\\]\n\n\\[\n= 3x^2\\sin x + x^3\\cos x\n\\]\n\n**Answer:** \\(\\boxed{3x^2\\sin x + x^3\\cos x}\\)",
+	"analysis": {
+		"escapedInline": 1,
+		"escapedBlock": 2,
+		"singleDollarPairs": 0,
+		"doubleDollarBlocks": 0,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0
+	}
+}

@@ -25,8 +25,10 @@ import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as BlogRssRouteImport } from './routes/blog.rss'
 import { Route as BlogSlugRouteImport } from './routes/blog.$slug'
 import { Route as ProtectedSettingsRouteImport } from './routes/_protected/settings'
+import { Route as ProtectedMathEvalRouteImport } from './routes/_protected/math-eval'
 import { Route as ProtectedHomeRouteImport } from './routes/_protected/home'
 import { Route as ApiV1WorkspacesRouteImport } from './routes/api/v1/workspaces'
+import { Route as ApiV1MathEvalRouteImport } from './routes/api/v1/math-eval'
 import { Route as ApiPosthogSurveyFeedbackRouteImport } from './routes/api/posthog/survey-feedback'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ProtectedWorkspacesWorkspaceIdRouteImport } from './routes/_protected/workspaces.$workspaceId'
@@ -115,6 +117,11 @@ const ProtectedSettingsRoute = ProtectedSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => ProtectedRoute,
 } as any)
+const ProtectedMathEvalRoute = ProtectedMathEvalRouteImport.update({
+  id: '/math-eval',
+  path: '/math-eval',
+  getParentRoute: () => ProtectedRoute,
+} as any)
 const ProtectedHomeRoute = ProtectedHomeRouteImport.update({
   id: '/home',
   path: '/home',
@@ -123,6 +130,11 @@ const ProtectedHomeRoute = ProtectedHomeRouteImport.update({
 const ApiV1WorkspacesRoute = ApiV1WorkspacesRouteImport.update({
   id: '/api/v1/workspaces',
   path: '/api/v1/workspaces',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiV1MathEvalRoute = ApiV1MathEvalRouteImport.update({
+  id: '/api/v1/math-eval',
+  path: '/api/v1/math-eval',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPosthogSurveyFeedbackRoute =
@@ -187,6 +199,7 @@ export interface FileRoutesByFullPath {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
   '/home': typeof ProtectedHomeRoute
+  '/math-eval': typeof ProtectedMathEvalRoute
   '/settings': typeof ProtectedSettingsRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/blog/rss': typeof BlogRssRoute
@@ -196,6 +209,7 @@ export interface FileRoutesByFullPath {
   '/workspaces/$workspaceId': typeof ProtectedWorkspacesWorkspaceIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/posthog/survey-feedback': typeof ApiPosthogSurveyFeedbackRoute
+  '/api/v1/math-eval': typeof ApiV1MathEvalRoute
   '/api/v1/workspaces': typeof ApiV1WorkspacesRouteWithChildren
   '/api/v1/workspaces/$workspaceId/file-upload': typeof ApiV1WorkspacesWorkspaceIdFileUploadRoute
   '/api/v1/workspaces/$workspaceId/ai-threads/$threadId/attachments': typeof ApiV1WorkspacesWorkspaceIdAiThreadsThreadIdAttachmentsRouteWithChildren
@@ -213,6 +227,7 @@ export interface FileRoutesByTo {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
   '/home': typeof ProtectedHomeRoute
+  '/math-eval': typeof ProtectedMathEvalRoute
   '/settings': typeof ProtectedSettingsRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/blog/rss': typeof BlogRssRoute
@@ -222,6 +237,7 @@ export interface FileRoutesByTo {
   '/workspaces/$workspaceId': typeof ProtectedWorkspacesWorkspaceIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/posthog/survey-feedback': typeof ApiPosthogSurveyFeedbackRoute
+  '/api/v1/math-eval': typeof ApiV1MathEvalRoute
   '/api/v1/workspaces': typeof ApiV1WorkspacesRouteWithChildren
   '/api/v1/workspaces/$workspaceId/file-upload': typeof ApiV1WorkspacesWorkspaceIdFileUploadRoute
   '/api/v1/workspaces/$workspaceId/ai-threads/$threadId/attachments': typeof ApiV1WorkspacesWorkspaceIdAiThreadsThreadIdAttachmentsRouteWithChildren
@@ -242,6 +258,7 @@ export interface FileRoutesById {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
   '/_protected/home': typeof ProtectedHomeRoute
+  '/_protected/math-eval': typeof ProtectedMathEvalRoute
   '/_protected/settings': typeof ProtectedSettingsRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/blog/rss': typeof BlogRssRoute
@@ -251,6 +268,7 @@ export interface FileRoutesById {
   '/_protected/workspaces/$workspaceId': typeof ProtectedWorkspacesWorkspaceIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/posthog/survey-feedback': typeof ApiPosthogSurveyFeedbackRoute
+  '/api/v1/math-eval': typeof ApiV1MathEvalRoute
   '/api/v1/workspaces': typeof ApiV1WorkspacesRouteWithChildren
   '/api/v1/workspaces/$workspaceId/file-upload': typeof ApiV1WorkspacesWorkspaceIdFileUploadRoute
   '/api/v1/workspaces/$workspaceId/ai-threads/$threadId/attachments': typeof ApiV1WorkspacesWorkspaceIdAiThreadsThreadIdAttachmentsRouteWithChildren
@@ -271,6 +289,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/terms'
     | '/home'
+    | '/math-eval'
     | '/settings'
     | '/blog/$slug'
     | '/blog/rss'
@@ -280,6 +299,7 @@ export interface FileRouteTypes {
     | '/workspaces/$workspaceId'
     | '/api/auth/$'
     | '/api/posthog/survey-feedback'
+    | '/api/v1/math-eval'
     | '/api/v1/workspaces'
     | '/api/v1/workspaces/$workspaceId/file-upload'
     | '/api/v1/workspaces/$workspaceId/ai-threads/$threadId/attachments'
@@ -297,6 +317,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/terms'
     | '/home'
+    | '/math-eval'
     | '/settings'
     | '/blog/$slug'
     | '/blog/rss'
@@ -306,6 +327,7 @@ export interface FileRouteTypes {
     | '/workspaces/$workspaceId'
     | '/api/auth/$'
     | '/api/posthog/survey-feedback'
+    | '/api/v1/math-eval'
     | '/api/v1/workspaces'
     | '/api/v1/workspaces/$workspaceId/file-upload'
     | '/api/v1/workspaces/$workspaceId/ai-threads/$threadId/attachments'
@@ -325,6 +347,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/terms'
     | '/_protected/home'
+    | '/_protected/math-eval'
     | '/_protected/settings'
     | '/blog/$slug'
     | '/blog/rss'
@@ -334,6 +357,7 @@ export interface FileRouteTypes {
     | '/_protected/workspaces/$workspaceId'
     | '/api/auth/$'
     | '/api/posthog/survey-feedback'
+    | '/api/v1/math-eval'
     | '/api/v1/workspaces'
     | '/api/v1/workspaces/$workspaceId/file-upload'
     | '/api/v1/workspaces/$workspaceId/ai-threads/$threadId/attachments'
@@ -357,6 +381,7 @@ export interface RootRouteChildren {
   OauthConsentRoute: typeof OauthConsentRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiPosthogSurveyFeedbackRoute: typeof ApiPosthogSurveyFeedbackRoute
+  ApiV1MathEvalRoute: typeof ApiV1MathEvalRoute
   ApiV1WorkspacesRoute: typeof ApiV1WorkspacesRouteWithChildren
 }
 
@@ -474,6 +499,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedSettingsRouteImport
       parentRoute: typeof ProtectedRoute
     }
+    '/_protected/math-eval': {
+      id: '/_protected/math-eval'
+      path: '/math-eval'
+      fullPath: '/math-eval'
+      preLoaderRoute: typeof ProtectedMathEvalRouteImport
+      parentRoute: typeof ProtectedRoute
+    }
     '/_protected/home': {
       id: '/_protected/home'
       path: '/home'
@@ -486,6 +518,13 @@ declare module '@tanstack/react-router' {
       path: '/api/v1/workspaces'
       fullPath: '/api/v1/workspaces'
       preLoaderRoute: typeof ApiV1WorkspacesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/math-eval': {
+      id: '/api/v1/math-eval'
+      path: '/api/v1/math-eval'
+      fullPath: '/api/v1/math-eval'
+      preLoaderRoute: typeof ApiV1MathEvalRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/posthog/survey-feedback': {
@@ -549,12 +588,14 @@ declare module '@tanstack/react-router' {
 
 interface ProtectedRouteChildren {
   ProtectedHomeRoute: typeof ProtectedHomeRoute
+  ProtectedMathEvalRoute: typeof ProtectedMathEvalRoute
   ProtectedSettingsRoute: typeof ProtectedSettingsRoute
   ProtectedWorkspacesWorkspaceIdRoute: typeof ProtectedWorkspacesWorkspaceIdRoute
 }
 
 const ProtectedRouteChildren: ProtectedRouteChildren = {
   ProtectedHomeRoute: ProtectedHomeRoute,
+  ProtectedMathEvalRoute: ProtectedMathEvalRoute,
   ProtectedSettingsRoute: ProtectedSettingsRoute,
   ProtectedWorkspacesWorkspaceIdRoute: ProtectedWorkspacesWorkspaceIdRoute,
 }
@@ -629,6 +670,7 @@ const rootRouteChildren: RootRouteChildren = {
   OauthConsentRoute: OauthConsentRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiPosthogSurveyFeedbackRoute: ApiPosthogSurveyFeedbackRoute,
+  ApiV1MathEvalRoute: ApiV1MathEvalRoute,
   ApiV1WorkspacesRoute: ApiV1WorkspacesRouteWithChildren,
 }
 export const routeTree = rootRouteImport

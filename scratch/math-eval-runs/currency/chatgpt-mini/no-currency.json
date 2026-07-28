@@ -1,0 +1,14 @@
+{
+	"model": "chatgpt-mini",
+	"prompt": "just explain what a mortgage is in one paragraph",
+	"text": "A mortgage is a loan used to buy a home or other real estate, where the property itself serves as collateral for the lender. You borrow a large amount of money upfront and then repay it over time, usually in monthly payments that include principal, interest, and sometimes taxes and insurance. If you stop making payments, the lender can foreclose on the property and take it back.",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 0,
+		"doubleDollarBlocks": 0,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0
+	}
+}

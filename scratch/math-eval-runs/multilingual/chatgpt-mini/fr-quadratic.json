@@ -1,0 +1,15 @@
+{
+	"model": "chatgpt-mini",
+	"prompt": "aide-moi à résoudre x^2 + 5x + 6 = 0 étape par étape",
+	"text": "On veut résoudre :\n\n\\[\nx^2 + 5x + 6 = 0\n\\]\n\n## 1) Chercher une factorisation\nOn cherche deux nombres dont :\n\n- le produit vaut \\(6\\)\n- la somme vaut \\(5\\)\n\nCes nombres sont **2** et **3**.\n\nDonc :\n\n\\[\nx^2 + 5x + 6 = (x+2)(x+3)\n\\]\n\n## 2) Utiliser la propriété du produit nul\nSi :\n\n\\[\n(x+2)(x+3)=0\n\\]\n\nalors l’un des deux facteurs doit être nul :\n\n\\[\nx+2=0 \\quad \\text{ou} \\quad x+3=0\n\\]\n\n## 3) Résoudre chaque équation\n- \\(x+2=0 \\Rightarrow x=-2\\)\n- \\(x+3=0 \\Rightarrow x=-3\\)\n\n## Réponse\n\\[\n\\boxed{x=-2 \\text{ ou } x=-3}\n\\]\n\nSi tu veux, je peux aussi te montrer la méthode avec le discriminant.",
+	"analysis": {
+		"backslashInline": 4,
+		"backslashBlock": 5,
+		"singleDollar": 0,
+		"doubleDollar": 0,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0,
+		"escapedCurrency": 0
+	}
+}

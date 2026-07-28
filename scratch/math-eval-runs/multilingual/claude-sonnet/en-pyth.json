@@ -1,0 +1,15 @@
+{
+	"model": "claude-sonnet",
+	"prompt": "quick refresher: what's the pythagorean theorem",
+	"text": "For a right triangle, the sum of the squares of the two legs equals the square of the hypotenuse:\n\n$$a^2 + b^2 = c^2$$\n\nwhere $c$ is the hypotenuse (the side opposite the right angle).",
+	"analysis": {
+		"backslashInline": 0,
+		"backslashBlock": 0,
+		"singleDollar": 1,
+		"doubleDollar": 1,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0,
+		"escapedCurrency": 0
+	}
+}

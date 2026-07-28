@@ -1,0 +1,6 @@
+{
+	"model": "claude-haiku",
+	"variant": "nuclear",
+	"prompt": "$45 dinner with 8% tax and 20% tip, whats the total",
+	"text": "The total is **\\$54.90**.\n\nHere's the breakdown:\n- Dinner: \\$45.00\n- Tax (8%): \\$3.60\n- Subtotal after tax: \\$48.60\n- Tip (20% of original): \\$9.00\n- **Total: \\$54.90**\n\n(Note: If you want the tip calculated on the post-tax amount instead, it would be \\$9.72, making the total \\$57.32.)"
+}

@@ -1,0 +1,14 @@
+{
+	"model": "claude-haiku",
+	"prompt": "how do i use $ in jquery to select an element by id",
+	"text": "In jQuery, use `$('#idName')` to select an element by its ID:\n\n```javascript\n$('#myElement')\n```\n\nThis selects the element with `id=\"myElement\"`.\n\n**Common patterns:**\n\n| Task | Syntax |\n|------|--------|\n| Select by ID | `$('#idName')` |\n| Get the element | `$('#idName')[0]` or `.get(0)` |\n| Perform an action | `$('#idName').hide()` |\n| Chain methods | `$('#idName').addClass('active').fadeIn()` |\n\n**Example:**\n\n```javascript\n// Hide an element\n$('#header').hide();\n\n// Add a class\n$('#button').addClass('disabled');\n\n// Get the native DOM element\nconst nativeElement = $('#myDiv')[0];\n```\n\nThe `#` prefix tells jQuery you're selecting by ID, just like in CSS selectors.",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 0,
+		"doubleDollarBlocks": 0,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0
+	}
+}

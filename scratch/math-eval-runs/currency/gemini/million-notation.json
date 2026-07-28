@@ -1,0 +1,14 @@
+{
+	"model": "gemini",
+	"prompt": "if a startup raises $5M at a $50M valuation, what percent did they give up",
+	"text": "To calculate the percentage given up, you divide the investment amount by the **post-money valuation**.\n\n### 1. Identify the Valuations\n*   **Investment Amount:** \\$5M\n*   **Pre-money Valuation:** \\$50M (This is the value of the company *before* the new cash is added).\n*   **Post-money Valuation:** \\$50M + \\$5M = **\\$55M** (The value of the company *after* the investment is closed).\n\n### 2. The Calculation\nThe formula for equity sold is:\n$$\\text{Equity \\%} = \\frac{\\text{Investment}}{\\text{Post-money Valuation}}$$\n\n$$\\frac{\\$5\\text{M}}{\\$55\\text{M}} \\approx 0.0909$$\n\n### Result\nThe startup gave up approximately **9.09%** of the company.\n\n***\n\n**Note on terminology:** In venture capital, when someone says \"raised at a \\$50M valuation,\" they almost always mean the **pre-money** valuation. If the \\$50M was instead intended to be the **post-money** valuation, the math would be simpler ($\\$5\\text{M} / \\$50\\text{M}$), resulting in exactly **10%**. However, the 9.09% calculation above is the standard industry interpretation.",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 4,
+		"doubleDollarBlocks": 2,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0
+	}
+}

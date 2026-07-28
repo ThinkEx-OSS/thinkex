@@ -1,0 +1,15 @@
+{
+	"model": "chatgpt-mini",
+	"prompt": "帮我一步一步解 x^2 + 5x + 6 = 0",
+	"text": "当然。我们一步一步解这个方程：\n\n\\[\nx^2 + 5x + 6 = 0\n\\]\n\n## 第 1 步：尝试因式分解\n我们要找两个数，它们：\n\n- 乘积是 \\(6\\)\n- 和是 \\(5\\)\n\n这两个数是 \\(2\\) 和 \\(3\\)。\n\n所以可以把方程写成：\n\n\\[\nx^2 + 5x + 6 = (x+2)(x+3)\n\\]\n\n## 第 2 步：令每个因式等于 0\n因为：\n\n\\[\n(x+2)(x+3)=0\n\\]\n\n所以有两种情况：\n\n\\[\nx+2=0 \\quad \\text{或} \\quad x+3=0\n\\]\n\n## 第 3 步：求解\n分别解这两个方程：\n\n\\[\nx=-2\n\\]\n\n\\[\nx=-3\n\\]\n\n## 答案\n\\[\n\\boxed{x=-2 \\text{ 或 } x=-3}\n\\]\n\n如果你愿意，我也可以继续给你讲“为什么因式分解能这样做”。",
+	"analysis": {
+		"backslashInline": 4,
+		"backslashBlock": 7,
+		"singleDollar": 0,
+		"doubleDollar": 0,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0,
+		"escapedCurrency": 0
+	}
+}

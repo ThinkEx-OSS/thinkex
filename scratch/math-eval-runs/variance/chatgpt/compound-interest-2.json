@@ -1,0 +1,14 @@
+{
+	"model": "chatgpt",
+	"prompt": "if i invest $10000 at 7% compounded annually, how much do i have after 20 years",
+	"text": "Use the compound interest formula:\n\n$$\nA = P(1 + r)^t\n$$\n\nWhere:\n- $P = 10000$\n- $r = 0.07$\n- $t = 20$\n\nSo:\n\n$$\nA = 10000(1.07)^{20}\n$$\n\n$$\nA \\approx 10000 \\times 3.8697 = 38696.84\n$$\n\n## Result\n\nAfter **20 years**, you’d have **\\$38,696.84**.",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 3,
+		"doubleDollarBlocks": 3,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0
+	}
+}

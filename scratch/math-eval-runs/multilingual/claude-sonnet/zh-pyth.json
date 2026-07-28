@@ -1,0 +1,15 @@
+{
+	"model": "claude-sonnet",
+	"prompt": "快速复习一下：勾股定理是什么",
+	"text": "勾股定理：直角三角形中，两直角边的平方和等于斜边的平方。\n\n$$a^2 + b^2 = c^2$$\n\n其中 $a$、$b$ 为两直角边，$c$ 为斜边。",
+	"analysis": {
+		"backslashInline": 0,
+		"backslashBlock": 0,
+		"singleDollar": 3,
+		"doubleDollar": 1,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0,
+		"escapedCurrency": 0
+	}
+}

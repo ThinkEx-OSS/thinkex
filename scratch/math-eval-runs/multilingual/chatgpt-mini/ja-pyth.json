@@ -1,0 +1,15 @@
+{
+	"model": "chatgpt-mini",
+	"prompt": "簡単な復習：ピタゴラスの定理とは何ですか",
+	"text": "ピタゴラスの定理は、**直角三角形**で成り立つ定理です。\n\n## 内容\n直角をはさむ2辺を $a, b$、斜辺を $c$ とすると、\n\n$$a^2 + b^2 = c^2$$\n\nが成り立ちます。\n\n## 例\n辺の長さが $3$ と $4$ の直角三角形なら、\n\n$$3^2 + 4^2 = 9 + 16 = 25$$\n\nなので、斜辺は\n\n$$c = 5$$\n\nです。\n\n必要なら、**図つき**でも説明できます。",
+	"analysis": {
+		"backslashInline": 0,
+		"backslashBlock": 0,
+		"singleDollar": 4,
+		"doubleDollar": 3,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0,
+		"escapedCurrency": 0
+	}
+}

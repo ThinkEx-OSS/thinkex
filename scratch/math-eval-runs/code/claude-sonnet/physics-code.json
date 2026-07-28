@@ -1,0 +1,14 @@
+{
+	"model": "claude-sonnet",
+	"prompt": "write javascript to compute kinetic energy given mass and velocity, then explain the formula",
+	"text": "```javascript\nfunction kineticEnergy(mass, velocity) {\n  return 0.5 * mass * velocity ** 2;\n}\n\n// Example\nconst ke = kineticEnergy(10, 3); // mass: 10 kg, velocity: 3 m/s\nconsole.log(`Kinetic Energy: ${ke} J`); // → 45 J\n```\n\n## The Formula\n\n$$KE = \\frac{1}{2}mv^2$$\n\n| Symbol | Meaning | SI Unit |\n|--------|---------|---------|\n| $KE$ | Kinetic energy | Joules (J) |\n| $m$ | Mass | Kilograms (kg) |\n| $v$ | Velocity | Meters per second (m/s) |\n\n**Why this shape?**\n\n- **The $v^2$ term** means kinetic energy grows *quadratically* with speed — doubling velocity quadruples energy. This is why high-speed collisions are so destructive.\n- **The $\\frac{1}{2}$ factor** comes from integrating Newton's second law ($F = ma$) over distance to get work done accelerating a mass from rest: $\\int_0^v mv\\, dv = \\frac{1}{2}mv^2$.\n- **Mass is linear** — doubling mass simply doubles energy, since inertia scales proportionally.",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 7,
+		"doubleDollarBlocks": 1,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0
+	}
+}

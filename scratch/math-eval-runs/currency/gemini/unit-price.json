@@ -1,0 +1,14 @@
+{
+	"model": "gemini",
+	"prompt": "which is cheaper: 5 for $12 or 3 for $8",
+	"text": "To determine which is cheaper, calculate the price per unit for each option:\n\n*   **5 for \\$12:** $\\$12 \\div 5 = \\mathbf{\\$2.40}$ each\n*   **3 for \\$8:** $\\$8 \\div 3 \\approx \\mathbf{\\$2.67}$ each\n\nThe **5 for \\$12** option is cheaper by approximately **\\$0.27** per unit.",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 5,
+		"doubleDollarBlocks": 0,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0
+	}
+}

@@ -1,0 +1,14 @@
+{
+	"model": "gemini",
+	"prompt": "if my mortgage is $450,000 at 6.5% for 30 years, what's the monthly payment",
+	"text": "Your monthly principal and interest payment would be **\\$2,844.31**.\n\n### Breakdown\nThis calculation is based on the standard amortization formula:\n$$M = P \\frac{r(1+r)^n}{(1+r)^n - 1}$$\n\n*   **Principal ($P$):** \\$450,000\n*   **Monthly Interest Rate ($r$):** 0.5417% (6.5% / 12 months)\n*   **Number of Payments ($n$):** 360 (30 years $\\times$ 12 months)\n\n### Total Cost of Loan\nOver the 30-year life of the mortgage:\n*   **Total Payments:** \\$1,023,951.60\n*   **Total Interest Paid:** \\$573,951.60\n\n***\n\n**Note:** This figure covers **Principal and Interest (P&I)** only. Your actual monthly out-of-pocket cost will likely be higher because it will include:\n1.  **Property Taxes:** Varies by location.\n2.  **Homeowners Insurance:** Required by lenders.\n3.  **Private Mortgage Insurance (PMI):** Usually required if your down payment was less than 20%.\n4.  **HOA Fees:** If applicable to your property.",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 4,
+		"doubleDollarBlocks": 1,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0
+	}
+}

@@ -1,0 +1,14 @@
+{
+	"model": "claude-sonnet",
+	"prompt": "give me a bash one-liner to average numbers from a file, and explain the math",
+	"text": "```bash\nawk '{sum += $1} END {print sum / NR}' numbers.txt\n```\n\n**How it works:**\n\n- `sum += $1` — accumulates each line's first field into a running total\n- `NR` — AWK's built-in record counter, equal to the total number of lines at `END`\n- The final print computes the **arithmetic mean**:\n\n$$\\bar{x} = \\frac{\\sum_{i=1}^{n} x_i}{n}$$\n\nThat is, sum all values and divide by the count. No weighting, no median — just the simple average.\n\n**Assumes** one number per line. For space/comma-separated columns, adjust `$1` to the target field (e.g. `$2` for the second column, or use `-F,` for CSV).",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 1,
+		"doubleDollarBlocks": 1,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 4
+	}
+}

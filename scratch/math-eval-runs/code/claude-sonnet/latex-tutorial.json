@@ -1,0 +1,14 @@
+{
+	"model": "claude-sonnet",
+	"prompt": "teach me the basics of LaTeX math syntax with 5 example expressions",
+	"text": "# LaTeX Math Basics\n\nLaTeX math is written between delimiters: `$...$` for inline and `$$...$$` for a centered block.\n\n---\n\n## Core Syntax Rules\n\n| Concept | Syntax | Notes |\n|---|---|---|\n| Superscript | `x^2` | Use `{}` for multi-char: `x^{10}` |\n| Subscript | `x_i` | Same rule: `x_{ij}` |\n| Fraction | `\\frac{a}{b}` | Numerator, then denominator |\n| Greek letters | `\\alpha`, `\\pi`, `\\Sigma` | Lowercase/uppercase by case |\n| Functions | `\\sin`, `\\log`, `\\lim` | Backslash prevents italics |\n\n---\n\n## 5 Example Expressions\n\n**1. Quadratic formula**\n$$x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}$$\n```latex\nx = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}\n```\n\n**2. Sum notation**\n$$S = \\sum_{i=1}^{n} i = \\frac{n(n+1)}{2}$$\n```latex\nS = \\sum_{i=1}^{n} i = \\frac{n(n+1)}{2}\n```\n\n**3. Limit definition of a derivative**\n$$f'(x) = \\lim_{h \\to 0} \\frac{f(x+h) - f(x)}{h}$$\n```latex\nf'(x) = \\lim_{h \\to 0} \\frac{f(x+h) - f(x)}{h}\n```\n\n**4. Euler's identity**\n$$e^{i\\pi} + 1 = 0$$\n```latex\ne^{i\\pi} + 1 = 0\n```\n\n**5. Matrix**\n$$A = \\begin{pmatrix} a & b \\\\ c & d \\end{pmatrix}$$\n```latex\nA = \\begin{pmatrix} a & b \\\\ c & d \\end{pmatrix}\n```\n\n---\n\n## Key Things to Remember\n\n- **Curly braces `{}`** group multi-character arguments — `x^23` gives $x^23$, but `x^{23}` gives $x^{23}$.\n- **Backslash commands** produce symbols (`\\infty` → $\\infty$) and named operators (`\\int`, `\\prod`).\n- **`\\\\`** is a line break inside environments like matrices or aligned equations.",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 4,
+		"doubleDollarBlocks": 6,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0
+	}
+}

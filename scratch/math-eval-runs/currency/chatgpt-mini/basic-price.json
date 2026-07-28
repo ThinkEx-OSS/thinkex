@@ -1,0 +1,14 @@
+{
+	"model": "chatgpt-mini",
+	"prompt": "how much is a $5 latte plus tax at 8%",
+	"text": "A \\$5 latte with 8% tax costs **\\$5.40**.\n\nCalculation:\n- Tax: \\$5.00 × 0.08 = \\$0.40\n- Total: \\$5.00 + \\$0.40 = **\\$5.40**",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 3,
+		"doubleDollarBlocks": 0,
+		"fencedMath": 0,
+		"unicodeMath": 1,
+		"rawCurrency": 0
+	}
+}

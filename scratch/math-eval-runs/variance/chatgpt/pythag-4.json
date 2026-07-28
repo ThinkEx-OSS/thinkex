@@ -1,0 +1,14 @@
+{
+	"model": "chatgpt",
+	"prompt": "quick refresher: what's the pythagorean theorem",
+	"text": "The **Pythagorean theorem** applies to **right triangles**:\n\n$$a^2 + b^2 = c^2$$\n\n- $a$ and $b$ are the two **legs** of the triangle\n- $c$ is the **hypotenuse** — the longest side, opposite the right angle\n\n## Example\n\nIf a triangle has sides:\n\n- $a = 3$\n- $b = 4$\n\nthen:\n\n$$3^2 + 4^2 = c^2$$\n$$9 + 16 = 25$$\n$$c = 5$$\n\nSo the hypotenuse is **5**.\n\n## What it means\n\nIn a right triangle, the sum of the squares of the two shorter sides equals the square of the longest side.\n\nIf you want, I can also give:\n- a 10-second visual explanation\n- how to use it to solve for any side\n- a few common examples like 5-12-13",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 5,
+		"doubleDollarBlocks": 4,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 2
+	}
+}

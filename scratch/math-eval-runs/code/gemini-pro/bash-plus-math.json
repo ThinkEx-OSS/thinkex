@@ -1,0 +1,14 @@
+{
+	"model": "gemini-pro",
+	"prompt": "give me a bash one-liner to average numbers from a file, and explain the math",
+	"text": "Here is the most efficient and idiomatic bash one-liner using `awk`:\n\n```bash\nawk '{ sum += $1; n++ } END { if (n > 0) print sum / n }' numbers.txt\n```\n\n### How the command works\n* `{ sum += $1; n++ }`: For each line in the file, it adds the first column's value (`$1`) to a running total variable (`sum`), and increments a line counter variable (`n`) by 1.\n* `END { ... }`: After reading the entire file, `awk` executes this final block.\n* `if (n > 0) print sum / n`: It checks if `n` is greater than 0 to prevent a division-by-zero error (which would happen if the file was empty), then calculates and prints the result.\n\n### The Math: Arithmetic Mean\nThe \"average\" calculated here is mathematically known as the **arithmetic mean**. \n\nThe formula is:\n\n$$ \\mu = \\frac{1}{n} \\sum_{i=1}^{n} x_i $$\n\nHere is how the math breaks down and maps directly to the code:\n* **$x_i$**: Represents each individual number in your dataset. (In the code: `$1`)\n* **$\\sum_{i=1}^{n}$ (Capital Sigma)**: The summation operator. It instructs you to add up all the values of $x$ from the first value ($i=1$) to the final value ($n$). (In the code: `sum += $1`)\n* **$n$**: The total count of numbers in your dataset. (In the code: `n++`)\n* **Division by $n$**: Once you have the total sum, you divide it by the total count to find the central value. (In the code: `sum / n`)",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 8,
+		"doubleDollarBlocks": 1,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 5
+	}
+}

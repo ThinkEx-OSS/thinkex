@@ -1,0 +1,14 @@
+{
+	"model": "chatgpt-mini",
+	"prompt": "how do i use f-strings in python to format a number as currency like $1,234.56",
+	"text": "Use a format specifier inside the f-string:\n\n```python\namount = 1234.56\nprint(f\"${amount:,.2f}\")\n```\n\nOutput:\n\n```python\n$1,234.56\n```\n\n### Breakdown\n- `$` = literal dollar sign\n- `:,` = add thousands separators\n- `.2f` = show 2 digits after the decimal point\n\n### Examples\n```python\nprint(f\"${12:,.2f}\")       # $12.00\nprint(f\"${1234:,.2f}\")     # $1,234.00\nprint(f\"${1234.5:,.2f}\")   # $1,234.50\n```\n\nIf you want, I can also show how to format negative amounts, different currencies, or locale-aware currency formatting.",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 3,
+		"doubleDollarBlocks": 0,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 4
+	}
+}

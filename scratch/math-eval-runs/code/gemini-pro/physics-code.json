@@ -1,0 +1,14 @@
+{
+	"model": "gemini-pro",
+	"prompt": "write javascript to compute kinetic energy given mass and velocity, then explain the formula",
+	"text": "Here is the JavaScript function to calculate kinetic energy:\n\n```javascript\n/**\n * Computes the kinetic energy of an object.\n * \n * @param {number} mass - The mass of the object (in kilograms)\n * @param {number} velocity - The velocity of the object (in meters per second)\n * @returns {number} The kinetic energy (in Joules)\n */\nfunction calculateKineticEnergy(mass, velocity) {\n  if (mass < 0) {\n    throw new Error(\"Mass cannot be negative.\");\n  }\n  return 0.5 * mass * (velocity ** 2);\n}\n\n// Example usage:\nconst mass = 10; // kg\nconst velocity = 5; // m/s\nconsole.log(calculateKineticEnergy(mass, velocity)); // Output: 125\n```\n\n### The Formula Explained\n\nThe standard physics formula for kinetic energy is:\n\n$$KE = \\frac{1}{2} m v^2$$\n\n**Variables:**\n*   **$KE$ (Kinetic Energy)**: The energy an object possesses due to its motion. In the International System of Units (SI), this is measured in Joules (J).\n*   **$m$ (Mass)**: The amount of matter in the object, typically measured in kilograms (kg).\n*   **$v$ (Velocity)**: The speed of the object in a specific direction, typically measured in meters per second (m/s).\n\n**How it works:**\n1.  **Linear relationship with mass:** Kinetic energy is directly proportional to mass. If you double the mass of a moving object, its kinetic energy doubles. \n2.  **Quadratic relationship with velocity:** Kinetic energy is proportional to the *square* of the velocity. This is the most critical part of the formula. If you double the speed of an object, its kinetic energy doesn't double—it quadruples ($2^2 = 4$). If you triple the speed, the energy increases by a factor of nine ($3^2 = 9$). \n\nThis squared relationship explains why high-speed car crashes are exponentially more destructive than low-speed ones, and why stopping distances for vehicles increase significantly as speed increases.",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 5,
+		"doubleDollarBlocks": 1,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 2
+	}
+}

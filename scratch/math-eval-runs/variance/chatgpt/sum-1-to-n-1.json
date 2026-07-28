@@ -1,0 +1,14 @@
+{
+	"model": "chatgpt",
+	"prompt": "prove that 1+2+...+n = n(n+1)/2",
+	"text": "A standard proof is by **induction**.\n\n## Claim\n\\[\n1+2+\\cdots+n=\\frac{n(n+1)}{2}\n\\]\n\nfor every positive integer \\(n\\).\n\n## Proof by induction\n\n### Base case: \\(n=1\\)\nLeft side:\n\\[\n1\n\\]\n\nRight side:\n\\[\n\\frac{1(1+1)}{2}=\\frac{2}{2}=1\n\\]\n\nSo the formula is true for \\(n=1\\).\n\n### Inductive step\nAssume the formula is true for some positive integer \\(n\\). That is, assume\n\\[\n1+2+\\cdots+n=\\frac{n(n+1)}{2}\n\\]\n\nWe must show it is then true for \\(n+1\\).\n\nStart with the left side for \\(n+1\\):\n\\[\n1+2+\\cdots+n+(n+1)\n\\]\n\nUsing the induction hypothesis:\n\\[\n= \\frac{n(n+1)}{2}+(n+1)\n\\]\n\nFactor out \\(n+1\\):\n\\[\n= (n+1)\\left(\\frac{n}{2}+1\\right)\n\\]\n\n\\[\n= (n+1)\\left(\\frac{n+2}{2}\\right)\n\\]\n\n\\[\n= \\frac{(n+1)(n+2)}{2}\n\\]\n\nThis is exactly the formula with \\(n+1\\) in place of \\(n\\):\n\\[\n1+2+\\cdots+(n+1)=\\frac{(n+1)((n+1)+1)}{2}\n\\]\n\nSo the statement holds for \\(n+1\\).\n\n## Conclusion\nBy mathematical induction, for every positive integer \\(n\\),\n\\[\n1+2+\\cdots+n=\\frac{n(n+1)}{2}.\n\\]\n\n## Quick intuitive proof\nWrite the sum forward and backward:\n\\[\nS=1+2+3+\\cdots+n\n\\]\n\\[\nS=n+(n-1)+(n-2)+\\cdots+1\n\\]\n\nAdd termwise:\n\\[\n2S=(n+1)+(n+1)+\\cdots+(n+1)\n\\]\n\nThere are \\(n\\) terms, so\n\\[\n2S=n(n+1)\n\\]\nhence\n\\[\nS=\\frac{n(n+1)}{2}.\n\\]\n\nIf you want, I can also show a **visual proof** or a **combinatorial proof**.",
+	"analysis": {
+		"escapedInline": 12,
+		"escapedBlock": 16,
+		"singleDollarPairs": 0,
+		"doubleDollarBlocks": 0,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0
+	}
+}

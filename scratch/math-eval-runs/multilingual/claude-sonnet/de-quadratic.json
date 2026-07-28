@@ -1,0 +1,15 @@
+{
+	"model": "claude-sonnet",
+	"prompt": "hilf mir x^2 + 5x + 6 = 0 Schritt für Schritt zu lösen",
+	"text": "## Quadratische Gleichung lösen: $x^2 + 5x + 6 = 0$\n\n### Schritt 1 – Methode wählen: Faktorisieren\n\nGesucht sind zwei Zahlen $a$ und $b$, sodass:\n- $a \\cdot b = 6$ (Konstante)\n- $a + b = 5$ (Koeffizient von $x$)\n\n**Kandidaten für $a \\cdot b = 6$:** $(1,6),\\ (2,3)$\n\n→ $2 + 3 = 5$ ✓\n\n### Schritt 2 – Faktorisieren\n\n$$x^2 + 5x + 6 = (x + 2)(x + 3) = 0$$\n\n### Schritt 3 – Nullstellen bestimmen\n\nEin Produkt ist null, wenn **mindestens ein Faktor null** ist:\n\n$$x + 2 = 0 \\implies x_1 = -2$$\n$$x + 3 = 0 \\implies x_2 = -3$$\n\n### Lösung\n\n$$\\boxed{x_1 = -2, \\quad x_2 = -3}$$\n\n### Probe\n\n| $x$ | $x^2 + 5x + 6$ |\n|-----|----------------|\n| $-2$ | $4 - 10 + 6 = 0$ ✓ |\n| $-3$ | $9 - 15 + 6 = 0$ ✓ |\n\n---\n\nFalls du die **Lösungsformel (Mitternachtsformel)** oder **quadratische Ergänzung** als alternativen Weg sehen möchtest, sag einfach Bescheid!",
+	"analysis": {
+		"backslashInline": 0,
+		"backslashBlock": 0,
+		"singleDollar": 15,
+		"doubleDollar": 4,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0,
+		"escapedCurrency": 0
+	}
+}

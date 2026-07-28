@@ -1,0 +1,14 @@
+{
+	"model": "chatgpt-mini",
+	"prompt": "how do i use $HOME and $PATH in a bash script",
+	"text": "In a Bash script, `$HOME` and `$PATH` are **environment variables** you can read like normal shell variables.\n\n## Use them directly\n\n```bash\n#!/usr/bin/env bash\n\necho \"Home directory: $HOME\"\necho \"Search path: $PATH\"\n```\n\n## What they mean\n\n- `$HOME` → your home directory, like `/home/yourname`\n- `$PATH` → a colon-separated list of directories Bash searches for commands\n\n## Common uses\n\n### 1) Refer to files in your home directory\n\n```bash\nconfig_file=\"$HOME/.config/myapp/config.json\"\necho \"Config: $config_file\"\n```\n\n### 2) Add a directory to `PATH`\n\n```bash\nexport PATH=\"$HOME/bin:$PATH\"\n```\n\nThat tells Bash to look in `~/bin` before the existing directories.\n\n### 3) Use `PATH` to check where a command is found\n\n```bash\nwhich python\n```\n\nor better:\n\n```bash\ncommand -v python\n```\n\n## Important notes\n\n- In Bash, variable references use `$NAME`.\n- Put quotes around them when used in paths to handle spaces safely:\n  ```bash\n  cd \"$HOME/projects\"\n  ```\n- `PATH` is usually inherited from your environment; if you set it in a script, it only affects that script and its child processes unless you `export` it.\n\n## Example script\n\n```bash\n#!/usr/bin/env bash\n\nexport PATH=\"$HOME/bin:$PATH\"\n\necho \"Using home: $HOME\"\necho \"Updated path: $PATH\"\n```\n\nIf you want, I can also show how to set these permanently in `~/.bashrc` or `~/.profile`.",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 3,
+		"doubleDollarBlocks": 0,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0
+	}
+}

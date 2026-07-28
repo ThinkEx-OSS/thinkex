@@ -1,0 +1,6 @@
+{
+	"model": "claude-haiku",
+	"variant": "nuclear",
+	"prompt": "which is cheaper: 5 for $12 or 3 for $8",
+	"text": "5 for \\$12 is cheaper per unit.\n\n- **5 for \\$12** = \\$2.40 per unit\n- **3 for \\$8** = \\$2.67 per unit\n\nThe first option saves you about \\$0.27 per unit."
+}

@@ -1,0 +1,14 @@
+{
+	"model": "gemini",
+	"prompt": "if i deposit $500/month at 5% APR for 10 years, whats the future value",
+	"text": "To calculate the future value of a monthly deposit (an ordinary annuity), we use the following formula:\n\n$$FV = P \\times \\frac{(1 + r)^n - 1}{r}$$\n\n### Variables\n*   **Monthly Deposit ($P$):** \\$500\n*   **Monthly Interest Rate ($r$):** $0.05 / 12 \\approx 0.0041667$\n*   **Number of Periods ($n$):** $10 \\text{ years} \\times 12 \\text{ months} = 120$\n\n### Calculation\n1.  **Calculate the growth factor:** $(1 + 0.0041667)^{120} \\approx 1.647009$\n2.  **Apply the formula:**\n    $$FV = 500 \\times \\frac{1.647009 - 1}{0.0041667}$$\n    $$FV = 500 \\times 155.2823$$\n    $$FV \\approx \\$77,641.15$$\n\n### Summary\nAfter 10 years, your total balance would be approximately **\\$77,641.15**.\n\n*   **Total Contributions:** \\$60,000.00\n*   **Total Interest Earned:** \\$17,641.15\n\n*Note: This assumes interest is compounded monthly and deposits are made at the end of each month.*",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 6,
+		"doubleDollarBlocks": 4,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 2
+	}
+}

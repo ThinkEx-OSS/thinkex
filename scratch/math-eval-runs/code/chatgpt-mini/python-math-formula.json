@@ -1,0 +1,14 @@
+{
+	"model": "chatgpt-mini",
+	"prompt": "write a python function to compute quadratic roots, then show the math formula it implements",
+	"text": "```python\nimport cmath\n\ndef quadratic_roots(a, b, c):\n    \"\"\"\n    Return the two roots of a*x^2 + b*x + c = 0.\n    Uses cmath so it also works for complex roots.\n    \"\"\"\n    if a == 0:\n        raise ValueError(\"a must be nonzero for a quadratic equation\")\n\n    discriminant = b**2 - 4*a*c\n    sqrt_disc = cmath.sqrt(discriminant)\n\n    x1 = (-b + sqrt_disc) / (2*a)\n    x2 = (-b - sqrt_disc) / (2*a)\n    return x1, x2\n```\n\nIt implements the quadratic formula:\n\n$$\nx = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}\n$$\n\nFor an equation of the form:\n\n$$\nax^2 + bx + c = 0\n$$\n\nwhere $a \\neq 0$.",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 1,
+		"doubleDollarBlocks": 2,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0
+	}
+}

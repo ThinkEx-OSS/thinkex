@@ -1,0 +1,6 @@
+{
+	"model": "chatgpt-mini",
+	"variant": "nuclear",
+	"prompt": "if my mortgage is $450,000 at 6.5% for 30 years, what's the monthly payment",
+	"text": "Your monthly **principal and interest** payment is about **\\$2,844**.\n\n### Calculation\nFor a \\$450,000 mortgage at **6.5%** over **30 years**:\n\n- Loan amount: \\$450,000\n- Monthly interest rate: 6.5% / 12\n- Number of payments: 30 × 12 = 360\n\nUsing the standard mortgage formula, the payment comes out to:\n\n> **\\$2,844.11 per month**\n\n### Note\nThis is **principal + interest only**. It does **not** include:\n\n- property taxes\n- homeowners insurance\n- PMI, if applicable\n- HOA fees, if any\n\nIf you want, I can also estimate the **full monthly housing payment** with taxes and insurance."
+}

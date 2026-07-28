@@ -1,0 +1,6 @@
+{
+	"model": "claude-haiku",
+	"variant": "nuclear",
+	"prompt": "if my mortgage is $450,000 at 6.5% for 30 years, what's the monthly payment",
+	"text": "I'll calculate your monthly mortgage payment using the standard loan payment formula.\n\n**Monthly Payment: \\$2,847.53**\n\nHere's the breakdown:\n- **Loan amount:** \\$450,000\n- **Annual interest rate:** 6.5%\n- **Loan term:** 30 years (360 months)\n- **Monthly interest rate:** 0.541667% (6.5% ÷ 12)\n\nThe formula is:\n$$M = P \\times \\frac{r(1+r)^n}{(1+r)^n - 1}$$\n\nWhere:\n- M = monthly payment\n- P = principal (\\$450,000)\n- r = monthly interest rate (0.00541667)\n- n = number of payments (360)\n\nThis payment covers principal and interest only—it doesn't include property taxes, insurance, HOA fees, or PMI if applicable."
+}

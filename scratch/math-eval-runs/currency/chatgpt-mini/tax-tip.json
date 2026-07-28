@@ -1,0 +1,14 @@
+{
+	"model": "chatgpt-mini",
+	"prompt": "$45 dinner with 8% tax and 20% tip, whats the total",
+	"text": "Total: **$57.60**\n\nCalculation:\n- Dinner: **$45.00**\n- 8% tax: **$3.60**\n- 20% tip: **$9.00**\n\n**$45 + $3.60 + $9.00 = $57.60**",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 2,
+		"doubleDollarBlocks": 0,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 8
+	}
+}

@@ -1,0 +1,14 @@
+{
+	"model": "chatgpt-mini",
+	"prompt": "quick refresher: what's the pythagorean theorem",
+	"text": "The **Pythagorean theorem** says:\n\nFor a **right triangle** with legs `a` and `b` and hypotenuse `c`:\n\n$$a^2 + b^2 = c^2$$\n\n- `a` and `b` are the two sides that meet at the right angle\n- `c` is the side opposite the right angle, the **hypotenuse**\n\nExample: if `a = 3` and `b = 4`, then\n\n$$3^2 + 4^2 = 9 + 16 = 25$$\n\nso `c = 5`.",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 0,
+		"doubleDollarBlocks": 2,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 1
+	}
+}

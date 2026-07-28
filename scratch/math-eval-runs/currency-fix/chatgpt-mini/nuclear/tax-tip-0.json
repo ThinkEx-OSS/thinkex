@@ -1,0 +1,6 @@
+{
+	"model": "chatgpt-mini",
+	"variant": "nuclear",
+	"prompt": "$45 dinner with 8% tax and 20% tip, whats the total",
+	"text": "`$45` dinner with `8%` tax and `20%` tip:\n\n- Tax: `\\$45 \\times 0.08 = \\$3.60`\n- Tip: `\\$45 \\times 0.20 = \\$9.00`\n\n**Total:** `\\$45 + \\$3.60 + \\$9.00 = \\$57.60`"
+}

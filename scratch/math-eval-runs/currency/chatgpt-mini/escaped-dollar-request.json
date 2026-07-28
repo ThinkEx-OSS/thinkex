@@ -1,0 +1,14 @@
+{
+	"model": "chatgpt-mini",
+	"prompt": "make me a landing page pitch for a saas at $29/month",
+	"text": "# SaaS Landing Page Pitch — **$29/month**\n\n## Build your business faster\nLaunch, manage, and grow without the usual chaos. Our SaaS gives you the tools you need to stay organized, save time, and move work forward — all in one simple dashboard.\n\n### Why teams choose it\n- **Simple setup** — get started in minutes\n- **Everything in one place** — no more switching between tools\n- **Designed to scale** — works for solo operators and growing teams\n- **Affordable pricing** — only **$29/month**\n\n### What you get\n- Clean, intuitive interface\n- Core workflows automated\n- Real-time visibility into progress\n- Reliable support when you need it\n\n### Perfect for\n- Freelancers\n- Small businesses\n- Startups\n- Teams that want to move faster\n\n### Call to action\n**Start your free trial today**  \nSee how much smoother your work can be for just **$29/month**.\n\nIf you want, I can turn this into:\n1. a **more premium/modern version**,  \n2. a **high-converting homepage hero**, or  \n3. a **full landing page with sections and FAQs**.",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 0,
+		"doubleDollarBlocks": 0,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 3
+	}
+}

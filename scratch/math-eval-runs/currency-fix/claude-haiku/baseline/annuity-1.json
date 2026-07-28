@@ -1,0 +1,6 @@
+{
+	"model": "claude-haiku",
+	"variant": "baseline",
+	"prompt": "if i deposit $500/month at 5% APR for 10 years, whats the future value",
+	"text": "Using the future value of an annuity formula:\n\n$$FV = PMT \\times \\frac{(1 + r)^n - 1}{r}$$\n\nWhere:\n- PMT = $500 (monthly deposit)\n- r = 0.05/12 ≈ 0.004167 (monthly rate)\n- n = 120 (months in 10 years)\n\n$$FV = 500 \\times \\frac{(1.004167)^{120} - 1}{0.004167}$$\n\n$$FV = 500 \\times \\frac{1.6453 - 1}{0.004167}$$\n\n$$FV = 500 \\times 154.60 \\approx \\$77,303$$\n\n**Your future value is approximately $77,303** after 10 years of $500 monthly deposits at 5% APR.\n\nThis includes about $60,000 in deposits (500 × 120) and roughly $17,303 in accumulated interest."
+}

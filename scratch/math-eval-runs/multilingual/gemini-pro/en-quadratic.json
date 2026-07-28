@@ -1,0 +1,15 @@
+{
+	"model": "gemini-pro",
+	"prompt": "help me solve x^2 + 5x + 6 = 0 step by step",
+	"text": "To solve the quadratic equation $x^2 + 5x + 6 = 0$, you can factor the polynomial. Here is the step-by-step process:\n\n**Step 1: Find factors of the constant term**\nLook for two numbers that multiply to the constant term ($6$) and add up to the coefficient of the middle term ($5$). \n\nThe pairs of numbers that multiply to $6$ are:\n* $1$ and $6$ ($1 + 6 = 7$)\n* $2$ and $3$ ($2 + 3 = 5$)\n\nThe numbers $2$ and $3$ satisfy both conditions.\n\n**Step 2: Rewrite the equation in factored form**\nUse the two numbers you found to break down the quadratic equation into two binomials:\n$$ (x + 2)(x + 3) = 0 $$\n\n**Step 3: Apply the Zero Product Property**\nIf the product of two factors is zero, at least one of the factors must be zero. Set each binomial equal to zero:\n$$ x + 2 = 0 \\quad \\text{or} \\quad x + 3 = 0 $$\n\n**Step 4: Solve for $x$**\nSolve each basic equation to find the values of $x$:\n* For $x + 2 = 0$, subtract $2$ from both sides: **$x = -2$**\n* For $x + 3 = 0$, subtract $3$ from both sides: **$x = -3$**\n\nThe solutions to the equation are $x = -2$ and $x = -3$.",
+	"analysis": {
+		"backslashInline": 0,
+		"backslashBlock": 0,
+		"singleDollar": 22,
+		"doubleDollar": 2,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0,
+		"escapedCurrency": 0
+	}
+}

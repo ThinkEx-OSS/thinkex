@@ -1,0 +1,15 @@
+{
+	"model": "chatgpt-mini",
+	"prompt": "quick refresher: what's the pythagorean theorem",
+	"text": "The **Pythagorean theorem** says that in a **right triangle**:\n\n\\[\na^2 + b^2 = c^2\n\\]\n\n- `$a$` and `$b$` are the two shorter sides\n- `$c$` is the **hypotenuse** — the side opposite the right angle, and the longest side\n\nExample: if the legs are 3 and 4, then\n\n\\[\n3^2 + 4^2 = 9 + 16 = 25\n\\]\n\nso\n\n\\[\nc = 5\n\\]\n\nIt only applies to **right triangles**.",
+	"analysis": {
+		"backslashInline": 0,
+		"backslashBlock": 3,
+		"singleDollar": 3,
+		"doubleDollar": 0,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0,
+		"escapedCurrency": 0
+	}
+}

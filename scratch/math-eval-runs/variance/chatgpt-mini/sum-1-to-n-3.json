@@ -1,0 +1,14 @@
+{
+	"model": "chatgpt-mini",
+	"prompt": "prove that 1+2+...+n = n(n+1)/2",
+	"text": "A standard proof is by **pairing terms**.\n\nLet\n\\[\nS = 1+2+3+\\cdots+n.\n\\]\n\nWrite the sum in reverse:\n\\[\nS = n+(n-1)+(n-2)+\\cdots+1.\n\\]\n\nAdd the two expressions term by term:\n\\[\n2S = (1+n) + (2+n-1) + (3+n-2) + \\cdots.\n\\]\n\nEach pair equals $n+1$, and there are $n$ such pairs, so\n\\[\n2S = n(n+1).\n\\]\n\nDivide by 2:\n\\[\nS = \\frac{n(n+1)}{2}.\n\\]\n\nSo,\n\\[\n1+2+\\cdots+n = \\frac{n(n+1)}{2}.\n\\]\n\nIf you want, I can also show a proof by induction.",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 6,
+		"singleDollarPairs": 2,
+		"doubleDollarBlocks": 0,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0
+	}
+}

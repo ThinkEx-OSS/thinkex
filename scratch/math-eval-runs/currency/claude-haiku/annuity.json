@@ -1,0 +1,14 @@
+{
+	"model": "claude-haiku",
+	"prompt": "if i deposit $500/month at 5% APR for 10 years, whats the future value",
+	"text": "# Future Value of Monthly Deposits\n\nFor regular monthly deposits with compound interest, use the **future value of an annuity** formula:\n\n$$FV = PMT \\times \\frac{(1 + r)^n - 1}{r}$$\n\nWhere:\n- **PMT** = $500 (monthly payment)\n- **r** = 0.05 ÷ 12 = 0.004167 (monthly interest rate)\n- **n** = 10 × 12 = 120 (months)\n\n**Calculation:**\n\n$$FV = 500 \\times \\frac{(1.004167)^{120} - 1}{0.004167}$$\n\n$$FV = 500 \\times \\frac{1.6453 - 1}{0.004167}$$\n\n$$FV = 500 \\times 154.60$$\n\n$$FV ≈ \\$77,302$$\n\n**Your future value after 10 years is approximately $77,300.**\n\nThis assumes:\n- Monthly deposits at the start or end of each month (standard is end-of-month)\n- 5% APR compounded monthly\n- Deposits made consistently for 120 months\n\nThe total you *deposited* was $60,000 (500 × 120), so you earned roughly $17,300 in interest.",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 1,
+		"doubleDollarBlocks": 5,
+		"fencedMath": 0,
+		"unicodeMath": 3,
+		"rawCurrency": 4
+	}
+}

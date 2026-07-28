@@ -1,0 +1,6 @@
+{
+	"model": "chatgpt-mini",
+	"variant": "nuclear",
+	"prompt": "if a $200 jacket is 30% off, what's the sale price and how much did i save",
+	"text": "The sale price is **\\$140**, and you saved **\\$60**.\n\nCalculation:\n- Discount: \\$200 × 0.30 = **\\$60**\n- Sale price: \\$200 - \\$60 = **\\$140**"
+}

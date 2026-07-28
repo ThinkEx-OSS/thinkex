@@ -1,0 +1,14 @@
+{
+	"model": "gemini",
+	"prompt": "if a $200 jacket is 30% off, what's the sale price and how much did i save",
+	"text": "The sale price is **\\$140**, and you saved **\\$60**.\n\n### Breakdown\n*   **Savings:** $30\\%$ of $\\$200$ is $\\$60$ ($0.30 \\times 200 = 60$).\n*   **Sale Price:** $\\$200 - \\$60 = \\$140$.",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 8,
+		"doubleDollarBlocks": 0,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 2
+	}
+}

@@ -1,0 +1,14 @@
+{
+	"model": "chatgpt-mini",
+	"prompt": "give me a bash one-liner to average numbers from a file, and explain the math",
+	"text": "Use `awk`:\n\n```bash\nawk '{sum+=$1; n++} END {if (n>0) print sum/n}' numbers.txt\n```\n\n### Math\nThis computes the arithmetic mean:\n\n$$\n\\text{average} = \\frac{x_1 + x_2 + \\cdots + x_n}{n}\n$$\n\n- `sum += $1` adds each first-column number to the running total\n- `n++` counts how many numbers were seen\n- `sum/n` divides total by count\n\n### Example\nIf `numbers.txt` contains:\n\n```txt\n10\n20\n30\n```\n\nThen:\n\n- sum = 10 + 20 + 30 = 60\n- count = 3\n- average = 60 / 3 = 20\n\nIf your numbers are in another column or separated by spaces, I can adapt it.",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 0,
+		"doubleDollarBlocks": 1,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 2
+	}
+}

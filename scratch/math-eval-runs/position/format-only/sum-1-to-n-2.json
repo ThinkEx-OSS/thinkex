@@ -1,0 +1,14 @@
+{
+	"variant": "format-only",
+	"prompt": "prove that 1+2+...+n = n(n+1)/2",
+	"text": "A standard proof uses **induction**.\n\n## Claim\nFor every positive integer $n$,\n$$\n1+2+\\cdots+n=\\frac{n(n+1)}{2}.\n$$\n\n## Base case: $n=1$\nLeft side:\n$$\n1\n$$\nRight side:\n$$\n\\frac{1(1+1)}{2}=\\frac{2}{2}=1.\n$$\nSo the formula is true for $n=1$.\n\n## Inductive step\nAssume the formula is true for some $n$, i.e.\n$$\n1+2+\\cdots+n=\\frac{n(n+1)}{2}.\n$$\nNow consider $n+1$:\n$$\n1+2+\\cdots+n+(n+1).\n$$\nUsing the induction hypothesis, this becomes\n$$\n\\frac{n(n+1)}{2}+(n+1).\n$$\nFactor out $(n+1)$:\n$$\n\\frac{n(n+1)}{2}+\\frac{2(n+1)}{2}\n= \\frac{(n+1)(n+2)}{2}.\n$$\nThis is exactly the formula with $n$ replaced by $n+1$:\n$$\n1+2+\\cdots+n+(n+1)=\\frac{(n+1)((n+1)+1)}{2}.\n$$\n\n## Conclusion\nBy mathematical induction, the formula\n$$\n1+2+\\cdots+n=\\frac{n(n+1)}{2}\n$$\nholds for all positive integers $n$.\n\nIf you'd like, I can also show a **pairing proof** or a **visual proof**.",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 9,
+		"doubleDollarBlocks": 9,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0
+	}
+}

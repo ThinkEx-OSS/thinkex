@@ -1,0 +1,14 @@
+{
+	"model": "gemini",
+	"prompt": "how do i use f-strings in python to format a number as currency like $1,234.56",
+	"text": "To format a number as currency in Python using f-strings, you use a format specifier following the syntax `:{prefix}{comma}{precision}f`.\n\n### Basic Currency Formatting\nUse the `,` (comma) for thousands separators and `.2f` to round to two decimal places. You must place the `$` sign outside the curly braces.\n\n```python\namount = 1234.567\nformatted = f\"${amount:,.2f}\"\nprint(formatted) \n# Output: $1,234.57\n```\n\n### Formatting Options\n\n| Feature | Syntax | Result (for `1234.5`) |\n| :--- | :--- | :--- |\n| **Thousands separator** | `f\"{n:,}\"` | `1,234.5` |\n| **Fixed decimals** | `f\"{n:.2f}\"` | `1234.50` |\n| **Both (Currency)** | `f\"${n:,.2f}\"` | `$1,234.50` |\n| **Padding/Alignment** | `f\"${n:>10,.2f}\"` | ` $1,234.50` (right-aligned, width 10) |\n\n### Handling Localization\nIf you need to support different currency symbols or formatting rules (like using a dot for thousands and a comma for decimals in Europe), use the built-in `locale` module instead of hardcoding the `$` sign.\n\n```python\nimport locale\n\n# Set to US English\nlocale.setlocale(locale.LC_ALL, 'en_US.UTF-8')\n\namount = 1234.56\nprint(locale.currency(amount, grouping=True))\n# Output: $1,234.56\n```",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 2,
+		"doubleDollarBlocks": 0,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 4
+	}
+}

@@ -1,0 +1,14 @@
+{
+	"model": "chatgpt-mini",
+	"prompt": "write a sql query for standard deviation of a column, then show the math it's computing",
+	"text": "Use this pattern:\n\n```sql\nSELECT\n  STDDEV_SAMP(your_column) AS sample_stddev\nFROM your_table;\n```\n\nIf you want the **population** standard deviation instead:\n\n```sql\nSELECT\n  STDDEV_POP(your_column) AS population_stddev\nFROM your_table;\n```\n\n## What math it computes\n\nFor values $x_1, x_2, \\dots, x_n$:\n\n### Sample standard deviation\n`STDDEV_SAMP` computes:\n\n$$\ns = \\sqrt{\\frac{\\sum_{i=1}^{n}(x_i - \\bar{x})^2}{n - 1}}\n$$\n\nwhere:\n\n$$\n\\bar{x} = \\frac{1}{n}\\sum_{i=1}^{n} x_i\n$$\n\n### Population standard deviation\n`STDDEV_POP` computes:\n\n$$\n\\sigma = \\sqrt{\\frac{\\sum_{i=1}^{n}(x_i - \\mu)^2}{n}}\n$$\n\nwhere:\n\n$$\n\\mu = \\frac{1}{n}\\sum_{i=1}^{n} x_i\n$$\n\n## Example\n\nIf the column values are `2, 4, 4, 4, 5, 5, 7, 9`:\n\n1. Mean:\n   $$\n   \\bar{x} = \\frac{2+4+4+4+5+5+7+9}{8} = 5\n   $$\n\n2. Squared deviations:\n   $$\n   (2-5)^2 + (4-5)^2 + (4-5)^2 + (4-5)^2 + (5-5)^2 + (5-5)^2 + (7-5)^2 + (9-5)^2\n   $$\n   $$\n   = 9 + 1 + 1 + 1 + 0 + 0 + 4 + 16 = 32\n   $$\n\n3. Population std dev:\n   $$\n   \\sigma = \\sqrt{\\frac{32}{8}} = 2\n   $$\n\n4. Sample std dev:\n   $$\n   s = \\sqrt{\\frac{32}{7}} \\approx 2.138\n   $$\n\nIf you want, I can also write the query in a specific SQL dialect like PostgreSQL, MySQL, SQL Server, or BigQuery.",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 1,
+		"doubleDollarBlocks": 9,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0
+	}
+}

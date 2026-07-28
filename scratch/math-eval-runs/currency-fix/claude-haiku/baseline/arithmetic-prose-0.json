@@ -1,0 +1,6 @@
+{
+	"model": "claude-haiku",
+	"variant": "baseline",
+	"prompt": "i bought stuff for $12.50 + $8.75 + $23.99 whats my total",
+	"text": "Your total is **$45.24**.\n\n$12.50 + $8.75 + $23.99 = $45.24"
+}

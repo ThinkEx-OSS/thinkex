@@ -1,0 +1,14 @@
+{
+	"model": "chatgpt-mini",
+	"prompt": "write javascript to compute kinetic energy given mass and velocity, then explain the formula",
+	"text": "```javascript\nfunction kineticEnergy(mass, velocity) {\n  return 0.5 * mass * velocity * velocity;\n}\n\n// Example:\nconst mass = 10;      // kg\nconst velocity = 4;   // m/s\nconst ke = kineticEnergy(mass, velocity);\n\nconsole.log(`Kinetic energy: ${ke} joules`);\n```\n\n## Formula\n\nThe kinetic energy formula is:\n\n$$\nKE = \\frac{1}{2}mv^2\n$$\n\nWhere:\n\n- `KE` = kinetic energy\n- `m` = mass\n- `v` = velocity\n\n## What it means\n\n- Kinetic energy is the energy an object has because it is moving.\n- It increases linearly with mass: if mass doubles, kinetic energy doubles.\n- It increases with the square of velocity: if velocity doubles, kinetic energy becomes **four times** larger.\n\n## Units\n\nIf mass is in **kilograms** and velocity is in **meters per second**, the result is in **joules**.",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 0,
+		"doubleDollarBlocks": 1,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0
+	}
+}

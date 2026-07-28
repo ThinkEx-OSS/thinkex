@@ -1,0 +1,15 @@
+{
+	"model": "claude-sonnet",
+	"prompt": "ساعدني في حل x^2 + 5x + 6 = 0 خطوة بخطوة",
+	"text": "## حل المعادلة $x^2 + 5x + 6 = 0$\n\n### الطريقة: التحليل إلى عوامل\n\n**الخطوة 1: إيجاد عددين**\nنبحث عن عددين حاصل ضربهما = **6** وحاصل جمعهما = **5**\n\n$$2 \\times 3 = 6 \\quad \\text{و} \\quad 2 + 3 = 5 \\checkmark$$\n\n**الخطوة 2: التحليل**\n\n$$x^2 + 5x + 6 = (x + 2)(x + 3) = 0$$\n\n**الخطوة 3: إيجاد الحلول**\n\n$$x + 2 = 0 \\implies x = -2$$\n$$x + 3 = 0 \\implies x = -3$$\n\n---\n\n### ✅ الحل النهائي\n\n$$\\boxed{x = -2 \\quad \\text{أو} \\quad x = -3}$$\n\n### التحقق\n| $x$ | $x^2 + 5x + 6$ | النتيجة |\n|-----|----------------|---------|\n| $-2$ | $4 - 10 + 6$ | $0$ ✓ |\n| $-3$ | $9 - 15 + 6$ | $0$ ✓ |",
+	"analysis": {
+		"backslashInline": 0,
+		"backslashBlock": 0,
+		"singleDollar": 9,
+		"doubleDollar": 5,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0,
+		"escapedCurrency": 0
+	}
+}

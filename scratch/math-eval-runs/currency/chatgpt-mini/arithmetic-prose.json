@@ -1,0 +1,14 @@
+{
+	"model": "chatgpt-mini",
+	"prompt": "i bought stuff for $12.50 + $8.75 + $23.99 whats my total",
+	"text": "Your total is **$45.24**.\n\nCalculation:\n- $12.50\n- $8.75\n- $23.99\n\n**Total = $45.24**",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 0,
+		"doubleDollarBlocks": 0,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 5
+	}
+}

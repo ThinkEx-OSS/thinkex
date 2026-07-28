@@ -1,0 +1,14 @@
+{
+	"model": "gemini",
+	"prompt": "how much is a $5 latte plus tax at 8%",
+	"text": "The total for a \\$5.00 latte with 8% tax is **\\$5.40**.\n\n### Breakdown\n*   **Subtotal:** \\$5.00\n*   **Tax (8%):** \\$0.40\n*   **Total:** \\$5.40",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 1,
+		"doubleDollarBlocks": 0,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0
+	}
+}

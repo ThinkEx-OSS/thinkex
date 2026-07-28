@@ -1,0 +1,37 @@
+{
+	"conversation": "math-then-currency",
+	"turn": 2,
+	"messages": [
+		{
+			"role": "user",
+			"content": "prove that 1+2+...+n = n(n+1)/2"
+		},
+		{
+			"role": "assistant",
+			"content": "A standard proof is by **pairing terms**.\n\nLet  \n\\[\nS = 1+2+3+\\cdots+n.\n\\]\n\nWrite the sum in reverse as well:\n\\[\nS = n+(n-1)+(n-2)+\\cdots+1.\n\\]\n\nAdd these two expressions term by term:\n\\[\n2S = (1+n) + (2+(n-1)) + (3+(n-2)) + \\cdots\n\\]\n\nEach pair sums to $n+1$, and there are $n$ such pairs, so:\n\\[\n2S = n(n+1).\n\\]\n\nDivide by 2:\n\\[\nS = \\frac{n(n+1)}{2}.\n\\]\n\nSo,\n\\[\n1+2+\\cdots+n = \\frac{n(n+1)}{2}.\n\\]\n\nIf you want, I can also show an induction proof."
+		},
+		{
+			"role": "user",
+			"content": "cool. unrelated: if i earn $5000 a month and save 20%, how much per month is that"
+		},
+		{
+			"role": "assistant",
+			"content": "20% of \\$5000 is:\n\n\\[\n5000 \\times 0.20 = 1000\n\\]\n\nSo you’d save **\\$1,000 per month**."
+		},
+		{
+			"role": "user",
+			"content": "and how much after 3 years"
+		}
+	],
+	"text": "If you save **\\$1,000 per month** for **3 years**:\n\n- $3$ years = $36$ months\n- $36 \\times \\$1,000 = \\$36,000$\n\nSo after 3 years, you’d have **\\$36,000 saved**.",
+	"analysis": {
+		"backslashInline": 0,
+		"backslashBlock": 0,
+		"singleDollar": 4,
+		"doubleDollar": 0,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 1,
+		"escapedCurrency": 4
+	}
+}

@@ -1,0 +1,14 @@
+{
+	"model": "chatgpt",
+	"prompt": "why does 1/3 + 1/6 equal 1/2",
+	"text": "Because they’re parts of the **same whole**, and you need a **common denominator** to add them.\n\n## Step 1: Rewrite in sixths\n\\[\n\\frac{1}{3} = \\frac{2}{6}\n\\]\n\nSo:\n\n\\[\n\\frac{1}{3} + \\frac{1}{6} = \\frac{2}{6} + \\frac{1}{6}\n\\]\n\n## Step 2: Add\n\\[\n\\frac{2}{6} + \\frac{1}{6} = \\frac{3}{6}\n\\]\n\n## Step 3: Simplify\n\\[\n\\frac{3}{6} = \\frac{1}{2}\n\\]\n\nSo:\n\n\\[\n\\frac{1}{3} + \\frac{1}{6} = \\frac{1}{2}\n\\]\n\n## Intuition\nImagine a pizza cut into 6 equal slices:\n\n- $\\frac{1}{3}$ of the pizza = 2 slices\n- $\\frac{1}{6}$ of the pizza = 1 slice\n\nTogether that’s 3 slices out of 6:\n\n\\[\n\\frac{3}{6} = \\frac{1}{2}\n\\]\n\nIf you want, I can also show **why** $\\frac{1}{3} = \\frac{2}{6}$ visually.",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 6,
+		"singleDollarPairs": 3,
+		"doubleDollarBlocks": 0,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0
+	}
+}

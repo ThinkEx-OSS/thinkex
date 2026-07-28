@@ -1,0 +1,15 @@
+{
+	"model": "claude-sonnet",
+	"prompt": "मुझे x^2 + 5x + 6 = 0 को चरण दर चरण हल करने में मदद करें",
+	"text": "## द्विघात समीकरण हल: x² + 5x + 6 = 0\n\n### चरण 1: गुणनखंड विधि\n\nदो ऐसी संख्याएँ खोजें जिनका:\n- **गुणनफल** = 6 (अंतिम पद)\n- **योग** = 5 (मध्य पद का गुणांक)\n\n| जोड़ी | गुणनफल | योग |\n|-------|--------|-----|\n| 2, 3  | 6 ✓    | 5 ✓ |\n\n---\n\n### चरण 2: गुणनखंड बनाएँ\n\n$$x^2 + 5x + 6 = (x + 2)(x + 3) = 0$$\n\n---\n\n### चरण 3: शून्य गुणन नियम लगाएँ\n\nयदि $(x + 2)(x + 3) = 0$, तो:\n\n$$x + 2 = 0 \\quad \\Rightarrow \\quad x = -2$$\n\n$$x + 3 = 0 \\quad \\Rightarrow \\quad x = -3$$\n\n---\n\n### ✅ उत्तर\n\n$$\\boxed{x = -2 \\quad \\text{या} \\quad x = -3}$$\n\n---\n\n### जाँच (Verification)\n\n| x की value | x² + 5x + 6 | परिणाम |\n|------------|-------------|--------|\n| x = -2 | 4 − 10 + 6 | = 0 ✓ |\n| x = -3 | 9 − 15 + 6 | = 0 ✓ |",
+	"analysis": {
+		"backslashInline": 0,
+		"backslashBlock": 0,
+		"singleDollar": 1,
+		"doubleDollar": 4,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0,
+		"escapedCurrency": 0
+	}
+}

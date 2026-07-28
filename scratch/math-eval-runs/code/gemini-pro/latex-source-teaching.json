@@ -1,0 +1,14 @@
+{
+	"model": "gemini-pro",
+	"prompt": "how do i write a fraction in LaTeX. show me the syntax and what it renders to",
+	"text": "To write a fraction in LaTeX, use the `\\frac` command. Place the numerator in the first set of curly braces and the denominator in the second.\n\n**Syntax:**\n```latex\n\\frac{numerator}{denominator}\n```\n\n**Examples:**\n\n*Basic fraction:*\n```latex\n\\frac{1}{2}\n```\nRenders to:\n$$ \\frac{1}{2} $$\n\n*Algebraic fraction:*\n```latex\n\\frac{x + 1}{x^2 - 1}\n```\nRenders to:\n$$ \\frac{x + 1}{x^2 - 1} $$\n\nIf you are writing a fraction inline with your text, like $\\frac{3}{4}$, the syntax is `$\\frac{3}{4}$`. To force an inline fraction to render at full display size, use `\\dfrac` instead: $\\dfrac{3}{4}$ (`$\\dfrac{3}{4}$`).",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 4,
+		"doubleDollarBlocks": 2,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0
+	}
+}

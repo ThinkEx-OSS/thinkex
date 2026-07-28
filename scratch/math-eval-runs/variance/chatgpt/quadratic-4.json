@@ -1,0 +1,14 @@
+{
+	"model": "chatgpt",
+	"prompt": "help me solve x^2 + 5x + 6 = 0 step by step",
+	"text": "## Solve \\(x^2 + 5x + 6 = 0\\)\n\nWe want the values of \\(x\\) that make the equation true:\n\n\\[\nx^2 + 5x + 6 = 0\n\\]\n\n### Step 1: Factor the quadratic\nFind two numbers that:\n\n- multiply to \\(6\\)\n- add to \\(5\\)\n\nThose numbers are **2** and **3**, because:\n\n\\[\n2 \\cdot 3 = 6\n\\]\n\\[\n2 + 3 = 5\n\\]\n\nSo we can factor:\n\n\\[\nx^2 + 5x + 6 = (x+2)(x+3)\n\\]\n\n### Step 2: Set each factor equal to zero\nIf\n\n\\[\n(x+2)(x+3)=0\n\\]\n\nthen either factor can be zero:\n\n\\[\nx+2=0 \\quad \\text{or} \\quad x+3=0\n\\]\n\n### Step 3: Solve each equation\n\nFrom \\(x+2=0\\):\n\n\\[\nx=-2\n\\]\n\nFrom \\(x+3=0\\):\n\n\\[\nx=-3\n\\]\n\n## Final answer\n\n\\[\n\\boxed{x=-2 \\text{ or } x=-3}\n\\]\n\nIf you want, I can also show how to solve it using the quadratic formula.",
+	"analysis": {
+		"escapedInline": 6,
+		"escapedBlock": 9,
+		"singleDollarPairs": 0,
+		"doubleDollarBlocks": 0,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0
+	}
+}

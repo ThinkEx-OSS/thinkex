@@ -1,0 +1,6 @@
+{
+	"model": "chatgpt-mini",
+	"variant": "nuclear",
+	"prompt": "which is cheaper: 5 for $12 or 3 for $8",
+	"text": "Compare the unit prices:\n\n- **5 for \\\\\\$12** → \\\\\\$12 / 5 = **\\\\\\$2.40 each**\n- **3 for \\\\\\$8** → \\\\\\$8 / 3 \\approx **\\\\\\$2.67 each**\n\n## Cheaper option\n**5 for \\\\\\$12** is cheaper."
+}

@@ -1,0 +1,15 @@
+{
+	"model": "chatgpt-mini",
+	"prompt": "x^2 + 5x + 6 = 0 を段階的に解いてください",
+	"text": "## 方程式を解く\n\n与えられた式は\n\n$$x^2 + 5x + 6 = 0$$\n\nです。段階的に解きます。\n\n### 1. 因数分解する\n$6$ をかけて、足して $5$ になる2つの数を探します。\n\n- $2$ と $3$\n\nなので、\n\n$$x^2 + 5x + 6 = (x+2)(x+3)$$\n\n### 2. 0になる条件を使う\n$$ (x+2)(x+3)=0 $$\n\n積が 0 なので、どちらかが 0 です。\n\n- $x+2=0$\n- $x+3=0$\n\n### 3. それぞれ解く\n- $x=-2$\n- $x=-3$\n\n## 答え\n$$x=-2,\\,-3$$",
+	"analysis": {
+		"backslashInline": 0,
+		"backslashBlock": 0,
+		"singleDollar": 8,
+		"doubleDollar": 4,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0,
+		"escapedCurrency": 0
+	}
+}

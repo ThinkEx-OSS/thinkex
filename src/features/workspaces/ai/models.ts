@@ -26,7 +26,7 @@ export const WORKSPACE_AI_CHAT_MODELS = [
 		name: "Auto",
 		// Keep this a stable product choice while the server owns its availability
 		// policy and fallback chain.
-		gatewayModel: "openai/gpt-5.4-mini",
+		gatewayModel: "anthropic/claude-haiku-4.5",
 		provider: "auto",
 		tagline: "Fast and capable by default",
 		description:

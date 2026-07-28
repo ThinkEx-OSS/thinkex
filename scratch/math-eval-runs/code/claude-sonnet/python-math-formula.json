@@ -1,0 +1,14 @@
+{
+	"model": "claude-sonnet",
+	"prompt": "write a python function to compute quadratic roots, then show the math formula it implements",
+	"text": "```python\nimport cmath\n\ndef quadratic_roots(a: float, b: float, c: float) -> tuple[complex, complex]:\n    \"\"\"\n    Returns the two roots of ax² + bx + c = 0.\n    Uses cmath to handle complex roots automatically.\n    \"\"\"\n    if a == 0:\n        raise ValueError(\"Coefficient 'a' must be non-zero.\")\n    discriminant = b**2 - 4*a*c\n    sqrt_d = cmath.sqrt(discriminant)\n    r1 = (-b + sqrt_d) / (2 * a)\n    r2 = (-b - sqrt_d) / (2 * a)\n    return r1, r2\n```\n\n**Example usage:**\n```python\nr1, r2 = quadratic_roots(1, -3, 2)\n# r1 = (2+0j), r2 = (1+0j)\n```\n\n---\n\n**The formula it implements** — the quadratic formula:\n\nGiven $ax^2 + bx + c = 0$, the two roots are:\n\n$$x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}$$\n\nThe term $\\Delta = b^2 - 4ac$ is the **discriminant**:\n\n| $\\Delta$ | Roots |\n|---|---|\n| $> 0$ | Two distinct real roots |\n| $= 0$ | One repeated real root |\n| $< 0$ | Two complex conjugate roots |\n\n`cmath.sqrt` handles the $\\Delta < 0$ case cleanly, returning a complex number instead of raising an error.",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 7,
+		"doubleDollarBlocks": 1,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0
+	}
+}

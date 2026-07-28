@@ -1,0 +1,14 @@
+{
+	"variant": "format-only",
+	"prompt": "help me solve x^2 + 5x + 6 = 0 step by step",
+	"text": "Sure — let’s solve:\n\n$$x^2 + 5x + 6 = 0$$\n\n### Step 1: Factor the quadratic\nWe want two numbers that:\n\n- multiply to $6$\n- add to $5$\n\nThose numbers are $2$ and $3$.\n\nSo we can factor the equation as:\n\n$$ (x+2)(x+3)=0 $$\n\n### Step 2: Use the zero product property\nIf a product is $0$, then at least one factor must be $0$:\n\n$$x+2=0 \\quad \\text{or} \\quad x+3=0$$\n\n### Step 3: Solve each equation\n$$x=-2$$\n$$x=-3$$\n\n### Final answer\n$$\\boxed{x=-2 \\text{ or } x=-3}$$\n\nIf you want, I can also show how to solve it by **completing the square** or using the **quadratic formula**.",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 6,
+		"doubleDollarBlocks": 6,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 6
+	}
+}

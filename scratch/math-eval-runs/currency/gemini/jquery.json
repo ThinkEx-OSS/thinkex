@@ -1,0 +1,14 @@
+{
+	"model": "gemini",
+	"prompt": "how do i use $ in jquery to select an element by id",
+	"text": "To select an element by its ID in jQuery, use the `#` symbol followed by the ID name inside the `$()` wrapper. This syntax mirrors CSS ID selectors.\n\n### Basic Syntax\n```javascript\n$('#elementID')\n```\n\n### Examples\n\n**1. Hiding an element**\nIf you have `<div id=\"banner\"></div>`:\n```javascript\n$('#banner').hide();\n```\n\n**2. Changing text content**\nIf you have `<h1 id=\"main-title\">Old Title</h1>`:\n```javascript\n$('#main-title').text('New Title');\n```\n\n**3. Handling clicks**\nIf you have `<button id=\"submit-btn\">Submit</button>`:\n```javascript\n$('#submit-btn').on('click', function() {\n    console.log('Button clicked!');\n});\n```\n\n### Key Differences from Vanilla JavaScript\n| jQuery | Vanilla JavaScript |\n| :--- | :--- |\n| `$('#myId')` | `document.getElementById('myId')` |\n| Returns a jQuery object (collection) | Returns the raw DOM element |\n| Allows method chaining | Requires manual loops or single property updates |\n\n### Important Notes\n*   **IDs are unique:** The selector will only return the first element found with that ID in the DOM.\n*   **Special Characters:** If your ID contains characters like dots or colons (e.g., `id=\"user.name\"`), you must escape them with two backslashes: `$('#user\\\\.name')`.\n*   **Performance:** `$('#id')` is generally the fastest selector in jQuery because it maps directly to the browser's native `getElementById` method.",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 0,
+		"doubleDollarBlocks": 0,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0
+	}
+}

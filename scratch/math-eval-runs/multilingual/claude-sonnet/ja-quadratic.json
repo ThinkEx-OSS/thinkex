@@ -1,0 +1,15 @@
+{
+	"model": "claude-sonnet",
+	"prompt": "x^2 + 5x + 6 = 0 を段階的に解いてください",
+	"text": "## 解き方\n\n### 1. 因数分解\n\n積が **6**、和が **5** になる2つの数を探します。\n\n$$2 \\times 3 = 6, \\quad 2 + 3 = 5 \\checkmark$$\n\nよって：\n\n$$(x + 2)(x + 3) = 0$$\n\n### 2. 各因数をゼロに設定\n\n$$x + 2 = 0 \\implies x = -2$$\n\n$$x + 3 = 0 \\implies x = -3$$\n\n### 解答\n\n$$\\boxed{x = -2 \\quad \\text{または} \\quad x = -3}$$\n\n### 確認\n\n| $x$ | $x^2 + 5x + 6$ |\n|-----|----------------|\n| $-2$ | $4 - 10 + 6 = 0$ ✓ |\n| $-3$ | $9 - 15 + 6 = 0$ ✓ |",
+	"analysis": {
+		"backslashInline": 0,
+		"backslashBlock": 0,
+		"singleDollar": 6,
+		"doubleDollar": 5,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0,
+		"escapedCurrency": 0
+	}
+}

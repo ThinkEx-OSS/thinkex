@@ -1,0 +1,6 @@
+{
+	"model": "chatgpt-mini",
+	"variant": "nuclear",
+	"prompt": "if i deposit $500/month at 5% APR for 10 years, whats the future value",
+	"text": "Assuming **5% APR compounded monthly** and you deposit **\\$500 at the end of each month** for **10 years**:\n\n### Future value\nUse the ordinary annuity formula:\n\n\\[\nFV = P \\cdot \\frac{(1+r)^n - 1}{r}\n\\]\n\nWhere:\n- \\(P = 500\\)\n- \\(r = 0.05 / 12 \\approx 0.0041667\\)\n- \\(n = 10 \\times 12 = 120\\)\n\n\\[\nFV \\approx 500 \\cdot \\frac{(1.0041667)^{120} - 1}{0.0041667}\n\\approx \\$77{,}300\n\\]\n\n### Answer\n**Future value: about \\(\\$77{,}300\\)**\n\nIf you want, I can also calculate:\n- **total contributions**\n- **interest earned**\n- the value if deposits are made **at the beginning of each month**"
+}

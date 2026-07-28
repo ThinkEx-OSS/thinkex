@@ -1,0 +1,6 @@
+{
+	"model": "chatgpt-mini",
+	"variant": "baseline",
+	"prompt": "if i deposit $500/month at 5% APR for 10 years, whats the future value",
+	"text": "Assuming you **deposit $500 at the end of each month** and the **5% APR is compounded monthly**, the future value after 10 years is:\n\n\\[\nFV = 500 \\times \\frac{(1+r)^{n}-1}{r}\n\\]\n\nwhere:\n\n- \\(r = 0.05/12 \\approx 0.0041667\\)\n- \\(n = 10 \\times 12 = 120\\)\n\nSo:\n\n\\[\nFV \\approx 500 \\times \\frac{(1.0041667)^{120}-1}{0.0041667}\n\\approx \\$77{,}000\n\\]\n\n## Answer\n**About \\$77,000**\n\nIf you want, I can also calculate:\n- **with deposits at the beginning of each month**\n- **after taxes/fees**\n- **with an exact amortization-style table**"
+}

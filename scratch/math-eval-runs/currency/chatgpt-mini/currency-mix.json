@@ -1,0 +1,14 @@
+{
+	"model": "chatgpt-mini",
+	"prompt": "$100 USD is roughly how much in EUR at 0.92 exchange rate",
+	"text": "At an exchange rate of **0.92 EUR per 1 USD**:\n\n$$100 \\times 0.92 = 92$$\n\nSo **$100 USD is roughly €92 EUR**.",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 0,
+		"doubleDollarBlocks": 1,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 2
+	}
+}

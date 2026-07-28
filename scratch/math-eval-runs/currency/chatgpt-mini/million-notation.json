@@ -1,0 +1,14 @@
+{
+	"model": "chatgpt-mini",
+	"prompt": "if a startup raises $5M at a $50M valuation, what percent did they give up",
+	"text": "They gave up **10%**.\n\n### Quick math\nIf the company is valued at **$50M** post-money and raises **$5M**:\n\n\\[\n\\frac{5M}{50M} = 0.10 = 10\\%\n\\]\n\nSo the investors own **10%**, and the founders diluted by **10%** from that round.\n\n> If you meant **$50M pre-money** instead, the percentage would be slightly different.",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 1,
+		"singleDollarPairs": 1,
+		"doubleDollarBlocks": 0,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 3
+	}
+}

@@ -1,0 +1,14 @@
+{
+	"model": "chatgpt-mini",
+	"prompt": "how much kinetic energy does a 2kg ball moving at 5 m/s have",
+	"text": "The kinetic energy is:\n\n\\[\nKE = \\tfrac{1}{2}mv^2\n\\]\n\nWith $m = 2\\ \\text{kg}$ and $v = 5\\ \\text{m/s}$:\n\n\\[\nKE = \\tfrac{1}{2}(2)(5^2) = 25\\ \\text{J}\n\\]\n\n**Answer: 25 joules**",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 2,
+		"singleDollarPairs": 2,
+		"doubleDollarBlocks": 0,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0
+	}
+}

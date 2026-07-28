@@ -1,0 +1,15 @@
+{
+	"model": "claude-sonnet",
+	"prompt": "rappel rapide: quel est le théorème de Pythagore",
+	"text": "Le théorème de Pythagore stipule que dans un triangle rectangle, le carré de l'hypoténuse est égal à la somme des carrés des deux autres côtés :\n\n$$a^2 + b^2 = c^2$$\n\noù $c$ est l'hypoténuse (côté opposé à l'angle droit), et $a$, $b$ sont les deux cathètes.",
+	"analysis": {
+		"backslashInline": 0,
+		"backslashBlock": 0,
+		"singleDollar": 3,
+		"doubleDollar": 1,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0,
+		"escapedCurrency": 0
+	}
+}

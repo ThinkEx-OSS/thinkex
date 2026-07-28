@@ -1,0 +1,14 @@
+{
+	"model": "claude-haiku",
+	"prompt": "recommend me some laptops between $800 and $1500 for coding",
+	"text": "# Laptop Recommendations for Coding ($800–$1500)\n\n## Best Overall: MacBook Air M3\n- **Price:** ~$1,100–$1,200\n- **Why:** Excellent performance, 8GB base RAM (upgrade to 16GB for $200), exceptional battery life, and the Unix environment is developer-friendly. M3 handles most coding tasks smoothly.\n\n## Best Value: Lenovo ThinkPad E16\n- **Price:** ~$900–$1,200\n- **Why:** 16\" screen, solid build quality, configurable with 16GB RAM, good keyboard for long coding sessions. ThinkPads are programmer favorites for reliability.\n\n## Best for Performance: ASUS Vivobook Pro 16\n- **Price:** ~$1,000–$1,400\n- **Why:** AMD Ryzen 7/9 processor, 16GB+ RAM, dedicated GPU option. Fast for compiling and running demanding development environments.\n\n## Best Linux Laptop: Framework Laptop 16\n- **Price:** ~$1,400 (base)\n- **Why:** Fully modular, excellent Linux support, upgradeable components, and repairability. Great if you want long-term flexibility and prefer open-source ecosystems.\n\n## Budget Option: Dell Inspiron 15\n- **Price:** ~$800–$1,000\n- **Why:** Intel/AMD processors, adequate RAM options, decent screen. Solid entry point if you want to stay under $900.\n\n## What Matters for Coding\n- **RAM:** 16GB minimum; 32GB if working with Docker, VMs, or heavy IDEs\n- **Storage:** 512GB SSD (non-negotiable)\n- **Screen:** 14\"–16\" helps with long sessions; 1440p+ is easier on eyes\n- **Keyboard:** Mechanical or quality scissor switches matter for daily use\n- **Processor:** M3/M4, Ryzen 7 5000+, or Intel 13th gen+ all handle typical dev work well\n\nWhat type of coding are you doing? (Web, systems, data science, mobile?) That might narrow it down further.",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 5,
+		"doubleDollarBlocks": 0,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 13
+	}
+}

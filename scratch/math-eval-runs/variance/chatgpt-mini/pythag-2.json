@@ -1,0 +1,14 @@
+{
+	"model": "chatgpt-mini",
+	"prompt": "quick refresher: what's the pythagorean theorem",
+	"text": "The **Pythagorean theorem** says that in a **right triangle**:\n\n$$a^2 + b^2 = c^2$$\n\n- `a` and `b` are the two shorter sides\n- `c` is the **hypotenuse** (the side opposite the right angle)\n\n### Example\nIf the legs are 3 and 4:\n\n$$3^2 + 4^2 = 9 + 16 = 25$$\n\nSo:\n\n$$c = \\sqrt{25} = 5$$\n\nIf you want, I can also show **why it works** with a picture or a quick proof.",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 0,
+		"doubleDollarBlocks": 3,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 1
+	}
+}

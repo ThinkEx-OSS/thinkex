@@ -1,0 +1,14 @@
+{
+	"model": "gemini",
+	"prompt": "$45 dinner with 8% tax and 20% tip, whats the total",
+	"text": "The total is **\\$57.60**.\n\nHere is the breakdown:\n*   **Subtotal:** \\$45.00\n*   **Tax (8% of \\$45):** \\$3.60\n*   **Tip (20% of \\$45):** \\$9.00\n*   **Total:** **\\$57.60**\n\n*Note: If you prefer to tip 20% on the post-tax amount (\\$48.60), the tip would be \\$9.72, bringing the total to **\\$58.32**.*",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 3,
+		"doubleDollarBlocks": 0,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0
+	}
+}

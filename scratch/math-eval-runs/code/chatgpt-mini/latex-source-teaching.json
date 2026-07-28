@@ -1,0 +1,14 @@
+{
+	"model": "chatgpt-mini",
+	"prompt": "how do i write a fraction in LaTeX. show me the syntax and what it renders to",
+	"text": "Use `\\frac{numerator}{denominator}`.\n\n### Syntax\n```latex\n\\frac{a}{b}\n```\n\n### Renders as\n\\[\n\\frac{a}{b}\n\\]\n\n### Example\n```latex\n\\frac{1}{2}\n```\n\nrenders as:\n\n\\[\n\\frac{1}{2}\n\\]\n\nIf you want, I can also show:\n- inline vs display math\n- nested fractions\n- fractions with parentheses or exponents",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 2,
+		"singleDollarPairs": 0,
+		"doubleDollarBlocks": 0,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0
+	}
+}

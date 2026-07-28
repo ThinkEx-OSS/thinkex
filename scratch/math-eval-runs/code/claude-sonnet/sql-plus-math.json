@@ -1,0 +1,14 @@
+{
+	"model": "claude-sonnet",
+	"prompt": "write a sql query for standard deviation of a column, then show the math it's computing",
+	"text": "## SQL Query\n\n```sql\nSELECT\n  STDDEV_POP(value) AS population_stddev,\n  STDDEV_SAMP(value) AS sample_stddev\nFROM your_table;\n```\n\n- **`STDDEV_POP`** — use when your data *is* the entire population.\n- **`STDDEV_SAMP`** — use when your data is a *sample* of a larger population (more common in practice).\n\n---\n\n## The Math It's Computing\n\nGiven a column of $n$ values $x_1, x_2, \\dots, x_n$:\n\n**Step 1 — Mean**\n\n$$\\bar{x} = \\frac{1}{n} \\sum_{i=1}^{n} x_i$$\n\n**Step 2 — Squared deviations from the mean**\n\n$$(x_i - \\bar{x})^2 \\quad \\text{for each row}$$\n\n**Step 3 — Variance**\n\n| Type | Formula |\n|---|---|\n| Population (`STDDEV_POP`) | $\\sigma^2 = \\dfrac{1}{n} \\displaystyle\\sum_{i=1}^{n}(x_i - \\bar{x})^2$ |\n| Sample (`STDDEV_SAMP`) | $s^2 = \\dfrac{1}{n-1} \\displaystyle\\sum_{i=1}^{n}(x_i - \\bar{x})^2$ |\n\nThe $n-1$ denominator (Bessel's correction) compensates for the fact that a sample mean is closer to the sample data than the true population mean is — which would otherwise cause the variance to be systematically underestimated.\n\n**Step 4 — Standard deviation**\n\n$$\\sigma = \\sqrt{\\sigma^2} \\qquad \\text{or} \\qquad s = \\sqrt{s^2}$$\n\n---\n\n### Concrete Example\n\nValues: `2, 4, 4, 4, 5, 5, 7, 9`\n\n| Step | Result |\n|---|---|\n| $n$ | 8 |\n| $\\bar{x}$ | $40/8 = 5$ |\n| Squared deviations | $9, 1, 1, 1, 0, 0, 4, 16$ |\n| Sum of squares | $32$ |\n| Population variance $\\sigma^2$ | $32/8 = 4$ |\n| **Population stddev $\\sigma$** | $\\sqrt{4} = \\mathbf{2}$ |\n| Sample variance $s^2$ | $32/7 \\approx 4.57$ |\n| **Sample stddev $s$** | $\\sqrt{4.57} \\approx \\mathbf{2.14}$ |",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 18,
+		"doubleDollarBlocks": 3,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 5
+	}
+}

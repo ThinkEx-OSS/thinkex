@@ -4,6 +4,7 @@ import type { ComponentProps } from "react";
 import { Streamdown, type StreamdownProps } from "streamdown";
 import "katex/dist/katex.min.css";
 import { MarkdownCodeBlock } from "#/features/workspaces/components/ai-chat/ai-chat-code-block";
+import { normalizeLlmMarkdown } from "#/features/workspaces/components/ai-chat/normalize-llm-markdown";
 import { cn } from "#/lib/utils";
 
 type AiChatMessageResponseProps = ComponentProps<typeof Streamdown> & {
@@ -25,11 +26,14 @@ const streamdownAnimation = {
 } satisfies NonNullable<StreamdownProps["animated"]>;
 
 export function AiChatMessageResponse({
+	children,
 	className,
 	components,
 	isStreaming = false,
 	...props
 }: AiChatMessageResponseProps) {
+	const normalizedChildren =
+		typeof children === "string" ? normalizeLlmMarkdown(children) : children;
 	return (
 		<Streamdown
 			animated={streamdownAnimation}
@@ -40,6 +44,8 @@ export function AiChatMessageResponse({
 			mode="streaming"
 			plugins={streamdownPlugins}
 			{...props}
-		/>
+		>
+			{normalizedChildren}
+		</Streamdown>
 	);
 }

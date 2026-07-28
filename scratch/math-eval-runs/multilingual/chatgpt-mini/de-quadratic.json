@@ -1,0 +1,15 @@
+{
+	"model": "chatgpt-mini",
+	"prompt": "hilf mir x^2 + 5x + 6 = 0 Schritt für Schritt zu lösen",
+	"text": "Wir lösen die Gleichung Schritt für Schritt:\n\n\\[\nx^2 + 5x + 6 = 0\n\\]\n\n## 1) Faktorisieren\nWir suchen zwei Zahlen, die\n\n- **multipliziert** \\(6\\) ergeben\n- **addiert** \\(5\\) ergeben\n\nDas sind **2** und **3**.\n\nAlso können wir schreiben:\n\n\\[\nx^2 + 5x + 6 = (x+2)(x+3)\n\\]\n\nDamit wird die Gleichung:\n\n\\[\n(x+2)(x+3)=0\n\\]\n\n## 2) Nullproduktregel\nEin Produkt ist genau dann 0, wenn mindestens ein Faktor 0 ist:\n\n\\[\nx+2=0 \\quad \\text{oder} \\quad x+3=0\n\\]\n\n## 3) Nach \\(x\\) auflösen\n\n\\[\nx=-2\n\\]\n\noder\n\n\\[\nx=-3\n\\]\n\n## Lösung\n\\[\n\\boxed{x=-2 \\text{ oder } x=-3}\n\\]\n\nWenn du willst, kann ich dir auch zeigen, wie man das **mit der Mitternachtsformel** löst.",
+	"analysis": {
+		"backslashInline": 3,
+		"backslashBlock": 7,
+		"singleDollar": 0,
+		"doubleDollar": 0,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0,
+		"escapedCurrency": 0
+	}
+}

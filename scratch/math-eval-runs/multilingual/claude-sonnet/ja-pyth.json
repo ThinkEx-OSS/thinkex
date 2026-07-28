@@ -1,0 +1,15 @@
+{
+	"model": "claude-sonnet",
+	"prompt": "簡単な復習：ピタゴラスの定理とは何ですか",
+	"text": "## ピタゴラスの定理\n\n直角三角形において、**斜辺の二乗は他の二辺の二乗の和に等しい**というものです。\n\n$$a^2 + b^2 = c^2$$\n\n- $a$, $b$：直角を挟む二辺（直角辺）\n- $c$：斜辺（直角の対辺、最も長い辺）\n\n### 例\n\n直角辺が $3$ と $4$ の三角形の場合：\n\n$$3^2 + 4^2 = 9 + 16 = 25 = 5^2$$\n\nよって斜辺は $5$。\n\n### 主な使い方\n\n- 二辺がわかっているとき、残りの一辺を求める\n- 三角形が直角三角形かどうかを確認する（逆定理）",
+	"analysis": {
+		"backslashInline": 0,
+		"backslashBlock": 0,
+		"singleDollar": 6,
+		"doubleDollar": 2,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0,
+		"escapedCurrency": 0
+	}
+}

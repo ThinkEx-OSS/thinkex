@@ -1,0 +1,6 @@
+{
+	"model": "claude-haiku",
+	"variant": "baseline",
+	"prompt": "i saved $1000 over 6 months. what is my monthly saving rate as a percentage of my $4500 monthly income",
+	"text": "Your monthly saving rate is **4.4%**.\n\nHere's the calculation:\n- Total saved over 6 months: $1,000\n- Monthly savings: $1,000 ÷ 6 = $166.67\n- Monthly savings rate: ($166.67 ÷ $4,500) × 100 = **4.4%**"
+}

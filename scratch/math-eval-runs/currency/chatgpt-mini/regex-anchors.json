@@ -1,0 +1,14 @@
+{
+	"model": "chatgpt-mini",
+	"prompt": "explain ^ and $ in regex",
+	"text": "In regex, `^` and `$` are **anchors** — they match a position, not a character.\n\n## `^` — start of line/string\nMatches the beginning of the text.\n\n- `^cat` matches `\"cat\"` in `\"cat nap\"`\n- `^cat` does **not** match `\"the cat\"`\n\n## `$` — end of line/string\nMatches the end of the text.\n\n- `cat$` matches `\"cat\"` in `\"the cat\"`\n- `cat$` does **not** match `\"cat nap\"`\n\n## Together\n`^cat$` means the entire string must be exactly `cat`.\n\n- Matches: `\"cat\"`\n- Doesn’t match: `\"cater\"`, `\"the cat\"`, `\"cat \"`  \n\n## In multiline mode\nThese can also match the start/end of each line, not just the whole string, if multiline mode is enabled.\n\nExample:\n```regex\n^hello$\n```\ncan match a line containing exactly `hello` inside a multi-line text.\n\nIf you want, I can also explain how `^` works inside character classes like `[^a-z]`, where it means something different.",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 0,
+		"doubleDollarBlocks": 0,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0
+	}
+}

@@ -1,0 +1,14 @@
+{
+	"model": "claude-haiku",
+	"prompt": "how do i use f-strings in python to format a number as currency like $1,234.56",
+	"text": "# F-String Currency Formatting\n\nUse the format specifier `:,.2f` inside the f-string to format a number with thousands separators and two decimal places, then prepend the dollar sign:\n\n```python\namount = 1234.56\nformatted = f\"${amount:,.2f}\"\nprint(formatted)  # Output: $1,234.56\n```\n\n**Breaking down the format spec:**\n- `:` — starts the format specification\n- `,` — adds thousands separator (comma)\n- `.2f` — formats as a float with 2 decimal places\n\n**More examples:**\n\n```python\nprice = 42\nprint(f\"${price:,.2f}\")  # $42.00\n\ntotal = 1000000.1\nprint(f\"${total:,.2f}\")  # $1,000,000.10\n\nnegative = -500.5\nprint(f\"${negative:,.2f}\")  # $-500.50\n```\n\n**For locale-aware formatting** (respects regional conventions like different separators or currency symbols), use the `locale` module instead:\n\n```python\nimport locale\n\nlocale.setlocale(locale.LC_ALL, 'en_US.UTF-8')\namount = 1234.56\nformatted = locale.currency(amount, grouping=True)\nprint(formatted)  # $1,234.56\n```\n\nThe f-string approach is simpler for US-style formatting; use `locale` if you need to support multiple regions.",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 3,
+		"doubleDollarBlocks": 0,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 4
+	}
+}

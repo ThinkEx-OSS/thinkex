@@ -1,0 +1,14 @@
+{
+	"model": "chatgpt-mini",
+	"prompt": "quick refresher: what's the pythagorean theorem",
+	"text": "The **Pythagorean theorem** says that for a **right triangle**:\n\n\\[\na^2 + b^2 = c^2\n\\]\n\n- $a$ and $b$ are the two shorter sides\n- $c$ is the hypotenuse, the side opposite the right angle\n\nExample: if the legs are 3 and 4, then\n\n\\[\n3^2 + 4^2 = 9 + 16 = 25\n\\]\n\nso $c = 5$.\n\nIf you want, I can also show a quick geometric proof or how to use it in word problems.",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 2,
+		"singleDollarPairs": 4,
+		"doubleDollarBlocks": 0,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0
+	}
+}

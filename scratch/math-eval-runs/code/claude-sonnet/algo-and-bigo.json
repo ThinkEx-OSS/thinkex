@@ -1,0 +1,14 @@
+{
+	"model": "claude-sonnet",
+	"prompt": "write pseudocode for binary search and give me its big-O complexity",
+	"text": "## Binary Search Pseudocode\n\n```\nfunction binarySearch(array, target):\n    low = 0\n    high = length(array) - 1\n\n    while low <= high:\n        mid = floor((low + high) / 2)\n\n        if array[mid] == target:\n            return mid\n        else if array[mid] < target:\n            low = mid + 1\n        else:\n            high = mid - 1\n\n    return -1  // not found\n```\n\n## Complexity\n\n| Case | Time | Space |\n|------|------|-------|\n| Best | O(1) | O(1) |\n| Average | O(log n) | O(1) |\n| Worst | O(log n) | O(1) |\n\n**Why O(log n)?** Each iteration halves the search space. Starting with *n* elements, you can only divide by 2 about log₂(n) times before reaching a single element — so the loop runs at most ⌈log₂(n)⌉ times.\n\n> **Prerequisite:** The array must be **sorted**. Binary search gives incorrect results on unsorted input.",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 0,
+		"doubleDollarBlocks": 0,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0
+	}
+}

@@ -1,0 +1,14 @@
+{
+	"model": "claude-haiku",
+	"prompt": "if a startup raises $5M at a $50M valuation, what percent did they give up",
+	"text": "They gave up **10%**.\n\nHere's the math:\n- Investment: $5M\n- Post-money valuation: $50M\n- Equity given up: $5M ÷ $50M = 0.10 = **10%**\n\nThe $50M is the post-money valuation (the company's total value after the investment). The founders retain 90%.",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 1,
+		"doubleDollarBlocks": 0,
+		"fencedMath": 0,
+		"unicodeMath": 1,
+		"rawCurrency": 5
+	}
+}

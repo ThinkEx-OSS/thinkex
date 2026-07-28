@@ -1,0 +1,15 @@
+{
+	"model": "gemini-pro",
+	"prompt": "hilf mir x^2 + 5x + 6 = 0 Schritt für Schritt zu lösen",
+	"text": "Hier sind zwei gängige Lösungswege für die quadratische Gleichung $$x^2 + 5x + 6 = 0$$. \n\n### Methode 1: Faktorisieren (Der schnellste Weg)\n\nBei dieser Methode (auch bekannt durch den Satz von Vieta) suchen wir zwei Zahlen, die multipliziert $6$ und addiert $5$ ergeben.\n\n**Schritt 1: Finde die zwei passenden Zahlen**\n* Multiplikation: Welche Zahlen ergeben $6$? (z. B. $1 \\cdot 6$, $2 \\cdot 3$, $-2 \\cdot -3$)\n* Addition: Welche dieser Zahlenpaare addieren sich zu $5$? \n* Lösung: $2$ und $3$, denn $2 \\cdot 3 = 6$ und $2 + 3 = 5$.\n\n**Schritt 2: Schreibe die Gleichung als Produkt um**\nMit den gefundenen Zahlen können wir die Gleichung in Klammern setzen:\n$$(x + 2)(x + 3) = 0$$\n\n**Schritt 3: Bestimme die Lösungen (Satz vom Nullprodukt)**\nEin Produkt ist genau dann null, wenn einer der Faktoren null ist. Wir setzen also jede Klammer einzeln gleich null:\n1. $x + 2 = 0 \\implies x_1 = -2$\n2. $x + 3 = 0 \\implies x_2 = -3$\n\n---\n\n### Methode 2: Die pq-Formel (Der systematische Weg)\n\nDie Gleichung liegt bereits in der Normalform $x^2 + px + q = 0$ vor.\n\n**Schritt 1: Bestimme $p$ und $q$**\nHier ist $p = 5$ und $q = 6$.\n\n**Schritt 2: Setze die Werte in die pq-Formel ein**\nDie Formel lautet: \n$$x_{1,2} = -\\frac{p}{2} \\pm \\sqrt{\\left(\\frac{p}{2}\\right)^2 - q}$$\n\nEingesetzt sieht das so aus:\n$$x_{1,2} = -\\frac{5}{2} \\pm \\sqrt{\\left(\\frac{5}{2}\\right)^2 - 6}$$\n\n**Schritt 3: Vereinfache den Ausdruck**\nWandle die Brüche in Dezimalzahlen um, um leichter rechnen zu können ($\\frac{5}{2} = 2,5$):\n$$x_{1,2} = -2,5 \\pm \\sqrt{(2,5)^2 - 6}$$\n$$x_{1,2} = -2,5 \\pm \\sqrt{6,25 - 6}$$\n$$x_{1,2} = -2,5 \\pm \\sqrt{0,25}$$\n\nDie Wurzel aus $0,25$ ist $0,5$:\n$$x_{1,2} = -2,5 \\pm 0,5$$\n\n**Schritt 4: Bestimme die beiden Lösungen**\n* Für $x_1$ addieren wir $0,5$: \n  $$x_1 = -2,5 + 0,5 = -2$$\n* Für $x_2$ subtrahieren wir $0,5$: \n  $$x_2 = -2,5 - 0,5 = -3$$\n\n**Ergebnis:**\nBeide Wege führen zur selben Lösungsmenge: $L = \\{-3, -2\\}$.",
+	"analysis": {
+		"backslashInline": 0,
+		"backslashBlock": 0,
+		"singleDollar": 26,
+		"doubleDollar": 10,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0,
+		"escapedCurrency": 0
+	}
+}

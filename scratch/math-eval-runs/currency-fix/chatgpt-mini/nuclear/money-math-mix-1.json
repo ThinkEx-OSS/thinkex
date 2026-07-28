@@ -1,0 +1,6 @@
+{
+	"model": "chatgpt-mini",
+	"variant": "nuclear",
+	"prompt": "i saved $1000 over 6 months. what is my monthly saving rate as a percentage of my $4500 monthly income",
+	"text": "Your monthly saving rate is:\n\n\\[\n\\frac{1000/6}{4500} \\times 100 \\approx 3.7\\%\n\\]\n\nSo you’re saving **about 3.7\\% of your monthly income**.\n\nIf you want, I can also calculate:\n- your **monthly savings amount** in dollars, or\n- your **annual savings rate** based on this pace."
+}

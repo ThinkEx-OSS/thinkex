@@ -1,0 +1,14 @@
+{
+	"model": "gemini",
+	"prompt": "i bought stuff for $12.50 + $8.75 + $23.99 whats my total",
+	"text": "Your total is **\\$45.24**.",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 0,
+		"doubleDollarBlocks": 0,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0
+	}
+}

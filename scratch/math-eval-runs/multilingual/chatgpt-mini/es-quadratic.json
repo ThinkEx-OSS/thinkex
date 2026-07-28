@@ -1,0 +1,15 @@
+{
+	"model": "chatgpt-mini",
+	"prompt": "ayúdame a resolver x^2 + 5x + 6 = 0 paso a paso",
+	"text": "Claro. Vamos a resolver:\n\n\\[\nx^2 + 5x + 6 = 0\n\\]\n\n## 1) Factorizamos el trinomio\nBuscamos dos números que:\n\n- multiplicados den **6**\n- sumados den **5**\n\nEsos números son **2 y 3**.\n\nEntonces:\n\n\\[\nx^2 + 5x + 6 = (x+2)(x+3)\n\\]\n\n## 2) Igualamos cada factor a cero\nSi:\n\n\\[\n(x+2)(x+3)=0\n\\]\n\nentonces:\n\n\\[\nx+2=0 \\quad \\text{o} \\quad x+3=0\n\\]\n\n## 3) Resolvemos\n\\[\nx=-2\n\\]\n\ny\n\n\\[\nx=-3\n\\]\n\n## Solución final\n\\[\n\\boxed{x=-2 \\text{ y } x=-3}\n\\]\n\nSi quieres, también puedo mostrarte cómo resolverla con la **fórmula cuadrática**.",
+	"analysis": {
+		"backslashInline": 0,
+		"backslashBlock": 7,
+		"singleDollar": 0,
+		"doubleDollar": 0,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0,
+		"escapedCurrency": 0
+	}
+}

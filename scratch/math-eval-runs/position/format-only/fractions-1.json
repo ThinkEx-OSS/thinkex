@@ -1,0 +1,14 @@
+{
+	"variant": "format-only",
+	"prompt": "why does 1/3 + 1/6 equal 1/2",
+	"text": "Because the fractions need a **common denominator**.\n\n\\[\n\\frac{1}{3} = \\frac{2}{6}\n\\]\n\nSo:\n\n\\[\n\\frac{1}{3} + \\frac{1}{6} = \\frac{2}{6} + \\frac{1}{6} = \\frac{3}{6} = \\frac{1}{2}\n\\]\n\nYou can also think of it as:\n\n- one third is **2 sixths**\n- plus one sixth makes **3 sixths**\n- and **3 sixths** is the same as **1 half**\n\nIf you want, I can also show a visual explanation.",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 2,
+		"singleDollarPairs": 0,
+		"doubleDollarBlocks": 0,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0
+	}
+}

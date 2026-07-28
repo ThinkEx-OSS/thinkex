@@ -1,0 +1,6 @@
+{
+	"model": "claude-haiku",
+	"variant": "baseline",
+	"prompt": "if a $200 jacket is 30% off, what's the sale price and how much did i save",
+	"text": "**Sale price:** $140\n\n**Amount saved:** $60\n\nThe calculation:\n- 30% off = $200 × 0.30 = $60 savings\n- Sale price = $200 − $60 = $140"
+}

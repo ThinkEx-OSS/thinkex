@@ -1,0 +1,14 @@
+{
+	"variant": "format-only",
+	"prompt": "why does 1/3 + 1/6 equal 1/2",
+	"text": "Because they’re being added with a common denominator.\n\n- $\\frac{1}{3} = \\frac{2}{6}$\n- so $\\frac{1}{3} + \\frac{1}{6} = \\frac{2}{6} + \\frac{1}{6} = \\frac{3}{6}$\n\nAnd $\\frac{3}{6}$ simplifies to $\\frac{1}{2}$, since both numerator and denominator can be divided by 3:\n\n$$\\frac{3}{6} = \\frac{1}{2}$$\n\nSo:\n\n$$\\frac{1}{3} + \\frac{1}{6} = \\frac{1}{2}$$",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 4,
+		"doubleDollarBlocks": 2,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0
+	}
+}

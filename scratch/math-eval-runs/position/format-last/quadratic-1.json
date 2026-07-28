@@ -1,0 +1,14 @@
+{
+	"variant": "format-last",
+	"prompt": "help me solve x^2 + 5x + 6 = 0 step by step",
+	"text": "Solve:\n\n$$x^2 + 5x + 6 = 0$$\n\n### Step 1: Factor the quadratic\nWe want two numbers that:\n\n- multiply to $6$\n- add to $5$\n\nThose numbers are $2$ and $3$.\n\nSo:\n\n$$x^2 + 5x + 6 = (x+2)(x+3)$$\n\n### Step 2: Set each factor equal to zero\n$$x+2=0 \\quad \\text{or} \\quad x+3=0$$\n\n### Step 3: Solve each equation\n$$x=-2 \\quad \\text{or} \\quad x=-3$$\n\n## Answer\n$$\\boxed{x=-2,\\,-3}$$",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 4,
+		"doubleDollarBlocks": 5,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 4
+	}
+}

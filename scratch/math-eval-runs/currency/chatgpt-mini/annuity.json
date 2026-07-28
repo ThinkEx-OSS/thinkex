@@ -1,0 +1,14 @@
+{
+	"model": "chatgpt-mini",
+	"prompt": "if i deposit $500/month at 5% APR for 10 years, whats the future value",
+	"text": "Assuming:\n\n- **$500 deposited at the end of each month**\n- **5% APR compounded monthly**\n- **10 years = 120 months**\n\nthe future value of an ordinary annuity is:\n\n\\[\nFV = PMT \\times \\frac{(1+r)^n - 1}{r}\n\\]\n\nWhere:\n\n- \\(PMT = 500\\)\n- \\(r = 0.05/12 \\approx 0.0041667\\)\n- \\(n = 120\\)\n\n\\[\nFV = 500 \\times \\frac{(1.0041667)^{120} - 1}{0.0041667}\n\\approx 500 \\times 155.29\n\\approx 77,645\n\\]\n\n## Future value\n**About \\$77,645**\n\nIf you want, I can also calculate:\n- **monthly deposits at the beginning of each month**\n- **with taxes/fees**\n- **how much of that is your contributions vs interest**",
+	"analysis": {
+		"escapedInline": 3,
+		"escapedBlock": 2,
+		"singleDollarPairs": 0,
+		"doubleDollarBlocks": 0,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 1
+	}
+}

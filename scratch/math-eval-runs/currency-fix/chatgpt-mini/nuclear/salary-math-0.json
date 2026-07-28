@@ -1,0 +1,6 @@
+{
+	"model": "chatgpt-mini",
+	"variant": "nuclear",
+	"prompt": "if i make $85k salary plus $15k bonus, what's my monthly gross",
+	"text": "Your **annual gross** is:\n\n- Salary: **\\$85,000**\n- Bonus: **\\$15,000**\n- Total: **\\$100,000**\n\nYour **monthly gross** is:\n\n\\[\n\\$100,000 \\div 12 = \\$8,333.33\n\\]\n\n## Answer\n**\\$8,333.33 per month gross** on average.\n\n> If the \\$15k bonus is paid once a year, your regular monthly paycheck before bonus would be:\n>\n> \\[\n> \\$85,000 \\div 12 = \\$7,083.33\n> \\]\n>\n> and the bonus would come separately when paid."
+}

@@ -1,0 +1,15 @@
+{
+	"model": "claude-sonnet",
+	"prompt": "aide-moi à résoudre x^2 + 5x + 6 = 0 étape par étape",
+	"text": "## Résolution de $x^2 + 5x + 6 = 0$\n\n### Méthode 1 — Factorisation\n\nOn cherche deux nombres dont le **produit vaut 6** et la **somme vaut 5**.\n\n| Paire | Produit | Somme |\n|-------|---------|-------|\n| 2 et 3 | 6 ✓ | 5 ✓ |\n\nOn factorise :\n\n$$x^2 + 5x + 6 = (x + 2)(x + 3) = 0$$\n\nUn produit est nul si l'un des facteurs est nul :\n\n$$x + 2 = 0 \\implies x = -2$$\n$$x + 3 = 0 \\implies x = -3$$\n\n---\n\n### Méthode 2 — Discriminant\n\nPour $ax^2 + bx + c = 0$, ici $a=1$, $b=5$, $c=6$ :\n\n$$\\Delta = b^2 - 4ac = 25 - 24 = 1$$\n\n$$x = \\frac{-b \\pm \\sqrt{\\Delta}}{2a} = \\frac{-5 \\pm 1}{2}$$\n\n$$x_1 = \\frac{-5 + 1}{2} = -2 \\qquad x_2 = \\frac{-5 - 1}{2} = -3$$\n\n---\n\n### ✅ Solutions\n\n$$\\boxed{x = -2 \\quad \\text{ou} \\quad x = -3}$$",
+	"analysis": {
+		"backslashInline": 0,
+		"backslashBlock": 0,
+		"singleDollar": 5,
+		"doubleDollar": 7,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0,
+		"escapedCurrency": 0
+	}
+}

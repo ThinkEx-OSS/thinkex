@@ -1,0 +1,14 @@
+{
+	"model": "gemini-pro",
+	"prompt": "write a sql query for standard deviation of a column, then show the math it's computing",
+	"text": "Here is the SQL query. Most modern SQL dialects (PostgreSQL, MySQL, Snowflake, BigQuery) provide two functions depending on whether your data represents a sample or the entire population.\n\n```sql\nSELECT \n    STDDEV_SAMP(column_name) AS sample_stddev,\n    STDDEV_POP(column_name)  AS population_stddev\nFROM your_table_name;\n```\n*(Note: In many dialects, the legacy `STDDEV()` function is an alias for `STDDEV_SAMP()`.)*\n\n### The Math Behind the Functions\n\nStandard deviation measures how spread out your data is from the average. Here is exactly what those SQL functions are calculating behind the scenes.\n\n#### 1. Sample Standard Deviation (`STDDEV_SAMP`)\nUse this when your table only contains a subset of all possible data (a sample) and you are trying to estimate the standard deviation of the whole population.\n\n$$ s = \\sqrt{\\frac{\\sum_{i=1}^{n} (x_i - \\bar{x})^2}{n - 1}} $$\n\n**Step-by-step computation:**\n1. **$\\bar{x}$ (Mean)**: Calculate the average of all values in the column.\n2. **$x_i - \\bar{x}$ (Deviation)**: Subtract the mean from every individual row's value.\n3. **$(x_i - \\bar{x})^2$ (Squared Deviation)**: Square each result from step 2 to ensure all negative differences become positive.\n4. **$\\sum$ (Sum of Squares)**: Add all those squared values together.\n5. **$n - 1$ (Variance)**: Divide the total sum by the number of rows minus one (this $n-1$ is called Bessel's correction, which corrects bias in the estimation of a population variance).\n6. **$\\sqrt{}$ (Standard Deviation)**: Take the square root of that result to return the metric to the original units of the column.\n\n#### 2. Population Standard Deviation (`STDDEV_POP`)\nUse this when your table contains every single data point in the entire population you care about.\n\n$$ \\sigma = \\sqrt{\\frac{\\sum_{i=1}^{N} (x_i - \\mu)^2}{N}} $$\n\nThe steps are identical to the sample standard deviation, with two minor distinctions:\n* **$\\mu$** represents the exact population mean (calculated the exact same way as $\\bar{x}$).\n* You divide by **$N$** (the total number of rows) instead of $N - 1$. Since you have the entire population, you don't need to correct for estimation bias.",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 11,
+		"doubleDollarBlocks": 2,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0
+	}
+}

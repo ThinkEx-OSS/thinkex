@@ -1,0 +1,14 @@
+{
+	"model": "claude-haiku",
+	"prompt": "would a $0.99 vs $1.99 vs $2.99 price point make a difference for my app",
+	"text": "It depends on what you're optimizing for and your context. Here's what typically matters:\n\n**Conversion rate usually improves at lower prices**, but the effect varies wildly by category. A $0.99 app might convert 2–3× better than $2.99, but some users filter by price and won't consider $0.99 apps as serious tools. The psychological anchor matters: $0.99 feels like an impulse buy; $1.99+ feels like a deliberate choice.\n\n**Revenue per install is the real trade-off.** If $0.99 converts 3× better but you only make half the revenue per sale, you need the volume to break even. Some categories (games, casual utilities) see this payoff; others (productivity, professional tools) don't.\n\n**Your positioning affects the signal.** A $0.99 price can make your app look cheap or accessible depending on context and polish. If competitors are at $2.99, pricing lower can look like either a steal or a red flag.\n\n**Key questions to answer first:**\n- What's your current install/conversion rate? (A/B testing price is the only way to know *your* numbers.)\n- What's your app category and who are your competitors?\n- Do you have high enough volume to detect a real difference, or would you be guessing from a small sample?\n- Is your goal to maximize revenue, installs, market share, or user base?\n\nIf you can test two price points on iOS or Android with enough traffic to see statistical significance, that's worth doing. Otherwise, pick the price that matches your positioning and watch what similar apps do in your category.\n\nWhat's your app, and do you have baseline install/revenue data?",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 3,
+		"doubleDollarBlocks": 0,
+		"fencedMath": 0,
+		"unicodeMath": 2,
+		"rawCurrency": 8
+	}
+}

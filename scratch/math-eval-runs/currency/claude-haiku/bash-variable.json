@@ -1,0 +1,14 @@
+{
+	"model": "claude-haiku",
+	"prompt": "how do i use $HOME and $PATH in a bash script",
+	"text": "# Using `$HOME` and `$PATH` in Bash Scripts\n\n## `$HOME`\nThe home directory of the current user. Use it to reference files relative to the user's home without hardcoding the path.\n\n```bash\n# Reference a file in the user's home\nconfig_file=\"$HOME/.config/myapp/config.txt\"\n\n# Create a directory in home\nmkdir -p \"$HOME/my_projects\"\n\n# Use with tilde expansion (equivalent, but less reliable in scripts)\n# config_file=~/.config/myapp/config.txt  # tilde may not expand in all contexts\n```\n\n## `$PATH`\nA colon-separated list of directories where the shell searches for executable commands. Use it to:\n\n**Check if a command exists:**\n```bash\nif command -v mycommand &> /dev/null; then\n  echo \"mycommand is available\"\nfi\n```\n\n**Add a directory to PATH for the current script:**\n```bash\nexport PATH=\"$HOME/bin:$PATH\"  # Prepend ~/bin to the search path\n# Now scripts in ~/bin are found first\n\nexport PATH=\"$PATH:$HOME/local/bin\"  # Append to the end\n```\n\n**Find the full path of a command:**\n```bash\nwhich python3      # Returns /usr/bin/python3\ncommand -v python3 # More portable; works with aliases and functions\n```\n\n## Best Practices\n\n- **Always quote variables:** `\"$HOME\"` not `$HOME` to handle spaces in paths\n- **Use `command -v`** instead of `which` in scripts—it's more portable and works with shell builtins\n- **Export PATH changes** with `export` if child processes need them; without it, only the current script sees the change\n- **Prepend to PATH** (`\"$HOME/bin:$PATH\"`) to give your scripts priority; append to keep system commands first",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 5,
+		"doubleDollarBlocks": 0,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0
+	}
+}

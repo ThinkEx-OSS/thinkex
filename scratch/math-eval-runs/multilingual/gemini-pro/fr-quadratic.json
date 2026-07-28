@@ -1,0 +1,15 @@
+{
+	"model": "gemini-pro",
+	"prompt": "aide-moi à résoudre x^2 + 5x + 6 = 0 étape par étape",
+	"text": "Voici la résolution détaillée de l'équation $$x^2 + 5x + 6 = 0$$. Il existe deux méthodes classiques pour la résoudre : par factorisation (la plus directe) ou avec le discriminant.\n\n### Méthode 1 : La factorisation\n\n**Étape 1 : Chercher deux nombres pour factoriser**\nPour factoriser une expression de la forme $x^2 + bx + c$, on cherche deux nombres dont :\n*   Le produit (la multiplication) est égal à $c$ (ici $6$).\n*   La somme (l'addition) est égale à $b$ (ici $5$).\n\n**Étape 2 : Trouver ces nombres**\nRegardons les diviseurs de $6$. Si on choisit $2$ et $3$ :\n*   $2 \\times 3 = 6$\n*   $2 + 3 = 5$\n\nLes deux nombres sont donc $2$ et $3$.\n\n**Étape 3 : Réécrire l'équation sous forme factorisée**\nGrâce à ces deux nombres, on peut réécrire l'expression initiale :\n$$(x + 2)(x + 3) = 0$$\n\n**Étape 4 : Appliquer la règle du produit nul**\nPour qu'une multiplication donne zéro, il faut qu'au moins l'un des deux facteurs soit égal à zéro. Cela donne deux équations simples :\n*   $x + 2 = 0 \\implies x = -2$\n*   $x + 3 = 0 \\implies x = -3$\n\nLes solutions sont donc **$x = -2$** et **$x = -3$**.\n\n---\n\n### Méthode 2 : Le discriminant ($\\Delta$)\n\n**Étape 1 : Identifier les coefficients $a$, $b$ et $c$**\nL'équation est de la forme $ax^2 + bx + c = 0$, avec :\n*   $a = 1$\n*   $b = 5$\n*   $c = 6$\n\n**Étape 2 : Calculer le discriminant ($\\Delta$)**\nLa formule est $\\Delta = b^2 - 4ac$.\n$$ \\Delta = 5^2 - 4 \\times 1 \\times 6 $$\n$$ \\Delta = 25 - 24 $$\n$$ \\Delta = 1 $$\n\n**Étape 3 : Calculer les racines**\nPuisque $\\Delta > 0$, l'équation admet deux solutions réelles distinctes, calculées avec les formules $x_1 = \\frac{-b - \\sqrt{\\Delta}}{2a}$ et $x_2 = \\frac{-b + \\sqrt{\\Delta}}{2a}$ :\n\n$$ x_1 = \\frac{-5 - \\sqrt{1}}{2 \\times 1} = \\frac{-5 - 1}{2} = \\frac{-6}{2} = -3 $$\n\n$$ x_2 = \\frac{-5 + \\sqrt{1}}{2 \\times 1} = \\frac{-5 + 1}{2} = \\frac{-4}{2} = -2 $$\n\nOn retrouve exactement les mêmes solutions : **$S = \\{-3, -2\\}$**.",
+	"analysis": {
+		"backslashInline": 0,
+		"backslashBlock": 0,
+		"singleDollar": 30,
+		"doubleDollar": 7,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0,
+		"escapedCurrency": 0
+	}
+}

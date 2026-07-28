@@ -1,0 +1,15 @@
+{
+	"model": "chatgpt-mini",
+	"prompt": "快速复习一下：勾股定理是什么",
+	"text": "勾股定理说的是：\n\n> 在**直角三角形**里，**两条直角边的平方和**等于**斜边的平方**。\n\n用公式表示就是：\n\n$$a^2 + b^2 = c^2$$\n\n- $a$、$b$：直角边  \n- $c$：斜边（最长的那条边）\n\n### 例子\n如果两条直角边分别是 3 和 4，那么斜边是：\n\n$$3^2 + 4^2 = 9 + 16 = 25$$\n\n所以：\n\n$$c = 5$$\n\n### 记忆口诀\n**“直角三角形，勾三股四弦五”**  \n也就是常见的 $3$、$4$、$5$ 三角形。\n\n如果你愿意，我还可以顺手帮你复习：\n- 勾股定理的**逆定理**\n- 常见的**勾股数**\n- 它在**平面几何/坐标系**里的用法",
+	"analysis": {
+		"backslashInline": 0,
+		"backslashBlock": 0,
+		"singleDollar": 6,
+		"doubleDollar": 3,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0,
+		"escapedCurrency": 0
+	}
+}

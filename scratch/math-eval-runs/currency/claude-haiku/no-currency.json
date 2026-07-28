@@ -1,0 +1,14 @@
+{
+	"model": "claude-haiku",
+	"prompt": "just explain what a mortgage is in one paragraph",
+	"text": "A mortgage is a loan used to purchase property, where the property itself serves as collateral. The borrower receives a lump sum from a lender (typically a bank) and repays it over a set period—usually 15 to 30 years—with interest. If the borrower fails to make payments, the lender can foreclose and sell the property to recover the debt. The borrower makes monthly payments that cover both principal (the original loan amount) and interest, and often includes property taxes and insurance. The key advantage is that it allows people to buy homes without paying the full price upfront, while the lender is protected by owning a claim to the property until the loan is fully repaid.",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 0,
+		"doubleDollarBlocks": 0,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0
+	}
+}

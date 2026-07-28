@@ -1,0 +1,15 @@
+{
+	"model": "gemini-pro",
+	"prompt": "ayúdame a resolver x^2 + 5x + 6 = 0 paso a paso",
+	"text": "Para resolver la ecuación cuadrática $x^2 + 5x + 6 = 0$, el método más rápido y directo es la factorización. Aquí tienes el proceso paso a paso:\n\n**Paso 1: Identificar el objetivo**\nLa ecuación tiene la forma $x^2 + bx + c = 0$.\nPara factorizarla, necesitamos encontrar dos números que cumplan dos condiciones al mismo tiempo:\n1. Que multiplicados den el término independiente ($c = 6$).\n2. Que sumados den el coeficiente del término central ($b = 5$).\n\n**Paso 2: Encontrar los números**\nRevisemos los pares de números enteros que multiplicados dan $6$:\n* $1 \\cdot 6 = 6$ (pero su suma es $1 + 6 = 7$, no nos sirve)\n* $2 \\cdot 3 = 6$ (y su suma es $2 + 3 = 5$, este es el par correcto)\n\n**Paso 3: Escribir la ecuación factorizada**\nUsamos los números que encontramos ($2$ y $3$) para reescribir la expresión original como el producto de dos binomios. La ecuación se transforma en:\n$$(x + 2)(x + 3) = 0$$\n\n**Paso 4: Aplicar la propiedad del producto cero**\nSi la multiplicación de dos términos da como resultado cero, significa que al menos uno de esos términos debe ser igual a cero. Por lo tanto, separamos la ecuación en dos casos y los igualamos a cero:\n1. $x + 2 = 0$\n2. $x + 3 = 0$\n\n**Paso 5: Despejar $x$**\nResolvemos cada pequeña ecuación pasando el número al otro lado del signo igual (cambiando su signo):\n* De la primera obtenemos: $x = -2$\n* De la segunda obtenemos: $x = -3$\n\n**Solución**\nLas soluciones para la ecuación son **$x = -2$** y **$x = -3$**.",
+	"analysis": {
+		"backslashInline": 0,
+		"backslashBlock": 0,
+		"singleDollar": 18,
+		"doubleDollar": 1,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0,
+		"escapedCurrency": 0
+	}
+}

@@ -1,0 +1,14 @@
+{
+	"model": "claude-haiku",
+	"prompt": "$100 USD is roughly how much in EUR at 0.92 exchange rate",
+	"text": "At an exchange rate of 0.92 EUR/USD, $100 USD is approximately **€92**.\n\nThe calculation: $100 × 0.92 = €92",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 0,
+		"doubleDollarBlocks": 0,
+		"fencedMath": 0,
+		"unicodeMath": 1,
+		"rawCurrency": 2
+	}
+}

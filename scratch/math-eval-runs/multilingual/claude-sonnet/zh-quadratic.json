@@ -1,0 +1,15 @@
+{
+	"model": "claude-sonnet",
+	"prompt": "帮我一步一步解 x^2 + 5x + 6 = 0",
+	"text": "## 解方程 $x^2 + 5x + 6 = 0$\n\n### 方法：因式分解\n\n**第一步：找两个数**\n\n找两个数，满足：\n- 相乘 $= 6$（常数项）\n- 相加 $= 5$（$x$ 的系数）\n\n$$2 \\times 3 = 6 \\quad \\text{且} \\quad 2 + 3 = 5 \\checkmark$$\n\n**第二步：分解因式**\n\n$$x^2 + 5x + 6 = (x + 2)(x + 3) = 0$$\n\n**第三步：令每个因子为零**\n\n$$x + 2 = 0 \\implies x = -2$$\n$$x + 3 = 0 \\implies x = -3$$\n\n### 验证\n\n| $x$ | 代入 $x^2 + 5x + 6$ | 结果 |\n|-----|----------------------|------|\n| $-2$ | $4 - 10 + 6$ | $0$ ✓ |\n| $-3$ | $9 - 15 + 6$ | $0$ ✓ |\n\n### 最终答案\n\n$$\\boxed{x = -2 \\quad \\text{或} \\quad x = -3}$$",
+	"analysis": {
+		"backslashInline": 0,
+		"backslashBlock": 0,
+		"singleDollar": 12,
+		"doubleDollar": 5,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0,
+		"escapedCurrency": 0
+	}
+}

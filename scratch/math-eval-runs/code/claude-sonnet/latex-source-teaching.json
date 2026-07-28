@@ -1,0 +1,14 @@
+{
+	"model": "claude-sonnet",
+	"prompt": "how do i write a fraction in LaTeX. show me the syntax and what it renders to",
+	"text": "Use the `\\frac` command:\n\n```latex\n\\frac{numerator}{denominator}\n```\n\nFor example, `$\\frac{3}{4}$` renders to:\n\n$$\\frac{3}{4}$$\n\nFor more complex fractions like $\\frac{x^2 + 1}{2x - 5}$, just put any expression in either brace.",
+	"analysis": {
+		"escapedInline": 0,
+		"escapedBlock": 0,
+		"singleDollarPairs": 2,
+		"doubleDollarBlocks": 1,
+		"fencedMath": 0,
+		"unicodeMath": 0,
+		"rawCurrency": 0
+	}
+}
