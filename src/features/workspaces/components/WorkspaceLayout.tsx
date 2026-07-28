@@ -80,6 +80,7 @@ export function WorkspaceShell({
 	const selectedQuotes = useWorkspaceAiComposerDraftQuotes(workspace.id);
 	const setChatSurfaceMode = useWorkspaceUiStore((state) => state.setChatSurfaceMode);
 	const toggleChatPanel = useWorkspaceUiStore((state) => state.toggleChatPanel);
+	const normalizedUiSession = useWorkspaceUiSession(workspace.id);
 	const realtime = useWorkspaceRealtime({
 		workspaceId: workspace.id,
 		lastSeenRevision: revision,
@@ -117,10 +118,10 @@ export function WorkspaceShell({
 	} = useWorkspaceNavigation({
 		workspace,
 		items,
+		presentation: normalizedUiSession.presentation,
 		activeTabIdFromUrl,
 		activeViewFromUrl,
 	});
-	const normalizedUiSession = useWorkspaceUiSession(workspace.id);
 	const { capabilities: viewCapabilities, viewportMode } = useWorkspaceViewPolicy();
 	const selectedItemIds = useWorkspaceSelectionItemIds(workspace.id);
 	const { chatSurfaceMode, presentation } = normalizedUiSession;

@@ -1,12 +1,8 @@
 import { cjk } from "@streamdown/cjk";
 import { createMathPlugin } from "@streamdown/math";
-import { createContext, type ComponentProps, use } from "react";
+import { createContext, type ComponentProps, use, useEffect } from "react";
 import { Streamdown, type StreamdownProps } from "streamdown";
 import "katex/dist/katex.min.css";
-// Installs a global copy listener so selecting rendered math yields its
-// LaTeX source (`$…$` / `$$…$$`) on the clipboard instead of the glyph
-// soup KaTeX renders visually. Matches ChatGPT and Claude.ai's behavior.
-import "katex/contrib/copy-tex";
 import {
 	parseWorkspaceReference,
 	type WorkspaceLocation,
@@ -78,6 +74,11 @@ export function AiChatMessageResponse({
 	workspaceCitationLocations = emptyWorkspaceCitationLocations,
 	...props
 }: AiChatMessageResponseProps) {
+	useEffect(() => {
+		// This browser-only module installs KaTeX's global copy listener.
+		void import("katex/contrib/copy-tex");
+	}, []);
+
 	const mergedComponents = {
 		...streamdownComponents,
 		...components,

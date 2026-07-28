@@ -11,6 +11,7 @@ import {
 	useWorkspaceTabsStore,
 	type WorkspaceTab,
 } from "#/features/workspaces/state/workspace-tabs-store";
+import type { WorkspacePresentation } from "#/features/workspaces/state/workspace-ui-store";
 
 type OpenWorkspaceItemOptions = {
 	background?: boolean;
@@ -19,13 +20,31 @@ type OpenWorkspaceItemOptions = {
 interface UseWorkspaceNavigationInput {
 	workspace: WorkspaceSummary;
 	items: WorkspaceItem[];
+	presentation: WorkspacePresentation;
 	activeTabIdFromUrl?: string;
 	activeViewFromUrl?: string;
+}
+
+function findPresentedItemViewInstanceId(
+	presentation: WorkspacePresentation,
+	itemId: string,
+): string | undefined {
+	if (presentation.mode === "maximized") {
+		const { pane } = presentation;
+		return pane.kind === "item" && pane.itemId === itemId ? pane.id : undefined;
+	}
+
+	if (presentation.mode === "split") {
+		return presentation.panes.find((pane) => pane.kind === "item" && pane.itemId === itemId)?.id;
+	}
+
+	return undefined;
 }
 
 export function useWorkspaceNavigation({
 	workspace,
 	items,
+	presentation,
 	activeTabIdFromUrl,
 	activeViewFromUrl,
 }: UseWorkspaceNavigationInput) {
@@ -218,6 +237,11 @@ export function useWorkspaceNavigation({
 		const item = itemsById.get(location.itemId);
 		if (!item) {
 			return undefined;
+		}
+
+		const presentedViewInstanceId = findPresentedItemViewInstanceId(presentation, item.id);
+		if (presentedViewInstanceId) {
+			return presentedViewInstanceId;
 		}
 
 		if (activeTab?.viewItemId === item.id) {

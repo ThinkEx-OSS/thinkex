@@ -1,5 +1,5 @@
 import { FileQuestion, type LucideIcon } from "lucide-react";
-import { createContext, type ReactNode, use, useState } from "react";
+import { createContext, type ReactNode, use, useCallback, useState } from "react";
 
 import type { WorkspaceLocation } from "#/features/workspaces/locations/workspace-location";
 import { getWorkspaceItemDisplay } from "#/features/workspaces/model/item-display";
@@ -41,9 +41,9 @@ export function WorkspaceLocationProvider({
 	readonly navigate: (location: WorkspaceLocation) => string | undefined;
 }) {
 	const [revealRequest, setRevealRequest] = useState<WorkspacePdfPageRevealRequest | null>(null);
-	const consumeRevealRequest = (request: WorkspacePdfPageRevealRequest) => {
+	const consumeRevealRequest = useCallback((request: WorkspacePdfPageRevealRequest) => {
 		setRevealRequest((current) => (current === request ? null : current));
-	};
+	}, []);
 	const value: WorkspaceLocationContextValue = {
 		consumeRevealRequest,
 		getPresentation(location) {
