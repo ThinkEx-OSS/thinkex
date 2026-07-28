@@ -185,7 +185,7 @@ async function readFile(input: {
 	request: WorkspaceContentReadRequest;
 }): Promise<WorkspaceContentReadResult> {
 	const fileType = resolveWorkspaceFileTypeFromItem(input.item);
-	if (!fileType || fileType.aiReadStrategy !== "markdown_extraction") {
+	if (!fileType) {
 		return { code: "unsupported_item_type", path: input.path, status: "failed" };
 	}
 

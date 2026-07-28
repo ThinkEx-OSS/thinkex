@@ -2,10 +2,8 @@ import { FileText, Image, type LucideIcon } from "lucide-react";
 
 import { normalizeWorkspaceItemName } from "#/features/workspaces/defaults";
 import type {
-	WorkspaceFileAiReadStrategy,
 	WorkspaceFileAssetKind,
 	WorkspaceFileExtractionRoute,
-	WorkspaceFilePreviewGeneratorId,
 } from "#/features/workspaces/model/workspace-file/types";
 import {
 	getDeniedWorkspaceUploadMessage,
@@ -20,7 +18,6 @@ export interface WorkspaceUploadFormat {
 	ext: string;
 	mime: string;
 	assetKind: WorkspaceFileAssetKind;
-	aiReadStrategy?: WorkspaceFileAiReadStrategy;
 	conversion?: WorkspaceUploadConversion;
 }
 
@@ -32,9 +29,7 @@ export interface WorkspaceUploadFamily {
 	pluralLabel: string;
 	icon: LucideIcon;
 	defaultFileName: string;
-	aiReadStrategy: WorkspaceFileAiReadStrategy;
 	requiresHeavyViewerRuntime: boolean;
-	previewGenerator: WorkspaceFilePreviewGeneratorId | null;
 	extractionRoute: WorkspaceFileExtractionRoute;
 }
 
@@ -109,9 +104,7 @@ const WORKSPACE_UPLOAD_FAMILIES = [
 		pluralLabel: "PDFs",
 		icon: FileText,
 		defaultFileName: "Uploaded file.pdf",
-		aiReadStrategy: "markdown_extraction",
 		requiresHeavyViewerRuntime: true,
-		previewGenerator: "pdf_webp",
 		extractionRoute: {
 			provider: "llama_parse",
 			mode: "agentic",
@@ -124,9 +117,7 @@ const WORKSPACE_UPLOAD_FAMILIES = [
 		pluralLabel: "images",
 		icon: Image,
 		defaultFileName: "Uploaded image.png",
-		aiReadStrategy: "markdown_extraction",
 		requiresHeavyViewerRuntime: false,
-		previewGenerator: "image_webp",
 		extractionRoute: {
 			provider: "workers_ai_to_markdown",
 			mode: "default",
@@ -194,16 +185,6 @@ export function resolveWorkspaceFileTypeFromHint(
 	}
 
 	return workspaceUploadFamilyByKind[format.assetKind];
-}
-
-export function resolveWorkspaceFileAiReadStrategy(input: {
-	fileName: string;
-	contentType?: string | null;
-	descriptor: WorkspaceFileTypeDescriptor;
-}): WorkspaceFileAiReadStrategy {
-	const format = resolveMatchedUploadFormat(input, input.descriptor);
-
-	return format?.aiReadStrategy ?? input.descriptor.aiReadStrategy;
 }
 
 export function resolveWorkspaceUploadConversion(

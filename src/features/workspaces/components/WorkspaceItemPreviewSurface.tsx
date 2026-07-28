@@ -64,9 +64,7 @@ function WorkspaceItemDocumentPreviewEmpty() {
 function WorkspaceItemFilePreview({ item }: { item: WorkspaceItem }) {
 	const fileDescriptor = resolveWorkspaceFileTypeFromItem(item);
 	const previewUrl =
-		fileDescriptor?.previewGenerator != null
-			? getWorkspaceFilePreviewUrl(item.workspaceId, item.id)
-			: null;
+		fileDescriptor != null ? getWorkspaceFilePreviewUrl(item.workspaceId, item.id) : null;
 	const [failedPreviewUrl, setFailedPreviewUrl] = useState<string | null>(null);
 	const showImage = Boolean(previewUrl) && failedPreviewUrl !== previewUrl;
 

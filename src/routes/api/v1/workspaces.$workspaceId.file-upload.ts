@@ -14,10 +14,7 @@ import {
 	getWorkspaceKernel,
 } from "#/features/workspaces/kernel/workspace-kernel-access";
 import { requireAppliedWorkspaceKernelMutation } from "#/features/workspaces/kernel/workspace-kernel-types";
-import {
-	resolveWorkspaceFileAiReadStrategy,
-	WorkspaceFileUploadError,
-} from "#/features/workspaces/model/workspace-file";
+import { WorkspaceFileUploadError } from "#/features/workspaces/model/workspace-file";
 import {
 	assertCanMutateWorkspace,
 	WorkspaceForbiddenError,
@@ -36,7 +33,6 @@ import {
 import type { CompleteWorkspaceDirectUploadInput } from "#/features/workspaces/upload/workspace-file-upload-protocol";
 import { finalizeWorkspaceFileUploadStorage } from "#/features/workspaces/upload/workspace-file-upload-storage";
 import {
-	createDocumentContentFromWorkspaceUpload,
 	resolveWorkspaceDirectUploadTarget,
 	validateWorkspaceUpload,
 	type WorkspaceUploadPlan,
@@ -210,10 +206,11 @@ async function finalizeWorkspaceFileUpload(
 			});
 
 			observation.itemId = command.result.id;
-			await queueWorkspaceFileExtraction(upload, {
+			await requestWorkspaceFileExtraction({
+				actorUserId: userId,
+				assetKind: upload.descriptor.assetKind,
 				itemId: command.result.id,
 				requestId,
-				userId,
 				workspaceId,
 			});
 		}
@@ -269,39 +266,13 @@ async function deleteUploadObjectBestEffort(input: {
 	}
 }
 
-async function queueWorkspaceFileExtraction(
-	upload: Awaited<ReturnType<typeof finalizeWorkspaceFileUploadStorage>>,
-	input: { itemId: string; requestId: string; userId: string; workspaceId: string },
-) {
-	if (
-		resolveWorkspaceFileAiReadStrategy({
-			contentType: upload.contentType,
-			descriptor: upload.descriptor,
-			fileName: upload.fileName,
-		}) !== "markdown_extraction"
-	) {
-		return;
-	}
-
-	await requestWorkspaceFileExtraction({
-		actorUserId: input.userId,
-		assetKind: upload.descriptor.assetKind,
-		itemId: input.itemId,
-		requestId: input.requestId,
-		workspaceId: input.workspaceId,
-	});
-}
-
 async function createWorkspaceDocumentFromUpload(input: {
 	claims: WorkspaceDirectUploadClaims;
 	file: File;
 	plan: Extract<WorkspaceUploadPlan, { kind: "document" }>;
 }) {
 	const [documentContent, kernel] = await Promise.all([
-		createDocumentContentFromWorkspaceUpload({
-			file: input.file,
-			plan: input.plan,
-		}),
+		input.plan.importer.importFile(input.file),
 		getWorkspaceKernel(input.claims.workspaceId),
 	]);
 

@@ -10,7 +10,6 @@ export {
 	normalizeWorkspaceUploadFileName,
 	requireWorkspaceFileTypeFromHint,
 	resolveMatchedUploadFormat,
-	resolveWorkspaceFileAiReadStrategy,
 	resolveWorkspaceFileContentType,
 	resolveWorkspaceFileTypeFromHint,
 	resolveWorkspaceUploadConversion,
@@ -30,12 +29,10 @@ export {
 	workspaceItemRequiresHeavyViewerRuntime,
 } from "#/features/workspaces/model/workspace-file/resolve";
 export {
-	type WorkspaceFileAiReadStrategy,
 	type WorkspaceFileAssetKind,
 	type WorkspaceFileExtractionMode,
 	type WorkspaceFileExtractionProviderId,
 	type WorkspaceFileExtractionRoute,
-	type WorkspaceFilePreviewGeneratorId,
 	workspaceFileAssetKindSchema,
 	workspaceFileAssetKinds,
 	workspaceFileExtractionProviders,

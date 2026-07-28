@@ -1,4 +1,3 @@
-import type { JsonValue } from "#/features/workspaces/contracts";
 import {
 	type WorkspaceDocumentImportFormat,
 	workspaceDocumentImportFormats,
@@ -29,12 +28,6 @@ export type WorkspaceUploadPlan =
 	  };
 
 export type WorkspaceDirectUploadTarget = "source" | "staging";
-
-export type WorkspaceUploadDocumentCreateContent = {
-	initialContent: string;
-	metadataJson: Record<string, JsonValue>;
-	name: string;
-};
 
 export type WorkspaceUploadValidationResult =
 	| {
@@ -229,13 +222,6 @@ export function partitionWorkspaceUploadSelection(files: readonly File[]) {
 	}
 
 	return { accepted, rejected };
-}
-
-export async function createDocumentContentFromWorkspaceUpload(input: {
-	file: File;
-	plan: Extract<WorkspaceUploadPlan, { kind: "document" }>;
-}): Promise<WorkspaceUploadDocumentCreateContent> {
-	return input.plan.importer.importFile(input.file);
 }
 
 function resolveWorkspaceDocumentImporter(

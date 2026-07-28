@@ -29,7 +29,3 @@ export interface WorkspaceFileExtractionRoute {
 	mode: WorkspaceFileExtractionMode;
 	reason: string;
 }
-
-export type WorkspaceFilePreviewGeneratorId = "pdf_webp" | "image_webp";
-
-export type WorkspaceFileAiReadStrategy = "markdown_extraction";

@@ -265,7 +265,7 @@ export interface CreateWorkspaceKernelFileFromUploadArgs {
 	fileName: string;
 	fileSize: number;
 	objectKey: string;
-	preview?: {
+	preview: {
 		objectKey: string;
 		sizeBytes: number;
 		sourceHash: string;

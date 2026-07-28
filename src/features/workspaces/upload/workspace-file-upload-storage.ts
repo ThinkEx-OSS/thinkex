@@ -21,7 +21,7 @@ export interface StoredWorkspaceFileUpload {
 	fileName: string;
 	fileSize: number;
 	objectKey: string;
-	preview?: {
+	preview: {
 		objectKey: string;
 		sizeBytes: number;
 		sourceHash: string;
@@ -34,7 +34,9 @@ export interface StoredWorkspaceFileUpload {
 	};
 }
 
-export type WorkspaceUploadStreamConverter = (
+type PreparedWorkspaceFileUpload = Omit<StoredWorkspaceFileUpload, "preview">;
+
+type WorkspaceUploadStreamConverter = (
 	env: Cloudflare.Env,
 	input: {
 		body: ReadableStream<Uint8Array>;
@@ -51,7 +53,6 @@ const defaultConverters = {
 
 interface FinalizeWorkspaceFileUploadStorageInput {
 	contentType: string;
-	converters?: Record<WorkspaceUploadConversion, WorkspaceUploadStreamConverter>;
 	descriptor: WorkspaceFileTypeDescriptor;
 	env: Cloudflare.Env;
 	finalObjectKey: string;
@@ -101,13 +102,9 @@ export async function finalizeWorkspaceFileUploadStorage(
 
 async function storeWorkspaceFileUploadPreview(
 	input: FinalizeWorkspaceFileUploadStorageInput,
-	upload: StoredWorkspaceFileUpload,
+	upload: PreparedWorkspaceFileUpload,
 	object: R2ObjectBody,
 ) {
-	if (!upload.descriptor.previewGenerator) {
-		return undefined;
-	}
-
 	const preview = await createWorkspaceFilePreview(input.env, {
 		assetKind: upload.descriptor.assetKind,
 		body: object.body,
@@ -134,7 +131,7 @@ async function storeWorkspaceFileUploadPreview(
 
 function adoptCanonicalWorkspaceFileUpload(
 	input: FinalizeWorkspaceFileUploadStorageInput,
-): StoredWorkspaceFileUpload {
+): PreparedWorkspaceFileUpload {
 	if (input.uploadedObjectKey !== input.finalObjectKey) {
 		throw new Error("Pass-through workspace uploads must already use their permanent object key.");
 	}
@@ -154,13 +151,12 @@ function adoptCanonicalWorkspaceFileUpload(
 async function convertAndStoreWorkspaceFileUpload(
 	input: FinalizeWorkspaceFileUploadStorageInput,
 	conversion: WorkspaceUploadConversion,
-): Promise<StoredWorkspaceFileUpload> {
+): Promise<PreparedWorkspaceFileUpload> {
 	if (input.uploadedObjectKey === input.finalObjectKey) {
 		throw new Error("Converted workspace uploads must use a temporary input object.");
 	}
 
-	const converters = input.converters ?? defaultConverters;
-	const response = await converters[conversion](input.env, {
+	const response = await defaultConverters[conversion](input.env, {
 		body: input.uploadedObject.body,
 		contentType: input.contentType,
 		fileName: input.fileName,

@@ -3,20 +3,21 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import {
 	requireWorkspaceFileTypeFromHint,
 	WorkspaceFileUploadError,
-	type WorkspaceUploadConversion,
 } from "#/features/workspaces/model/workspace-file";
-import {
-	finalizeWorkspaceFileUploadStorage,
-	type WorkspaceUploadStreamConverter,
-} from "#/features/workspaces/upload/workspace-file-upload-storage";
+import { finalizeWorkspaceFileUploadStorage } from "#/features/workspaces/upload/workspace-file-upload-storage";
 
+const { convertImageStreamToJpeg, convertOfficeStreamToPdf, createWorkspaceFilePreview } =
+	vi.hoisted(() => ({
+		convertImageStreamToJpeg: vi.fn(),
+		convertOfficeStreamToPdf: vi.fn(),
+		createWorkspaceFilePreview: vi.fn(),
+	}));
 vi.mock("#/features/workspaces/conversion/image-file-converter", () => ({
-	convertImageStreamToJpeg: vi.fn(),
+	convertImageStreamToJpeg,
 }));
 vi.mock("#/features/workspaces/conversion/office-pdf-converter", () => ({
-	convertOfficeStreamToPdf: vi.fn(),
+	convertOfficeStreamToPdf,
 }));
-const createWorkspaceFilePreview = vi.hoisted(() => vi.fn());
 
 vi.mock("#/features/workspaces/files/workspace-file-preview", () => ({
 	createWorkspaceFilePreview,
@@ -44,6 +45,8 @@ beforeAll(() => {
 
 describe("workspace file upload storage", () => {
 	beforeEach(() => {
+		convertImageStreamToJpeg.mockReset();
+		convertOfficeStreamToPdf.mockReset();
 		createWorkspaceFilePreview.mockReset().mockResolvedValue({
 			body: stream(previewBytes),
 			sizeBytes: previewBytes.byteLength,
@@ -87,13 +90,13 @@ describe("workspace file upload storage", () => {
 	it("streams conversion output to R2 and records source provenance", async () => {
 		const bucket = createR2Bucket();
 		const converted = new Uint8Array([9, 8, 7]);
-		const converter: WorkspaceUploadStreamConverter = vi
-			.fn()
-			.mockResolvedValue({ body: stream(converted), sizeBytes: converted.byteLength });
+		convertImageStreamToJpeg.mockResolvedValue({
+			body: stream(converted),
+			sizeBytes: converted.byteLength,
+		});
 
 		const result = await finalizeWorkspaceFileUploadStorage({
 			contentType: "image/heic",
-			converters: createConverters(converter),
 			descriptor: requireWorkspaceFileTypeFromHint({
 				fileName: "photo.heic",
 				contentType: "image/heic",
@@ -203,13 +206,6 @@ describe("workspace file upload storage", () => {
 		expect(bucket.deleteCount()).toBe(1);
 	});
 });
-
-function createConverters(converter: WorkspaceUploadStreamConverter) {
-	return {
-		heic_to_jpeg: converter,
-		office_to_pdf: converter,
-	} satisfies Record<WorkspaceUploadConversion, WorkspaceUploadStreamConverter>;
-}
 
 function createEnv(bucket: R2Bucket) {
 	return { WORKSPACE_KERNEL_FILES: bucket } as Cloudflare.Env;

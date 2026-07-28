@@ -208,7 +208,7 @@ export async function createWorkspaceFileFromUpload(input: {
 	fileName: string;
 	fileSize: number;
 	objectKey: string;
-	preview?: CreateWorkspaceKernelFileFromUploadArgs["preview"];
+	preview: CreateWorkspaceKernelFileFromUploadArgs["preview"];
 	contentType?: string | null;
 	assetKind: WorkspaceFileAssetKind;
 	source?: CreateWorkspaceKernelFileFromUploadArgs["source"];
