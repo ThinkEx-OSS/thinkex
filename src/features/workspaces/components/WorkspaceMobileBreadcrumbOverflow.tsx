@@ -47,10 +47,10 @@ export default function WorkspaceMobileBreadcrumbOverflow({
 
 							return (
 								<DropdownMenuItem key={item.id} onClick={() => onNavigateToItem(item)}>
-									<span className="inline-flex size-4 items-center justify-center text-muted-foreground">
+									<span className="inline-flex size-4 shrink-0 items-center justify-center text-muted-foreground">
 										<Icon className={iconClassName} aria-hidden="true" />
 									</span>
-									<span className="min-w-0 truncate">{item.name}</span>
+									<span className="min-w-0 flex-1 truncate">{item.name}</span>
 									<span className="ml-auto shrink-0 text-muted-foreground text-xs">{label}</span>
 								</DropdownMenuItem>
 							);

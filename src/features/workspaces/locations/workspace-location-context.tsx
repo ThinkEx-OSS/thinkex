@@ -11,6 +11,7 @@ type WorkspaceLocationPresentation = {
 	Icon: LucideIcon;
 	iconClassName: string;
 	label: string;
+	locatorLabel?: string;
 };
 
 type WorkspacePdfPageRevealRequest = {
@@ -48,19 +49,19 @@ export function WorkspaceLocationProvider({
 		getPresentation(location) {
 			const item = itemsById.get(location.itemId);
 			const itemName = item?.name ?? "Source unavailable";
-			const label =
-				location.kind === "pdf-page" ? `${itemName} · p. ${location.pageNumber}` : itemName;
+			const locatorLabel = location.kind === "pdf-page" ? `p. ${location.pageNumber}` : undefined;
 
 			if (!item) {
 				return {
 					Icon: FileQuestion,
 					iconClassName: "text-muted-foreground",
-					label,
+					label: itemName,
+					locatorLabel,
 				};
 			}
 
 			const { Icon, iconClassName } = getWorkspaceItemDisplay(item);
-			return { Icon, iconClassName, label };
+			return { Icon, iconClassName, label: itemName, locatorLabel };
 		},
 		reveal(location) {
 			const viewInstanceId = navigate(location);

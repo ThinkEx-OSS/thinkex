@@ -49,7 +49,8 @@ describe("AI chat message response citations", () => {
 
 		expect(html).toContain("<button");
 		expect(html).toContain("Open Source unavailable · p. 12");
-		expect(html).toContain("Source unavailable · p. 12");
+		expect(html).toContain(">Source unavailable</span>");
+		expect(html).toContain(">· p. 12</span>");
 		expect(html).not.toContain("<citation");
 	});
 

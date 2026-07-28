@@ -15,12 +15,12 @@ export function WorkspaceCardMetaRow({ leading, trailing }: WorkspaceCardMetaRow
 
 	return (
 		<div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
-			{hasLeading ? <div className="min-w-0">{leading}</div> : null}
+			{hasLeading ? <div className="min-w-0 flex-1">{leading}</div> : null}
 			{hasLeading && hasTrailing ? (
 				<span aria-hidden="true" className="h-3 w-px shrink-0 bg-border/70" />
 			) : null}
 			{hasTrailing ? (
-				<span className="min-w-0 truncate" suppressHydrationWarning>
+				<span className="shrink-0 whitespace-nowrap" suppressHydrationWarning>
 					{trailing}
 				</span>
 			) : null}
