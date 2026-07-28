@@ -16,9 +16,9 @@ describe("Code Mode tool groups", () => {
 				{
 					seq: 1,
 					connector: "tools",
-					method: "workspace_list_items",
-					args: { path: "/" },
-					result: { items: [{ path: "/Notes" }] },
+					method: "web_search",
+					args: { query: "notes" },
+					result: { results: [] },
 					requiresApproval: false,
 					state: "applied",
 				},
@@ -36,15 +36,15 @@ describe("Code Mode tool groups", () => {
 
 		expect(group.children).toEqual([
 			{
-				id: "1:tools:workspace_list_items",
+				id: "1:tools:web_search",
 				presentation: {
-					icon: "file",
-					title: "List workspace",
+					icon: "search",
+					title: "Search web",
 					visibility: "visible",
 				},
 				status: "completed",
-				summary: "Listed 1 item",
-				toolName: "workspace_list_items",
+				summary: "Found 0 sources for “notes”",
+				toolName: "web_search",
 			},
 		]);
 		expect(parts[1]).toMatchObject({ toolCallId: "direct-tool-1" });
@@ -54,11 +54,11 @@ describe("Code Mode tool groups", () => {
 		const message = createMessage([
 			createOrchestratePart({ status: "completed", executionId: "execution-1", result: null }),
 			{
-				type: "tool-workspace_list_items",
+				type: "tool-web_search",
 				toolCallId: "tool-1",
 				state: "output-available",
-				input: { path: "/" },
-				output: { items: [] },
+				input: { query: "hello" },
+				output: { results: [] },
 			},
 		]);
 
@@ -68,13 +68,13 @@ describe("Code Mode tool groups", () => {
 			{
 				id: "tool-1",
 				presentation: {
-					icon: "file",
-					title: "List workspace",
+					icon: "search",
+					title: "Search web",
 					visibility: "visible",
 				},
 				status: "completed",
-				summary: "Listed 0 items",
-				toolName: "workspace_list_items",
+				summary: "Found 0 sources for “hello”",
+				toolName: "web_search",
 			},
 		]);
 	});

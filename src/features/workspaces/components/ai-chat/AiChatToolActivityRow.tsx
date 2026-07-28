@@ -147,24 +147,22 @@ function ActivitySummary({
 }) {
 	const isRunning = activity.status === "running";
 	const { presentation } = activity;
-	const label = `${presentation.title}: ${activity.summary}`;
 
 	return (
 		<div
 			role={isRunning ? "status" : undefined}
 			aria-live={isRunning ? "polite" : undefined}
-			title={label}
+			title={activity.summary}
 			className="group/tool-row inline-flex min-w-0 max-w-full items-center gap-1.5 py-0.5 text-sm text-muted-foreground"
 		>
 			<span className="grid size-4 shrink-0 place-items-center self-center text-muted-foreground/80">
 				<ToolActivityIcon icon={presentation.icon} />
 			</span>
 			<span
-				className={cn("shrink-0 truncate font-medium text-foreground/90", isRunning && "shimmer")}
+				className={cn("min-w-0 truncate font-medium text-foreground/90", isRunning && "shimmer")}
 			>
-				{presentation.title}
+				{activity.summary}
 			</span>
-			<span className="min-w-0 truncate text-muted-foreground text-xs">{activity.summary}</span>
 			<InlineSourceFavicons sources={sourcePreviews.slice(0, INLINE_SOURCE_LIMIT)} />
 			<ToolStatusIcon status={activity.status} />
 			{canExpand ? (

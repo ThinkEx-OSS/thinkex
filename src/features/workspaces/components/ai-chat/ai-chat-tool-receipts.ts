@@ -21,22 +21,33 @@ export function getRunningToolReceipt(input: {
 			return running(`Deleting ${formatCount(getArray(toolInput.paths).length, "item")}`);
 		case "workspace_edit_item":
 			return running(`Editing ${quoteName(getBaseName(getString(toolInput.path)))}`);
-		case "workspace_list_items":
-			return running(`Listing ${formatPath(getString(toolInput.path) ?? "/")}`);
-		case "workspace_move_items":
-			return running(`Moving ${formatCount(getArray(toolInput.paths).length, "item")}`);
-		case "workspace_read_items":
+		case "workspace_move_items": {
+			const count = getArray(toolInput.paths).length;
+			const destination = formatDestinationName(getString(toolInput.destinationPath));
+			const target = formatCount(count, "item");
+			return running(destination ? `Moving ${target} to ${destination}` : `Moving ${target}`);
+		}
+		case "workspace_read_items": {
+			const requests = getArray(toolInput.requests).map((request) => asRecord(request));
+			const paths = requests.map((request) => getString(request.path)).filter(Boolean) as string[];
+			const target = formatToolInputPaths(paths);
+			if (requests.length === 1) {
+				const range = formatPageRange(getString(requests[0]?.range));
+				return running(range ? `Reading ${target} p. ${range}` : `Reading ${target}`);
+			}
+			return running(`Reading ${target}`);
+		}
+		case "workspace_rename_item": {
+			const oldName = quoteName(getBaseName(getString(toolInput.path)));
+			const newName = getString(toolInput.name);
 			return running(
-				`Reading ${formatToolInputPaths(
-					getArray(toolInput.requests).map((request) => asRecord(request).path),
-				)}`,
+				newName ? `Renaming ${oldName} → ${quoteName(newName)}` : `Renaming ${oldName}`,
 			);
-		case "workspace_rename_item":
-			return running(`Renaming ${quoteName(getBaseName(getString(toolInput.path)))}`);
+		}
 		case "web_links":
 			return running(`Finding links on ${formatUrl(getString(toolInput.url))}`);
 		case "web_markdown":
-			return running(`Reading ${formatUrl(getString(toolInput.url))}`);
+			return running(`Reading ${formatUrlWithPath(getString(toolInput.url))}`);
 		case "web_search":
 			return running(`Searching for ${quoteName(getString(toolInput.query))}`);
 		case "research_deepen":
@@ -48,7 +59,7 @@ export function getRunningToolReceipt(input: {
 		case "orchestrate":
 			return running("Working through the task");
 		default:
-			return running("Working");
+			return running(`Running ${formatToolNameFallback(input.toolName)}`);
 	}
 }
 
@@ -64,6 +75,8 @@ export function getFinishedToolReceipt(input: {
 			summary: summarizeFailedTool(input.toolName, input.output, input.toolInput),
 		};
 	}
+
+	const unknownFallback = () => completed(summarizeUnknownResult(input.output, input.toolName));
 
 	switch (input.toolName) {
 		case "workspace_create_items":
@@ -82,22 +95,18 @@ export function getFinishedToolReceipt(input: {
 			return summarizeWorkspaceBatch(input.output, {
 				failureVerb: "move",
 				successVerb: "Moved",
+				destination: formatDestinationName(getString(asRecord(input.toolInput).destinationPath)),
 			});
 		case "workspace_rename_item":
-			return summarizeWorkspaceSingleItem(input.output, {
-				failureVerb: "rename",
-				successVerb: "Renamed",
-			});
+			return summarizeWorkspaceRename(input.output, input.toolInput);
 		case "workspace_edit_item":
 			return summarizeWorkspaceEdit(input.output, input.toolInput);
-		case "workspace_list_items":
-			return summarizeWorkspaceList(input.output);
 		case "workspace_read_items":
 			return summarizeWorkspaceRead(input.output);
 		case "web_search":
 			return completed(summarizeWebSearch(input.output, input.toolInput));
 		case "web_markdown":
-			return completed(`Read ${formatUrl(getString(asRecord(input.toolInput).url))}`);
+			return completed(`Read ${formatUrlWithPath(getString(asRecord(input.toolInput).url))}`);
 		case "web_links":
 			return completed(summarizeWebLinks(input.output, input.toolInput));
 		case "research_discover":
@@ -109,7 +118,7 @@ export function getFinishedToolReceipt(input: {
 		case "compute":
 			return summarizeCompute(input.output);
 		default:
-			return completed(summarizeUnknownResult(input.output));
+			return unknownFallback();
 	}
 }
 
@@ -138,10 +147,6 @@ function summarizeFailedTool(toolName: string, output: unknown, toolInput: unkno
 			return `Couldn’t update ${quoteName(
 				getBaseName(getString(outputRecord.path) ?? getPathFromToolInput(toolInput)),
 			)}`;
-		case "workspace_list_items":
-			return failedCount > 0
-				? `Couldn’t list ${formatCount(failedCount, "item")}`
-				: "Couldn’t list workspace";
 		case "workspace_read_items":
 			return failedCount > 0
 				? `Couldn’t read ${formatCount(failedCount, "item")}`
@@ -149,7 +154,7 @@ function summarizeFailedTool(toolName: string, output: unknown, toolInput: unkno
 		case "compute":
 			return "Couldn’t compute";
 		default:
-			return "Couldn’t complete";
+			return `${capitalize(formatToolNameFallback(toolName))} failed`;
 	}
 }
 
@@ -158,6 +163,7 @@ function summarizeWorkspaceBatch(
 	options: {
 		failureVerb: string;
 		successVerb: string;
+		destination?: string;
 		typeFromItem?: (item: unknown) => string;
 	},
 ): AiChatToolReceipt {
@@ -169,37 +175,33 @@ function summarizeWorkspaceBatch(
 		return failed(`Couldn’t ${options.failureVerb} ${formatCount(failedCount, "item")}`);
 	}
 
-	const successSummary =
+	const base =
 		items.length === 1
 			? summarizeSingleWorkspaceItem(items[0], options)
 			: items.length === 2
 				? `${options.successVerb} ${joinNames(items, "item")}`
 				: `${options.successVerb} ${formatCount(items.length, "item")}`;
 
+	const successSummary = options.destination ? `${base} to ${options.destination}` : base;
+
 	return completed(appendFailureCount(successSummary, failedCount));
 }
 
-function summarizeWorkspaceSingleItem(
-	output: unknown,
-	options: {
-		failureVerb: string;
-		successVerb: string;
-	},
-): AiChatToolReceipt {
+function summarizeWorkspaceRename(output: unknown, toolInput: unknown): AiChatToolReceipt {
 	const record = asRecord(output);
 	const item = asRecord(record.item);
 	const failedCount = getArray(record.failed).length;
 
 	if (!record.item && failedCount > 0) {
-		return failed(`Couldn’t ${options.failureVerb} ${formatCount(failedCount, "item")}`);
+		return failed(`Couldn’t rename ${formatCount(failedCount, "item")}`);
 	}
 
-	return completed(
-		appendFailureCount(
-			`${options.successVerb} ${quoteName(getBaseName(getString(item.path)))}`,
-			failedCount,
-		),
+	const oldName = quoteName(getBaseName(getString(item.previousPath)));
+	const newName = quoteName(
+		getBaseName(getString(item.path) ?? getString(asRecord(toolInput).name)),
 	);
+
+	return completed(appendFailureCount(`Renamed ${oldName} → ${newName}`, failedCount));
 }
 
 function summarizeSingleWorkspaceItem(
@@ -218,6 +220,7 @@ function summarizeSingleWorkspaceItem(
 function summarizeWorkspaceEdit(output: unknown, toolInput: unknown): AiChatToolReceipt {
 	const record = asRecord(output);
 	const failedCount = getArray(record.failed).length;
+	const warningCount = getArray(record.warnings).length;
 	const appliedCount = getNumber(record.applied) ?? 0;
 
 	if (appliedCount === 0 && failedCount > 0) {
@@ -236,19 +239,10 @@ function summarizeWorkspaceEdit(output: unknown, toolInput: unknown): AiChatTool
 				)}`
 			: `Updated ${quoteName(getBaseName(getString(record.path)))}`;
 
-	return completed(appendFailureCount(summary, failedCount));
-}
-
-function summarizeWorkspaceList(output: unknown): AiChatToolReceipt {
-	const record = asRecord(output);
-	const items = getArray(record.items);
-	const failedCount = getArray(record.failed).length;
-
-	if (items.length === 0 && failedCount > 0) {
-		return failed(`Couldn’t list ${formatCount(failedCount, "item")}`);
-	}
-
-	return completed(appendFailureCount(`Listed ${formatCount(items.length, "item")}`, failedCount));
+	const withFailures = appendFailureCount(summary, failedCount);
+	return completed(
+		warningCount > 0 ? `${withFailures}, ${formatCount(warningCount, "warning")}` : withFailures,
+	);
 }
 
 function summarizeWorkspaceRead(output: unknown): AiChatToolReceipt {
@@ -274,7 +268,7 @@ function summarizeWorkspaceRead(output: unknown): AiChatToolReceipt {
 
 	const summary =
 		readyItems.length === 1
-			? `Read ${quoteName(getBaseName(getString(asRecord(readyItems[0]).path)))}`
+			? formatSingleReadSummary(readyItems[0])
 			: `Read ${formatCount(readyItems.length, "item")}`;
 
 	const pendingSummary =
@@ -282,6 +276,29 @@ function summarizeWorkspaceRead(output: unknown): AiChatToolReceipt {
 			? `${summary} · ${formatCount(pendingItems.length, "item")} still processing`
 			: summary;
 	return completed(appendFailureCount(pendingSummary, failedCount));
+}
+
+function formatSingleReadSummary(result: unknown) {
+	const record = asRecord(result);
+	const name = quoteName(getBaseName(getString(record.path)));
+	const location = asRecord(record.location);
+	if (getString(location.kind) === "pages") {
+		const range = formatPageRange(getString(location.requested));
+		const total = getNumber(location.total);
+		const returned = getArray(location.returned).length;
+		if (range) {
+			return total && returned < total
+				? `Read ${name} p. ${range} of ${total}`
+				: `Read ${name} p. ${range}`;
+		}
+	}
+	return `Read ${name}`;
+}
+
+function formatPageRange(range: string | undefined) {
+	if (!range) return undefined;
+	const trimmed = range.trim();
+	return trimmed ? trimmed.replace(/\s*-\s*/g, "–") : undefined;
 }
 
 function summarizeWebSearch(output: unknown, toolInput: unknown) {
@@ -313,7 +330,7 @@ function summarizeResearchDeepen(output: unknown, toolInput: unknown) {
 		return `Found ${formatCount(record.papers.length, "paper")} related to ${quoteName(paper)}`;
 	}
 
-	return summarizeUnknownResult(output);
+	return summarizeUnknownResult(output, "research_deepen");
 }
 
 function summarizeRunningResearchDeepen(input: Record<string, unknown>) {
@@ -340,14 +357,14 @@ function summarizeCodemode(output: unknown): AiChatToolReceipt {
 	}
 
 	if (status === "error") {
-		return failed("Couldn’t complete");
+		return failed("Couldn’t work through the task");
 	}
 
 	if (status === "completed") {
-		return completed(summarizeUnknownResult(record.result));
+		return completed(summarizeUnknownResult(record.result, "orchestrate"));
 	}
 
-	return completed(summarizeUnknownResult(output));
+	return completed(summarizeUnknownResult(output, "orchestrate"));
 }
 
 function summarizeCompute(output: unknown): AiChatToolReceipt {
@@ -386,7 +403,7 @@ function summarizeCompute(output: unknown): AiChatToolReceipt {
 	);
 }
 
-function summarizeUnknownResult(output: unknown) {
+function summarizeUnknownResult(output: unknown, toolName: string) {
 	const record = asRecord(output);
 
 	if (Array.isArray(record.items)) {
@@ -409,7 +426,16 @@ function summarizeUnknownResult(output: unknown) {
 		return "Read 1 page";
 	}
 
-	return "Done";
+	return `Ran ${formatToolNameFallback(toolName)}`;
+}
+
+function formatToolNameFallback(toolName: string) {
+	const words = toolName.split(/[_-]+/).filter(Boolean);
+	return words.length > 0 ? words.join(" ") : toolName;
+}
+
+function capitalize(value: string) {
+	return value.length === 0 ? value : `${value.charAt(0).toUpperCase()}${value.slice(1)}`;
 }
 
 function completed(summary: string): AiChatToolReceipt {
@@ -479,10 +505,6 @@ function getPathFromToolInput(input: unknown) {
 	return getString(asRecord(input).path);
 }
 
-function formatPath(path: string) {
-	return path === "/" ? "workspace root" : quoteName(path);
-}
-
 function formatToolInputPaths(value: unknown) {
 	const paths = getArray(value)
 		.map((item) => getString(item))
@@ -505,6 +527,28 @@ function formatUrl(url: string | undefined) {
 	} catch {
 		return truncateReceiptValue(url);
 	}
+}
+
+function formatUrlWithPath(url: string | undefined) {
+	if (!url) {
+		return "page";
+	}
+
+	try {
+		const parsed = new URL(url);
+		const hostname = parsed.hostname.replace(/^www\./, "");
+		const path = parsed.pathname.replace(/\/$/, "");
+		return truncateReceiptValue(path ? `${hostname}${path}` : hostname);
+	} catch {
+		return truncateReceiptValue(url);
+	}
+}
+
+function formatDestinationName(path: string | undefined) {
+	if (!path) return undefined;
+	if (path === "/") return "workspace root";
+	const name = getBaseName(path);
+	return name ? quoteName(name) : undefined;
 }
 
 function truncateReceiptValue(value: string) {
