@@ -5,11 +5,11 @@ import { Streamdown, type StreamdownProps } from "streamdown";
 import "katex/dist/katex.min.css";
 import {
 	parseWorkspaceReference,
+	type WorkspaceLocation,
 	type WorkspaceReference,
-} from "#/features/workspaces/ai/workspace-reference";
+} from "#/features/workspaces/locations/workspace-location";
 import { MarkdownCodeBlock } from "#/features/workspaces/components/ai-chat/ai-chat-code-block";
 import { WorkspaceCitation } from "#/features/workspaces/components/ai-chat/WorkspaceCitation";
-import type { WorkspaceLocation } from "#/features/workspaces/locations/workspace-location";
 import { cn } from "#/lib/utils";
 
 type AiChatMessageResponseProps = Omit<

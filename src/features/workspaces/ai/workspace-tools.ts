@@ -2,9 +2,9 @@ import type { ToolSet } from "ai";
 
 import type { AIThreadContext } from "#/features/workspaces/ai/ai-thread-metadata";
 import { defineAIThreadTool } from "#/features/workspaces/ai/ai-thread-tool";
-import type { WorkspaceReferenceRecord } from "#/features/workspaces/ai/workspace-reference";
 import { workspaceReadItemsOutputSchema } from "#/features/workspaces/content/workspace-content-contract";
 import { createWorkspaceReadItemsModelOutput } from "#/features/workspaces/content/workspace-read-references";
+import type { WorkspaceReferenceRecord } from "#/features/workspaces/locations/workspace-location";
 import {
 	workspaceToolDefinitions,
 	getWorkspaceToolScopes,

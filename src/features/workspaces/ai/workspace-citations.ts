@@ -2,16 +2,14 @@ import { isToolUIPart, type UIMessage } from "ai";
 import { z } from "zod";
 
 import {
+	getWorkspaceLocationKey,
 	parseWorkspaceReference,
 	type WorkspaceReference,
 	type WorkspaceReferenceRecord,
-	workspaceReferenceRecordSchema,
-} from "#/features/workspaces/ai/workspace-reference";
-import { workspaceReadItemsOutputSchema } from "#/features/workspaces/content/workspace-content-contract";
-import {
-	getWorkspaceLocationKey,
 	type WorkspaceLocation,
+	workspaceReferenceRecordSchema,
 } from "#/features/workspaces/locations/workspace-location";
+import { workspaceReadItemsOutputSchema } from "#/features/workspaces/content/workspace-content-contract";
 
 export const WORKSPACE_CITATIONS_DATA_PART_TYPE = "data-workspace-citations";
 const MAX_WORKSPACE_CITATIONS_PER_MESSAGE = 50;

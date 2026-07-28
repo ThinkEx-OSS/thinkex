@@ -1,16 +1,14 @@
 import {
 	createWorkspaceReferenceRecords,
+	getWorkspaceLocationKey,
+	type WorkspaceLocation,
 	type WorkspaceReference,
 	type WorkspaceReferenceRecord,
-} from "#/features/workspaces/ai/workspace-reference";
+} from "#/features/workspaces/locations/workspace-location";
 import type {
 	WorkspaceContentReadResult,
 	WorkspaceReadItemsOutput,
 } from "#/features/workspaces/content/workspace-content-contract";
-import {
-	getWorkspaceLocationKey,
-	type WorkspaceLocation,
-} from "#/features/workspaces/locations/workspace-location";
 
 /**
  * Allocates durable-location records for every ready workspace read.

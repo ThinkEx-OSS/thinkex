@@ -8,7 +8,7 @@ import type {
 	AIThreadContext,
 	AIThreadPromptScope,
 } from "#/features/workspaces/ai/ai-thread-metadata";
-import type { WorkspaceReferenceRecord } from "#/features/workspaces/ai/workspace-reference";
+import type { WorkspaceReferenceRecord } from "#/features/workspaces/locations/workspace-location";
 import {
 	requireAiToolDefinition,
 	type AiToolModelPolicy,

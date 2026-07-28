@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-import { workspaceReferenceRecordSchema } from "#/features/workspaces/ai/workspace-reference";
 import { workspaceRelationKindSchema } from "#/features/workspaces/contracts";
+import { workspaceReferenceRecordSchema } from "#/features/workspaces/locations/workspace-location";
 import { workspaceFileAssetKindSchema } from "#/features/workspaces/model/workspace-file";
 
 const workspacePathSchema = z.string().min(1);

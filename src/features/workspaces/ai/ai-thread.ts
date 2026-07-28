@@ -29,7 +29,6 @@ import {
 import type { AIInspectorSnapshot } from "#/features/workspaces/ai/ai-inspector";
 import { resolveChatAttachmentModelMessages } from "#/features/workspaces/ai/chat-attachment-model";
 import type { AIThreadContext } from "#/features/workspaces/ai/ai-thread-metadata";
-import type { WorkspaceReferenceRecord } from "#/features/workspaces/ai/workspace-reference";
 import { AIThreadTelemetryRecorder } from "#/features/workspaces/ai/ai-thread-telemetry-recorder";
 import {
 	createAIThreadTools,
@@ -47,6 +46,7 @@ import {
 	type WorkspaceAiChatModelId,
 } from "#/features/workspaces/ai/models";
 import type { UserAIStore } from "#/features/workspaces/ai/user-ai-agents";
+import type { WorkspaceReferenceRecord } from "#/features/workspaces/locations/workspace-location";
 import {
 	checkWorkspaceAiMessageAccess,
 	trackWorkspaceAiMessageUsage,

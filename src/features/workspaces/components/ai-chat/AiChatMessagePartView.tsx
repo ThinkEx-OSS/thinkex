@@ -1,7 +1,6 @@
 import { isToolUIPart } from "ai";
 import { LinkIcon } from "lucide-react";
 
-import type { WorkspaceReference } from "#/features/workspaces/ai/workspace-reference";
 import {
 	AiChatAttachmentGroup,
 	AiChatAttachmentItem,
@@ -14,7 +13,10 @@ import type { AiChatToolGroupPart } from "#/features/workspaces/components/ai-ch
 import { AiChatMessageResponse } from "#/features/workspaces/components/ai-chat/AiChatMessageResponse";
 import { AiChatToolActivityRow } from "#/features/workspaces/components/ai-chat/AiChatToolActivityRow";
 import type { AiChatMessagePart } from "#/features/workspaces/components/ai-chat/types";
-import type { WorkspaceLocation } from "#/features/workspaces/locations/workspace-location";
+import type {
+	WorkspaceLocation,
+	WorkspaceReference,
+} from "#/features/workspaces/locations/workspace-location";
 
 export function AiChatMessagePartView({
 	isStreaming = false,

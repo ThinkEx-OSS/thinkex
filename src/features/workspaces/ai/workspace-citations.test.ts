@@ -6,7 +6,7 @@ import {
 	reconcileWorkspaceMessageCitations,
 	stripWorkspaceCitationTags,
 } from "#/features/workspaces/ai/workspace-citations";
-import type { WorkspaceReferenceRecord } from "#/features/workspaces/ai/workspace-reference";
+import type { WorkspaceReferenceRecord } from "#/features/workspaces/locations/workspace-location";
 
 const first = reference("wr_AAAAAAAA", "item-1");
 const second = reference("wr_BBBBBBBB", "item-2");
