@@ -9,7 +9,7 @@ import { Transform } from "node:stream";
 import { promisify } from "node:util";
 
 const port = 8080;
-const maxInputBytes = 100_000_000;
+const maxInputBytes = 100 * 1024 * 1024;
 const execFileAsync = promisify(execFile);
 
 createServer(async (request, response) => {

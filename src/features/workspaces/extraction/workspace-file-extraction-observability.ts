@@ -1,3 +1,5 @@
+import type { WorkflowStep } from "cloudflare:workers";
+
 import type {
 	LiteParseStageOutcome,
 	MarkdownExtractionProviderId,
@@ -109,6 +111,32 @@ export function recordWorkspaceFileExtractionOutcome(input: WorkspaceFileExtract
 		requestContext,
 		schedule: input.schedule,
 	});
+}
+
+export async function recordWorkspaceFileExtractionOutcomeStep(
+	step: WorkflowStep,
+	name: string,
+	input: WorkspaceFileExtractionOutcome,
+) {
+	try {
+		await step.do(name, async () => {
+			recordWorkspaceFileExtractionOutcome(input);
+			return { outcome: input.outcome };
+		});
+	} catch (error) {
+		recordOperationalFailure({
+			distinctId: input.params.actorUserId ?? undefined,
+			error,
+			event: "workspace_file_extraction_observability",
+			fields: {
+				item_id: input.params.itemId,
+				recorded_outcome: input.outcome,
+				workflow_id: input.instanceId,
+				workspace_id: input.params.workspaceId,
+			},
+			schedule: input.schedule,
+		});
+	}
 }
 
 function getErrorType(error: unknown) {

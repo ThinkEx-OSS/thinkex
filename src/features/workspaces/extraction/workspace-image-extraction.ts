@@ -4,7 +4,7 @@ import type {
 	StagedPageProjection,
 	WorkspaceFileExtractionWorkflowParams,
 } from "#/features/workspaces/extraction/types";
-import { recordWorkspaceFileExtractionOutcome } from "#/features/workspaces/extraction/workspace-file-extraction-observability";
+import { recordWorkspaceFileExtractionOutcomeStep } from "#/features/workspaces/extraction/workspace-file-extraction-observability";
 import {
 	markWorkspaceFileExtractionFailed,
 	publishWorkspaceFileProjection,
@@ -43,25 +43,21 @@ export async function runWorkspaceImageExtraction(input: {
 			false,
 		);
 
-		await input.step.do("record extraction outcome", async () => {
-			recordWorkspaceFileExtractionOutcome({
-				durationMs: Date.now() - input.event.timestamp.getTime(),
-				enhancement: {
-					durationMs: Date.now() - startedAt,
-					outcome: "success",
-				},
-				instanceId: input.event.instanceId,
-				liteParse,
+		await recordWorkspaceFileExtractionOutcomeStep(input.step, "record extraction outcome", {
+			durationMs: Date.now() - input.event.timestamp.getTime(),
+			enhancement: {
+				durationMs: Date.now() - startedAt,
 				outcome: "success",
-				pageCount: extraction.pageCount,
-				params: input.params,
-				provider: extraction.provider,
-				providerMode: extraction.providerMode,
-				routeReason: extraction.routeReason,
-				schedule: input.schedule,
-			});
-
-			return { outcome: "success" };
+			},
+			instanceId: input.event.instanceId,
+			liteParse,
+			outcome: "success",
+			pageCount: extraction.pageCount,
+			params: input.params,
+			provider: extraction.provider,
+			providerMode: extraction.providerMode,
+			routeReason: extraction.routeReason,
+			schedule: input.schedule,
 		});
 
 		return result;
@@ -73,23 +69,19 @@ export async function runWorkspaceImageExtraction(input: {
 			input.event.instanceId,
 			error,
 		);
-		await input.step.do("record extraction failure", async () => {
-			recordWorkspaceFileExtractionOutcome({
-				durationMs: Date.now() - input.event.timestamp.getTime(),
-				enhancement: {
-					durationMs: Date.now() - startedAt,
-					error,
-					outcome: "error",
-				},
+		await recordWorkspaceFileExtractionOutcomeStep(input.step, "record extraction failure", {
+			durationMs: Date.now() - input.event.timestamp.getTime(),
+			enhancement: {
+				durationMs: Date.now() - startedAt,
 				error,
-				instanceId: input.event.instanceId,
-				liteParse,
 				outcome: "error",
-				params: input.params,
-				schedule: input.schedule,
-			});
-
-			return { outcome: "error" };
+			},
+			error,
+			instanceId: input.event.instanceId,
+			liteParse,
+			outcome: "error",
+			params: input.params,
+			schedule: input.schedule,
 		});
 
 		throw error;

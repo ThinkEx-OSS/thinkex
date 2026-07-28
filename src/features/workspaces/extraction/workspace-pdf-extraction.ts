@@ -11,7 +11,7 @@ import type {
 	LiteParseStageOutcome,
 	WorkspaceFileExtractionWorkflowParams,
 } from "#/features/workspaces/extraction/types";
-import { recordWorkspaceFileExtractionOutcome } from "#/features/workspaces/extraction/workspace-file-extraction-observability";
+import { recordWorkspaceFileExtractionOutcomeStep } from "#/features/workspaces/extraction/workspace-file-extraction-observability";
 import {
 	markWorkspaceFileExtractionFailed,
 	publishWorkspaceFileProjection,
@@ -32,12 +32,9 @@ interface PdfExtractionInput {
 
 export async function runWorkspacePdfExtraction(input: PdfExtractionInput) {
 	const document = await uploadSourceDocument(input);
-
-	try {
-		return await extractPdf(input, document);
-	} finally {
-		await deleteSourceDocument(input, document.documentId);
-	}
+	const result = await extractPdf(input, document);
+	await deleteSourceDocument(input, document.documentId);
+	return result;
 }
 
 async function extractPdf(input: PdfExtractionInput, document: FileRouterDocumentReference) {
@@ -87,25 +84,21 @@ async function extractPdf(input: PdfExtractionInput, document: FileRouterDocumen
 			false,
 		);
 
-		await input.step.do("record extraction outcome", async () => {
-			recordWorkspaceFileExtractionOutcome({
-				durationMs: Date.now() - input.event.timestamp.getTime(),
-				enhancement: {
-					durationMs: Date.now() - failureStartedAt,
-					outcome: "success",
-				},
-				instanceId: input.event.instanceId,
-				liteParse,
+		await recordWorkspaceFileExtractionOutcomeStep(input.step, "record extraction outcome", {
+			durationMs: Date.now() - input.event.timestamp.getTime(),
+			enhancement: {
+				durationMs: Date.now() - failureStartedAt,
 				outcome: "success",
-				pageCount: extraction.pageCount,
-				params: input.params,
-				provider: extraction.provider,
-				providerMode: extraction.providerMode,
-				routeReason: extraction.routeReason,
-				schedule: input.schedule,
-			});
-
-			return { outcome: "success" };
+			},
+			instanceId: input.event.instanceId,
+			liteParse,
+			outcome: "success",
+			pageCount: extraction.pageCount,
+			params: input.params,
+			provider: extraction.provider,
+			providerMode: extraction.providerMode,
+			routeReason: extraction.routeReason,
+			schedule: input.schedule,
 		});
 
 		return result;
@@ -184,8 +177,10 @@ async function handlePdfExtractionFailure(
 	error: unknown,
 ) {
 	if (liteParse.outcome === "success") {
-		await input.step.do("record partial extraction outcome", async () => {
-			recordWorkspaceFileExtractionOutcome({
+		await recordWorkspaceFileExtractionOutcomeStep(
+			input.step,
+			"record partial extraction outcome",
+			{
 				durationMs: Date.now() - input.event.timestamp.getTime(),
 				enhancement: {
 					durationMs: Date.now() - failureStartedAt,
@@ -201,10 +196,8 @@ async function handlePdfExtractionFailure(
 				providerMode: "fast",
 				routeReason: "filerouter_liteparse_fallback",
 				schedule: input.schedule,
-			});
-
-			return { outcome: "partial" };
-		});
+			},
+		);
 
 		return {
 			pageCount: liteParse.pageCount,
@@ -254,23 +247,19 @@ async function failPdfExtraction(
 		input.event.instanceId,
 		error,
 	);
-	await input.step.do("record extraction failure", async () => {
-		recordWorkspaceFileExtractionOutcome({
-			durationMs: Date.now() - input.event.timestamp.getTime(),
-			enhancement: {
-				durationMs: Date.now() - failureStartedAt,
-				error,
-				outcome: "error",
-			},
+	await recordWorkspaceFileExtractionOutcomeStep(input.step, "record extraction failure", {
+		durationMs: Date.now() - input.event.timestamp.getTime(),
+		enhancement: {
+			durationMs: Date.now() - failureStartedAt,
 			error,
-			instanceId: input.event.instanceId,
-			liteParse,
 			outcome: "error",
-			params: input.params,
-			schedule: input.schedule,
-		});
-
-		return { outcome: "error" };
+		},
+		error,
+		instanceId: input.event.instanceId,
+		liteParse,
+		outcome: "error",
+		params: input.params,
+		schedule: input.schedule,
 	});
 
 	throw error;
