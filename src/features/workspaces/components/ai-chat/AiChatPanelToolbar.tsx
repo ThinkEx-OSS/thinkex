@@ -10,7 +10,7 @@ import {
 	Trash2,
 	X,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Badge } from "#/components/ui/badge";
 import {
@@ -29,6 +29,8 @@ import {
 import { formatWorkspaceRecency } from "#/features/workspaces/model/display";
 import { statusBadgeClassName } from "#/lib/design-system-colors";
 import { cn } from "#/lib/utils";
+
+const PENDING_DELETE_TIMEOUT_MS = 2500;
 
 interface AiChatPanelToolbarProps {
 	activeThreadId?: string;
@@ -58,6 +60,28 @@ export default function AiChatPanelToolbar({
 	threads,
 }: AiChatPanelToolbarProps) {
 	const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+	const [pendingDeleteThreadId, setPendingDeleteThreadId] = useState<string>();
+
+	useEffect(() => {
+		if (!pendingDeleteThreadId) {
+			return;
+		}
+
+		const timeoutId = window.setTimeout(() => {
+			setPendingDeleteThreadId(undefined);
+		}, PENDING_DELETE_TIMEOUT_MS);
+
+		return () => {
+			window.clearTimeout(timeoutId);
+		};
+	}, [pendingDeleteThreadId]);
+
+	const handleHistoryOpenChange = (open: boolean) => {
+		setIsHistoryOpen(open);
+		if (!open) {
+			setPendingDeleteThreadId(undefined);
+		}
+	};
 
 	const handleNewChat = () => {
 		onNewChat();
@@ -70,8 +94,13 @@ export default function AiChatPanelToolbar({
 	};
 
 	const handleDeleteThread = (thread: AIThreadSummary) => {
+		if (pendingDeleteThreadId !== thread.id) {
+			setPendingDeleteThreadId(thread.id);
+			return;
+		}
+
 		onDeleteThread(thread);
-		setIsHistoryOpen(false);
+		setPendingDeleteThreadId(undefined);
 	};
 
 	return (
@@ -81,7 +110,7 @@ export default function AiChatPanelToolbar({
 				className="pointer-events-auto inline-flex rounded-bl-md bg-background p-1 shadow-[0_18px_40px_-28px_rgba(0,0,0,0.35)]"
 			>
 				<WorkspaceToolbarGroup className="gap-1">
-					<DropdownMenu open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
+					<DropdownMenu open={isHistoryOpen} onOpenChange={handleHistoryOpenChange}>
 						<DropdownMenuTrigger
 							render={<WorkspaceToolbarIconButton aria-label="Open chat history" />}
 						>
@@ -98,42 +127,61 @@ export default function AiChatPanelToolbar({
 								<>
 									<DropdownMenuSeparator />
 									<DropdownMenuGroup>
-										{threads.map((thread) => (
-											<div key={thread.id} className="group/thread-row relative">
-												<DropdownMenuItem
-													className={cn(
-														"min-w-0 items-start py-2 pr-9",
-														thread.id === activeThreadId && "bg-accent",
-													)}
-													onClick={() => handleSelectThread(thread.id)}
-												>
-													<span className="grid min-w-0 flex-1 gap-1">
-														<span className="truncate font-medium text-sm leading-none">
-															{thread.title}
-														</span>
-														<span className="flex min-w-0 items-center gap-1.5 text-muted-foreground text-xs leading-none">
-															<span className="truncate">
-																{formatWorkspaceRecency(thread.lastActivityAt)}
+										{threads.map((thread) => {
+											const isPendingDelete = pendingDeleteThreadId === thread.id;
+
+											return (
+												<div key={thread.id} className="group/thread-row relative">
+													<DropdownMenuItem
+														className={cn(
+															"min-w-0 items-start py-2 pr-9",
+															thread.id === activeThreadId && "bg-accent",
+														)}
+														onClick={() => handleSelectThread(thread.id)}
+													>
+														<span className="grid min-w-0 flex-1 gap-1">
+															<span className="truncate font-medium text-sm leading-none">
+																{thread.title}
 															</span>
-															<ThreadStatusBadge
-																thread={thread}
-																isActive={thread.id === activeThreadId}
-																isRecovering={
-																	thread.id === activeThreadId && activeThreadIsRecovering
-																}
-															/>
+															<span className="flex min-w-0 items-center gap-1.5 text-muted-foreground text-xs leading-none">
+																<span className="truncate">
+																	{formatWorkspaceRecency(thread.lastActivityAt)}
+																</span>
+																<ThreadStatusBadge
+																	thread={thread}
+																	isActive={thread.id === activeThreadId}
+																	isRecovering={
+																		thread.id === activeThreadId && activeThreadIsRecovering
+																	}
+																/>
+															</span>
 														</span>
-													</span>
-												</DropdownMenuItem>
-												<DropdownMenuItem
-													className="-translate-y-1/2 absolute top-1/2 right-1 size-7 justify-center p-0 text-muted-foreground opacity-0 hover:text-destructive hover:*:[svg]:text-destructive focus-visible:opacity-100 group-hover/thread-row:opacity-100"
-													onClick={() => handleDeleteThread(thread)}
-												>
-													<Trash2 className="size-3.5" aria-hidden="true" />
-													<span className="sr-only">Delete {thread.title}</span>
-												</DropdownMenuItem>
-											</div>
-										))}
+													</DropdownMenuItem>
+													<DropdownMenuItem
+														closeOnClick={false}
+														variant={isPendingDelete ? "destructive" : "default"}
+														className={cn(
+															"-translate-y-1/2 absolute top-1/2 right-1 size-7 justify-center p-0 opacity-0 focus-visible:opacity-100 group-hover/thread-row:opacity-100",
+															isPendingDelete
+																? "text-destructive opacity-100 hover:text-destructive"
+																: "text-muted-foreground hover:text-destructive hover:*:[svg]:text-destructive",
+														)}
+														onClick={() => handleDeleteThread(thread)}
+													>
+														{isPendingDelete ? (
+															<Check className="size-3.5" aria-hidden="true" />
+														) : (
+															<Trash2 className="size-3.5" aria-hidden="true" />
+														)}
+														<span className="sr-only">
+															{isPendingDelete
+																? `Confirm delete ${thread.title}`
+																: `Delete ${thread.title}`}
+														</span>
+													</DropdownMenuItem>
+												</div>
+											);
+										})}
 									</DropdownMenuGroup>
 								</>
 							) : null}

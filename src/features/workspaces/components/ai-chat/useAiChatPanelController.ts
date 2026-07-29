@@ -15,7 +15,7 @@ type UseAiChatPanelControllerInput = {
 	workspaceId: string;
 };
 
-type AiChatThreadForDialog = {
+type AiChatThreadForDelete = {
 	id: string;
 	title: string;
 };
@@ -27,8 +27,6 @@ export function useAiChatPanelController({ workspaceId }: UseAiChatPanelControll
 	const setChatSurfaceMode = useWorkspaceUiStore((state) => state.setChatSurfaceMode);
 	const setActiveAiChatThread = useWorkspaceUiStore((state) => state.setActiveAiChatThread);
 	const setAiChatModel = useWorkspaceUiStore((state) => state.setAiChatModel);
-	const [isDeleteThreadDialogOpen, setIsDeleteThreadDialogOpen] = useState(false);
-	const [threadPendingDeletion, setThreadPendingDeletion] = useState<AiChatThreadForDialog>();
 	const [markingViewedThreadIds] = useState(() => new Set<string>());
 	const {
 		createThread,
@@ -111,21 +109,13 @@ export function useAiChatPanelController({ workspaceId }: UseAiChatPanelControll
 
 	return {
 		activeThreadId: resolvedActiveThreadId,
-		deleteThreadDialog: {
-			onClosed: () => setThreadPendingDeletion(undefined),
-			onConfirm: (threadId: string) => void handleDeleteThread(threadId),
-			onOpenChange: setIsDeleteThreadDialogOpen,
-			open: isDeleteThreadDialogOpen,
-			thread: threadPendingDeletion,
-		},
 		getThreadInspectorSnapshot,
 		isCreatingThread,
 		isMaximized,
 		modelId,
 		onClose: () => setChatSurfaceMode(workspaceId, "hidden"),
-		onDeleteThread: (thread: AiChatThreadForDialog) => {
-			setThreadPendingDeletion(thread);
-			setIsDeleteThreadDialogOpen(true);
+		onDeleteThread: (thread: AiChatThreadForDelete) => {
+			void handleDeleteThread(thread.id);
 		},
 		onMaximize: () => setChatSurfaceMode(workspaceId, "fullscreen"),
 		onModelChange: (nextModelId: AiChatModelId) => setAiChatModel(nextModelId),

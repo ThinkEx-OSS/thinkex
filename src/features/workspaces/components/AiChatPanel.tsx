@@ -1,15 +1,5 @@
 import { Suspense, useState } from "react";
 import {
-	AlertDialog,
-	AlertDialogAction,
-	AlertDialogCancel,
-	AlertDialogContent,
-	AlertDialogDescription,
-	AlertDialogFooter,
-	AlertDialogHeader,
-	AlertDialogTitle,
-} from "#/components/ui/alert-dialog";
-import {
 	MessageScroller,
 	MessageScrollerContent,
 	MessageScrollerItem,
@@ -48,7 +38,6 @@ function AiChatPanelLayout({ context }: AiChatPanelProps) {
 	const [activeThreadIsRecovering, setActiveThreadIsRecovering] = useState(false);
 	const {
 		activeThreadId,
-		deleteThreadDialog,
 		getThreadInspectorSnapshot,
 		isCreatingThread,
 		isMaximized,
@@ -101,43 +90,6 @@ function AiChatPanelLayout({ context }: AiChatPanelProps) {
 					title="Drop files here"
 				/>
 			) : null}
-
-			<AlertDialog
-				open={deleteThreadDialog.open}
-				onOpenChange={deleteThreadDialog.onOpenChange}
-				onOpenChangeComplete={(nextOpen) => {
-					if (!nextOpen) {
-						deleteThreadDialog.onClosed();
-					}
-				}}
-			>
-				<AlertDialogContent>
-					<AlertDialogHeader>
-						<AlertDialogTitle>Delete chat?</AlertDialogTitle>
-						<AlertDialogDescription>
-							This cannot be undone.
-							{deleteThreadDialog.thread
-								? ` "${deleteThreadDialog.thread.title}" will be removed.`
-								: ""}
-						</AlertDialogDescription>
-					</AlertDialogHeader>
-					<AlertDialogFooter>
-						<AlertDialogCancel>Cancel</AlertDialogCancel>
-						<AlertDialogAction
-							variant="destructive"
-							onClick={() => {
-								if (deleteThreadDialog.thread) {
-									deleteThreadDialog.onConfirm(deleteThreadDialog.thread.id);
-								}
-
-								deleteThreadDialog.onOpenChange(false);
-							}}
-						>
-							Delete
-						</AlertDialogAction>
-					</AlertDialogFooter>
-				</AlertDialogContent>
-			</AlertDialog>
 		</aside>
 	);
 }
