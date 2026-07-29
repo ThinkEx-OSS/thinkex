@@ -1,3 +1,5 @@
+import type { JSONValue } from "ai";
+
 import {
 	createWorkspaceReferenceRecords,
 	getWorkspaceLocationKey,
@@ -5,9 +7,10 @@ import {
 	type WorkspaceReference,
 	type WorkspaceReferenceRecord,
 } from "#/features/workspaces/locations/workspace-location";
-import type {
-	WorkspaceContentReadResult,
-	WorkspaceReadItemsOutput,
+import {
+	workspaceReadItemsOutputSchema,
+	type WorkspaceContentReadResult,
+	type WorkspaceReadItemsOutput,
 } from "#/features/workspaces/content/workspace-content-contract";
 
 /**
@@ -106,6 +109,27 @@ export function createWorkspaceReadItemsModelOutput(output: WorkspaceReadItemsOu
 			};
 		}),
 	};
+}
+
+/**
+ * Builds the model-visible projection for a persisted workspace read result,
+ * tolerating outputs the agents SDK has structurally truncated.
+ *
+ * `toModelOutput` runs inside convertToModelMessages against persisted tool
+ * results, so it re-validates the output on every replay of a thread. Truncation
+ * replaces reference records with `__truncated` markers that no longer satisfy
+ * the strict schema, so a throwing parse here would wedge the thread on every
+ * subsequent turn. When validation fails, the raw truncated output is passed
+ * straight through instead — matching how the rest of this feature degrades on
+ * unparseable records rather than throwing.
+ *
+ * @param output - Persisted workspace read output, possibly truncated.
+ * @returns The ref-annotated projection, or the raw output when unparseable.
+ */
+export function projectWorkspaceReadItemsModelOutput(output: unknown): JSONValue {
+	const parsed = workspaceReadItemsOutputSchema.safeParse(output);
+
+	return parsed.success ? createWorkspaceReadItemsModelOutput(parsed.data) : (output as JSONValue);
 }
 
 function omitWorkspaceReadItemId<T extends { readonly itemId: string }>(

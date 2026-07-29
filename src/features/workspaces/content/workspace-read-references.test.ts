@@ -7,6 +7,7 @@ import type {
 import {
 	createWorkspaceReadItemsModelOutput,
 	createWorkspaceReadReferences,
+	projectWorkspaceReadItemsModelOutput,
 } from "#/features/workspaces/content/workspace-read-references";
 
 describe("workspace read references", () => {
@@ -61,6 +62,37 @@ describe("workspace read references", () => {
 		]);
 
 		expect(references).toHaveLength(1);
+	});
+
+	it("projects refs for a valid persisted output", () => {
+		const results = [documentResult()] satisfies WorkspaceContentReadResult[];
+		const output = {
+			references: createWorkspaceReadReferences(results),
+			results,
+		};
+
+		const projected = projectWorkspaceReadItemsModelOutput(output);
+
+		expect(projected).toEqual(createWorkspaceReadItemsModelOutput(output));
+		expect(JSON.stringify(projected)).not.toContain("document-1");
+	});
+
+	it("passes truncated output through instead of throwing when validation fails", () => {
+		// Mirrors what the agents SDK's truncateToolOutput produces: reference
+		// records it cannot shrink are replaced with structural markers, which no
+		// longer satisfy the strict reference-record schema. A throwing parse here
+		// would permanently wedge the thread on every subsequent replay.
+		const truncatedOutput = {
+			references: [{ __truncated: true, __truncatedChars: 4096 }],
+			results: [documentResult()],
+		};
+
+		let projected: unknown;
+		expect(() => {
+			projected = projectWorkspaceReadItemsModelOutput(truncatedOutput);
+		}).not.toThrow();
+
+		expect(projected).toBe(truncatedOutput);
 	});
 
 	it("uses an item ref for extracted images that have no page-navigation surface", () => {
