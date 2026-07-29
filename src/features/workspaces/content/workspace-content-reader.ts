@@ -8,6 +8,10 @@ import type {
 	DocumentMarkdownChunkReadResult,
 } from "#/features/workspaces/documents/document-markdown-chunk";
 import { readWorkspacePageProjection } from "#/features/workspaces/extraction/workspace-page-projection";
+import {
+	resolveWorkspaceProjectionReadiness,
+	type WorkspaceProjectionReadiness,
+} from "#/features/workspaces/extraction/workspace-projection-readiness";
 import type { WorkspaceKernelClient } from "#/features/workspaces/kernel/workspace-kernel-access";
 import { resolveWorkspaceFileTypeFromItem } from "#/features/workspaces/model/workspace-file";
 import { serializeWorkspaceRelations } from "#/features/workspaces/operations/relations";
@@ -190,24 +194,12 @@ async function readFile(input: {
 		return { code: "unsupported_item_type", path: input.path, status: "failed" };
 	}
 
-	const projection = await input.kernel.readFileProjection({
-		itemId: input.item.id,
-		format: "pages",
-	});
-	if (
-		!projection ||
-		projection.status === "not_started" ||
-		projection.status === "queued" ||
-		projection.status === "processing"
-	) {
-		return { path: input.path, status: "pending", type: "file" };
-	}
-	if (
-		projection.status !== "ready" ||
-		projection.objectKey === null ||
-		projection.sourceHash === null
-	) {
-		return { code: "projection_failed", path: input.path, status: "failed", type: "file" };
+	const projection = resolveWorkspaceProjectionReadiness(
+		await input.kernel.readFileProjection({ itemId: input.item.id, format: "pages" }),
+		Date.now(),
+	);
+	if (projection.state !== "ready") {
+		return describeUnreadableProjection(projection, input.path);
 	}
 
 	const encodedCursor = input.request.mode === "continue" ? input.request.cursor : undefined;
@@ -223,7 +215,7 @@ async function readFile(input: {
 		pageRead = await readWorkspacePageProjection({
 			bucket: input.bucket,
 			expectedSourceHash: projection.sourceHash,
-			manifestObjectKey: projection.objectKey,
+			manifestObjectKey: projection.manifestObjectKey,
 			pages:
 				cursor?.kind === "file"
 					? String(cursor.nextPage)
@@ -241,6 +233,7 @@ async function readFile(input: {
 	return {
 		assetKind: fileType.assetKind,
 		content: pageRead.content,
+		...(pageRead.emptyPages.length > 0 ? { emptyPages: pageRead.emptyPages } : {}),
 		format: "markdown",
 		itemId: input.item.id,
 		location: { kind: "pages", ...pageRead.pages },
@@ -256,9 +249,49 @@ async function readFile(input: {
 					}),
 				}),
 		path: input.path,
+		...(projection.provisional ? { provisional: true } : {}),
 		status: "ready",
 		type: "file",
 	};
+}
+
+/**
+ * Maps a non-ready projection onto the read result the model sees.
+ *
+ * @param projection - Readiness for a projection that is not serving content.
+ * @param path - Absolute workspace path that was read.
+ * @returns The pending or failed read result for that path.
+ */
+function describeUnreadableProjection(
+	projection: Exclude<WorkspaceProjectionReadiness, { state: "ready" }>,
+	path: string,
+): WorkspaceContentReadResult {
+	if (projection.state === "pending") {
+		return {
+			elapsedSeconds: projection.elapsedSeconds,
+			path,
+			phase: projection.phase,
+			retryAfterSeconds: projection.retryAfterSeconds,
+			status: "pending",
+			type: "file",
+		};
+	}
+
+	if (projection.state === "stalled") {
+		return { code: "extraction_stalled", path, status: "failed", type: "file" };
+	}
+
+	if (projection.state === "failed") {
+		return {
+			code: "extraction_failed",
+			...(projection.message ? { message: projection.message } : {}),
+			path,
+			status: "failed",
+			type: "file",
+		};
+	}
+
+	return { code: "projection_failed", path, status: "failed", type: "file" };
 }
 
 async function attachRelationPaths(

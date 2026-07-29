@@ -3,11 +3,11 @@ import { WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from "cloud
 import { publishLiteParseProjection } from "#/features/workspaces/extraction/liteparse-projection";
 import { recordWorkspaceFileExtractionOutcome } from "#/features/workspaces/extraction/workspace-file-extraction-observability";
 import { createMarkdownExtractionProvider } from "#/features/workspaces/extraction/providers/index";
+import type { WorkspaceFileExtractionWorkflowParams } from "#/features/workspaces/extraction/types";
 import type {
-	MarkdownExtractionProviderId,
-	MarkdownExtractionProviderMode,
-	WorkspaceFileExtractionWorkflowParams,
-} from "#/features/workspaces/extraction/types";
+	WorkspaceFileExtractionMode,
+	WorkspaceFileExtractionProviderId,
+} from "#/features/workspaces/model/workspace-file/types";
 import { getWorkspaceFileSourceObject } from "#/features/workspaces/extraction/workspace-file-source";
 import { writeWorkspacePageProjection } from "#/features/workspaces/extraction/workspace-page-projection";
 import { getWorkspaceKernelFromEnv } from "#/features/workspaces/kernel/workspace-kernel-access";
@@ -42,8 +42,8 @@ export class WorkspaceFileExtractionWorkflow extends WorkflowEntrypoint<
 		let extraction: StagedPageExtractionResult;
 		let result: {
 			pageCount: number;
-			provider: MarkdownExtractionProviderId;
-			providerMode: MarkdownExtractionProviderMode;
+			provider: WorkspaceFileExtractionProviderId;
+			providerMode: WorkspaceFileExtractionMode;
 			status: "ready";
 		};
 
@@ -241,8 +241,8 @@ export class WorkspaceFileExtractionWorkflow extends WorkflowEntrypoint<
 interface StagedPageExtractionResult {
 	manifestObjectKey: string;
 	markdownLength: number;
-	provider: MarkdownExtractionProviderId;
-	providerMode: MarkdownExtractionProviderMode;
+	provider: WorkspaceFileExtractionProviderId;
+	providerMode: WorkspaceFileExtractionMode;
 	metadata: Record<string, string | number | boolean | null>;
 	pageCount: number;
 	routeReason: string;

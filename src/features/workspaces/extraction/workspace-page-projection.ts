@@ -148,7 +148,7 @@ export async function readWorkspacePageProjection(input: {
 	expectedSourceHash: string;
 	manifestObjectKey: string;
 	pages?: string;
-}): Promise<{ content: string; pages: WorkspaceReadPages }> {
+}): Promise<{ content: string; emptyPages: number[]; pages: WorkspaceReadPages }> {
 	const manifest = await readWorkspacePageProjectionManifest(input.bucket, input.manifestObjectKey);
 	if (manifest.sourceHash !== input.expectedSourceHash) {
 		throw new Error("Workspace page projection source does not match its published revision.");
@@ -200,6 +200,9 @@ export async function readWorkspacePageProjection(input: {
 
 	return {
 		content: pages.map(formatProjectionPage).join("\n\n"),
+		// Surfaced so callers can distinguish a genuinely blank page from one the
+		// fast extraction pass could not read yet.
+		emptyPages: pages.filter((page) => page.markdown.length === 0).map((page) => page.pageNumber),
 		pages: {
 			requested,
 			returned: selectedPageNumbers,
