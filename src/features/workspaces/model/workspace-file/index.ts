@@ -30,12 +30,8 @@ export {
 } from "#/features/workspaces/model/workspace-file/resolve";
 export {
 	type WorkspaceFileAssetKind,
-	type WorkspaceFileExtractionMode,
-	type WorkspaceFileExtractionProviderId,
-	type WorkspaceFileExtractionRoute,
 	workspaceFileAssetKindSchema,
 	workspaceFileAssetKinds,
-	workspaceFileExtractionProviders,
 } from "#/features/workspaces/model/workspace-file/types";
 export {
 	getWorkspaceFileContentUrl,

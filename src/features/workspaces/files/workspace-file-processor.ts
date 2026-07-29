@@ -3,7 +3,6 @@ import { Container, getRandom } from "@cloudflare/containers";
 const workspaceFileProcessorPort = 8080;
 const workspaceFileProcessorPoolSize = 2;
 const processorRequestTimeoutMs = {
-	"/parse/pdf": 10 * 60_000,
 	"/prepare/pdf": 2 * 60_000,
 	"/preview/image": 2 * 60_000,
 } as const;
@@ -21,7 +20,7 @@ export async function requestWorkspaceFileProcessor(
 		body: ReadableStream<Uint8Array>;
 		contentType: string;
 		fileName?: string;
-		path: "/parse/pdf" | "/prepare/pdf" | "/preview/image";
+		path: "/prepare/pdf" | "/preview/image";
 		sizeBytes: number;
 	},
 ) {

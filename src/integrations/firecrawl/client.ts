@@ -68,10 +68,6 @@ export function getRecordArrayValue(value: unknown, key: string) {
 	return Array.isArray(field) ? field : [];
 }
 
-export function getFirstArrayRecord(value: unknown) {
-	return Array.isArray(value) ? (value[0] ?? null) : null;
-}
-
 export function getStringValue(value: unknown, key: string) {
 	const field = getRecordValue(value, key);
 	return typeof field === "string" && field.trim().length > 0 ? field : null;

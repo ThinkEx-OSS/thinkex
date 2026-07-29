@@ -1,10 +1,7 @@
 import { FileText, Image, type LucideIcon } from "lucide-react";
 
 import { normalizeWorkspaceItemName } from "#/features/workspaces/defaults";
-import type {
-	WorkspaceFileAssetKind,
-	WorkspaceFileExtractionRoute,
-} from "#/features/workspaces/model/workspace-file/types";
+import type { WorkspaceFileAssetKind } from "#/features/workspaces/model/workspace-file/types";
 import {
 	getDeniedWorkspaceUploadMessage,
 	normalizeUploadContentType,
@@ -30,7 +27,6 @@ export interface WorkspaceUploadFamily {
 	icon: LucideIcon;
 	defaultFileName: string;
 	requiresHeavyViewerRuntime: boolean;
-	extractionRoute: WorkspaceFileExtractionRoute;
 }
 
 export interface WorkspaceFileTypeDescriptor extends WorkspaceUploadFamily {
@@ -105,11 +101,6 @@ const WORKSPACE_UPLOAD_FAMILIES = [
 		icon: FileText,
 		defaultFileName: "Uploaded file.pdf",
 		requiresHeavyViewerRuntime: true,
-		extractionRoute: {
-			provider: "llama_parse",
-			mode: "agentic",
-			reason: "default_pdf_upload_route",
-		},
 	},
 	{
 		assetKind: "image",
@@ -118,11 +109,6 @@ const WORKSPACE_UPLOAD_FAMILIES = [
 		icon: Image,
 		defaultFileName: "Uploaded image.png",
 		requiresHeavyViewerRuntime: false,
-		extractionRoute: {
-			provider: "workers_ai_to_markdown",
-			mode: "default",
-			reason: "default_image_upload_route",
-		},
 	},
 ] as const satisfies readonly WorkspaceUploadFamily[];
 
