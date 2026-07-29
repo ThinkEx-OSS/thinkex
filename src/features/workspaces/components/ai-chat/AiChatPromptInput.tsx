@@ -77,17 +77,19 @@ function AiChatAttachmentButton() {
 
 interface AiChatPromptInputProps {
 	activeThreadId: string;
+	canSend: boolean;
 	context: WorkspaceAiContextScope;
 	getInspectorSnapshot?: (threadId: string) => Promise<AIInspectorSnapshot>;
 	modelId?: AiChatModelId;
 	onModelChange?: (modelId: AiChatModelId) => void;
-	onSubmit?: (message: PromptInputMessage) => boolean | Promise<boolean>;
+	onSubmit: (message: PromptInputMessage) => void;
 	onStop?: () => void;
 	status?: AiChatStatus;
 }
 
 export default function AiChatPromptInput({
 	activeThreadId,
+	canSend: canSendWhileConnected,
 	context,
 	getInspectorSnapshot,
 	modelId = DEFAULT_WORKSPACE_AI_CHAT_MODEL_ID,
@@ -104,7 +106,7 @@ export default function AiChatPromptInput({
 	const attachmentsReady =
 		draftFiles.length === 0 || draftFiles.every((file) => file.status === "ready");
 	const canType = status !== "error";
-	const canSend = status === "ready" && attachmentsReady;
+	const canSend = canSendWhileConnected && status === "ready" && attachmentsReady;
 	const { capabilities } = useWorkspaceMutationAccess();
 	const { uploadFiles: uploadWorkspaceFiles } = useWorkspaceFileUpload();
 	const addDraftFiles = useWorkspaceAiComposerDraftStore((state) => state.addFiles);
@@ -133,16 +135,12 @@ export default function AiChatPromptInput({
 		remove: (fileId) => removeDraftFile(activeThreadId, fileId),
 	};
 
-	const handleSubmit = async (message: PromptInputMessage) => {
+	const handleSubmit = (message: PromptInputMessage) => {
 		if (!canSend || (!message.text.trim() && message.files.length === 0)) {
 			return false;
 		}
 
-		const accepted = onSubmit ? await onSubmit(message) : false;
-		if (!accepted) {
-			return false;
-		}
-
+		onSubmit(message);
 		dictation.cancel();
 		setInput("");
 		return true;
@@ -214,6 +212,7 @@ export default function AiChatPromptInput({
 						) : null}
 						<AiChatPromptSubmit
 							attachmentsReady={attachmentsReady}
+							canSend={canSend}
 							input={input}
 							onStop={onStop}
 							status={status}

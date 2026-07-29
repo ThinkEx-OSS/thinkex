@@ -57,6 +57,7 @@ export function useWorkspaceAiChat({ modelId, threadId }: UseWorkspaceAiChatOpti
 		isToolContinuation,
 	});
 	const canStop = status === "submitted" || presentation.isBusy;
+	const isConnected = agent.identified && agent.readyState === agent.OPEN;
 	const inputStatus: AiChatStatus = connectionError
 		? "error"
 		: presentation.tailPending || presentation.isRecovering
@@ -66,7 +67,8 @@ export function useWorkspaceAiChat({ modelId, threadId }: UseWorkspaceAiChatOpti
 				: status === "error"
 					? "ready"
 					: status;
-	const canSend = inputStatus === "ready" && !presentation.isBusy && !connectionError;
+	const canSend =
+		isConnected && inputStatus === "ready" && !presentation.isBusy && !connectionError;
 	const browser = useWorkspaceAiBrowserSession({
 		agent,
 		isChatBusy: canStop,
@@ -75,12 +77,11 @@ export function useWorkspaceAiChat({ modelId, threadId }: UseWorkspaceAiChatOpti
 
 	const sendMessage = (message: AiChatSendMessage, options?: AiChatSendMessageOptions) => {
 		if (message.parts.length === 0 || !canSend) {
-			return false;
+			throw new Error("Cannot send a chat message while the chat is unavailable");
 		}
 
 		clearError();
 		void sendAgentMessage(message, options);
-		return true;
 	};
 	const regenerate = () => {
 		if (canStop) {
@@ -93,6 +94,7 @@ export function useWorkspaceAiChat({ modelId, threadId }: UseWorkspaceAiChatOpti
 
 	return {
 		browser,
+		canSend,
 		connectionError,
 		inputStatus,
 		messages,

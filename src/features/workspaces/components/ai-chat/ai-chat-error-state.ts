@@ -3,17 +3,23 @@ import type { AiChatAssistantErrorState } from "#/features/workspaces/components
 import type { AiChatStatus } from "#/features/workspaces/components/ai-chat/types";
 
 export function deriveAiChatAssistantErrorState(input: {
+	chatStatus: AiChatStatus;
 	hasConnectionError: boolean;
-	inputStatus: AiChatStatus;
 	threadSummary?: AIThreadSummary;
 }): AiChatAssistantErrorState | null {
-	if (input.inputStatus !== "ready") {
-		return null;
-	}
-
 	if (input.hasConnectionError) {
 		return {
 			kind: "connection",
+		};
+	}
+
+	if (input.chatStatus === "submitted" || input.chatStatus === "streaming") {
+		return null;
+	}
+
+	if (input.chatStatus === "error") {
+		return {
+			kind: "assistant",
 		};
 	}
 

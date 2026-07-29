@@ -38,6 +38,7 @@ export default function AiChatThreadView({
 	const [sentMessageAnimationId, setSentMessageAnimationId] = useState<string | null>(null);
 	const {
 		browser,
+		canSend,
 		connectionError,
 		inputStatus,
 		messages,
@@ -62,8 +63,8 @@ export default function AiChatThreadView({
 	}, [onRecoveringChange, presentation.isRecovering]);
 
 	const assistantError = deriveAiChatAssistantErrorState({
+		chatStatus: presentation.status,
 		hasConnectionError: Boolean(connectionError),
-		inputStatus,
 		threadSummary,
 	});
 	const stopChatAndBrowser = () => {
@@ -77,21 +78,16 @@ export default function AiChatThreadView({
 		const chatMessage = getChatMessageFromPrompt(message, generateId());
 
 		if (!chatMessage) {
-			return false;
+			throw new Error("Cannot send an empty chat message");
 		}
 
-		const didSend = sendChatMessage(chatMessage, {
+		sendChatMessage(chatMessage, {
 			body: {
 				workspaceAiContext: buildWorkspaceAiContextSnapshot(context),
 			},
 		});
-
-		if (didSend) {
-			setSentMessageAnimationId(chatMessage.id);
-			clearDraftArtifacts(context.workspaceId, threadId);
-		}
-
-		return didSend;
+		setSentMessageAnimationId(chatMessage.id);
+		clearDraftArtifacts(context.workspaceId, threadId);
 	};
 
 	return (
@@ -111,6 +107,7 @@ export default function AiChatThreadView({
 				<div className={aiChatComposerRailClassName}>
 					<AiChatPromptInput
 						activeThreadId={threadId}
+						canSend={canSend}
 						context={context}
 						getInspectorSnapshot={getInspectorSnapshot}
 						modelId={modelId}

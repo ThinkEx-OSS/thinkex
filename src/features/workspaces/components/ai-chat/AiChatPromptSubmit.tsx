@@ -12,11 +12,13 @@ import { cn } from "#/lib/utils";
 
 export default function AiChatPromptSubmit({
 	attachmentsReady,
+	canSend,
 	input,
 	onStop,
 	status,
 }: {
 	attachmentsReady: boolean;
+	canSend: boolean;
 	input: string;
 	onStop?: () => void;
 	status: AiChatStatus;
@@ -25,21 +27,27 @@ export default function AiChatPromptSubmit({
 	const isGenerating = isAiChatStreamActive(status);
 	const hasContent = Boolean(input.trim() || attachments.files.length > 0);
 	const canStop = isGenerating && Boolean(onStop);
-	const canSubmit = status === "ready" && hasContent && attachmentsReady;
+	const canSubmit = canSend && hasContent;
 	const isWaitingForAttachments = !attachmentsReady && hasContent;
+	const isWaitingForConnection = status === "ready" && attachmentsReady && hasContent && !canSend;
+	const waitingLabel = isWaitingForAttachments
+		? "Uploading attachments"
+		: isWaitingForConnection
+			? "Waiting for connection"
+			: null;
+	const label = isGenerating ? "Stop" : (waitingLabel ?? "Submit");
 
 	return (
 		<PromptInputSubmit
-			aria-label={
-				isGenerating ? "Stop" : isWaitingForAttachments ? "Uploading attachments" : "Submit"
-			}
+			aria-label={label}
 			className={cn(workspaceToolbarButtonSizeClass, "rounded-full")}
 			disabled={isGenerating ? !canStop : !canSubmit}
 			status={status}
+			title={label}
 			onStop={onStop}
 			type={isGenerating ? "button" : "submit"}
 		>
-			{isGenerating ? <Square /> : isWaitingForAttachments ? <Spinner /> : <ArrowUp />}
+			{isGenerating ? <Square /> : waitingLabel ? <Spinner /> : <ArrowUp />}
 		</PromptInputSubmit>
 	);
 }
