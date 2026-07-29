@@ -1,9 +1,10 @@
 import type { WorkflowEvent, WorkflowStep } from "cloudflare:workers";
+import type { HostedJobAccepted } from "@file_router/sdk";
 
 import {
 	createFileRouterExtractionJob,
-	deleteFileRouterDocument,
 	type FileRouterDocumentReference,
+	releaseFileRouterDocument,
 	stageFileRouterProjection,
 	uploadWorkspaceFileToFileRouter,
 } from "#/features/workspaces/extraction/filerouter-extraction";
@@ -33,7 +34,7 @@ interface PdfExtractionInput {
 export async function runWorkspacePdfExtraction(input: PdfExtractionInput) {
 	const document = await uploadSourceDocument(input);
 	const result = await extractPdf(input, document);
-	await deleteSourceDocument(input, document.documentId);
+	await releaseSourceDocument(input, document.documentId);
 	return result;
 }
 
@@ -42,7 +43,7 @@ async function extractPdf(input: PdfExtractionInput, document: FileRouterDocumen
 	let liteParse: LiteParseStageOutcome = { durationMs: 0, outcome: "skipped" };
 
 	try {
-		const { jobId } = await input.step.do(
+		const job = await input.step.do(
 			"start FileRouter extraction",
 			{
 				retries: { limit: 2, delay: "10 seconds", backoff: "exponential" },
@@ -54,7 +55,7 @@ async function extractPdf(input: PdfExtractionInput, document: FileRouterDocumen
 					idempotencyKey: `${input.event.instanceId}:job`,
 				}),
 		);
-		liteParse = await publishFastProjection(input, document, jobId);
+		liteParse = await publishFastProjection(input, document, job);
 		failureStartedAt = Date.now();
 		const extraction = await input.step.do(
 			"stage enhanced FileRouter projection",
@@ -65,9 +66,9 @@ async function extractPdf(input: PdfExtractionInput, document: FileRouterDocumen
 			() =>
 				stageFileRouterProjection(input.env, {
 					documentId: document.documentId,
+					executionKey: "enhanced",
 					itemId: input.params.itemId,
-					jobId,
-					provider: "llamaparse",
+					job,
 					runId: input.event.instanceId,
 					sourceHash: document.sourceHash,
 					tier: "enhanced",
@@ -110,7 +111,7 @@ async function extractPdf(input: PdfExtractionInput, document: FileRouterDocumen
 async function publishFastProjection(
 	input: PdfExtractionInput,
 	document: FileRouterDocumentReference,
-	jobId: string,
+	job: HostedJobAccepted,
 ): Promise<LiteParseStageOutcome> {
 	const startedAt = Date.now();
 	try {
@@ -123,9 +124,9 @@ async function publishFastProjection(
 			() =>
 				stageFileRouterProjection(input.env, {
 					documentId: document.documentId,
+					executionKey: "fast",
 					itemId: input.params.itemId,
-					jobId,
-					provider: "liteparse",
+					job,
 					runId: input.event.instanceId,
 					sourceHash: document.sourceHash,
 					tier: "fast",
@@ -265,15 +266,15 @@ async function failPdfExtraction(
 	throw error;
 }
 
-async function deleteSourceDocument(input: PdfExtractionInput, documentId: string) {
+async function releaseSourceDocument(input: PdfExtractionInput, documentId: string) {
 	try {
 		await input.step.do(
-			"delete FileRouter document",
+			"release FileRouter document artifacts",
 			{
 				retries: { limit: 3, delay: "10 seconds", backoff: "exponential" },
 				timeout: "2 minutes",
 			},
-			() => deleteFileRouterDocument(input.env, documentId),
+			() => releaseFileRouterDocument(input.env, documentId),
 		);
 	} catch (error) {
 		recordOperationalFailure({

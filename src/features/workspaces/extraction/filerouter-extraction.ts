@@ -1,4 +1,10 @@
-import { FileRouter, type HostedProviderTarget, type ParseResult } from "@file_router/sdk";
+import {
+	FileRouter,
+	type HostedExecutionReference,
+	type HostedJobAccepted,
+	type HostedProviderTarget,
+	type ParseResult,
+} from "@file_router/sdk";
 
 import type { MarkdownProjectionPage } from "#/features/workspaces/extraction/page-markdown-projection";
 import type {
@@ -10,10 +16,18 @@ import { getWorkspaceFileSourceObject } from "#/features/workspaces/extraction/w
 import { writeWorkspacePageProjection } from "#/features/workspaces/extraction/workspace-page-projection";
 import { getWorkspaceKernelFromEnv } from "#/features/workspaces/kernel/workspace-kernel-access";
 
-type FileRouterPdfProvider = "liteparse" | "llamaparse";
+type FileRouterPdfExecutionKey = "enhanced" | "fast";
 
-const pdfTargets: HostedProviderTarget[] = [
+const pdfProviderByExecutionKey = {
+	enhanced: "llamaparse",
+	fast: "liteparse",
+} as const satisfies Record<FileRouterPdfExecutionKey, "liteparse" | "llamaparse">;
+
+type FileRouterPdfProvider = (typeof pdfProviderByExecutionKey)[FileRouterPdfExecutionKey];
+
+const pdfTargets = [
 	{
+		key: "fast",
 		outputs: ["pages"],
 		pageFields: ["markdown"],
 		provider: "liteparse",
@@ -25,6 +39,7 @@ const pdfTargets: HostedProviderTarget[] = [
 		},
 	},
 	{
+		key: "enhanced",
 		outputs: ["pages"],
 		pageFields: ["markdown"],
 		provider: "llamaparse",
@@ -45,7 +60,7 @@ const pdfTargets: HostedProviderTarget[] = [
 			version: "latest" as const,
 		},
 	},
-];
+] satisfies HostedProviderTarget[];
 
 export interface FileRouterDocumentReference {
 	documentId: string;
@@ -94,16 +109,16 @@ export async function createFileRouterExtractionJob(
 		{ idempotencyKey: input.idempotencyKey },
 	);
 
-	return { jobId: job.id };
+	return job;
 }
 
 export async function stageFileRouterProjection(
 	env: Cloudflare.Env,
 	input: {
 		documentId: string;
+		executionKey: FileRouterPdfExecutionKey;
 		itemId: string;
-		jobId: string;
-		provider: FileRouterPdfProvider;
+		job: HostedJobAccepted;
 		runId: string;
 		sourceHash: string;
 		tier: "enhanced" | "fast";
@@ -112,30 +127,35 @@ export async function stageFileRouterProjection(
 	},
 ): Promise<StagedPageProjection> {
 	const client = createFileRouterClient(env);
-	const execution = await client.jobs.waitForExecution(input.jobId, input.provider, {
+	const provider = pdfProviderByExecutionKey[input.executionKey];
+	const executionReference = getExecutionReference(input.job, input.executionKey, provider);
+	const execution = await client.jobs.waitForExecution(input.job, executionReference, {
 		timeoutMs: input.timeoutMs,
 	});
 
 	if (execution.status !== "complete") {
 		throw new Error(
 			execution.error?.message ??
-				`FileRouter ${input.provider} execution failed without an error message.`,
+				`FileRouter ${provider} execution failed without an error message.`,
 		);
+	}
+	if (!execution.resultAvailable) {
+		throw new Error(`FileRouter ${provider} execution completed without an available result.`);
 	}
 
 	const result = await client.executions.result(execution.id);
-	const providerMode = getProviderMode(input.provider);
+	const providerMode = getProviderMode(provider);
 	const metadata = getFileRouterResultMetadata(result, {
 		documentId: input.documentId,
 		executionId: execution.id,
-		jobId: input.jobId,
+		jobId: input.job.id,
 	});
 	const projection = await writeWorkspacePageProjection({
 		bucket: env.WORKSPACE_KERNEL_FILES,
 		itemId: input.itemId,
 		metadata,
 		pages: getProjectionPages(result),
-		provider: input.provider,
+		provider,
 		providerMode,
 		runId: input.runId,
 		sourceHash: input.sourceHash,
@@ -148,15 +168,15 @@ export async function stageFileRouterProjection(
 		markdownLength: projection.manifest.markdownLength,
 		metadata,
 		pageCount: projection.manifest.pageCount,
-		provider: input.provider,
+		provider,
 		providerMode,
-		routeReason: `filerouter_${input.provider}`,
+		routeReason: `filerouter_${provider}`,
 		sourceHash: input.sourceHash,
 	};
 }
 
-export function deleteFileRouterDocument(env: Cloudflare.Env, documentId: string) {
-	return createFileRouterClient(env).documents.delete(documentId);
+export function releaseFileRouterDocument(env: Cloudflare.Env, documentId: string) {
+	return createFileRouterClient(env).documents.release(documentId);
 }
 
 function createFileRouterClient(env: Cloudflare.Env) {
@@ -184,6 +204,24 @@ function getProviderMode(provider: FileRouterPdfProvider): MarkdownExtractionPro
 		case "llamaparse":
 			return "agentic";
 	}
+}
+
+function getExecutionReference(
+	job: HostedJobAccepted,
+	key: FileRouterPdfExecutionKey,
+	expectedProvider: FileRouterPdfProvider,
+): HostedExecutionReference {
+	const execution = job.executions.find((candidate) => candidate.key === key);
+	if (!execution) {
+		throw new Error(`FileRouter job ${job.id} did not include the ${key} execution.`);
+	}
+	if (execution.provider !== expectedProvider) {
+		throw new Error(
+			`FileRouter job ${job.id} assigned ${execution.provider} to ${key}; expected ${expectedProvider}.`,
+		);
+	}
+
+	return execution;
 }
 
 function getFileRouterResultMetadata(
