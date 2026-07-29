@@ -214,6 +214,84 @@ describe("agents useAgentChat observer", () => {
 		expect(warn).not.toHaveBeenCalled();
 	});
 
+	it("hands an interrupted request to the resume handshake after reconnecting", async () => {
+		const { agent, close, open, sentFrames, target } = createFakeAgent();
+		const chat = await mountChat(agent, []);
+
+		await vi.waitFor(() => {
+			expect(countFrames(sentFrames, "cf_agent_stream_resume_request")).toBe(1);
+		});
+		await act(async () => {
+			dispatch(target, {
+				reason: "idle",
+				type: "cf_agent_stream_resume_none",
+			});
+		});
+		await act(async () => {
+			void chat()?.sendMessage({
+				parts: [{ text: "Hello", type: "text" }],
+				role: "user",
+			});
+		});
+		const request = sentFrames
+			.map((frame) => JSON.parse(frame) as { id?: string; type?: string })
+			.find((frame) => frame.type === "cf_agent_use_chat_request");
+		expect(request?.id).toBeTypeOf("string");
+
+		await act(async () => close());
+		await vi.waitFor(() => expect(chat()?.status).toBe("error"));
+
+		await act(async () => open());
+		await vi.waitFor(() => {
+			expect(countFrames(sentFrames, "cf_agent_stream_resume_request")).toBe(2);
+		});
+		await act(async () => {
+			dispatch(target, {
+				id: request?.id,
+				type: "cf_agent_stream_resuming",
+			});
+		});
+		await vi.waitFor(() => {
+			expect(countFrames(sentFrames, "cf_agent_stream_resume_ack")).toBe(1);
+		});
+
+		await act(async () => {
+			dispatch(target, {
+				body: JSON.stringify({ messageId: "assistant-1", type: "start" }),
+				done: false,
+				id: request?.id,
+				replay: true,
+				type: "cf_agent_use_chat_response",
+			});
+			dispatch(target, {
+				body: JSON.stringify({ id: "text-1", type: "text-start" }),
+				done: false,
+				id: request?.id,
+				replay: true,
+				type: "cf_agent_use_chat_response",
+			});
+			dispatch(target, {
+				body: JSON.stringify({ delta: "Recovered", id: "text-1", type: "text-delta" }),
+				done: false,
+				id: request?.id,
+				replay: true,
+				type: "cf_agent_use_chat_response",
+			});
+			dispatch(target, {
+				body: "",
+				done: true,
+				id: request?.id,
+				replay: true,
+				type: "cf_agent_use_chat_response",
+			});
+		});
+
+		await vi.waitFor(() => {
+			expect(chat()?.status).toBe("ready");
+			expect(assistantText(chat()?.messages)).toBe("Recovered");
+		});
+	});
+
 	it("does not duplicate a transport-owned continuation when its buffered prefix replays", async () => {
 		const { agent, close, open, sentFrames, target } = createFakeAgent();
 		const chat = await mountChat(agent, continuationBaseline());
