@@ -1,9 +1,11 @@
 import type {
 	LiteParseStageOutcome,
-	MarkdownExtractionProviderId,
-	MarkdownExtractionProviderMode,
 	WorkspaceFileExtractionWorkflowParams,
 } from "#/features/workspaces/extraction/types";
+import type {
+	WorkspaceFileExtractionMode,
+	WorkspaceFileExtractionProviderId,
+} from "#/features/workspaces/model/workspace-file/types";
 import {
 	logOperationalEvent,
 	recordOperationalFailure,
@@ -32,8 +34,8 @@ type WorkspaceFileExtractionOutcome = WorkspaceFileExtractionOutcomeBase &
 		| {
 				outcome: "partial" | "success";
 				pageCount: number;
-				provider: MarkdownExtractionProviderId | "liteparse";
-				providerMode: MarkdownExtractionProviderMode;
+				provider: WorkspaceFileExtractionProviderId | "liteparse";
+				providerMode: WorkspaceFileExtractionMode;
 				routeReason: string;
 		  }
 	);
