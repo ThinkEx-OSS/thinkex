@@ -35,6 +35,7 @@ describe("workspace page projections", () => {
 
 		expect(result).toEqual({
 			content: "## Page 2\n\nSecond\n\n## Page 3\n\nThird",
+			emptyPages: [],
 			pages: { requested: "2-3", returned: [2, 3], total: 3 },
 		});
 		const prefix = reference.manifestObjectKey.slice(0, -"manifest.json".length);
@@ -71,6 +72,7 @@ describe("workspace page projections", () => {
 			}),
 		).resolves.toEqual({
 			content: "## Page 2",
+			emptyPages: [2],
 			pages: { requested: "2", returned: [2], total: 3 },
 		});
 	});
@@ -186,6 +188,7 @@ describe("workspace page projections", () => {
 			}),
 		).resolves.toEqual({
 			content: "## Page 1\n\nPage 1",
+			emptyPages: [],
 			pages: { requested: "1", returned: [1], total: 1 },
 		});
 	});
@@ -213,6 +216,7 @@ describe("workspace page projections", () => {
 			}),
 		).resolves.toEqual({
 			content: `## Page 1\n\n${markdown}`,
+			emptyPages: [],
 			pages: { requested: "1", returned: [1], total: 1 },
 		});
 	});

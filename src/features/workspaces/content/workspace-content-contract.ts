@@ -8,6 +8,8 @@ const workspacePathSchema = z.string().min(1);
 
 const readWorkspaceItemsFailureCodes = [
 	"content_changed",
+	"extraction_failed",
+	"extraction_stalled",
 	"invalid_cursor",
 	"invalid_selection",
 	"page_range_out_of_range",
@@ -93,22 +95,48 @@ const workspaceContentReadResultSchema = z.union([
 	z.object({
 		assetKind: workspaceFileAssetKindSchema,
 		content: z.string(),
+		emptyPages: z
+			.array(z.number().int().min(1))
+			.optional()
+			.describe(
+				"Returned pages that extracted no text. Expect these to fill in later while provisional is true.",
+			),
 		format: z.literal("markdown"),
 		itemId: z.string().min(1),
 		location: workspaceReadPagesSchema.extend({ kind: z.literal("pages") }),
 		nextCursor: z.string().optional(),
 		path: workspacePathSchema,
+		provisional: z
+			.boolean()
+			.optional()
+			.describe(
+				"True when this content came from the fast extraction pass and a higher-quality pass is still running.",
+			),
 		relations: workspaceReadRelationsSchema.optional(),
 		status: z.literal("ready"),
 		type: z.literal("file"),
 	}),
 	z.object({
+		elapsedSeconds: z
+			.number()
+			.int()
+			.nonnegative()
+			.describe("How long extraction has been running."),
 		path: workspacePathSchema,
+		phase: z
+			.enum(["queued", "extracting"])
+			.describe("Whether extraction has started yet for this file."),
+		retryAfterSeconds: z
+			.number()
+			.int()
+			.positive()
+			.describe("Suggested wait before reading this path again."),
 		status: z.literal("pending"),
 		type: z.literal("file"),
 	}),
 	z.object({
 		code: z.enum(readWorkspaceItemsFailureCodes),
+		message: z.string().optional().describe("Why extraction failed, when known."),
 		path: workspacePathSchema,
 		status: z.literal("failed"),
 		type: z.literal("file").optional(),

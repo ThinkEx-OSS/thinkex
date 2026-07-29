@@ -85,6 +85,78 @@ describe("workspace read references", () => {
 		});
 		expect(modelOutput.results[0]).not.toHaveProperty("pageReferences");
 	});
+
+	it("stays silent when every read succeeded outright", () => {
+		const results = [documentResult(), fileResult()] satisfies WorkspaceContentReadResult[];
+
+		expect(
+			createWorkspaceReadItemsModelOutput({
+				references: createWorkspaceReadReferences(results),
+				results,
+			}),
+		).not.toHaveProperty("guidance");
+	});
+
+	it("explains a pending read once however many paths are waiting", () => {
+		const results = [
+			{
+				elapsedSeconds: 4,
+				path: "/A.pdf",
+				phase: "extracting",
+				retryAfterSeconds: 15,
+				status: "pending",
+				type: "file",
+			},
+			{
+				elapsedSeconds: 0,
+				path: "/B.pdf",
+				phase: "queued",
+				retryAfterSeconds: 15,
+				status: "pending",
+				type: "file",
+			},
+		] satisfies WorkspaceContentReadResult[];
+		const guidance = createWorkspaceReadItemsModelOutput({ references: [], results }).guidance;
+
+		expect(guidance).toHaveLength(1);
+		expect(guidance?.[0]).toContain("Never sleep");
+	});
+
+	it("separates failures that will never resolve from transient ones", () => {
+		const results = [
+			{ code: "extraction_failed", path: "/A.pdf", status: "failed", type: "file" },
+			{ code: "extraction_stalled", path: "/B.pdf", status: "failed", type: "file" },
+			{ code: "projection_failed", path: "/C.pdf", status: "failed", type: "file" },
+		] satisfies WorkspaceContentReadResult[];
+		const guidance = createWorkspaceReadItemsModelOutput({ references: [], results }).guidance;
+
+		expect(guidance).toHaveLength(2);
+		expect(guidance?.[0]).toContain("do not suggest re-uploading");
+		expect(guidance?.[1]).toContain("One repeat read is reasonable");
+	});
+
+	it("says nothing about failures that are the caller's own mistake", () => {
+		const results = [
+			{ code: "path_not_found", path: "/Missing.pdf", status: "failed" },
+		] satisfies WorkspaceContentReadResult[];
+
+		expect(createWorkspaceReadItemsModelOutput({ references: [], results })).not.toHaveProperty(
+			"guidance",
+		);
+	});
+
+	it("warns that blank pages from the fast pass are not final", () => {
+		const results = [
+			{ ...fileResult(), emptyPages: [13], provisional: true },
+		] satisfies WorkspaceContentReadResult[];
+		const guidance = createWorkspaceReadItemsModelOutput({
+			references: createWorkspaceReadReferences(results),
+			results,
+		}).guidance;
+
+		expect(guidance).toHaveLength(1);
+		expect(guidance?.[0]).toContain("still extracting");
+	});
 });
 
 function documentResult(): Extract<
