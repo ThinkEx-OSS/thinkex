@@ -10,7 +10,6 @@ import { getWorkspaceFileSourceObject } from "#/features/workspaces/extraction/w
 import { writeWorkspacePageProjection } from "#/features/workspaces/extraction/workspace-page-projection";
 import { getWorkspaceKernelFromEnv } from "#/features/workspaces/kernel/workspace-kernel-access";
 
-const fileRouterPollingIntervalMs = 3_000;
 type FileRouterPdfProvider = "liteparse" | "llamaparse";
 
 const pdfTargets: HostedProviderTarget[] = [
@@ -163,7 +162,6 @@ export function deleteFileRouterDocument(env: Cloudflare.Env, documentId: string
 function createFileRouterClient(env: Cloudflare.Env) {
 	return new FileRouter({
 		apiKey: env.FILEROUTER_API_KEY,
-		pollingIntervalMs: fileRouterPollingIntervalMs,
 	});
 }
 

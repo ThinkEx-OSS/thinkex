@@ -45,7 +45,6 @@ describe("FileRouter extraction", () => {
 		expect(result).toEqual({ jobId: "job_123" });
 		expect(fileRouter.options).toHaveBeenCalledWith({
 			apiKey: "fr_test",
-			pollingIntervalMs: 3_000,
 		});
 		expect(fileRouter.createJob).toHaveBeenCalledWith(
 			{
