@@ -37,7 +37,7 @@ describe("agents message reconciliation", () => {
 		const first = toolMessage("assistant-first", "call-reused", "output-available");
 		const second = toolMessage("assistant-second", "call-reused", "input-available");
 
-		const reconciled = reconcileMessages([first, second], [first]);
+		const reconciled = reconcileMessages([first, second], [structuredClone(first)]);
 		const secondPart = reconciled[1].parts[0];
 
 		expect(reconciled[0].id).toBe("assistant-first");

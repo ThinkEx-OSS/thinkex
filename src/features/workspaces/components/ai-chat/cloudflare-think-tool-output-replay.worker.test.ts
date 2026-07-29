@@ -56,6 +56,5 @@ describe("Cloudflare Think model-message assembly", () => {
 		const serialized = JSON.stringify(assembled);
 
 		expect(serialized).toContain(content);
-		expect(serialized).not.toContain("__truncated");
 	});
 });

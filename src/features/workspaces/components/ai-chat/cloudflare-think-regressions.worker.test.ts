@@ -28,7 +28,6 @@ interface ThinkRegressionInternals {
 	_persistIncomingMessage: (
 		this: PersistIncomingMessageHarness,
 		message: UIMessage,
-		serverMessages?: readonly UIMessage[],
 	) => Promise<void>;
 	_routeStallToBoundedRecovery: (
 		this: StallRecoveryHarness,
@@ -190,14 +189,11 @@ describe("Cloudflare Think regression shields", () => {
 				persisted.push(message);
 			},
 		};
-		const serverMessages = [toolMessage("assistant-first", "call-reused", "output-available")];
-		const incoming = [
-			serverMessages[0],
-			toolMessage("assistant-second", "call-reused", "input-available"),
-		];
+		const first = toolMessage("assistant-first", "call-reused", "output-available");
+		const incoming = [first, toolMessage("assistant-second", "call-reused", "input-available")];
 
 		for (const message of incoming) {
-			await thinkInternals._persistIncomingMessage.call(harness, message, serverMessages);
+			await thinkInternals._persistIncomingMessage.call(harness, message);
 		}
 
 		expect(persisted.map((message) => message.id)).toEqual(["assistant-first", "assistant-second"]);

@@ -71,20 +71,35 @@ index 8d5b57034f927298d207d8a2bcbac927614780f5..9cf49a4471b9da862ddde11b818fd1ee
  	for (const msg of messages) {
  		if (msg.role !== "assistant") continue;
 diff --git a/dist/chat/react.js b/dist/chat/react.js
-index 51c24ed62b48d43a64a093b5d08e6ccb3aafcbf9..ad33edf394a2a4cccc3d4cb9a9107bb87f3fa20e 100644
+index 51c24ed62b48d43a64a093b5d08e6ccb3aafcbf9..9a531c7aa5e71d406f272bf2fb9b73ff26cac489 100644
 --- a/dist/chat/react.js
 +++ b/dist/chat/react.js
-@@ -253,7 +253,8 @@ var WebSocketChatTransport = class {
+@@ -209,0 +210,5 @@ var WebSocketChatTransport = class {
++		let reconnectTimeout;
++		const clearReconnectTimeout = () => {
++			if (reconnectTimeout) clearTimeout(reconnectTimeout);
++			reconnectTimeout = void 0;
++		};
+@@ -212,0 +218 @@ var WebSocketChatTransport = class {
++			clearReconnectTimeout();
+@@ -253,7 +259,15 @@ var WebSocketChatTransport = class {
  					} catch {}
  				};
  				const onClose = () => {
 -					finish(() => controller.close(), false, false);
-+					if (agent.shouldReconnect !== false) return;
++					if (agent.shouldReconnect !== false) {
++						reconnectTimeout ??= setTimeout(() => {
++							finish(() => controller.error(new Error("Chat connection did not recover")), false, false);
++						}, RESUME_PENDING_TIMEOUT_MS);
++						return;
++					}
 +					finish(() => controller.error(new Error("Chat connection closed")), false, false);
  				};
++				const onOpen = () => clearReconnectTimeout();
  				agent.addEventListener("message", onMessage, { signal: abortController.signal });
  				agent.addEventListener("close", onClose, { signal: abortController.signal });
-@@ -967,6 +968,7 @@ function useAgentChat(options) {
++				agent.addEventListener("open", onOpen, { signal: abortController.signal });
+@@ -967,6 +981,7 @@ function useAgentChat(options) {
  	const [clientToolResults, setClientToolResults] = useState(/* @__PURE__ */ new Map());
  	const messagesRef = useRef(chatMessages);
  	messagesRef.current = chatMessages;
@@ -92,7 +107,7 @@ index 51c24ed62b48d43a64a093b5d08e6ccb3aafcbf9..ad33edf394a2a4cccc3d4cb9a9107bb8
  	const initialMessagesRef = useRef(initialMessages);
  	initialMessagesRef.current = initialMessages;
  	const seededInitialMessagesKeyRef = useRef(null);
-@@ -1088,6 +1090,7 @@ function useAgentChat(options) {
+@@ -1088,6 +1103,7 @@ function useAgentChat(options) {
  		pendingReplayResumeRequestIdsRef.current.clear();
  		fallbackAckedResumeRequestIdsRef.current.clear();
  		replayHydratedAssistantMessageIdsRef.current.clear();
@@ -100,7 +115,7 @@ index 51c24ed62b48d43a64a093b5d08e6ccb3aafcbf9..ad33edf394a2a4cccc3d4cb9a9107bb8
  		protectedStreamingAssistantRef.current = null;
  	}, [
  		markInitialMessagesSeeded,
-@@ -1268,6 +1271,16 @@ function useAgentChat(options) {
+@@ -1268,6 +1284,16 @@ function useAgentChat(options) {
  	const [isRecovering, setIsRecovering] = useState(false);
  	useEffect(() => {
  		const localResponseIds = localResponseMessageIdsRef.current;
@@ -117,7 +132,7 @@ index 51c24ed62b48d43a64a093b5d08e6ccb3aafcbf9..ad33edf394a2a4cccc3d4cb9a9107bb8
  		/**
  		* Unified message handler that parses JSON once and dispatches based on type.
  		* Avoids duplicate parsing overhead from separate listeners.
-@@ -1322,6 +1335,7 @@ function useAgentChat(options) {
+@@ -1322,6 +1348,7 @@ function useAgentChat(options) {
  					break;
  				case "cf_agent_stream_resume_none":
  					if (customTransport.handleStreamResumeNone(data) && data.reason === STREAM_RESUME_NONE_REASONS.IDLE && typeof data.probeId === "string") {
@@ -125,7 +140,7 @@ index 51c24ed62b48d43a64a093b5d08e6ccb3aafcbf9..ad33edf394a2a4cccc3d4cb9a9107bb8
  						const result = transition(streamStateRef.current, { type: "clear" });
  						streamStateRef.current = result.state;
  						setIsServerStreaming(result.isStreaming);
-@@ -1337,9 +1351,14 @@ function useAgentChat(options) {
+@@ -1337,9 +1364,14 @@ function useAgentChat(options) {
  						if (!isEarlyToolContinuation) return;
  					}
  					if (!resumingToolContinuationRef.current) pendingReplayResumeRequestIdsRef.current.add(data.id);
@@ -140,7 +155,7 @@ index 51c24ed62b48d43a64a093b5d08e6ccb3aafcbf9..ad33edf394a2a4cccc3d4cb9a9107bb8
  					if (isEarlyToolContinuation) {
  						pendingToolContinuationRef.current = false;
  						observedToolContinuationRequestIdRef.current = data.id;
-@@ -1369,6 +1388,7 @@ function useAgentChat(options) {
+@@ -1369,6 +1401,7 @@ function useAgentChat(options) {
  							const chunkData = JSON.parse(data.body);
  							if (chunkData.type === "start" && typeof chunkData.messageId === "string") {
  								localResponseIds.set(data.id, chunkData.messageId);
@@ -148,7 +163,7 @@ index 51c24ed62b48d43a64a093b5d08e6ccb3aafcbf9..ad33edf394a2a4cccc3d4cb9a9107bb8
  								if (!data.continuation) {
  									if (protectedStreamingAssistantRef.current?.assistantId !== chunkData.messageId) {
  										const msgs = messagesRef.current;
-@@ -1386,8 +1406,8 @@ function useAgentChat(options) {
+@@ -1386,8 +1419,8 @@ function useAgentChat(options) {
  								}
  							}
  						} catch {}
@@ -159,7 +174,7 @@ index 51c24ed62b48d43a64a093b5d08e6ccb3aafcbf9..ad33edf394a2a4cccc3d4cb9a9107bb8
  							if (streamStateRef.current.status === "observing" && streamStateRef.current.streamId === data.id) {
  								streamStateRef.current = { status: "idle" };
  								setIsServerStreaming(false);
-@@ -1397,14 +1417,30 @@ function useAgentChat(options) {
+@@ -1397,14 +1430,30 @@ function useAgentChat(options) {
  							localResponseIds.delete(data.id);
  							localRequestIdsRef.current.delete(data.id);
  							fallbackAckedResumeRequestIdsRef.current.delete(data.id);
@@ -190,7 +205,7 @@ index 51c24ed62b48d43a64a093b5d08e6ccb3aafcbf9..ad33edf394a2a4cccc3d4cb9a9107bb8
  						if (data.replay && !data.continuation && !resumingToolContinuationRef.current && observedToolContinuationRequestIdRef.current !== data.id && typeof chunkData.messageId === "string" && chunkData.type === "start") {
  							pendingReplayResumeRequestIdsRef.current.delete(data.id);
  							resetMatchingHydratedAssistantForReplay(chunkData.messageId);
-@@ -1417,6 +1453,7 @@ function useAgentChat(options) {
+@@ -1417,6 +1466,7 @@ function useAgentChat(options) {
  					if (data.done) {
  						customTransport.handleServerTurnCompleted(data.id);
  						fallbackAckedResumeRequestIdsRef.current.delete(data.id);
