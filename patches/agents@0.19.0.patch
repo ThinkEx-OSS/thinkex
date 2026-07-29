@@ -1,0 +1,214 @@
+diff --git a/dist/chat/index.js b/dist/chat/index.js
+index 8d5b57034f927298d207d8a2bcbac927614780f5..9cf49a4471b9da862ddde11b818fd1eed3112da0 100644
+--- a/dist/chat/index.js
++++ b/dist/chat/index.js
+@@ -1877,7 +1877,7 @@ function parseProtocolMessage(raw) {
+ * @returns Reconciled messages ready for persistence
+ */
+ function reconcileMessages(incoming, serverMessages, sanitizeForContentKey) {
+-	return reconcileAssistantIds(mergeServerToolOutputs(incoming, serverMessages), serverMessages, sanitizeForContentKey);
++	return mergeServerToolOutputs(reconcileAssistantIds(incoming, serverMessages, sanitizeForContentKey), serverMessages);
+ }
+ /**
+ * For a single message, resolve its ID by matching toolCallId against server state.
+@@ -1948,17 +1948,21 @@ function assistantContentKey(message, sanitize) {
+ 	return JSON.stringify(sanitized.parts);
+ }
+ function mergeServerToolOutputs(incoming, serverMessages) {
+-	const serverResolvedParts = /* @__PURE__ */ new Map();
++	const serverResolvedPartsByMessage = /* @__PURE__ */ new Map();
+ 	for (const msg of serverMessages) {
+ 		if (msg.role !== "assistant") continue;
++		const resolvedParts = /* @__PURE__ */ new Map();
+ 		for (const part of msg.parts) {
+ 			const record = part;
+-			if ("toolCallId" in record && "state" in record && (record.state === "output-available" || record.state === "output-error" || record.state === "output-denied")) serverResolvedParts.set(record.toolCallId, record);
++			if ("toolCallId" in record && "state" in record && (record.state === "output-available" || record.state === "output-error" || record.state === "output-denied")) resolvedParts.set(record.toolCallId, record);
+ 		}
++		if (resolvedParts.size > 0) serverResolvedPartsByMessage.set(msg.id, resolvedParts);
+ 	}
+-	if (serverResolvedParts.size === 0) return incoming;
++	if (serverResolvedPartsByMessage.size === 0) return incoming;
+ 	return incoming.map((msg) => {
+ 		if (msg.role !== "assistant") return msg;
++		const serverResolvedParts = serverResolvedPartsByMessage.get(msg.id);
++		if (!serverResolvedParts) return msg;
+ 		let hasChanges = false;
+ 		const updatedParts = msg.parts.map((part) => {
+ 			const record = part;
+@@ -1999,7 +2003,22 @@ function reconcileAssistantIds(incoming, serverMessages, sanitize) {
+ 	}
+ 	return incoming.map((incomingMessage, incomingIdx) => {
+ 		if (exactMatchMap.has(incomingIdx)) return incomingMessage;
+-		if (incomingMessage.role !== "assistant" || hasToolCallPart(incomingMessage)) return incomingMessage;
++		if (incomingMessage.role !== "assistant") return incomingMessage;
++		const incomingToolCallIds = getToolCallIds(incomingMessage);
++		if (incomingToolCallIds.size > 0) {
++			for (let i = 0; i < serverMessages.length; i++) {
++				if (claimedServerIndices.has(i)) continue;
++				const serverMessage = serverMessages[i];
++				if (serverMessage.role === "assistant" && serverMessage.parts.some((part) => "toolCallId" in part && typeof part.toolCallId === "string" && incomingToolCallIds.has(part.toolCallId))) {
++					claimedServerIndices.add(i);
++					return {
++						...incomingMessage,
++						id: serverMessage.id
++					};
++				}
++			}
++			return incomingMessage;
++		}
+ 		const incomingKey = assistantContentKey(incomingMessage, sanitize);
+ 		if (!incomingKey) return incomingMessage;
+ 		for (let i = 0; i < serverMessages.length; i++) {
+@@ -2020,6 +2039,9 @@ function reconcileAssistantIds(incoming, serverMessages, sanitize) {
+ function hasToolCallPart(message) {
+ 	return message.parts.some((part) => "toolCallId" in part);
+ }
++function getToolCallIds(message) {
++	return new Set(message.parts.flatMap((part) => "toolCallId" in part && typeof part.toolCallId === "string" ? [part.toolCallId] : []));
++}
+ function findMessageByToolCallId(messages, toolCallId) {
+ 	for (const msg of messages) {
+ 		if (msg.role !== "assistant") continue;
+diff --git a/dist/chat/react.js b/dist/chat/react.js
+index 51c24ed62b48d43a64a093b5d08e6ccb3aafcbf9..ad33edf394a2a4cccc3d4cb9a9107bb87f3fa20e 100644
+--- a/dist/chat/react.js
++++ b/dist/chat/react.js
+@@ -253,7 +253,8 @@ var WebSocketChatTransport = class {
+ 					} catch {}
+ 				};
+ 				const onClose = () => {
+-					finish(() => controller.close(), false, false);
++					if (agent.shouldReconnect !== false) return;
++					finish(() => controller.error(new Error("Chat connection closed")), false, false);
+ 				};
+ 				agent.addEventListener("message", onMessage, { signal: abortController.signal });
+ 				agent.addEventListener("close", onClose, { signal: abortController.signal });
+@@ -967,6 +968,7 @@ function useAgentChat(options) {
+ 	const [clientToolResults, setClientToolResults] = useState(/* @__PURE__ */ new Map());
+ 	const messagesRef = useRef(chatMessages);
+ 	messagesRef.current = chatMessages;
++	const continuationStartMessagesRef = useRef(/* @__PURE__ */ new Map());
+ 	const initialMessagesRef = useRef(initialMessages);
+ 	initialMessagesRef.current = initialMessages;
+ 	const seededInitialMessagesKeyRef = useRef(null);
+@@ -1088,6 +1090,7 @@ function useAgentChat(options) {
+ 		pendingReplayResumeRequestIdsRef.current.clear();
+ 		fallbackAckedResumeRequestIdsRef.current.clear();
+ 		replayHydratedAssistantMessageIdsRef.current.clear();
++		continuationStartMessagesRef.current.clear();
+ 		protectedStreamingAssistantRef.current = null;
+ 	}, [
+ 		markInitialMessagesSeeded,
+@@ -1268,6 +1271,16 @@ function useAgentChat(options) {
+ 	const [isRecovering, setIsRecovering] = useState(false);
+ 	useEffect(() => {
+ 		const localResponseIds = localResponseMessageIdsRef.current;
++		const continuationStartMessages = continuationStartMessagesRef.current;
++		const captureContinuationStart = (requestId) => {
++			if (!continuationStartMessages.has(requestId)) continuationStartMessages.set(requestId, structuredClone(messagesRef.current));
++		};
++		const rewindContinuation = (requestId) => {
++			const baseline = continuationStartMessages.get(requestId);
++			if (!baseline) return;
++			messagesRef.current = baseline;
++			setMessages(baseline);
++		};
+ 		/**
+ 		* Unified message handler that parses JSON once and dispatches based on type.
+ 		* Avoids duplicate parsing overhead from separate listeners.
+@@ -1322,6 +1335,7 @@ function useAgentChat(options) {
+ 					break;
+ 				case "cf_agent_stream_resume_none":
+ 					if (customTransport.handleStreamResumeNone(data) && data.reason === STREAM_RESUME_NONE_REASONS.IDLE && typeof data.probeId === "string") {
++						continuationStartMessages.clear();
+ 						const result = transition(streamStateRef.current, { type: "clear" });
+ 						streamStateRef.current = result.state;
+ 						setIsServerStreaming(result.isStreaming);
+@@ -1337,9 +1351,14 @@ function useAgentChat(options) {
+ 						if (!isEarlyToolContinuation) return;
+ 					}
+ 					if (!resumingToolContinuationRef.current) pendingReplayResumeRequestIdsRef.current.add(data.id);
++					if (customTransport.isAwaitingResume()) {
++						// AI SDK snapshots the last message as soon as this resolves.
++						rewindContinuation(data.id);
++					}
+ 					if (customTransport.handleStreamResuming(data)) return;
+ 					if (localRequestIdsRef.current.has(data.id)) return;
+ 					if (fallbackAckedResumeRequestIdsRef.current.has(data.id)) return;
++					rewindContinuation(data.id);
+ 					if (isEarlyToolContinuation) {
+ 						pendingToolContinuationRef.current = false;
+ 						observedToolContinuationRequestIdRef.current = data.id;
+@@ -1369,6 +1388,7 @@ function useAgentChat(options) {
+ 							const chunkData = JSON.parse(data.body);
+ 							if (chunkData.type === "start" && typeof chunkData.messageId === "string") {
+ 								localResponseIds.set(data.id, chunkData.messageId);
++								if (data.continuation && !data.replay) captureContinuationStart(data.id);
+ 								if (!data.continuation) {
+ 									if (protectedStreamingAssistantRef.current?.assistantId !== chunkData.messageId) {
+ 										const msgs = messagesRef.current;
+@@ -1386,8 +1406,8 @@ function useAgentChat(options) {
+ 								}
+ 							}
+ 						} catch {}
+-						if (data.done || data.replayComplete) pendingReplayResumeRequestIdsRef.current.delete(data.id);
+-						if (data.done) {
++						if (data.done || data.error || data.replayComplete) pendingReplayResumeRequestIdsRef.current.delete(data.id);
++						if (data.done || data.error) {
+ 							if (streamStateRef.current.status === "observing" && streamStateRef.current.streamId === data.id) {
+ 								streamStateRef.current = { status: "idle" };
+ 								setIsServerStreaming(false);
+@@ -1397,14 +1417,30 @@ function useAgentChat(options) {
+ 							localResponseIds.delete(data.id);
+ 							localRequestIdsRef.current.delete(data.id);
+ 							fallbackAckedResumeRequestIdsRef.current.delete(data.id);
++							continuationStartMessages.delete(data.id);
+ 							if (observedToolContinuationRequestIdRef.current === data.id) resetToolContinuation();
+ 						}
+ 						return;
+ 					}
+ 					let chunkData;
+ 					if (data.replay && streamStateRef.current.status !== "observing" && !pendingReplayResumeRequestIdsRef.current.has(data.id)) return;
++					if (data.error) {
++						pendingReplayResumeRequestIdsRef.current.delete(data.id);
++						customTransport.handleServerTurnCompleted(data.id);
++						fallbackAckedResumeRequestIdsRef.current.delete(data.id);
++						continuationStartMessages.delete(data.id);
++						setIsRecovering(false);
++						if (streamStateRef.current.status === "idle" || streamStateRef.current.streamId === data.id) {
++							const result = transition(streamStateRef.current, { type: "clear" });
++							streamStateRef.current = result.state;
++							setIsServerStreaming(result.isStreaming);
++						}
++						if (observedToolContinuationRequestIdRef.current === data.id) resetToolContinuation();
++						break;
++					}
+ 					if (data.body?.trim()) try {
+ 						chunkData = JSON.parse(data.body);
++						if (data.continuation && !data.replay && chunkData.type === "start") captureContinuationStart(data.id);
+ 						if (data.replay && !data.continuation && !resumingToolContinuationRef.current && observedToolContinuationRequestIdRef.current !== data.id && typeof chunkData.messageId === "string" && chunkData.type === "start") {
+ 							pendingReplayResumeRequestIdsRef.current.delete(data.id);
+ 							resetMatchingHydratedAssistantForReplay(chunkData.messageId);
+@@ -1417,6 +1453,7 @@ function useAgentChat(options) {
+ 					if (data.done) {
+ 						customTransport.handleServerTurnCompleted(data.id);
+ 						fallbackAckedResumeRequestIdsRef.current.delete(data.id);
++						continuationStartMessages.delete(data.id);
+ 						setIsRecovering(false);
+ 					}
+ 					const completedObservedToolContinuation = data.done && observedToolContinuationRequestIdRef.current === data.id;
+diff --git a/dist/wire-types-CU9rLoeS.js b/dist/wire-types-CU9rLoeS.js
+index a0f027305b8594ea5cec3edcbf4273cf878319e5..d565dbb7c92d0ac7ca0e4a14c51a2820834a07d0 100644
+--- a/dist/wire-types-CU9rLoeS.js
++++ b/dist/wire-types-CU9rLoeS.js
+@@ -147,7 +147,8 @@ function transition(state, event) {
+ 		case "response": {
+ 			let accumulator;
+ 			const isReplayedStart = event.replay === true && event.chunkData?.type === "start";
+-			if (state.status === "idle" || state.streamId !== event.streamId || isReplayedStart) {
++			const isObservedContinuationStart = event.continuation === true && event.chunkData?.type === "start" && state.status === "observing" && state.streamId === event.streamId && state.accumulator.parts.length === 0;
++			if (state.status === "idle" || state.streamId !== event.streamId || isReplayedStart || isObservedContinuationStart) {
+ 				let messageId = event.messageId;
+ 				let existingParts;
+ 				let existingMetadata;
