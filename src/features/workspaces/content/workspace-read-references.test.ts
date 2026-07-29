@@ -157,6 +157,17 @@ describe("workspace read references", () => {
 		expect(guidance).toHaveLength(1);
 		expect(guidance?.[0]).toContain("still extracting");
 	});
+
+	it("stays silent about blank pages on a final, non-provisional read", () => {
+		const results = [{ ...fileResult(), emptyPages: [13] }] satisfies WorkspaceContentReadResult[];
+
+		expect(
+			createWorkspaceReadItemsModelOutput({
+				references: createWorkspaceReadReferences(results),
+				results,
+			}),
+		).not.toHaveProperty("guidance");
+	});
 });
 
 function documentResult(): Extract<

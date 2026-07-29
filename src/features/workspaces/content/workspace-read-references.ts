@@ -96,7 +96,10 @@ function createWorkspaceReadGuidance(results: readonly WorkspaceContentReadResul
 			continue;
 		}
 
-		if (result.type === "file" && (result.provisional || result.emptyPages?.length)) {
+		// Gate on provisional only: emptyPages on a final (non-provisional) read
+		// describes genuinely blank pages, which must not be reported as still
+		// extracting or the model retries a completed read forever.
+		if (result.type === "file" && result.provisional) {
 			situations.add("provisional");
 		}
 	}
