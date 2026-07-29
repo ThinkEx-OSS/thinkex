@@ -2,10 +2,15 @@ import type { AIThreadSummary } from "#/features/workspaces/ai/user-ai-agents";
 import type { AiChatAssistantErrorState } from "#/features/workspaces/components/ai-chat/AiChatMessageList";
 import type { AiChatStatus } from "#/features/workspaces/components/ai-chat/types";
 
+type AIThreadErrorSummary = Pick<
+	AIThreadSummary,
+	"lastErrorClassification" | "lastErrorStage" | "lastRunResult"
+>;
+
 export function deriveAiChatAssistantErrorState(input: {
 	chatStatus: AiChatStatus;
 	hasConnectionError: boolean;
-	threadSummary?: AIThreadSummary;
+	threadSummary?: AIThreadErrorSummary;
 }): AiChatAssistantErrorState | null {
 	if (input.hasConnectionError) {
 		return {
@@ -17,17 +22,18 @@ export function deriveAiChatAssistantErrorState(input: {
 		return null;
 	}
 
-	if (input.chatStatus === "error") {
-		return {
-			kind: "assistant",
-		};
-	}
+	const threadError =
+		input.threadSummary?.lastRunResult === "error" ? input.threadSummary : undefined;
 
-	if (input.threadSummary?.lastRunResult === "error") {
+	if (input.chatStatus === "error" || threadError) {
 		return {
-			classification: input.threadSummary.lastErrorClassification,
+			...(threadError
+				? {
+						classification: threadError.lastErrorClassification,
+						stage: threadError.lastErrorStage,
+					}
+				: {}),
 			kind: "assistant",
-			stage: input.threadSummary.lastErrorStage,
 		};
 	}
 

@@ -12,6 +12,24 @@ describe("AI chat error state", () => {
 		).toEqual({ kind: "assistant" });
 	});
 
+	it("preserves server details for a current SDK request error", () => {
+		expect(
+			deriveAiChatAssistantErrorState({
+				chatStatus: "error",
+				hasConnectionError: false,
+				threadSummary: {
+					lastErrorClassification: "context_overflow",
+					lastErrorStage: "recovery",
+					lastRunResult: "error",
+				},
+			}),
+		).toEqual({
+			classification: "context_overflow",
+			kind: "assistant",
+			stage: "recovery",
+		});
+	});
+
 	it("keeps a terminal connection error distinct", () => {
 		expect(
 			deriveAiChatAssistantErrorState({
