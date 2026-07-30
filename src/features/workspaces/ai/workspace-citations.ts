@@ -1,6 +1,7 @@
 import { isToolUIPart, type UIMessage } from "ai";
 import { z } from "zod";
 
+import { getWorkspaceToolResultAdapter } from "#/features/workspaces/ai/workspace-tool-result-adapters";
 import {
 	getWorkspaceLocationKey,
 	parseWorkspaceReference,
@@ -9,7 +10,6 @@ import {
 	type WorkspaceLocation,
 	workspaceReferenceRecordSchema,
 } from "#/features/workspaces/locations/workspace-location";
-import { workspaceReadItemsOutputSchema } from "#/features/workspaces/content/workspace-content-contract";
 
 export const WORKSPACE_CITATIONS_DATA_PART_TYPE = "data-workspace-citations";
 const MAX_WORKSPACE_CITATIONS_PER_MESSAGE = 50;
@@ -107,14 +107,9 @@ export function collectWorkspaceReferenceRecords(
 			const toolName =
 				part.type === "dynamic-tool" ? part.toolName : part.type.split("-").slice(1).join("-");
 
-			if (toolName !== "workspace_read_items") {
-				continue;
-			}
-
-			const parsed = workspaceReadItemsOutputSchema.safeParse(part.output);
-			if (parsed.success) {
-				records.push(...parsed.data.references);
-			}
+			records.push(
+				...(getWorkspaceToolResultAdapter(toolName)?.collectReferences(part.output) ?? []),
+			);
 		}
 	}
 

@@ -36,6 +36,11 @@ import {
 import type { ListWorkspaceKernelItemsResult } from "#/features/workspaces/kernel/workspace-kernel-list";
 import type { WorkspaceFileAssetKind } from "#/features/workspaces/model/workspace-file";
 import type { WorkspaceCommandResult } from "#/features/workspaces/realtime/messages";
+import type {
+	WorkspaceSearchFailure,
+	WorkspaceSearchInput,
+	WorkspaceSearchResult,
+} from "#/features/workspaces/search/workspace-search-contract";
 import {
 	assertCanMutateWorkspace,
 	assertCanReadWorkspace,
@@ -114,6 +119,9 @@ export interface WorkspaceKernelClient {
 		actorUserId?: string | null;
 		clientMutationId?: string | null;
 	}): Promise<WorkspaceCommandResult<WorkspaceItemSummary>>;
+	searchWorkspace(
+		input: WorkspaceSearchInput,
+	): Promise<{ failed: WorkspaceSearchFailure[]; results: WorkspaceSearchResult[] }>;
 	purgeForDeletion(): Promise<ResourcePurgeResult>;
 }
 

@@ -16,8 +16,17 @@ import {
 } from "#/features/workspaces/contracts";
 import { documentMarkdownEditSchema } from "#/features/workspaces/documents/document-markdown-edits";
 import { workspaceFileAssetKindSchema } from "#/features/workspaces/model/workspace-file";
+import {
+	workspaceSearchInputSchema,
+	workspaceSearchOutputSchema,
+} from "#/features/workspaces/search/workspace-search-contract";
 
-export { workspaceReadItemsInputSchema, workspaceReadItemsOutputSchema };
+export {
+	workspaceReadItemsInputSchema,
+	workspaceReadItemsOutputSchema,
+	workspaceSearchInputSchema,
+	workspaceSearchOutputSchema,
+};
 
 export const workspaceDocumentMarkdownMathInstruction =
 	"For document Markdown math, use `$...$` for inline math and `$$...$$` on separate lines for block math. Escape literal currency dollar signs as `\\$`.";
@@ -213,6 +222,20 @@ export const workspaceReadItemsInputExamples = createInputExamples<
 				range: "1-3",
 			},
 		],
+	},
+);
+
+export const workspaceSearchInputExamples = createInputExamples<
+	z.input<typeof workspaceSearchInputSchema>
+>(
+	{
+		query: "What does the market report say about adoption?",
+		path: "/Research",
+		types: ["document", "file"],
+		limit: 10,
+	},
+	{
+		query: "photosynthesis experiment results",
 	},
 );
 

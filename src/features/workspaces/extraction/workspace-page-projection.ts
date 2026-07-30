@@ -211,6 +211,40 @@ export async function readWorkspacePageProjection(input: {
 	};
 }
 
+export async function* iterateWorkspacePageProjection(input: {
+	bucket: R2Bucket;
+	expectedSourceHash: string;
+	manifestObjectKey: string;
+}): AsyncGenerator<{ markdown: string; pageNumber: number }> {
+	const manifest = await readWorkspacePageProjectionManifest(input.bucket, input.manifestObjectKey);
+	if (manifest.sourceHash !== input.expectedSourceHash) {
+		throw new Error("Workspace page projection source does not match its published revision.");
+	}
+
+	const pageMetadataByNumber = manifest.pages
+		? new Map(manifest.pages.map((page) => [page.pageNumber, page] as const))
+		: null;
+	const prefix = getManifestPrefix(input.manifestObjectKey);
+
+	for (let pageNumber = 1; pageNumber <= manifest.pageCount; pageNumber += 1) {
+		const object = await input.bucket.get(getWorkspacePageObjectKey(prefix, pageNumber));
+		if (!object) {
+			throw new Error(`Extracted page ${pageNumber} was not found.`);
+		}
+
+		const manifestPage = pageMetadataByNumber?.get(pageNumber);
+		if (manifestPage && manifestPage.markdownBytes !== object.size) {
+			await object.body.cancel();
+			throw new Error(`Extracted page ${pageNumber} does not match its manifest.`);
+		}
+
+		yield {
+			markdown: await object.text(),
+			pageNumber,
+		};
+	}
+}
+
 function requireManifestPage(
 	pagesByNumber: ReadonlyMap<number, WorkspacePageProjectionManifestPage>,
 	pageNumber: number,

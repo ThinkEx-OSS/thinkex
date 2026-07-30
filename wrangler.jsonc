@@ -34,6 +34,13 @@
 		"binding": "AI",
 		"remote": true,
 	},
+	"vectorize": [
+		{
+			"binding": "WORKSPACE_SEARCH",
+			"index_name": "thinkex-workspace-search-staging",
+			"remote": true,
+		},
+	],
 	"images": {
 		"binding": "IMAGES",
 	},
@@ -226,6 +233,13 @@
 				"binding": "AI",
 				"remote": true,
 			},
+			"vectorize": [
+				{
+					"binding": "WORKSPACE_SEARCH",
+					"index_name": "thinkex-workspace-search-staging",
+					"remote": true,
+				},
+			],
 			"images": {
 				"binding": "IMAGES",
 			},
@@ -350,6 +364,13 @@
 				"binding": "AI",
 				"remote": true,
 			},
+			"vectorize": [
+				{
+					"binding": "WORKSPACE_SEARCH",
+					"index_name": "thinkex-workspace-search",
+					"remote": true,
+				},
+			],
 			"images": {
 				"binding": "IMAGES",
 			},

@@ -5,7 +5,6 @@ import { workspaceItemTypeSchema } from "#/features/workspaces/contracts";
 import {
 	buildWorkspaceItemCreateBootstrap,
 	persistDocumentItemContentUpdate,
-	touchWorkspaceItemUpdatedAt,
 } from "#/features/workspaces/documents/document-item-content";
 import type { WorkspaceKernelEventBus } from "#/features/workspaces/kernel/workspace-kernel-events";
 import {
@@ -356,21 +355,13 @@ export class WorkspaceKernelItemCommands {
 
 		const now = Date.now();
 
-		if (type === "document") {
-			persistDocumentItemContentUpdate({
-				content: input.content,
-				itemId: input.itemId,
-				metadataJson: item.metadata_json,
-				sql: this.sql,
-				updatedAt: now,
-			});
-		} else {
-			touchWorkspaceItemUpdatedAt({
-				itemId: input.itemId,
-				sql: this.sql,
-				updatedAt: now,
-			});
-		}
+		persistDocumentItemContentUpdate({
+			content: input.content,
+			itemId: input.itemId,
+			metadataJson: item.metadata_json,
+			sql: this.sql,
+			updatedAt: now,
+		});
 
 		return this.commitItemEvent({
 			type: "workspace.item.content.updated",

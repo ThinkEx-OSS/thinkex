@@ -73,6 +73,13 @@ export function summarizeWorkspaceReadResult(input: {
 	return summarizeWorkspaceResult(succeededCount, failures, pendingCount);
 }
 
+export function summarizeWorkspaceSearchResult(input: {
+	failed: ReadonlyArray<{ code: string }>;
+	results: readonly unknown[];
+}) {
+	return summarizeWorkspaceResult(input.results.length, input.failed);
+}
+
 export function summarizeWorkspaceItemResult(input: {
 	failed: ReadonlyArray<{ code: string }>;
 	item?: unknown;

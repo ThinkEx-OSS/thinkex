@@ -9,17 +9,20 @@ export class WorkspaceKernelEventBus {
 	private readonly workspaceId: () => string;
 	private readonly getNextRevision: () => number;
 	private readonly broadcast: (message: WorkspaceRealtimeServerMessage) => void;
+	private readonly onCommit?: (event: WorkspaceRealtimeEvent) => void;
 
 	constructor(input: {
 		sql: WorkspaceKernelSql;
 		workspaceId: () => string;
 		getNextRevision: () => number;
 		broadcast: (message: WorkspaceRealtimeServerMessage) => void;
+		onCommit?: (event: WorkspaceRealtimeEvent) => void;
 	}) {
 		this.sql = input.sql;
 		this.workspaceId = input.workspaceId;
 		this.getNextRevision = input.getNextRevision;
 		this.broadcast = input.broadcast;
+		this.onCommit = input.onCommit;
 	}
 
 	commit(input: Omit<WorkspaceRealtimeEvent, "id" | "revision" | "workspaceId" | "createdAt">) {
@@ -52,6 +55,7 @@ export class WorkspaceKernelEventBus {
 				${createdAt}
 			)
 		`;
+		this.onCommit?.(event);
 		this.broadcast({
 			type: "workspace.event",
 			workspaceId: this.workspaceId(),

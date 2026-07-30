@@ -63,6 +63,8 @@ import {
 	recordOperationalOutcome,
 } from "#/integrations/observability/operational-events";
 import { deleteR2Prefix } from "#/lib/r2";
+import { WorkspaceSearchProjection } from "#/features/workspaces/search/workspace-search-projection";
+import type { WorkspaceSearchInput } from "#/features/workspaces/search/workspace-search-contract";
 
 const workspaceKernelInlineThresholdBytes = 1_500_000;
 
@@ -82,11 +84,22 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 		sql: this.kernelSql,
 		workspaceId: () => this.name,
 	});
+	private readonly search = new WorkspaceSearchProjection({
+		ai: this.env.AI,
+		bucket: this.env.WORKSPACE_KERNEL_FILES,
+		getItems: () => this.store.getPageItems(),
+		requestRun: () => this.ctx.waitUntil(this.scheduleWorkspaceSearchIndexing()),
+		sql: this.kernelSql,
+		vectorize: this.env.WORKSPACE_SEARCH,
+		workspace: this.workspace,
+		workspaceId: () => this.name,
+	});
 	private readonly events = new WorkspaceKernelEventBus({
 		sql: this.kernelSql,
 		workspaceId: () => this.name,
 		getNextRevision: () => this.store.getNextRevision(),
 		broadcast: (message) => this.broadcastRealtimeMessage(message),
+		onCommit: (event) => this.search.observe(event),
 	});
 	private readonly relations = new WorkspaceKernelRelations(this.kernelSql);
 	private readonly itemCommands = new WorkspaceKernelItemCommands({
@@ -105,8 +118,12 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 		workspaceId: () => this.name,
 	});
 
-	onStart() {
+	async onStart() {
 		initializeWorkspaceKernelStorage(this.kernelSql);
+		this.search.initialize();
+		if (this.search.hasRetryablePending()) {
+			await this.scheduleWorkspaceSearchIndexing();
+		}
 	}
 
 	onConnect(connection: Connection<WorkspaceConnectionState>, context: ConnectionContext) {
@@ -283,6 +300,16 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 		);
 	}
 
+	async searchWorkspace(input: WorkspaceSearchInput) {
+		return await this.search.search(input);
+	}
+
+	async processWorkspaceSearchIndex() {
+		if (await this.search.processBatch()) {
+			await this.scheduleWorkspaceSearchIndexing();
+		}
+	}
+
 	private async runMutation<T>(
 		operation: string,
 		input: { actorUserId?: string | null; clientMutationId?: string | null },
@@ -319,6 +346,17 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 		const documentItemIds = this.store.getAllDocumentItemIds();
 		let failed = 0;
 
+		try {
+			await this.search.purgeVectors();
+		} catch (error) {
+			failed += 1;
+			recordOperationalFailure({
+				error,
+				event: "workspace_search_purge",
+				fields: { workspace_id: workspaceId },
+			});
+		}
+
 		for (const itemId of documentItemIds) {
 			try {
 				await getDocumentSessionFromEnv(this.env, {
@@ -350,7 +388,13 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 		]);
 
 		await this.ctx.storage.deleteAll();
-		return { attempted: documentItemIds.length + 1, failed };
+		return { attempted: documentItemIds.length + 2, failed };
+	}
+
+	private async scheduleWorkspaceSearchIndexing() {
+		await this.schedule(1, "processWorkspaceSearchIndex", undefined, {
+			idempotent: true,
+		});
 	}
 
 	private broadcastPresenceSnapshot() {
