@@ -91,7 +91,7 @@ export interface PostHogEventPropertiesByName {
 		liteparse_markdown_length: number | null;
 		liteparse_outcome: "error" | "skipped" | "success";
 		liteparse_page_count: number | null;
-		outcome: "error" | "partial" | "success";
+		outcome: "abandoned" | "error" | "partial" | "success";
 		page_count: number | null;
 		provider: string | null;
 		provider_mode: string | null;

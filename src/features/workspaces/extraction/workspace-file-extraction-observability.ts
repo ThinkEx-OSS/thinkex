@@ -32,6 +32,9 @@ type WorkspaceFileExtractionOutcome = WorkspaceFileExtractionOutcomeBase &
 				outcome: "error";
 		  }
 		| {
+				outcome: "abandoned";
+		  }
+		| {
 				outcome: "partial" | "success";
 				pageCount: number;
 				provider: WorkspaceFileExtractionProviderId | "liteparse";
@@ -48,7 +51,7 @@ export function recordWorkspaceFileExtractionOutcome(input: WorkspaceFileExtract
 	}
 
 	const outcomeFields =
-		input.outcome !== "error"
+		input.outcome === "partial" || input.outcome === "success"
 			? {
 					error_type: null,
 					page_count: input.pageCount,
@@ -57,7 +60,12 @@ export function recordWorkspaceFileExtractionOutcome(input: WorkspaceFileExtract
 					route_reason: input.routeReason,
 				}
 			: {
-					error_type: input.error instanceof Error ? input.error.name : "UnknownError",
+					error_type:
+						input.outcome === "error"
+							? input.error instanceof Error
+								? input.error.name
+								: "UnknownError"
+							: null,
 					page_count: null,
 					provider: null,
 					provider_mode: null,

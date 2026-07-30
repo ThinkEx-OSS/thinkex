@@ -15,7 +15,7 @@ interface OperationalEventInput {
 	error?: unknown;
 	event: string;
 	fields?: OperationalEventFields;
-	outcome: "error" | "partial" | "rejected" | "success";
+	outcome: "abandoned" | "error" | "partial" | "rejected" | "success";
 	requestContext?: TelemetryRequestContext;
 }
 

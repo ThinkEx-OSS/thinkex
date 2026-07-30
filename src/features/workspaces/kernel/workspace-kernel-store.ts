@@ -19,6 +19,7 @@ import {
 import { parseWorkspaceMetadataJson } from "#/features/workspaces/kernel/workspace-kernel-metadata";
 import type { WorkspaceKernelNameConflictPolicy } from "#/features/workspaces/kernel/workspace-kernel-types";
 import type { WorkspaceKernelNameConflict } from "#/features/workspaces/kernel/workspace-kernel-types";
+import { WorkspaceKernelItemNotFoundError } from "#/features/workspaces/kernel/workspace-kernel-item-errors";
 import { getMetadataNumber } from "#/features/workspaces/model/workspace-file";
 
 export class WorkspaceKernelStore {
@@ -248,7 +249,7 @@ export class WorkspaceKernelStore {
 		const row = this.getItemRow(itemId);
 
 		if (!row) {
-			throw new Error("Workspace item not found.");
+			throw new WorkspaceKernelItemNotFoundError(itemId);
 		}
 
 		return row;
