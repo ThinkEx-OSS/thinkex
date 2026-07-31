@@ -196,7 +196,7 @@ export class WorkspaceSearchQuery {
 			JOIN kernel_items i ON i.id = c.item_id AND i.deleted_at IS NULL
 			JOIN kernel_search_items s ON s.item_id = c.item_id
 			WHERE kernel_search_fts MATCH ${match}
-				AND s.vector_status = 'ready'
+				AND s.vector_status IN ('ready', 'failed')
 				AND NOT EXISTS (
 					SELECT 1
 					FROM kernel_search_pending pending

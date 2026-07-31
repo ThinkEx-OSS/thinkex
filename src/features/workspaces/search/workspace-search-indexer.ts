@@ -93,7 +93,6 @@ export class WorkspaceSearchIndexer {
 								THEN ${workspaceSearchIndexVersion} || ':document:' || i.updated_at
 							ELSE ${workspaceSearchIndexVersion} || ':file:' || i.updated_at || ':' || p.updated_at || ':' || p.source_hash
 						END
-						OR s.vector_status != 'ready'
 					)
 			ON CONFLICT(item_id) DO NOTHING
 		`;
@@ -197,6 +196,7 @@ export class WorkspaceSearchIndexer {
 		this.beginIndex(source);
 
 		let chunks: SearchIndexChunk[] = [];
+		let indexError: unknown = null;
 		for await (const prepared of iteratePreparedWorkspaceSearchChunks({
 			bucket: this.bucket,
 			source,
@@ -210,18 +210,33 @@ export class WorkspaceSearchIndexer {
 			chunks.push(chunk);
 
 			if (chunks.length === searchChunkProcessingBatchSize) {
-				if (!(await this.indexChunkBatch(source, chunks))) {
-					return;
+				if (indexError === null) {
+					try {
+						if (!(await this.indexChunkBatch(source, chunks))) {
+							return;
+						}
+					} catch (error) {
+						indexError = error;
+					}
 				}
 				chunks = [];
 			}
 		}
 
-		if (chunks.length > 0 && !(await this.indexChunkBatch(source, chunks))) {
-			return;
+		if (chunks.length > 0 && indexError === null) {
+			try {
+				if (!(await this.indexChunkBatch(source, chunks))) {
+					return;
+				}
+			} catch (error) {
+				indexError = error;
+			}
 		}
 		if (!this.isCurrentSource(source)) {
 			return;
+		}
+		if (indexError !== null) {
+			throw indexError;
 		}
 		this.markVectorIndexReady(source);
 	}
@@ -412,13 +427,12 @@ export class WorkspaceSearchIndexer {
 	}
 
 	private discardItemChunks(itemId: string) {
-		for (const row of this.sql<{ chunk_id: string }>`
-			SELECT chunk_id
+		this.sql`
+			INSERT OR IGNORE INTO kernel_search_vector_deletes (vector_id, requested_at)
+			SELECT chunk_id, ${Date.now()}
 			FROM kernel_search_chunks
 			WHERE item_id = ${itemId}
-		`) {
-			this.queueVectorDelete(row.chunk_id);
-		}
+		`;
 		this.deleteLocalChunks(itemId);
 	}
 
@@ -523,7 +537,6 @@ export class WorkspaceSearchIndexer {
 			return false;
 		}
 
-		this.discardItemChunks(itemId);
 		this.sql`
 			UPDATE kernel_search_items
 			SET vector_status = 'failed'
