@@ -389,8 +389,8 @@ export class WorkspaceSearchIndexer {
 			)
 		`;
 		this.sql`
-			INSERT INTO kernel_search_fts (rowid, chunk_id, title, content)
-			SELECT rowid, chunk_id, ${source.name}, ${chunk.content}
+			INSERT INTO kernel_search_fts (rowid, title, content)
+			SELECT rowid, ${source.name}, ${chunk.content}
 			FROM kernel_search_chunks
 			WHERE chunk_id = ${chunk.chunkId}
 		`;
@@ -473,6 +473,7 @@ export class WorkspaceSearchIndexer {
 		const ids = this.sql<{ vector_id: string }>`
 			SELECT vector_id
 			FROM kernel_search_vector_deletes
+			WHERE attempts < ${maximumVectorDeleteAttempts}
 			ORDER BY requested_at ASC
 			LIMIT ${vectorDeleteBatchSize}
 		`.map((row) => row.vector_id);

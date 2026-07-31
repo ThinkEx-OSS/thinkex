@@ -192,7 +192,7 @@ export class WorkspaceSearchQuery {
 				c.start_line,
 				c.end_line
 			FROM kernel_search_fts
-			JOIN kernel_search_chunks c ON c.chunk_id = kernel_search_fts.chunk_id
+			JOIN kernel_search_chunks c ON c.rowid = kernel_search_fts.rowid
 			JOIN kernel_items i ON i.id = c.item_id AND i.deleted_at IS NULL
 			JOIN kernel_search_items s ON s.item_id = c.item_id
 			WHERE kernel_search_fts MATCH ${match}
@@ -214,7 +214,7 @@ export class WorkspaceSearchQuery {
 					)
 				)
 				AND i.type IN (SELECT value FROM json_each(${typesJson}))
-			ORDER BY bm25(kernel_search_fts, 0.0, 8.0, 1.0) ASC
+			ORDER BY bm25(kernel_search_fts, 8.0, 1.0) ASC
 			LIMIT ${input.candidateLimit}
 		`;
 
@@ -319,7 +319,7 @@ export class WorkspaceSearchQuery {
 				c.start_line,
 				c.end_line
 			FROM kernel_search_chunks c
-			JOIN kernel_search_fts ON kernel_search_fts.chunk_id = c.chunk_id
+			JOIN kernel_search_fts ON kernel_search_fts.rowid = c.rowid
 			JOIN kernel_items i ON i.id = c.item_id AND i.deleted_at IS NULL
 			JOIN kernel_search_items s ON s.item_id = c.item_id AND s.vector_status = 'ready'
 			WHERE c.chunk_id IN (SELECT value FROM json_each(${JSON.stringify(input.vectorIds)}))

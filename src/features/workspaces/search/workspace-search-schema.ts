@@ -1,16 +1,9 @@
 import type { WorkspaceKernelSql } from "#/features/workspaces/kernel/workspace-kernel-schema";
+import { workspaceSearchIndexVersion } from "#/features/workspaces/search/workspace-search-version";
 
-const workspaceSearchStorageVersion = 1;
+const workspaceSearchVersionKey = "workspace_search_version";
 
 export function initializeWorkspaceSearchStorage(sql: WorkspaceKernelSql) {
-	sql`
-		CREATE TABLE IF NOT EXISTS kernel_search_metadata (
-			key TEXT PRIMARY KEY,
-			value INTEGER NOT NULL
-		)
-	`;
-	sql`CREATE INDEX IF NOT EXISTS kernel_search_vector_deletes_pending_idx
-		ON kernel_search_vector_deletes (attempts, requested_at)`;
 	sql`
 		CREATE TABLE IF NOT EXISTS kernel_search_vector_deletes (
 			vector_id TEXT PRIMARY KEY,
@@ -18,14 +11,16 @@ export function initializeWorkspaceSearchStorage(sql: WorkspaceKernelSql) {
 			attempts INTEGER NOT NULL DEFAULT 0
 		)
 	`;
+	sql`CREATE INDEX IF NOT EXISTS kernel_search_vector_deletes_pending_idx
+		ON kernel_search_vector_deletes (requested_at)`;
 
-	const storedVersion = sql<{ value: number }>`
+	const storedVersion = sql<{ value: string }>`
 		SELECT value
-		FROM kernel_search_metadata
-		WHERE key = 'storage_version'
+		FROM kernel_meta
+		WHERE key = ${workspaceSearchVersionKey}
 		LIMIT 1
 	`[0]?.value;
-	if (storedVersion !== workspaceSearchStorageVersion) {
+	if (storedVersion !== workspaceSearchIndexVersion) {
 		// Search is derived, so schema changes reset only this projection and
 		// queue its old vectors for deletion without touching workspace data.
 		const hasChunks = sql<{ name: string }>`
@@ -66,7 +61,6 @@ export function initializeWorkspaceSearchStorage(sql: WorkspaceKernelSql) {
 		ON kernel_search_chunks (item_id)`;
 	sql`
 		CREATE VIRTUAL TABLE IF NOT EXISTS kernel_search_fts USING fts5(
-			chunk_id UNINDEXED,
 			title,
 			content,
 			tokenize = 'unicode61 remove_diacritics 2'
@@ -83,8 +77,10 @@ export function initializeWorkspaceSearchStorage(sql: WorkspaceKernelSql) {
 		ON kernel_search_pending (requested_at)`;
 
 	sql`
-		INSERT INTO kernel_search_metadata (key, value)
-		VALUES ('storage_version', ${workspaceSearchStorageVersion})
-		ON CONFLICT(key) DO UPDATE SET value = excluded.value
+		INSERT INTO kernel_meta (key, value, updated_at)
+		VALUES (${workspaceSearchVersionKey}, ${workspaceSearchIndexVersion}, ${Date.now()})
+		ON CONFLICT(key) DO UPDATE SET
+			value = excluded.value,
+			updated_at = excluded.updated_at
 	`;
 }

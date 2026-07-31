@@ -1,6 +1,6 @@
 /**
- * Bump whenever the embedding model, chunking, or embedding text format changes.
- * The SQL freshness checks in the indexer and query must mirror the format built here.
+ * Bump whenever the search schema, embedding model, chunking, or embedding text changes.
+ * The SQL freshness check in seedPendingItems must mirror the format built here.
  */
 export const workspaceSearchIndexVersion = "v3-bge-m3-1800-scoped";
 
