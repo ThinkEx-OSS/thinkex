@@ -117,7 +117,8 @@ function createWorkspaceSearchVectorFilters(
 	if (input.kind === "item") {
 		return [{ itemId: input.itemId }];
 	}
-	const type = input.types.length === 1 ? input.types[0] : undefined;
+	const uniqueTypes = Array.from(new Set(input.types));
+	const type = uniqueTypes.length === 1 ? uniqueTypes[0] : undefined;
 	if (input.kind === "workspace") {
 		return type ? [{ type }] : [null];
 	}

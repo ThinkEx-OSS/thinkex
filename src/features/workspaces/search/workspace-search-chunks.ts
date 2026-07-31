@@ -77,7 +77,7 @@ function findChunkEnd(text: string, start: number, hardEnd: number) {
 
 	const minimumEnd = start + minimumChunkCharacters;
 	for (const separator of ["\n\n", "\n", ". "]) {
-		const boundary = text.lastIndexOf(separator, hardEnd);
+		const boundary = text.lastIndexOf(separator, hardEnd - separator.length);
 		if (boundary >= minimumEnd) {
 			return boundary + separator.length;
 		}

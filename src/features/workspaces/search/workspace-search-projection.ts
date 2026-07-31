@@ -75,6 +75,9 @@ export class WorkspaceSearchProjection {
 			case "workspace.item.color.updated":
 			case "workspace.relations.updated":
 				return;
+			default:
+				event satisfies never;
+				return;
 		}
 
 		if (this.indexer.hasPending()) {

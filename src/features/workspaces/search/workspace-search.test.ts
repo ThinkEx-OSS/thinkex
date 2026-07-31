@@ -25,6 +25,27 @@ describe("workspace search", () => {
 		expect(chunks[1]?.startLine).toBeLessThanOrEqual((chunks[0]?.endLine ?? 0) + 1);
 	});
 
+	it("does not extend a chunk past its hard boundary for a separator", () => {
+		const [chunk] = Array.from(
+			iterateWorkspaceSearchTextChunks(`${"a".repeat(1_800)}. ${"b".repeat(100)}`),
+		);
+
+		expect(chunk?.content).toHaveLength(1_800);
+	});
+
+	it("deduplicates repeated content types", () => {
+		const resolved = resolveWorkspaceSearchScope({
+			items: [],
+			path: "/",
+			types: ["file", "file"],
+		});
+
+		expect(resolved).toMatchObject({
+			scope: { vectorFilters: [{ type: "file" }] },
+			status: "ready",
+		});
+	});
+
 	it("builds canonical source versions for documents and files", () => {
 		expect(
 			buildWorkspaceSearchSourceVersion({

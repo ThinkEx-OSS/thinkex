@@ -21,10 +21,10 @@ import {
 	type WorkspaceSearchScope,
 	type WorkspaceSearchVectorFilter,
 } from "#/features/workspaces/search/workspace-search-scope";
-import { workspaceSearchIndexVersion } from "#/features/workspaces/search/workspace-search-version";
 import { recordOperationalFailure } from "#/integrations/observability/operational-events";
 
 const semanticQueryConcurrency = 4;
+const maximumSemanticQueries = 16;
 
 interface SearchChunkRow {
 	chunk_id: string;
@@ -96,11 +96,15 @@ export class WorkspaceSearchQuery {
 		});
 		const itemsById = new Map(items.map((item) => [item.id, item]));
 		const paths = buildWorkspaceKernelItemPathIndex(items);
-		const ranked = fuseWorkspaceSearchRanks({ keyword, limit, semantic });
+		const ranked = fuseWorkspaceSearchRanks({
+			keyword,
+			limit,
+			semantic: semantic.candidates,
+		});
 
 		return {
 			failed: [],
-			status,
+			status: semantic.degraded ? "partial" : status,
 			results: ranked.flatMap((candidate) => {
 				const path = paths.get(candidate.itemId);
 				const item = itemsById.get(candidate.itemId);
@@ -162,7 +166,7 @@ export class WorkspaceSearchQuery {
 				event: "workspace_search_semantic",
 				fields: { workspace_id: this.workspaceId() },
 			});
-			return [];
+			return { candidates: [], degraded: true };
 		}
 	}
 
@@ -191,16 +195,13 @@ export class WorkspaceSearchQuery {
 			JOIN kernel_search_chunks c ON c.chunk_id = kernel_search_fts.chunk_id
 			JOIN kernel_items i ON i.id = c.item_id AND i.deleted_at IS NULL
 			JOIN kernel_search_items s ON s.item_id = c.item_id
-			LEFT JOIN kernel_item_projections p
-				ON p.item_id = i.id
-				AND p.format = 'pages'
-				AND p.status = 'ready'
 			WHERE kernel_search_fts MATCH ${match}
-				AND s.source_version = CASE
-					WHEN i.type = 'document'
-						THEN ${workspaceSearchIndexVersion} || ':document:' || i.updated_at
-					ELSE ${workspaceSearchIndexVersion} || ':file:' || i.updated_at || ':' || p.updated_at || ':' || p.source_hash
-				END
+				AND s.vector_status = 'ready'
+				AND NOT EXISTS (
+					SELECT 1
+					FROM kernel_search_pending pending
+					WHERE pending.item_id = i.id
+				)
 				AND (
 					${localScope.kind} = 'workspace'
 					OR (
@@ -225,23 +226,24 @@ export class WorkspaceSearchQuery {
 		query: string;
 		scope: WorkspaceSearchScope;
 		types: WorkspaceSearchItemType[];
-	}): Promise<SearchCandidate[]> {
+	}) {
 		if (input.scope.vectorFilters.length === 0) {
-			return [];
+			return { candidates: [], degraded: false };
 		}
 		const [embedding] = await embedWorkspaceSearchTexts(this.ai, [input.query]);
 		if (!embedding) {
-			return [];
+			throw new Error("Workspace search embedding response did not include the query vector.");
 		}
 
-		const matches = await this.querySemanticMatches({
+		const semanticMatches = await this.querySemanticMatches({
 			candidateLimit: input.candidateLimit,
 			embedding,
 			filters: input.scope.vectorFilters,
 		});
+		const { matches } = semanticMatches;
 		const vectorIds = matches.map((match) => match.id);
 		if (vectorIds.length === 0) {
-			return [];
+			return { candidates: [], degraded: semanticMatches.degraded };
 		}
 
 		const rows = this.loadSemanticCandidates({
@@ -251,10 +253,13 @@ export class WorkspaceSearchQuery {
 		});
 		const byVectorId = new Map(rows.map((row) => [row.chunk_id, mapSearchCandidate(row)]));
 
-		return vectorIds.flatMap((vectorId) => {
-			const candidate = byVectorId.get(vectorId);
-			return candidate ? [candidate] : [];
-		});
+		return {
+			candidates: vectorIds.flatMap((vectorId) => {
+				const candidate = byVectorId.get(vectorId);
+				return candidate ? [candidate] : [];
+			}),
+			degraded: semanticMatches.degraded,
+		};
 	}
 
 	private async querySemanticMatches(input: {
@@ -263,8 +268,9 @@ export class WorkspaceSearchQuery {
 		filters: WorkspaceSearchVectorFilter[];
 	}) {
 		let bestMatches = new Map<string, VectorizeMatch>();
+		const filters = input.filters.slice(0, maximumSemanticQueries);
 
-		for (const filterBatch of batchWorkspaceSearchValues(input.filters, semanticQueryConcurrency)) {
+		for (const filterBatch of batchWorkspaceSearchValues(filters, semanticQueryConcurrency)) {
 			const results = await Promise.all(
 				filterBatch.map((filter) =>
 					this.vectorize.query(input.embedding, {
@@ -290,7 +296,10 @@ export class WorkspaceSearchQuery {
 			);
 		}
 
-		return Array.from(bestMatches.values()).sort(compareSemanticMatches);
+		return {
+			degraded: filters.length < input.filters.length,
+			matches: Array.from(bestMatches.values()).sort(compareSemanticMatches),
+		};
 	}
 
 	private loadSemanticCandidates(input: {
@@ -313,16 +322,12 @@ export class WorkspaceSearchQuery {
 			JOIN kernel_search_fts ON kernel_search_fts.chunk_id = c.chunk_id
 			JOIN kernel_items i ON i.id = c.item_id AND i.deleted_at IS NULL
 			JOIN kernel_search_items s ON s.item_id = c.item_id AND s.vector_status = 'ready'
-			LEFT JOIN kernel_item_projections p
-				ON p.item_id = i.id
-				AND p.format = 'pages'
-				AND p.status = 'ready'
 			WHERE c.chunk_id IN (SELECT value FROM json_each(${JSON.stringify(input.vectorIds)}))
-				AND s.source_version = CASE
-					WHEN i.type = 'document'
-						THEN ${workspaceSearchIndexVersion} || ':document:' || i.updated_at
-					ELSE ${workspaceSearchIndexVersion} || ':file:' || i.updated_at || ':' || p.updated_at || ':' || p.source_hash
-				END
+				AND NOT EXISTS (
+					SELECT 1
+					FROM kernel_search_pending pending
+					WHERE pending.item_id = i.id
+				)
 				AND (
 					${localScope.kind} = 'workspace'
 					OR (
@@ -396,7 +401,7 @@ function mapSearchResult(
 }
 
 function createFtsMatchExpression(query: string) {
-	const tokens = query.match(/[\p{L}\p{N}_]+/gu)?.slice(0, 20) ?? [];
+	const tokens = getSearchQueryTokens(query);
 	return tokens.length > 0
 		? tokens.map((token) => `"${token.replaceAll('"', '""')}"*`).join(" OR ")
 		: null;
@@ -408,10 +413,17 @@ function createSearchExcerpt(content: string, query: string) {
 		return content;
 	}
 
-	const term = query.match(/[\p{L}\p{N}_]{3,}/u)?.[0]?.toLocaleLowerCase();
-	const matchIndex = term ? content.toLocaleLowerCase().indexOf(term) : -1;
+	const normalizedContent = content.toLocaleLowerCase();
+	const matchIndex = getSearchQueryTokens(query).reduce((earliest, token) => {
+		const index = normalizedContent.indexOf(token.toLocaleLowerCase());
+		return index === -1 || (earliest !== -1 && earliest <= index) ? earliest : index;
+	}, -1);
 	const start = Math.max(0, (matchIndex === -1 ? 0 : matchIndex) - Math.floor(maximumLength / 3));
 	const end = Math.min(content.length, start + maximumLength);
 
 	return `${start > 0 ? "…" : ""}${content.slice(start, end).trim()}${end < content.length ? "…" : ""}`;
+}
+
+function getSearchQueryTokens(query: string) {
+	return query.match(/[\p{L}\p{N}_]+/gu)?.slice(0, 20) ?? [];
 }

@@ -50,7 +50,6 @@ import {
 	summarizeWorkspaceCollectionResult,
 	summarizeWorkspaceItemResult,
 	summarizeWorkspaceReadResult,
-	summarizeWorkspaceSearchResult,
 	type WorkspaceOperationSummary,
 } from "#/features/workspaces/operations/workspace-operation-observability";
 
@@ -169,7 +168,11 @@ export const workspaceToolDefinitions = [
 		inputSchema: workspaceSearchInputSchema,
 		inputExamples: workspaceSearchInputExamples,
 		outputSchema: workspaceSearchOutputSchema,
-		summarizeResult: summarizeWorkspaceSearchResult,
+		summarizeResult: (result) =>
+			summarizeWorkspaceCollectionResult({
+				failed: result.failed,
+				items: result.results,
+			}),
 		effects: { destructive: false, idempotent: true },
 		execute: async (args, context) => {
 			return await searchWorkspaceOperation(context, args);
