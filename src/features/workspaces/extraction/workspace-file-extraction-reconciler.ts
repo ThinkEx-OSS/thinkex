@@ -18,11 +18,13 @@ export async function reconcileWorkspaceFileExtractions(input: {
 		asset_kind: string | number | boolean | null;
 		id: string;
 		object_key: string;
+		projection_updated_at: number;
 	}>`
 		SELECT
 			json_extract(i.metadata_json, '$.assetKind') AS asset_kind,
 			i.id,
-			i.object_key
+			i.object_key,
+			COALESCE(p.updated_at, i.created_at) AS projection_updated_at
 		FROM kernel_items i
 		LEFT JOIN kernel_item_projections p
 			ON p.item_id = i.id AND p.format = 'pages'
@@ -47,38 +49,37 @@ export async function reconcileWorkspaceFileExtractions(input: {
 			)
 			ORDER BY i.created_at ASC
 		`;
-	const workflows = (
-		await Promise.all(
-			candidates.map(async (candidate) => {
-				const assetKind = workspaceFileAssetKindSchema.safeParse(candidate.asset_kind);
-				if (!assetKind.success) {
-					return null;
-				}
+	for (let offset = 0; offset < candidates.length; offset += workflowBatchSize) {
+		const workflows = (
+			await Promise.all(
+				candidates.slice(offset, offset + workflowBatchSize).map(async (candidate) => {
+					const assetKind = workspaceFileAssetKindSchema.safeParse(candidate.asset_kind);
+					if (!assetKind.success) {
+						return null;
+					}
 
-				const runKey = `${extractionHealingVersion}:${candidate.object_key}`;
-				const params = {
-					actorUserId: null,
-					assetKind: assetKind.data,
-					itemId: candidate.id,
-					requestId: extractionHealingVersion,
-					workspaceId: input.workspaceId,
-				} satisfies WorkspaceFileExtractionWorkflowParams;
-				return {
-					id: await getWorkspaceFileExtractionWorkflowId({
-						assetKind: params.assetKind,
+					const runKey = `${extractionHealingVersion}:${candidate.object_key}:${candidate.projection_updated_at}`;
+					const params = {
+						actorUserId: null,
+						assetKind: assetKind.data,
 						itemId: candidate.id,
-						runKey,
+						requestId: extractionHealingVersion,
 						workspaceId: input.workspaceId,
-					}),
-					params,
-				};
-			}),
-		)
-	).filter((workflow) => workflow !== null);
-
-	// Workflow batches are capped at 100; submit every eligible file without
-	// opening unbounded concurrent calls to the service.
-	for (let offset = 0; offset < workflows.length; offset += workflowBatchSize) {
-		await input.workflow.createBatch(workflows.slice(offset, offset + workflowBatchSize));
+					} satisfies WorkspaceFileExtractionWorkflowParams;
+					return {
+						id: await getWorkspaceFileExtractionWorkflowId({
+							assetKind: params.assetKind,
+							itemId: candidate.id,
+							runKey,
+							workspaceId: input.workspaceId,
+						}),
+						params,
+					};
+				}),
+			)
+		).filter((workflow) => workflow !== null);
+		if (workflows.length > 0) {
+			await input.workflow.createBatch(workflows);
+		}
 	}
 }

@@ -320,6 +320,7 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 	}
 
 	async searchWorkspace(input: WorkspaceSearchInput) {
+		this.requestWorkspaceFileExtractionHealing();
 		if (this.search.hasPending()) {
 			this.ctx.waitUntil(this.scheduleWorkspaceSearchIndexing());
 		}
@@ -400,29 +401,31 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 			}
 		}
 
-		try {
-			await Promise.all([
-				deleteR2Prefix(
-					this.env.WORKSPACE_KERNEL_FILES,
-					getChatAttachmentWorkspacePrefix(workspaceId),
-				),
-				deleteR2Prefix(this.env.WORKSPACE_KERNEL_FILES, `uploads/workspaces/${workspaceId}/`),
-				deleteR2Prefix(this.env.WORKSPACE_KERNEL_FILES, `workspace_kernel_files/${workspaceId}/`),
-				deleteR2Prefix(this.env.WORKSPACE_KERNEL_FILES, `workspace_file_objects/${workspaceId}/`),
-				deleteR2Prefix(this.env.WORKSPACE_KERNEL_FILES, `workspace_file_uploads/${workspaceId}/`),
-			]);
-		} catch (error) {
+		const r2PurgeResults = await Promise.allSettled([
+			deleteR2Prefix(
+				this.env.WORKSPACE_KERNEL_FILES,
+				getChatAttachmentWorkspacePrefix(workspaceId),
+			),
+			deleteR2Prefix(this.env.WORKSPACE_KERNEL_FILES, `uploads/workspaces/${workspaceId}/`),
+			deleteR2Prefix(this.env.WORKSPACE_KERNEL_FILES, `workspace_kernel_files/${workspaceId}/`),
+			deleteR2Prefix(this.env.WORKSPACE_KERNEL_FILES, `workspace_file_objects/${workspaceId}/`),
+			deleteR2Prefix(this.env.WORKSPACE_KERNEL_FILES, `workspace_file_uploads/${workspaceId}/`),
+		]);
+		const r2Failures = r2PurgeResults.filter((result) => result.status === "rejected");
+		if (r2Failures.length > 0) {
 			failed += 1;
-			recordOperationalFailure({
-				error,
-				event: "workspace_r2_purge",
-				fields: { workspace_id: workspaceId },
-			});
+			for (const result of r2Failures) {
+				recordOperationalFailure({
+					error: result.reason,
+					event: "workspace_r2_purge",
+					fields: { workspace_id: workspaceId },
+				});
+			}
 		}
 
 		// Keep the local inventory when a remote purge fails so cleanup can be retried.
 		if (failed === 0) {
-			await this.ctx.storage.deleteAll();
+			await this.destroy();
 		} else {
 			const attempt = input.attempt ?? 1;
 			if (attempt < workspacePurgeMaximumAttempts) {
