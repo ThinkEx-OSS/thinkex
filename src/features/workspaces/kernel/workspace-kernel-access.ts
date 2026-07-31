@@ -356,12 +356,24 @@ export async function getWorkspaceKernelFromEnv(
 		throw new Error("Workspace kernel binding is unavailable.");
 	}
 
-	return namespace.getByName(workspaceId);
+	const kernel = namespace.getByName(workspaceId);
+	// A raw Durable Object stub skips the agents SDK's initialization step, so
+	// `WorkspaceKernel.onStart()` — the only place `initializeWorkspaceKernelStorage()`
+	// runs the `CREATE TABLE IF NOT EXISTS kernel_items` schema — never executes when a
+	// server-side RPC is the first thing to touch a cold kernel. Awaiting
+	// `__unsafe_ensureInitialized()` here runs `onStart()` (matching `getAgentByName`),
+	// so the schema exists before the first mutation lands instead of racing the browser's
+	// realtime WebSocket connection.
+	await kernel.__unsafe_ensureInitialized();
+
+	return kernel;
 }
 
-function isWorkspaceKernelNamespace(
-	value: unknown,
-): value is { getByName(name: string): WorkspaceKernelClient } {
+function isWorkspaceKernelNamespace(value: unknown): value is {
+	getByName(name: string): WorkspaceKernelClient & {
+		__unsafe_ensureInitialized(): Promise<void>;
+	};
+} {
 	return (
 		typeof value === "object" &&
 		value !== null &&
