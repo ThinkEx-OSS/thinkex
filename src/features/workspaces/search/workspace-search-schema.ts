@@ -11,6 +11,16 @@ export function initializeWorkspaceSearchStorage(sql: WorkspaceKernelSql) {
 			attempts INTEGER NOT NULL DEFAULT 0
 		)
 	`;
+	// The delete queue survives version resets (its rows reference vectors still
+	// live in Vectorize), so it is never rebuilt by the reset below. Objects whose
+	// table predates the `attempts` column must gain it here, or every flush throws
+	// "no such column: attempts" and indexing stalls forever.
+	const hasAttemptsColumn = sql<{ name: string }>`
+		PRAGMA table_info(kernel_search_vector_deletes)
+	`.some((column) => column.name === "attempts");
+	if (!hasAttemptsColumn) {
+		sql`ALTER TABLE kernel_search_vector_deletes ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0`;
+	}
 	sql`CREATE INDEX IF NOT EXISTS kernel_search_vector_deletes_pending_idx
 		ON kernel_search_vector_deletes (requested_at)`;
 
