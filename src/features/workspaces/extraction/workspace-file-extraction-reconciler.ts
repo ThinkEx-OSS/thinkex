@@ -50,53 +50,55 @@ export async function reconcileWorkspaceFileExtractions(input: {
 					AND p.updated_at <= ${now - missingProjectionGraceMs}
 				)
 			)
-		ORDER BY i.created_at ASC
-		LIMIT ${workflowBatchSize}
-	`;
+			ORDER BY i.created_at ASC
+		`;
 	const itemsById = new Map(input.items.map((item) => [item.id, item]));
-	const workflows: Array<{
-		id: string;
-		params: WorkspaceFileExtractionWorkflowParams;
-	}> = [];
+	const workflows = (
+		await Promise.all(
+			candidates.map(async (candidate) => {
+				const item = itemsById.get(candidate.id);
+				if (!item) {
+					return null;
+				}
 
-	for (const candidate of candidates) {
-		const item = itemsById.get(candidate.id);
-		if (!item) {
-			continue;
-		}
+				const fileType = resolveWorkspaceFileTypeFromItem(item);
+				if (!fileType) {
+					return null;
+				}
 
-		const fileType = resolveWorkspaceFileTypeFromItem(item);
-		if (!fileType) {
-			continue;
-		}
-
-		const runKey = [
-			extractionHealingVersion,
-			candidate.object_key,
-			candidate.projection_status ?? "missing",
-			candidate.projection_updated_at ?? 0,
-		].join(":");
-		const params = {
-			actorUserId: null,
-			assetKind: fileType.assetKind,
-			itemId: item.id,
-			requestId: extractionHealingVersion,
-			workspaceId: input.workspaceId,
-		} satisfies WorkspaceFileExtractionWorkflowParams;
-		workflows.push({
-			id: await getWorkspaceFileExtractionWorkflowId({
-				assetKind: params.assetKind,
-				itemId: item.id,
-				runKey,
-				workspaceId: input.workspaceId,
+				const runKey = [
+					extractionHealingVersion,
+					candidate.object_key,
+					candidate.projection_status ?? "missing",
+					candidate.projection_updated_at ?? 0,
+				].join(":");
+				const params = {
+					actorUserId: null,
+					assetKind: fileType.assetKind,
+					itemId: item.id,
+					requestId: extractionHealingVersion,
+					workspaceId: input.workspaceId,
+				} satisfies WorkspaceFileExtractionWorkflowParams;
+				return {
+					id: await getWorkspaceFileExtractionWorkflowId({
+						assetKind: params.assetKind,
+						itemId: item.id,
+						runKey,
+						workspaceId: input.workspaceId,
+					}),
+					params,
+				};
 			}),
-			params,
-		});
-	}
+		)
+	).filter((workflow) => workflow !== null);
 
 	if (workflows.length === 0) {
 		return;
 	}
 
-	await input.workflow.createBatch(workflows);
+	// Workflow batches are capped at 100; submit every eligible file without
+	// opening unbounded concurrent calls to the service.
+	for (let offset = 0; offset < workflows.length; offset += workflowBatchSize) {
+		await input.workflow.createBatch(workflows.slice(offset, offset + workflowBatchSize));
+	}
 }
