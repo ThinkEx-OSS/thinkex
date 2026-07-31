@@ -175,21 +175,17 @@ export async function readWorkspacePageProjection(input: {
 
 	// Consume each R2 body before opening the next one; never retain a batch of live responses.
 	for (const pageNumber of selectedPageNumbers) {
-		const object = await input.bucket.get(getWorkspacePageObjectKey(prefix, pageNumber));
-		if (!object) {
-			throw new Error(`Extracted page ${pageNumber} was not found.`);
-		}
+		const object = await getWorkspacePageProjectionObject({
+			bucket: input.bucket,
+			pageMetadataByNumber,
+			pageNumber,
+			prefix,
+		});
 
 		totalBytes += object.size;
 		if (totalBytes > maxPageReadBytes) {
 			await object.body.cancel();
 			throw new WorkspacePageSelectionError("page_selection_too_large");
-		}
-
-		const manifestPage = pageMetadataByNumber?.get(pageNumber);
-		if (manifestPage && manifestPage.markdownBytes !== object.size) {
-			await object.body.cancel();
-			throw new Error(`Extracted page ${pageNumber} does not match its manifest.`);
 		}
 
 		pages.push({
@@ -227,22 +223,38 @@ export async function* iterateWorkspacePageProjection(input: {
 	const prefix = getManifestPrefix(input.manifestObjectKey);
 
 	for (let pageNumber = 1; pageNumber <= manifest.pageCount; pageNumber += 1) {
-		const object = await input.bucket.get(getWorkspacePageObjectKey(prefix, pageNumber));
-		if (!object) {
-			throw new Error(`Extracted page ${pageNumber} was not found.`);
-		}
-
-		const manifestPage = pageMetadataByNumber?.get(pageNumber);
-		if (manifestPage && manifestPage.markdownBytes !== object.size) {
-			await object.body.cancel();
-			throw new Error(`Extracted page ${pageNumber} does not match its manifest.`);
-		}
+		const object = await getWorkspacePageProjectionObject({
+			bucket: input.bucket,
+			pageMetadataByNumber,
+			pageNumber,
+			prefix,
+		});
 
 		yield {
 			markdown: await object.text(),
 			pageNumber,
 		};
 	}
+}
+
+async function getWorkspacePageProjectionObject(input: {
+	bucket: R2Bucket;
+	pageMetadataByNumber: ReadonlyMap<number, WorkspacePageProjectionManifestPage> | null;
+	pageNumber: number;
+	prefix: string;
+}) {
+	const object = await input.bucket.get(getWorkspacePageObjectKey(input.prefix, input.pageNumber));
+	if (!object) {
+		throw new Error(`Extracted page ${input.pageNumber} was not found.`);
+	}
+
+	const manifestPage = input.pageMetadataByNumber?.get(input.pageNumber);
+	if (manifestPage && manifestPage.markdownBytes !== object.size) {
+		await object.body.cancel();
+		throw new Error(`Extracted page ${input.pageNumber} does not match its manifest.`);
+	}
+
+	return object;
 }
 
 function requireManifestPage(

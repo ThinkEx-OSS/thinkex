@@ -8,13 +8,16 @@ export interface WorkspaceSearchTextChunk {
 	startLine: number;
 }
 
-export function chunkWorkspaceSearchText(text: string): WorkspaceSearchTextChunk[] {
+export function* iterateWorkspaceSearchTextChunks(
+	text: string,
+): Generator<WorkspaceSearchTextChunk> {
 	const normalized = text.replace(/\r\n?/g, "\n");
 	if (normalized.length === 0) {
-		return [{ content: "", endLine: 0, startLine: 0 }];
+		yield { content: "", endLine: 0, startLine: 0 };
+		return;
 	}
 
-	const chunks: WorkspaceSearchTextChunk[] = [];
+	let yielded = false;
 	let start = 0;
 	let startLine = 1;
 	let startLineCursor = 0;
@@ -38,11 +41,12 @@ export function chunkWorkspaceSearchText(text: string): WorkspaceSearchTextChunk
 				startLine += 1;
 				startLineCursor = newline + 1;
 			}
-			chunks.push({
+			yielded = true;
+			yield {
 				content,
 				endLine: startLine + countLineBreaks(normalized, contentStart, contentEnd),
 				startLine,
-			});
+			};
 		}
 
 		if (end >= normalized.length) {
@@ -61,7 +65,9 @@ export function chunkWorkspaceSearchText(text: string): WorkspaceSearchTextChunk
 		start = Math.min(boundary, end);
 	}
 
-	return chunks.length > 0 ? chunks : [{ content: "", endLine: 0, startLine: 0 }];
+	if (!yielded) {
+		yield { content: "", endLine: 0, startLine: 0 };
+	}
 }
 
 function findChunkEnd(text: string, start: number, hardEnd: number) {

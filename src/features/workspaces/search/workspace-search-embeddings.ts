@@ -1,3 +1,5 @@
+import { batchWorkspaceSearchValues } from "#/features/workspaces/search/workspace-search-batches";
+
 const workspaceSearchEmbeddingModel = "@cf/baai/bge-m3";
 const embeddingBatchSize = 16;
 
@@ -11,14 +13,6 @@ export async function embedWorkspaceSearchTexts(ai: Ai, texts: string[]) {
 		embeddings.push(...readEmbeddingData(output));
 	}
 	return embeddings;
-}
-
-export function batchWorkspaceSearchValues<T>(values: readonly T[], size: number): T[][] {
-	const batches: T[][] = [];
-	for (let index = 0; index < values.length; index += size) {
-		batches.push(values.slice(index, index + size));
-	}
-	return batches;
 }
 
 function readEmbeddingData(output: unknown): number[][] {

@@ -1,12 +1,5 @@
 import type { WorkspaceItemSummary } from "#/features/workspaces/contracts";
-import {
-	buildWorkspaceKernelItemPathIndex,
-	buildWorkspaceKernelTree,
-	normalizeWorkspacePath,
-	resolveWorkspaceKernelItemPath,
-	WorkspaceKernelPathError,
-	type WorkspaceKernelTree,
-} from "#/features/workspaces/kernel/workspace-kernel-paths";
+import { buildWorkspaceKernelItemPathIndex } from "#/features/workspaces/kernel/workspace-kernel-paths";
 import type { WorkspaceKernelSql } from "#/features/workspaces/kernel/workspace-kernel-schema";
 import { resolveWorkspaceFileTypeFromItem } from "#/features/workspaces/model/workspace-file";
 import type {
@@ -14,13 +7,24 @@ import type {
 	WorkspaceSearchInput,
 	WorkspaceSearchItemType,
 	WorkspaceSearchResult,
+	WorkspaceSearchStatus,
 } from "#/features/workspaces/search/workspace-search-contract";
+import { batchWorkspaceSearchValues } from "#/features/workspaces/search/workspace-search-batches";
 import { embedWorkspaceSearchTexts } from "#/features/workspaces/search/workspace-search-embeddings";
 import {
 	fuseWorkspaceSearchRanks,
 	type WorkspaceSearchRankCandidate,
 } from "#/features/workspaces/search/workspace-search-ranking";
+import {
+	resolveWorkspaceSearchScope,
+	type WorkspaceSearchLocalScope,
+	type WorkspaceSearchScope,
+	type WorkspaceSearchVectorFilter,
+} from "#/features/workspaces/search/workspace-search-scope";
+import { workspaceSearchIndexVersion } from "#/features/workspaces/search/workspace-search-version";
 import { recordOperationalFailure } from "#/integrations/observability/operational-events";
+
+const semanticQueryConcurrency = 4;
 
 interface SearchChunkRow {
 	chunk_id: string;
@@ -59,36 +63,44 @@ export class WorkspaceSearchQuery {
 		this.workspaceId = input.workspaceId;
 	}
 
-	async search(
-		input: WorkspaceSearchInput,
-	): Promise<{ failed: WorkspaceSearchFailure[]; results: WorkspaceSearchResult[] }> {
-		const scope = this.resolveScope(input.path ?? "/");
-		if (scope.status === "failed") {
-			return { failed: [scope.failure], results: [] };
-		}
-
+	async search(input: WorkspaceSearchInput): Promise<{
+		failed: WorkspaceSearchFailure[];
+		results: WorkspaceSearchResult[];
+		status: WorkspaceSearchStatus;
+	}> {
+		const status = this.getStatus();
 		const limit = input.limit ?? 10;
 		const types = input.types ?? ["document", "file"];
+		const items = this.getItems();
+		const resolvedScope = resolveWorkspaceSearchScope({
+			items,
+			path: input.path ?? "/",
+			types,
+		});
+		if (resolvedScope.status === "failed") {
+			return { failed: [resolvedScope.failure], results: [], status };
+		}
+		const { scope } = resolvedScope;
 		const candidateLimit = Math.min(100, Math.max(50, limit * 6));
 		const keyword = this.searchKeyword({
 			candidateLimit,
 			query: input.query,
-			scopeItemIds: scope.itemIds,
+			scope: scope.local,
 			types,
 		});
 		const semantic = await this.searchSemanticWithFallback({
 			candidateLimit,
 			query: input.query,
-			scopeItemIds: scope.itemIds,
+			scope,
 			types,
 		});
-		const items = this.getItems();
 		const itemsById = new Map(items.map((item) => [item.id, item]));
 		const paths = buildWorkspaceKernelItemPathIndex(items);
 		const ranked = fuseWorkspaceSearchRanks({ keyword, limit, semantic });
 
 		return {
 			failed: [],
+			status,
 			results: ranked.flatMap((candidate) => {
 				const path = paths.get(candidate.itemId);
 				const item = itemsById.get(candidate.itemId);
@@ -101,10 +113,45 @@ export class WorkspaceSearchQuery {
 		};
 	}
 
+	private getStatus(): WorkspaceSearchStatus {
+		const unavailableFile = this.sql<{ item_id: string }>`
+			SELECT i.id AS item_id
+			FROM kernel_items i
+			LEFT JOIN kernel_item_projections p
+				ON p.item_id = i.id
+				AND p.format = 'pages'
+				AND p.status = 'ready'
+				AND p.object_key IS NOT NULL
+				AND p.source_hash IS NOT NULL
+			WHERE i.deleted_at IS NULL
+				AND i.type = 'file'
+				AND p.item_id IS NULL
+			LIMIT 1
+		`[0];
+		if (unavailableFile) {
+			return "partial";
+		}
+
+		const pending = this.sql<{ item_id: string }>`
+			SELECT item_id FROM kernel_search_pending LIMIT 1
+		`[0];
+		if (pending) {
+			return "indexing";
+		}
+
+		const failed = this.sql<{ item_id: string }>`
+			SELECT item_id
+			FROM kernel_search_items
+			WHERE vector_status = 'failed'
+			LIMIT 1
+		`[0];
+		return failed ? "partial" : "ready";
+	}
+
 	private async searchSemanticWithFallback(input: {
 		candidateLimit: number;
 		query: string;
-		scopeItemIds: string[] | null;
+		scope: WorkspaceSearchScope;
 		types: WorkspaceSearchItemType[];
 	}) {
 		try {
@@ -119,48 +166,10 @@ export class WorkspaceSearchQuery {
 		}
 	}
 
-	private resolveScope(
-		requestedPath: string,
-	):
-		| { itemIds: string[] | null; status: "ready" }
-		| { failure: WorkspaceSearchFailure; status: "failed" } {
-		let path: string;
-		try {
-			path = normalizeWorkspacePath(requestedPath);
-		} catch (error) {
-			if (error instanceof WorkspaceKernelPathError && error.code === "path_not_absolute") {
-				return {
-					failure: { code: error.code, path: requestedPath },
-					status: "failed",
-				};
-			}
-			throw error;
-		}
-
-		if (path === "/") {
-			return { itemIds: null, status: "ready" };
-		}
-
-		const items = this.getItems();
-		const tree = buildWorkspaceKernelTree(items);
-		const item = resolveWorkspaceKernelItemPath(path, tree);
-		if (!item) {
-			return {
-				failure: { code: "path_not_found", path },
-				status: "failed",
-			};
-		}
-		if (item.type !== "folder") {
-			return { itemIds: [item.id], status: "ready" };
-		}
-
-		return { itemIds: listDescendantItemIds(item.id, tree), status: "ready" };
-	}
-
 	private searchKeyword(input: {
 		candidateLimit: number;
 		query: string;
-		scopeItemIds: string[] | null;
+		scope: WorkspaceSearchLocalScope;
 		types: WorkspaceSearchItemType[];
 	}): SearchCandidate[] {
 		const match = createFtsMatchExpression(input.query);
@@ -168,7 +177,7 @@ export class WorkspaceSearchQuery {
 			return [];
 		}
 
-		const scopeJson = input.scopeItemIds ? JSON.stringify(input.scopeItemIds) : null;
+		const localScope = serializeWorkspaceSearchLocalScope(input.scope);
 		const typesJson = JSON.stringify(input.types);
 		const rows = this.sql<SearchChunkRow>`
 			SELECT
@@ -188,14 +197,23 @@ export class WorkspaceSearchQuery {
 				AND p.status = 'ready'
 			WHERE kernel_search_fts MATCH ${match}
 				AND s.source_version = CASE
-					WHEN i.type = 'document' THEN 'document:' || i.updated_at
-					ELSE 'file:' || i.updated_at || ':' || p.updated_at || ':' || p.source_hash
+					WHEN i.type = 'document'
+						THEN ${workspaceSearchIndexVersion} || ':document:' || i.updated_at
+					ELSE ${workspaceSearchIndexVersion} || ':file:' || i.updated_at || ':' || p.updated_at || ':' || p.source_hash
 				END
-				AND (${scopeJson} IS NULL OR c.item_id IN (
-					SELECT value FROM json_each(${scopeJson})
-				))
+				AND (
+					${localScope.kind} = 'workspace'
+					OR (
+						${localScope.kind} = 'item'
+						AND c.item_id IN (SELECT value FROM json_each(${localScope.idsJson}))
+					)
+					OR (
+						${localScope.kind} = 'folder'
+						AND i.parent_id IN (SELECT value FROM json_each(${localScope.idsJson}))
+					)
+				)
 				AND i.type IN (SELECT value FROM json_each(${typesJson}))
-			ORDER BY bm25(kernel_search_fts, 0.0, 8.0, 4.0, 1.0) ASC
+			ORDER BY bm25(kernel_search_fts, 0.0, 8.0, 1.0) ASC
 			LIMIT ${input.candidateLimit}
 		`;
 
@@ -205,26 +223,29 @@ export class WorkspaceSearchQuery {
 	private async searchSemantic(input: {
 		candidateLimit: number;
 		query: string;
-		scopeItemIds: string[] | null;
+		scope: WorkspaceSearchScope;
 		types: WorkspaceSearchItemType[];
 	}): Promise<SearchCandidate[]> {
+		if (input.scope.vectorFilters.length === 0) {
+			return [];
+		}
 		const [embedding] = await embedWorkspaceSearchTexts(this.ai, [input.query]);
 		if (!embedding) {
 			return [];
 		}
 
-		const matches = await this.vectorize.query(embedding, {
-			namespace: this.workspaceId(),
-			returnMetadata: "none",
-			topK: input.candidateLimit,
+		const matches = await this.querySemanticMatches({
+			candidateLimit: input.candidateLimit,
+			embedding,
+			filters: input.scope.vectorFilters,
 		});
-		const vectorIds = matches.matches.map((match) => match.id);
+		const vectorIds = matches.map((match) => match.id);
 		if (vectorIds.length === 0) {
 			return [];
 		}
 
 		const rows = this.loadSemanticCandidates({
-			scopeItemIds: input.scopeItemIds,
+			scope: input.scope.local,
 			types: input.types,
 			vectorIds,
 		});
@@ -236,12 +257,48 @@ export class WorkspaceSearchQuery {
 		});
 	}
 
+	private async querySemanticMatches(input: {
+		candidateLimit: number;
+		embedding: number[];
+		filters: WorkspaceSearchVectorFilter[];
+	}) {
+		let bestMatches = new Map<string, VectorizeMatch>();
+
+		for (const filterBatch of batchWorkspaceSearchValues(input.filters, semanticQueryConcurrency)) {
+			const results = await Promise.all(
+				filterBatch.map((filter) =>
+					this.vectorize.query(input.embedding, {
+						...(filter ? { filter } : {}),
+						namespace: this.workspaceId(),
+						returnMetadata: "none",
+						topK: input.candidateLimit,
+					}),
+				),
+			);
+
+			for (const match of results.flatMap((result) => result.matches)) {
+				const existing = bestMatches.get(match.id);
+				if (!existing || match.score > existing.score) {
+					bestMatches.set(match.id, match);
+				}
+			}
+			bestMatches = new Map(
+				Array.from(bestMatches.values())
+					.sort(compareSemanticMatches)
+					.slice(0, input.candidateLimit)
+					.map((match) => [match.id, match]),
+			);
+		}
+
+		return Array.from(bestMatches.values()).sort(compareSemanticMatches);
+	}
+
 	private loadSemanticCandidates(input: {
-		scopeItemIds: string[] | null;
+		scope: WorkspaceSearchLocalScope;
 		types: WorkspaceSearchItemType[];
 		vectorIds: string[];
 	}) {
-		const scopeJson = input.scopeItemIds ? JSON.stringify(input.scopeItemIds) : null;
+		const localScope = serializeWorkspaceSearchLocalScope(input.scope);
 		const typesJson = JSON.stringify(input.types);
 
 		return this.sql<SearchChunkRow>`
@@ -255,35 +312,44 @@ export class WorkspaceSearchQuery {
 			FROM kernel_search_chunks c
 			JOIN kernel_search_fts ON kernel_search_fts.chunk_id = c.chunk_id
 			JOIN kernel_items i ON i.id = c.item_id AND i.deleted_at IS NULL
-			JOIN kernel_search_items s ON s.item_id = c.item_id AND s.vector_ready = 1
+			JOIN kernel_search_items s ON s.item_id = c.item_id AND s.vector_status = 'ready'
 			LEFT JOIN kernel_item_projections p
 				ON p.item_id = i.id
 				AND p.format = 'pages'
 				AND p.status = 'ready'
 			WHERE c.chunk_id IN (SELECT value FROM json_each(${JSON.stringify(input.vectorIds)}))
 				AND s.source_version = CASE
-					WHEN i.type = 'document' THEN 'document:' || i.updated_at
-					ELSE 'file:' || i.updated_at || ':' || p.updated_at || ':' || p.source_hash
+					WHEN i.type = 'document'
+						THEN ${workspaceSearchIndexVersion} || ':document:' || i.updated_at
+					ELSE ${workspaceSearchIndexVersion} || ':file:' || i.updated_at || ':' || p.updated_at || ':' || p.source_hash
 				END
-				AND (${scopeJson} IS NULL OR c.item_id IN (
-					SELECT value FROM json_each(${scopeJson})
-				))
+				AND (
+					${localScope.kind} = 'workspace'
+					OR (
+						${localScope.kind} = 'item'
+						AND c.item_id IN (SELECT value FROM json_each(${localScope.idsJson}))
+					)
+					OR (
+						${localScope.kind} = 'folder'
+						AND i.parent_id IN (SELECT value FROM json_each(${localScope.idsJson}))
+					)
+				)
 				AND i.type IN (SELECT value FROM json_each(${typesJson}))
 		`;
 	}
 }
 
-function listDescendantItemIds(folderId: string, tree: WorkspaceKernelTree) {
-	const ids: string[] = [];
-	const pending = [folderId];
-	while (pending.length > 0) {
-		const itemId = pending.pop();
-		if (itemId) {
-			ids.push(itemId);
-			pending.push(...(tree.childrenByParentId.get(itemId) ?? []).map((item) => item.id));
-		}
-	}
-	return ids;
+function serializeWorkspaceSearchLocalScope(scope: WorkspaceSearchLocalScope) {
+	return {
+		idsJson: JSON.stringify(
+			scope.kind === "workspace" ? [] : scope.kind === "item" ? [scope.itemId] : scope.folderIds,
+		),
+		kind: scope.kind,
+	};
+}
+
+function compareSemanticMatches(left: VectorizeMatch, right: VectorizeMatch) {
+	return right.score - left.score || left.id.localeCompare(right.id);
 }
 
 function mapSearchCandidate(row: SearchChunkRow): SearchCandidate {

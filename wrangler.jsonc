@@ -34,6 +34,7 @@
 		"binding": "AI",
 		"remote": true,
 	},
+	// Both indexes require string metadata indexes for itemId, parentId, and type.
 	"vectorize": [
 		{
 			"binding": "WORKSPACE_SEARCH",

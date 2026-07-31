@@ -45,12 +45,21 @@ export class WorkspaceSearchProjection {
 				this.indexer.markPending(event.payload.item.id);
 				break;
 			case "workspace.item.renamed":
+				if (event.payload.item.type === "document" || event.payload.item.type === "file") {
+					this.indexer.markPending(event.payload.item.id);
+				}
+				break;
 			case "workspace.item.moved":
-				this.indexer.markTreePending(event.payload.item.id);
+				// Folder scope follows the live tree, so only moved content needs new metadata.
+				if (event.payload.item.type === "document" || event.payload.item.type === "file") {
+					this.indexer.markPending(event.payload.item.id);
+				}
 				break;
 			case "workspace.items.moved":
 				for (const item of event.payload.items) {
-					this.indexer.markTreePending(item.id);
+					if (item.type === "document" || item.type === "file") {
+						this.indexer.markPending(item.id);
+					}
 				}
 				break;
 			case "workspace.item.projection.updated":
@@ -68,13 +77,13 @@ export class WorkspaceSearchProjection {
 				return;
 		}
 
-		if (this.indexer.hasRetryablePending()) {
+		if (this.indexer.hasPending()) {
 			this.requestRun();
 		}
 	}
 
-	hasRetryablePending() {
-		return this.indexer.hasRetryablePending();
+	hasPending() {
+		return this.indexer.hasPending();
 	}
 
 	async processBatch() {

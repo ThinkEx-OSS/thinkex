@@ -40,6 +40,7 @@ import type {
 	WorkspaceSearchFailure,
 	WorkspaceSearchInput,
 	WorkspaceSearchResult,
+	WorkspaceSearchStatus,
 } from "#/features/workspaces/search/workspace-search-contract";
 import {
 	assertCanMutateWorkspace,
@@ -119,9 +120,11 @@ export interface WorkspaceKernelClient {
 		actorUserId?: string | null;
 		clientMutationId?: string | null;
 	}): Promise<WorkspaceCommandResult<WorkspaceItemSummary>>;
-	searchWorkspace(
-		input: WorkspaceSearchInput,
-	): Promise<{ failed: WorkspaceSearchFailure[]; results: WorkspaceSearchResult[] }>;
+	searchWorkspace(input: WorkspaceSearchInput): Promise<{
+		failed: WorkspaceSearchFailure[];
+		results: WorkspaceSearchResult[];
+		status: WorkspaceSearchStatus;
+	}>;
 	purgeForDeletion(): Promise<ResourcePurgeResult>;
 }
 

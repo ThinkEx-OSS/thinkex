@@ -1,27 +1,29 @@
-import type { WorkspaceItemSummary } from "#/features/workspaces/contracts";
-import { buildWorkspaceKernelItemPathIndex } from "#/features/workspaces/kernel/workspace-kernel-paths";
 import type { WorkspaceKernelSql } from "#/features/workspaces/kernel/workspace-kernel-schema";
+import { batchWorkspaceSearchValues } from "#/features/workspaces/search/workspace-search-batches";
 import {
 	createWorkspaceSearchEmbeddingText,
-	prepareWorkspaceSearchChunks,
+	iteratePreparedWorkspaceSearchChunks,
 	type WorkspaceSearchFileSystem,
 	type WorkspaceSearchIndexSource,
 } from "#/features/workspaces/search/workspace-search-content";
+import { embedWorkspaceSearchTexts } from "#/features/workspaces/search/workspace-search-embeddings";
+import { createWorkspaceSearchVectorMetadata } from "#/features/workspaces/search/workspace-search-scope";
 import {
-	batchWorkspaceSearchValues,
-	embedWorkspaceSearchTexts,
-} from "#/features/workspaces/search/workspace-search-embeddings";
+	buildWorkspaceSearchSourceVersion,
+	workspaceSearchIndexVersion,
+} from "#/features/workspaces/search/workspace-search-version";
 import { recordOperationalFailure } from "#/integrations/observability/operational-events";
 import { sha256Base64UrlText } from "#/lib/binary";
 
-const searchIndexBatchSize = 4;
-const vectorMutationBatchSize = 1_000;
-const vectorDeleteBatchSize = 100;
+const searchIndexBatchSize = 2;
+const searchChunkProcessingBatchSize = 32;
 const maximumIndexAttempts = 5;
+const vectorDeleteBatchSize = 100;
 
 interface SearchSourceRow {
 	id: string;
 	name: string;
+	parent_id: string | null;
 	projection_object_key: string | null;
 	projection_source_hash: string | null;
 	projection_updated_at: number | null;
@@ -29,6 +31,10 @@ interface SearchSourceRow {
 	type: string;
 	updated_at: number;
 }
+
+type ScopedWorkspaceSearchIndexSource = WorkspaceSearchIndexSource & {
+	parentId: string | null;
+};
 
 interface SearchIndexChunk {
 	chunkId: string;
@@ -42,7 +48,6 @@ interface SearchIndexChunk {
 export class WorkspaceSearchIndexer {
 	private readonly ai: Ai;
 	private readonly bucket: R2Bucket;
-	private readonly getItems: () => WorkspaceItemSummary[];
 	private readonly sql: WorkspaceKernelSql;
 	private readonly vectorize: VectorizeIndex;
 	private readonly workspace: WorkspaceSearchFileSystem;
@@ -51,7 +56,6 @@ export class WorkspaceSearchIndexer {
 	constructor(input: {
 		ai: Ai;
 		bucket: R2Bucket;
-		getItems: () => WorkspaceItemSummary[];
 		sql: WorkspaceKernelSql;
 		vectorize: VectorizeIndex;
 		workspace: WorkspaceSearchFileSystem;
@@ -59,7 +63,6 @@ export class WorkspaceSearchIndexer {
 	}) {
 		this.ai = input.ai;
 		this.bucket = input.bucket;
-		this.getItems = input.getItems;
 		this.sql = input.sql;
 		this.vectorize = input.vectorize;
 		this.workspace = input.workspace;
@@ -69,32 +72,33 @@ export class WorkspaceSearchIndexer {
 	seedPendingItems() {
 		const now = Date.now();
 		this.sql`
-			INSERT INTO kernel_search_pending (item_id, requested_at, attempts)
-			SELECT i.id, ${now}, 0
+			INSERT INTO kernel_search_pending (item_id, requested_at)
+			SELECT i.id, ${now}
 			FROM kernel_items i
 			LEFT JOIN kernel_item_projections p
 				ON p.item_id = i.id
 				AND p.format = 'pages'
 				AND p.status = 'ready'
 			LEFT JOIN kernel_search_items s ON s.item_id = i.id
-			WHERE i.deleted_at IS NULL
-				AND (
-					i.type = 'document'
-					OR (i.type = 'file' AND p.source_hash IS NOT NULL)
-				)
-				AND (
-					s.item_id IS NULL
-					OR s.source_version != CASE
-						WHEN i.type = 'document' THEN 'document:' || i.updated_at
-						ELSE 'file:' || i.updated_at || ':' || p.updated_at || ':' || p.source_hash
-					END
-					OR s.vector_ready = 0
-				)
+				WHERE i.deleted_at IS NULL
+					AND (
+						i.type = 'document'
+						OR (i.type = 'file' AND p.source_hash IS NOT NULL)
+					)
+					AND (
+						s.item_id IS NULL
+						OR s.source_version != CASE
+							WHEN i.type = 'document'
+								THEN ${workspaceSearchIndexVersion} || ':document:' || i.updated_at
+							ELSE ${workspaceSearchIndexVersion} || ':file:' || i.updated_at || ':' || p.updated_at || ':' || p.source_hash
+						END
+						OR s.vector_status != 'ready'
+					)
 			ON CONFLICT(item_id) DO NOTHING
 		`;
 		this.sql`
-			INSERT INTO kernel_search_pending (item_id, requested_at, attempts)
-			SELECT s.item_id, ${now}, 0
+			INSERT INTO kernel_search_pending (item_id, requested_at)
+			SELECT s.item_id, ${now}
 			FROM kernel_search_items s
 			LEFT JOIN kernel_items i ON i.id = s.item_id AND i.deleted_at IS NULL
 			WHERE i.id IS NULL
@@ -104,41 +108,20 @@ export class WorkspaceSearchIndexer {
 
 	markPending(itemId: string) {
 		this.sql`
-			INSERT INTO kernel_search_pending (item_id, requested_at, attempts)
-			VALUES (${itemId}, ${Date.now()}, 0)
+			INSERT INTO kernel_search_pending (item_id, requested_at)
+			VALUES (${itemId}, ${Date.now()})
 			ON CONFLICT(item_id) DO UPDATE SET
 				requested_at = excluded.requested_at,
 				attempts = 0
 		`;
 	}
 
-	markTreePending(itemId: string) {
-		this.sql`
-			WITH RECURSIVE search_tree(id) AS (
-				SELECT ${itemId}
-				UNION ALL
-				SELECT i.id
-				FROM kernel_items i
-				JOIN search_tree parent ON i.parent_id = parent.id
-				WHERE i.deleted_at IS NULL
-			)
-			INSERT INTO kernel_search_pending (item_id, requested_at, attempts)
-			SELECT i.id, ${Date.now()}, 0
-			FROM kernel_items i
-			JOIN search_tree tree ON tree.id = i.id
-			WHERE i.deleted_at IS NULL AND i.type IN ('document', 'file')
-			ON CONFLICT(item_id) DO UPDATE SET
-				requested_at = excluded.requested_at,
-				attempts = 0
-		`;
-	}
-
-	hasRetryablePending() {
+	hasPending() {
 		return Boolean(
 			this.sql<{ item_id: string }>`
-				SELECT item_id
-				FROM kernel_search_pending
-				WHERE attempts < ${maximumIndexAttempts}
+				SELECT item_id FROM kernel_search_pending
+				UNION ALL
+				SELECT vector_id AS item_id FROM kernel_search_vector_deletes
 				LIMIT 1
 			`[0],
 		);
@@ -149,21 +132,27 @@ export class WorkspaceSearchIndexer {
 		const pending = this.sql<{ item_id: string }>`
 			SELECT item_id
 			FROM kernel_search_pending
-			WHERE attempts < ${maximumIndexAttempts}
 			ORDER BY requested_at ASC
 			LIMIT ${searchIndexBatchSize}
 		`;
 
+		const failures: unknown[] = [];
 		for (const row of pending) {
 			try {
 				await this.indexItem(row.item_id);
 			} catch (error) {
 				this.recordIndexFailure(row.item_id, error);
+				if (!this.markIndexAttemptFailed(row.item_id)) {
+					failures.push(error);
+				}
 			}
 		}
 
 		await this.flushVectorDeletes();
-		return this.hasRetryablePending();
+		if (failures.length > 0) {
+			throw new AggregateError(failures, "Workspace search indexing failed.");
+		}
+		return this.hasPending();
 	}
 
 	async purgeVectors() {
@@ -187,71 +176,51 @@ export class WorkspaceSearchIndexer {
 			return;
 		}
 
-		const preparedChunks = await prepareWorkspaceSearchChunks({
-			bucket: this.bucket,
-			source,
-			workspace: this.workspace,
-		});
-		if (!this.isCurrentSource(source)) {
-			return;
-		}
-
 		const revisionKey = await sha256Base64UrlText(
 			`${this.workspaceId()}:${source.itemId}:${source.sourceVersion}`,
 		);
-		const chunks: SearchIndexChunk[] = preparedChunks.map((chunk) => ({
-			...chunk,
-			chunkId: `s${revisionKey}-${chunk.index}`,
-		}));
-		this.replaceKeywordIndex({
-			chunks,
-			source,
-		});
-
-		const embeddings = await embedWorkspaceSearchTexts(
-			this.ai,
-			chunks.map((chunk) =>
-				createWorkspaceSearchEmbeddingText({
-					content: chunk.content,
-					path: source.path,
-					title: source.name,
-				}),
-			),
-		);
-		if (embeddings.length !== chunks.length) {
-			throw new Error("Workspace search embedding response did not match the indexed chunks.");
-		}
-
-		const vectors = chunks.map(
-			(chunk, index): VectorizeVector => ({
-				id: chunk.chunkId,
-				namespace: this.workspaceId(),
-				values: embeddings[index] ?? [],
-			}),
-		);
-		for (const batch of batchWorkspaceSearchValues(vectors, vectorMutationBatchSize)) {
-			await this.vectorize.upsert(batch);
-		}
-
 		if (!this.isCurrentSource(source)) {
-			for (const vector of vectors) {
-				this.queueVectorDelete(vector.id);
-			}
 			return;
 		}
+		this.beginIndex(source);
 
-		this.markVectorIndexReady(
+		let chunks: SearchIndexChunk[] = [];
+		for await (const prepared of iteratePreparedWorkspaceSearchChunks({
+			bucket: this.bucket,
 			source,
-			chunks.map((chunk) => chunk.chunkId),
-		);
+			workspace: this.workspace,
+		})) {
+			const chunk = {
+				...prepared,
+				chunkId: `s${revisionKey}-${prepared.index}`,
+			};
+			this.insertChunk(source, chunk);
+			chunks.push(chunk);
+
+			if (chunks.length === searchChunkProcessingBatchSize) {
+				if (!(await this.indexChunkBatch(source, chunks))) {
+					return;
+				}
+				chunks = [];
+			}
+		}
+
+		if (chunks.length > 0 && !(await this.indexChunkBatch(source, chunks))) {
+			return;
+		}
+		if (!this.isCurrentSource(source)) {
+			return;
+		}
+		this.markVectorIndexReady(source);
 	}
 
-	private getIndexSource(itemId: string): WorkspaceSearchIndexSource | null {
+	private getIndexSource(itemId: string): ScopedWorkspaceSearchIndexSource | null {
 		const row = this.sql<SearchSourceRow>`
 			SELECT
 				i.id,
 				i.type,
 				i.name,
+				i.parent_id,
 				i.shell_path,
 				i.updated_at,
 				p.object_key AS projection_object_key,
@@ -271,26 +240,28 @@ export class WorkspaceSearchIndexer {
 			return null;
 		}
 
-		const path = buildWorkspaceKernelItemPathIndex(this.getItems()).get(row.id);
-		if (!path) {
-			return null;
-		}
-
 		const source = {
 			itemId: row.id,
 			name: row.name,
-			path,
+			parentId: row.parent_id,
 		};
 
 		if (row.type === "document") {
 			return {
 				...source,
 				shellPath: row.shell_path,
-				sourceVersion: `document:${row.updated_at}`,
+				sourceVersion: buildWorkspaceSearchSourceVersion({
+					type: "document",
+					updatedAt: row.updated_at,
+				}),
 				type: "document",
 			};
 		}
-		if (!row.projection_object_key || !row.projection_source_hash) {
+		if (
+			!row.projection_object_key ||
+			!row.projection_source_hash ||
+			row.projection_updated_at === null
+		) {
 			return null;
 		}
 
@@ -298,57 +269,101 @@ export class WorkspaceSearchIndexer {
 			...source,
 			objectKey: row.projection_object_key,
 			sourceHash: row.projection_source_hash,
-			sourceVersion: `file:${row.updated_at}:${row.projection_updated_at}:${row.projection_source_hash}`,
+			sourceVersion: buildWorkspaceSearchSourceVersion({
+				projectionUpdatedAt: row.projection_updated_at,
+				sourceHash: row.projection_source_hash,
+				type: "file",
+				updatedAt: row.updated_at,
+			}),
 			type: "file",
 		};
 	}
 
-	private isCurrentSource(source: WorkspaceSearchIndexSource) {
+	private isCurrentSource(source: ScopedWorkspaceSearchIndexSource) {
 		const current = this.getIndexSource(source.itemId);
 		return (
 			current?.sourceVersion === source.sourceVersion &&
 			current.name === source.name &&
-			current.path === source.path
+			current.parentId === source.parentId
 		);
 	}
 
-	private replaceKeywordIndex(input: {
-		chunks: SearchIndexChunk[];
-		source: WorkspaceSearchIndexSource;
-	}) {
-		const retainedChunkIds = new Set(input.chunks.map((chunk) => chunk.chunkId));
+	private beginIndex(source: ScopedWorkspaceSearchIndexSource) {
 		for (const row of this.sql<{ chunk_id: string }>`
 			SELECT chunk_id
 			FROM kernel_search_chunks
-			WHERE item_id = ${input.source.itemId}
+			WHERE item_id = ${source.itemId}
 		`) {
-			if (!retainedChunkIds.has(row.chunk_id)) {
-				this.queueVectorDelete(row.chunk_id);
-			}
+			this.queueVectorDelete(row.chunk_id);
 		}
 
-		this.deleteLocalChunks(input.source.itemId);
-		for (const chunk of input.chunks) {
-			this.insertChunk(input.source, chunk);
-		}
+		this.deleteLocalChunks(source.itemId);
 		this.sql`
 			INSERT INTO kernel_search_items (
 				item_id,
 				source_version,
-				vector_ready
+				vector_status
 			)
 			VALUES (
-				${input.source.itemId},
-				${input.source.sourceVersion},
-				0
+				${source.itemId},
+				${source.sourceVersion},
+				'pending'
 			)
 			ON CONFLICT(item_id) DO UPDATE SET
 				source_version = excluded.source_version,
-				vector_ready = 0
+				vector_status = 'pending'
 		`;
 	}
 
-	private insertChunk(source: WorkspaceSearchIndexSource, chunk: SearchIndexChunk) {
+	private async indexChunkBatch(
+		source: ScopedWorkspaceSearchIndexSource,
+		chunks: readonly SearchIndexChunk[],
+	) {
+		if (!this.isCurrentSource(source)) {
+			return false;
+		}
+
+		const embeddings = await embedWorkspaceSearchTexts(
+			this.ai,
+			chunks.map((chunk) =>
+				createWorkspaceSearchEmbeddingText({
+					content: chunk.content,
+					title: source.name,
+				}),
+			),
+		);
+		if (embeddings.length !== chunks.length) {
+			throw new Error("Workspace search embedding response did not match the indexed chunks.");
+		}
+		if (!this.isCurrentSource(source)) {
+			return false;
+		}
+
+		const vectors = chunks.map(
+			(chunk, index): VectorizeVector => ({
+				id: chunk.chunkId,
+				metadata: createWorkspaceSearchVectorMetadata({
+					itemId: source.itemId,
+					parentId: source.parentId,
+					type: source.type,
+				}),
+				namespace: this.workspaceId(),
+				values: embeddings[index] ?? [],
+			}),
+		);
+		await this.vectorize.upsert(vectors);
+		if (!this.isCurrentSource(source)) {
+			for (const vector of vectors) {
+				this.queueVectorDelete(vector.id);
+			}
+			return false;
+		}
+
+		this.clearVectorDeletes(vectors.map((vector) => vector.id));
+		return true;
+	}
+
+	private insertChunk(source: ScopedWorkspaceSearchIndexSource, chunk: SearchIndexChunk) {
 		this.sql`
 			INSERT INTO kernel_search_chunks (
 				chunk_id,
@@ -366,26 +381,18 @@ export class WorkspaceSearchIndexer {
 			)
 		`;
 		this.sql`
-			INSERT INTO kernel_search_fts (chunk_id, title, path, content)
-			VALUES (${chunk.chunkId}, ${source.name}, ${source.path}, ${chunk.content})
+			INSERT INTO kernel_search_fts (chunk_id, title, content)
+			VALUES (${chunk.chunkId}, ${source.name}, ${chunk.content})
 		`;
 	}
 
-	private markVectorIndexReady(source: WorkspaceSearchIndexSource, vectorIds: readonly string[]) {
+	private markVectorIndexReady(source: ScopedWorkspaceSearchIndexSource) {
 		this.sql`
 			UPDATE kernel_search_items
-			SET vector_ready = 1
+			SET vector_status = 'ready'
 			WHERE item_id = ${source.itemId} AND source_version = ${source.sourceVersion}
 		`;
 		this.sql`DELETE FROM kernel_search_pending WHERE item_id = ${source.itemId}`;
-		if (vectorIds.length > 0) {
-			this.sql`
-				DELETE FROM kernel_search_vector_deletes
-				WHERE vector_id IN (
-					SELECT value FROM json_each(${JSON.stringify(vectorIds)})
-				)
-			`;
-		}
 	}
 
 	private removeIndexedItem(itemId: string) {
@@ -424,6 +431,18 @@ export class WorkspaceSearchIndexer {
 		`;
 	}
 
+	private clearVectorDeletes(vectorIds: readonly string[]) {
+		if (vectorIds.length === 0) {
+			return;
+		}
+		this.sql`
+			DELETE FROM kernel_search_vector_deletes
+			WHERE vector_id IN (
+				SELECT value FROM json_each(${JSON.stringify(vectorIds)})
+			)
+		`;
+	}
+
 	private async flushVectorDeletes() {
 		const ids = this.sql<{ vector_id: string }>`
 			SELECT vector_id
@@ -451,11 +470,6 @@ export class WorkspaceSearchIndexer {
 	}
 
 	private recordIndexFailure(itemId: string, error: unknown) {
-		this.sql`
-			UPDATE kernel_search_pending
-			SET attempts = attempts + 1
-			WHERE item_id = ${itemId}
-		`;
 		recordOperationalFailure({
 			error,
 			event: "workspace_search_indexing",
@@ -464,5 +478,25 @@ export class WorkspaceSearchIndexer {
 				workspace_id: this.workspaceId(),
 			},
 		});
+	}
+
+	private markIndexAttemptFailed(itemId: string) {
+		const attempt = this.sql<{ attempts: number }>`
+			UPDATE kernel_search_pending
+			SET attempts = attempts + 1
+			WHERE item_id = ${itemId}
+			RETURNING attempts
+		`[0];
+		if (!attempt || attempt.attempts < maximumIndexAttempts) {
+			return false;
+		}
+
+		this.sql`
+			UPDATE kernel_search_items
+			SET vector_status = 'failed'
+			WHERE item_id = ${itemId}
+		`;
+		this.sql`DELETE FROM kernel_search_pending WHERE item_id = ${itemId}`;
+		return true;
 	}
 }

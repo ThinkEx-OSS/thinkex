@@ -19,6 +19,7 @@ export function createWorkspaceSearchModelOutput(output: WorkspaceSearchOutput) 
 
 	return {
 		failed: output.failed,
+		status: output.status,
 		results: output.results.map((result) => {
 			const { itemId: _itemId, ...modelResult } = result;
 			const reference = refsByLocation.get(

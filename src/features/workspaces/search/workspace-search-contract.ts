@@ -61,14 +61,20 @@ export const workspaceSearchFailureSchema = z.object({
 	path: z.string(),
 });
 
+export const workspaceSearchStatusSchema = z.enum(["ready", "indexing", "partial"]);
+
 export const workspaceSearchOutputSchema = z.object({
 	failed: z.array(workspaceSearchFailureSchema),
 	references: z.array(workspaceReferenceRecordSchema),
 	results: z.array(workspaceSearchResultSchema),
+	status: workspaceSearchStatusSchema.describe(
+		"ready when coverage is current, indexing while the search projection catches up, or partial when some files lack usable extracted text or semantic indexing failed.",
+	),
 });
 
 export type WorkspaceSearchInput = z.output<typeof workspaceSearchInputSchema>;
 export type WorkspaceSearchItemType = z.output<typeof workspaceSearchItemTypeSchema>;
 export type WorkspaceSearchResult = z.output<typeof workspaceSearchResultSchema>;
 export type WorkspaceSearchFailure = z.output<typeof workspaceSearchFailureSchema>;
+export type WorkspaceSearchStatus = z.output<typeof workspaceSearchStatusSchema>;
 export type WorkspaceSearchOutput = z.output<typeof workspaceSearchOutputSchema>;

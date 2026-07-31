@@ -99,7 +99,20 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 		workspaceId: () => this.name,
 		getNextRevision: () => this.store.getNextRevision(),
 		broadcast: (message) => this.broadcastRealtimeMessage(message),
-		onCommit: (event) => this.search.observe(event),
+		onCommit: (event) => {
+			try {
+				this.search.observe(event);
+			} catch (error) {
+				recordOperationalFailure({
+					error,
+					event: "workspace_search_projection",
+					fields: {
+						event_type: event.type,
+						workspace_id: this.name,
+					},
+				});
+			}
+		},
 	});
 	private readonly relations = new WorkspaceKernelRelations(this.kernelSql);
 	private readonly itemCommands = new WorkspaceKernelItemCommands({
@@ -121,7 +134,7 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 	async onStart() {
 		initializeWorkspaceKernelStorage(this.kernelSql);
 		this.search.initialize();
-		if (this.search.hasRetryablePending()) {
+		if (this.search.hasPending()) {
 			await this.scheduleWorkspaceSearchIndexing();
 		}
 	}
@@ -301,12 +314,17 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 	}
 
 	async searchWorkspace(input: WorkspaceSearchInput) {
+		if (this.search.hasPending()) {
+			this.ctx.waitUntil(this.scheduleWorkspaceSearchIndexing());
+		}
 		return await this.search.search(input);
 	}
 
 	async processWorkspaceSearchIndex() {
 		if (await this.search.processBatch()) {
-			await this.scheduleWorkspaceSearchIndexing();
+			// The current one-shot schedule is removed after this callback returns,
+			// so its successor must not deduplicate onto the executing row.
+			await this.scheduleWorkspaceSearchIndexing(false);
 		}
 	}
 
@@ -391,9 +409,14 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 		return { attempted: documentItemIds.length + 2, failed };
 	}
 
-	private async scheduleWorkspaceSearchIndexing() {
+	private async scheduleWorkspaceSearchIndexing(idempotent = true) {
 		await this.schedule(1, "processWorkspaceSearchIndex", undefined, {
-			idempotent: true,
+			idempotent,
+			retry: {
+				baseDelayMs: 250,
+				maxAttempts: 5,
+				maxDelayMs: 3_000,
+			},
 		});
 	}
 
