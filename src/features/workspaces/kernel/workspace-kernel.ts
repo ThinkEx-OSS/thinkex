@@ -3,6 +3,7 @@ import { Agent, type Connection, type ConnectionContext } from "agents";
 
 import type { WorkspaceItemSummary } from "#/features/workspaces/contracts";
 import { getDocumentSessionFromEnv } from "#/features/workspaces/document-session-access";
+import { reconcileWorkspaceFileExtractions } from "#/features/workspaces/extraction/workspace-file-extraction-reconciler";
 import type { ResourcePurgeResult } from "#/features/workspaces/resource-purge-result";
 import { WorkspaceKernelEventBus } from "#/features/workspaces/kernel/workspace-kernel-events";
 import { WorkspaceKernelFileCommands } from "#/features/workspaces/kernel/workspace-kernel-file-commands";
@@ -137,6 +138,7 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 		if (this.search.hasPending()) {
 			await this.scheduleWorkspaceSearchIndexing();
 		}
+		this.requestWorkspaceFileExtractionHealing();
 	}
 
 	onConnect(connection: Connection<WorkspaceConnectionState>, context: ConnectionContext) {
@@ -150,6 +152,7 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 		connection.setState({
 			user,
 		});
+		this.requestWorkspaceFileExtractionHealing();
 		this.broadcastPresenceSnapshot();
 	}
 
@@ -418,6 +421,23 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 				maxDelayMs: 3_000,
 			},
 		});
+	}
+
+	private requestWorkspaceFileExtractionHealing() {
+		this.ctx.waitUntil(
+			reconcileWorkspaceFileExtractions({
+				items: this.store.getPageItems(),
+				sql: this.kernelSql,
+				workflow: this.env.WORKSPACE_FILE_EXTRACTION_WORKFLOW,
+				workspaceId: this.name,
+			}).catch((error) => {
+				recordOperationalFailure({
+					error,
+					event: "workspace_file_extraction_healing",
+					fields: { workspace_id: this.name },
+				});
+			}),
+		);
 	}
 
 	private broadcastPresenceSnapshot() {

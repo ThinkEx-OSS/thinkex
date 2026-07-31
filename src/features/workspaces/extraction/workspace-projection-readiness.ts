@@ -8,7 +8,7 @@ import type { ReadWorkspaceKernelFileProjectionResult } from "#/features/workspa
  * a healthy run can legitimately stay `processing` for a little over half an hour.
  * The threshold sits above that worst case so slow retries are never mislabelled.
  */
-const extractionStallThresholdMs = 45 * 60_000;
+export const workspaceExtractionStallThresholdMs = 45 * 60_000;
 
 const minimumRetryAfterSeconds = 15;
 const maximumRetryAfterSeconds = 120;
@@ -58,7 +58,7 @@ export function resolveWorkspaceProjectionReadiness(
 
 	if (projection.status === "processing") {
 		const elapsedMs = Math.max(0, now - Date.parse(projection.updatedAt));
-		if (elapsedMs > extractionStallThresholdMs) {
+		if (elapsedMs > workspaceExtractionStallThresholdMs) {
 			return { state: "stalled", elapsedSeconds: Math.round(elapsedMs / 1000) };
 		}
 

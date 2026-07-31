@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 
-import { sha256Base64UrlText } from "#/lib/binary";
 import type { WorkspaceFileExtractionWorkflowParams } from "#/features/workspaces/extraction/types";
+import { getWorkspaceFileExtractionWorkflowId } from "#/features/workspaces/extraction/workspace-file-extraction-workflow-id";
 import { getWorkspaceKernel } from "#/features/workspaces/kernel/workspace-kernel-access";
 import type { WorkspaceFileAssetKind } from "#/features/workspaces/model/workspace-file";
 import { recordOperationalFailure } from "#/integrations/observability/operational-events";
@@ -16,7 +16,10 @@ export async function requestWorkspaceFileExtraction(input: {
 	let workflowId: string | null = null;
 
 	try {
-		workflowId = await getWorkspaceFileExtractionWorkflowId(input);
+		workflowId = await getWorkspaceFileExtractionWorkflowId({
+			...input,
+			runKey: "initial",
+		});
 		const params = {
 			workspaceId: input.workspaceId,
 			itemId: input.itemId,
@@ -70,16 +73,4 @@ export async function requestWorkspaceFileExtraction(input: {
 			});
 		}
 	}
-}
-
-async function getWorkspaceFileExtractionWorkflowId(input: {
-	workspaceId: string;
-	itemId: string;
-	assetKind: WorkspaceFileAssetKind;
-}) {
-	const digest = await sha256Base64UrlText(
-		`${input.workspaceId}:${input.itemId}:${input.assetKind}-extraction:v2`,
-	);
-
-	return `${input.assetKind}-${digest.slice(0, 48)}`;
 }
