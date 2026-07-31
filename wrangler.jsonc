@@ -34,7 +34,7 @@
 		"binding": "AI",
 		"remote": true,
 	},
-	// Both indexes require string metadata indexes for itemId, parentId, and type.
+	// Provisioning: docs/configuration/deployments.mdx#workspace-search-vector-indexes
 	"vectorize": [
 		{
 			"binding": "WORKSPACE_SEARCH",
