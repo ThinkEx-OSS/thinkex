@@ -66,7 +66,7 @@ export function getWorkspaceToolScopes(
 	return access === "read" ? ["workspace:read"] : workspaceAccessScopes;
 }
 
-export type WorkspaceToolDefinition<
+type WorkspaceToolDefinition<
 	TName extends string = string,
 	TInputSchema extends z.ZodTypeAny = z.ZodTypeAny,
 	TOutputSchema extends z.ZodTypeAny = z.ZodTypeAny,

@@ -2,7 +2,7 @@ const targetChunkCharacters = 1_800;
 const minimumChunkCharacters = 900;
 const overlapCharacters = 220;
 
-export interface WorkspaceSearchTextChunk {
+interface WorkspaceSearchTextChunk {
 	content: string;
 	endLine: number;
 	startLine: number;

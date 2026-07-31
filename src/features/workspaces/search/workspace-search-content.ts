@@ -19,7 +19,7 @@ export type WorkspaceSearchIndexSource = WorkspaceSearchIndexSourceBase &
 		| { objectKey: string; sourceHash: string; type: "file" }
 	);
 
-export interface PreparedWorkspaceSearchChunk {
+interface PreparedWorkspaceSearchChunk {
 	content: string;
 	endLine: number | null;
 	index: number;

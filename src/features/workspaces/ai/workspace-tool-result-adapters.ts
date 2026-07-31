@@ -23,13 +23,13 @@ function defineWorkspaceToolResultAdapter<TSchema extends z.ZodTypeAny>(input: {
 	};
 }
 
-export const workspaceReadItemsResultAdapter = defineWorkspaceToolResultAdapter({
+const workspaceReadItemsResultAdapter = defineWorkspaceToolResultAdapter({
 	collectReferences: (output) => output.references,
 	outputSchema: workspaceReadItemsOutputSchema,
 	projectOutput: createWorkspaceReadItemsModelOutput,
 });
 
-export const workspaceSearchResultAdapter = defineWorkspaceToolResultAdapter({
+const workspaceSearchResultAdapter = defineWorkspaceToolResultAdapter({
 	collectReferences: (output) => output.references,
 	outputSchema: workspaceSearchOutputSchema,
 	projectOutput: createWorkspaceSearchModelOutput,

@@ -47,17 +47,3 @@ export function persistDocumentItemContentUpdate(input: {
 		WHERE id = ${input.itemId} AND deleted_at IS NULL
 	`;
 }
-
-export function touchWorkspaceItemUpdatedAt(input: {
-	itemId: string;
-	sql: WorkspaceKernelSql;
-	updatedAt?: number;
-}) {
-	const updatedAt = input.updatedAt ?? Date.now();
-
-	input.sql`
-		UPDATE kernel_items
-		SET updated_at = ${updatedAt}
-		WHERE id = ${input.itemId} AND deleted_at IS NULL
-	`;
-}

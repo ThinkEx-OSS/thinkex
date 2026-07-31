@@ -3,7 +3,7 @@ import { z } from "zod";
 import { workspaceReferenceRecordSchema } from "#/features/workspaces/locations/workspace-location";
 import { workspaceFileAssetKindSchema } from "#/features/workspaces/model/workspace-file";
 
-export const workspaceSearchItemTypeSchema = z.enum(["document", "file"]);
+const workspaceSearchItemTypeSchema = z.enum(["document", "file"]);
 
 export const workspaceSearchInputSchema = z.object({
 	query: z
@@ -47,7 +47,7 @@ const workspaceSearchLocationSchema = z.discriminatedUnion("kind", [
 	}),
 ]);
 
-export const workspaceSearchResultSchema = z.object({
+const workspaceSearchResultSchema = z.object({
 	assetKind: workspaceFileAssetKindSchema.optional(),
 	excerpt: z.string(),
 	itemId: z.string().min(1),
@@ -57,12 +57,12 @@ export const workspaceSearchResultSchema = z.object({
 	type: workspaceSearchItemTypeSchema,
 });
 
-export const workspaceSearchFailureSchema = z.object({
+const workspaceSearchFailureSchema = z.object({
 	code: z.enum(["path_not_absolute", "path_not_found"]),
 	path: z.string(),
 });
 
-export const workspaceSearchStatusSchema = z.enum(["ready", "indexing", "partial"]);
+const workspaceSearchStatusSchema = z.enum(["ready", "indexing", "partial"]);
 
 export const workspaceSearchOutputSchema = z.object({
 	failed: z.array(workspaceSearchFailureSchema),
