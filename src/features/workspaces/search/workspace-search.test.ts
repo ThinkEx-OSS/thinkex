@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { WorkspaceItemSummary } from "#/features/workspaces/contracts";
 import { iterateWorkspaceSearchTextChunks } from "#/features/workspaces/search/workspace-search-chunks";
 import { iteratePreparedWorkspaceSearchChunks } from "#/features/workspaces/search/workspace-search-content";
+import { workspaceSearchInputSchema } from "#/features/workspaces/search/workspace-search-contract";
 import { fuseWorkspaceSearchRanks } from "#/features/workspaces/search/workspace-search-ranking";
 import {
 	createWorkspaceSearchVectorMetadata,
@@ -34,16 +35,12 @@ describe("workspace search", () => {
 	});
 
 	it("deduplicates repeated content types", () => {
-		const resolved = resolveWorkspaceSearchScope({
-			items: [],
-			path: "/",
+		const input = workspaceSearchInputSchema.parse({
+			query: "search files",
 			types: ["file", "file"],
 		});
 
-		expect(resolved).toMatchObject({
-			scope: { vectorFilters: [{ type: "file" }] },
-			status: "ready",
-		});
+		expect(input.types).toEqual(["file"]);
 	});
 
 	it("builds canonical source versions for documents and files", () => {

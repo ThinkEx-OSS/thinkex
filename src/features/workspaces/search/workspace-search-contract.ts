@@ -23,6 +23,7 @@ export const workspaceSearchInputSchema = z.object({
 		.array(workspaceSearchItemTypeSchema)
 		.min(1)
 		.max(2)
+		.overwrite((types) => Array.from(new Set(types)))
 		.optional()
 		.describe("Optional content types to include. Defaults to documents and files."),
 	limit: z
