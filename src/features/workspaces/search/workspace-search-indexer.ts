@@ -18,6 +18,7 @@ import { sha256Base64UrlText } from "#/lib/binary";
 const searchIndexBatchSize = 2;
 const searchChunkProcessingBatchSize = 32;
 const maximumIndexAttempts = 5;
+const maximumVectorDeleteAttempts = 5;
 const vectorDeleteBatchSize = 100;
 
 interface SearchSourceRow {
@@ -121,7 +122,9 @@ export class WorkspaceSearchIndexer {
 			this.sql<{ item_id: string }>`
 				SELECT item_id FROM kernel_search_pending
 				UNION ALL
-				SELECT vector_id AS item_id FROM kernel_search_vector_deletes
+				SELECT vector_id AS item_id
+				FROM kernel_search_vector_deletes
+				WHERE attempts < ${maximumVectorDeleteAttempts}
 				LIMIT 1
 			`[0],
 		);
@@ -164,8 +167,17 @@ export class WorkspaceSearchIndexer {
 			`.map((row) => row.vector_id),
 		);
 
+		const failures: unknown[] = [];
 		for (const batch of batchWorkspaceSearchValues(Array.from(ids), vectorDeleteBatchSize)) {
-			await this.vectorize.deleteByIds(batch);
+			try {
+				await this.vectorize.deleteByIds(batch);
+				this.deletePurgedVectorState(batch);
+			} catch (error) {
+				failures.push(error);
+			}
+		}
+		if (failures.length > 0) {
+			throw new AggregateError(failures, "Workspace search vector purge failed.");
 		}
 	}
 
@@ -289,15 +301,7 @@ export class WorkspaceSearchIndexer {
 	}
 
 	private beginIndex(source: ScopedWorkspaceSearchIndexSource) {
-		for (const row of this.sql<{ chunk_id: string }>`
-			SELECT chunk_id
-			FROM kernel_search_chunks
-			WHERE item_id = ${source.itemId}
-		`) {
-			this.queueVectorDelete(row.chunk_id);
-		}
-
-		this.deleteLocalChunks(source.itemId);
+		this.discardItemChunks(source.itemId);
 		this.sql`
 			INSERT INTO kernel_search_items (
 				item_id,
@@ -339,8 +343,12 @@ export class WorkspaceSearchIndexer {
 			return false;
 		}
 
-		const vectors = chunks.map(
-			(chunk, index): VectorizeVector => ({
+		const vectors = chunks.map((chunk, index): VectorizeVector => {
+			const values = embeddings[index];
+			if (!values) {
+				throw new Error("Workspace search embedding was missing for an indexed chunk.");
+			}
+			return {
 				id: chunk.chunkId,
 				metadata: createWorkspaceSearchVectorMetadata({
 					itemId: source.itemId,
@@ -348,9 +356,9 @@ export class WorkspaceSearchIndexer {
 					type: source.type,
 				}),
 				namespace: this.workspaceId(),
-				values: embeddings[index] ?? [],
-			}),
-		);
+				values,
+			};
+		});
 		await this.vectorize.upsert(vectors);
 		if (!this.isCurrentSource(source)) {
 			for (const vector of vectors) {
@@ -381,8 +389,10 @@ export class WorkspaceSearchIndexer {
 			)
 		`;
 		this.sql`
-			INSERT INTO kernel_search_fts (chunk_id, title, content)
-			VALUES (${chunk.chunkId}, ${source.name}, ${chunk.content})
+			INSERT INTO kernel_search_fts (rowid, chunk_id, title, content)
+			SELECT rowid, chunk_id, ${source.name}, ${chunk.content}
+			FROM kernel_search_chunks
+			WHERE chunk_id = ${chunk.chunkId}
 		`;
 	}
 
@@ -396,6 +406,12 @@ export class WorkspaceSearchIndexer {
 	}
 
 	private removeIndexedItem(itemId: string) {
+		this.discardItemChunks(itemId);
+		this.sql`DELETE FROM kernel_search_items WHERE item_id = ${itemId}`;
+		this.sql`DELETE FROM kernel_search_pending WHERE item_id = ${itemId}`;
+	}
+
+	private discardItemChunks(itemId: string) {
 		for (const row of this.sql<{ chunk_id: string }>`
 			SELECT chunk_id
 			FROM kernel_search_chunks
@@ -404,23 +420,33 @@ export class WorkspaceSearchIndexer {
 			this.queueVectorDelete(row.chunk_id);
 		}
 		this.deleteLocalChunks(itemId);
-		this.sql`DELETE FROM kernel_search_items WHERE item_id = ${itemId}`;
-		this.sql`DELETE FROM kernel_search_pending WHERE item_id = ${itemId}`;
 	}
 
 	private deleteLocalChunks(itemId: string) {
-		const chunkIds = this.sql<{ chunk_id: string }>`
-			SELECT chunk_id
-			FROM kernel_search_chunks
-			WHERE item_id = ${itemId}
-		`.map((row) => row.chunk_id);
-		if (chunkIds.length > 0) {
-			this.sql`
-				DELETE FROM kernel_search_fts
-				WHERE chunk_id IN (SELECT value FROM json_each(${JSON.stringify(chunkIds)}))
-			`;
-		}
+		this.sql`
+			DELETE FROM kernel_search_fts
+			WHERE rowid IN (
+				SELECT rowid FROM kernel_search_chunks WHERE item_id = ${itemId}
+			)
+		`;
 		this.sql`DELETE FROM kernel_search_chunks WHERE item_id = ${itemId}`;
+	}
+
+	private deletePurgedVectorState(vectorIds: readonly string[]) {
+		const vectorIdsJson = JSON.stringify(vectorIds);
+		this.sql`
+			DELETE FROM kernel_search_fts
+			WHERE rowid IN (
+				SELECT rowid
+				FROM kernel_search_chunks
+				WHERE chunk_id IN (SELECT value FROM json_each(${vectorIdsJson}))
+			)
+		`;
+		this.sql`
+			DELETE FROM kernel_search_chunks
+			WHERE chunk_id IN (SELECT value FROM json_each(${vectorIdsJson}))
+		`;
+		this.clearVectorDeletes(vectorIds);
 	}
 
 	private queueVectorDelete(vectorId: string) {
@@ -461,6 +487,11 @@ export class WorkspaceSearchIndexer {
 				WHERE vector_id IN (SELECT value FROM json_each(${JSON.stringify(ids)}))
 			`;
 		} catch (error) {
+			this.sql`
+				UPDATE kernel_search_vector_deletes
+				SET attempts = attempts + 1
+				WHERE vector_id IN (SELECT value FROM json_each(${JSON.stringify(ids)}))
+			`;
 			recordOperationalFailure({
 				error,
 				event: "workspace_search_vector_cleanup",
@@ -491,6 +522,7 @@ export class WorkspaceSearchIndexer {
 			return false;
 		}
 
+		this.discardItemChunks(itemId);
 		this.sql`
 			UPDATE kernel_search_items
 			SET vector_status = 'failed'

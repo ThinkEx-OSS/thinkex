@@ -68,10 +68,13 @@ import { WorkspaceSearchProjection } from "#/features/workspaces/search/workspac
 import type { WorkspaceSearchInput } from "#/features/workspaces/search/workspace-search-contract";
 
 const workspaceKernelInlineThresholdBytes = 1_500_000;
+const workspaceExtractionHealingThrottleMs = 60_000;
+const workspacePurgeMaximumAttempts = 5;
 
 export { setWorkspaceKernelUserHeaders };
 
 export class WorkspaceKernel extends Agent<Cloudflare.Env> {
+	private lastExtractionHealingRequestAt = 0;
 	private readonly kernelSql: WorkspaceKernelSql = (strings, ...values) =>
 		this.sql(strings, ...values);
 	private readonly workspace = new ShellWorkspace({
@@ -362,7 +365,7 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 		}
 	}
 
-	async purgeForDeletion(): Promise<ResourcePurgeResult> {
+	async purgeForDeletion(input: { attempt?: number } = {}): Promise<ResourcePurgeResult> {
 		const workspaceId = this.name;
 		const documentItemIds = this.store.getAllDocumentItemIds();
 		let failed = 0;
@@ -397,18 +400,43 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 			}
 		}
 
-		await Promise.all([
-			deleteR2Prefix(
-				this.env.WORKSPACE_KERNEL_FILES,
-				getChatAttachmentWorkspacePrefix(workspaceId),
-			),
-			deleteR2Prefix(this.env.WORKSPACE_KERNEL_FILES, `uploads/workspaces/${workspaceId}/`),
-			deleteR2Prefix(this.env.WORKSPACE_KERNEL_FILES, `workspace_kernel_files/${workspaceId}/`),
-			deleteR2Prefix(this.env.WORKSPACE_KERNEL_FILES, `workspace_file_objects/${workspaceId}/`),
-			deleteR2Prefix(this.env.WORKSPACE_KERNEL_FILES, `workspace_file_uploads/${workspaceId}/`),
-		]);
+		try {
+			await Promise.all([
+				deleteR2Prefix(
+					this.env.WORKSPACE_KERNEL_FILES,
+					getChatAttachmentWorkspacePrefix(workspaceId),
+				),
+				deleteR2Prefix(this.env.WORKSPACE_KERNEL_FILES, `uploads/workspaces/${workspaceId}/`),
+				deleteR2Prefix(this.env.WORKSPACE_KERNEL_FILES, `workspace_kernel_files/${workspaceId}/`),
+				deleteR2Prefix(this.env.WORKSPACE_KERNEL_FILES, `workspace_file_objects/${workspaceId}/`),
+				deleteR2Prefix(this.env.WORKSPACE_KERNEL_FILES, `workspace_file_uploads/${workspaceId}/`),
+			]);
+		} catch (error) {
+			failed += 1;
+			recordOperationalFailure({
+				error,
+				event: "workspace_r2_purge",
+				fields: { workspace_id: workspaceId },
+			});
+		}
 
-		await this.ctx.storage.deleteAll();
+		// Keep the local inventory when a remote purge fails so cleanup can be retried.
+		if (failed === 0) {
+			await this.ctx.storage.deleteAll();
+		} else {
+			const attempt = input.attempt ?? 1;
+			if (attempt < workspacePurgeMaximumAttempts) {
+				await this.schedule(
+					attempt * 5,
+					"purgeForDeletion",
+					{ attempt: attempt + 1 },
+					{
+						// A retry scheduled from the executing one-shot needs its own row.
+						idempotent: false,
+					},
+				);
+			}
+		}
 		return { attempted: documentItemIds.length + 2, failed };
 	}
 
@@ -424,6 +452,11 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 	}
 
 	private requestWorkspaceFileExtractionHealing() {
+		const now = Date.now();
+		if (now - this.lastExtractionHealingRequestAt < workspaceExtractionHealingThrottleMs) {
+			return;
+		}
+		this.lastExtractionHealingRequestAt = now;
 		this.ctx.waitUntil(
 			reconcileWorkspaceFileExtractions({
 				items: this.store.getPageItems(),

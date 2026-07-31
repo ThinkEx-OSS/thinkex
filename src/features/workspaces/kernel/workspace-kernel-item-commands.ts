@@ -353,14 +353,15 @@ export class WorkspaceKernelItemCommands {
 			getWorkspaceKernelContentMimeType(type),
 		);
 
-		const now = Date.now();
+		const currentItem = this.store.assertActiveItem(input.itemId);
+		const updatedAt = Math.max(Date.now(), currentItem.updated_at + 1);
 
 		persistDocumentItemContentUpdate({
 			content: input.content,
 			itemId: input.itemId,
-			metadataJson: item.metadata_json,
+			metadataJson: currentItem.metadata_json,
 			sql: this.sql,
-			updatedAt: now,
+			updatedAt,
 		});
 
 		return this.commitItemEvent({

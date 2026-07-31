@@ -9,10 +9,13 @@ export function initializeWorkspaceSearchStorage(sql: WorkspaceKernelSql) {
 			value INTEGER NOT NULL
 		)
 	`;
+	sql`CREATE INDEX IF NOT EXISTS kernel_search_vector_deletes_pending_idx
+		ON kernel_search_vector_deletes (attempts, requested_at)`;
 	sql`
 		CREATE TABLE IF NOT EXISTS kernel_search_vector_deletes (
 			vector_id TEXT PRIMARY KEY,
-			requested_at INTEGER NOT NULL
+			requested_at INTEGER NOT NULL,
+			attempts INTEGER NOT NULL DEFAULT 0
 		)
 	`;
 
@@ -76,6 +79,8 @@ export function initializeWorkspaceSearchStorage(sql: WorkspaceKernelSql) {
 			attempts INTEGER NOT NULL DEFAULT 0
 		)
 	`;
+	sql`CREATE INDEX IF NOT EXISTS kernel_search_pending_requested_idx
+		ON kernel_search_pending (requested_at)`;
 
 	sql`
 		INSERT INTO kernel_search_metadata (key, value)
