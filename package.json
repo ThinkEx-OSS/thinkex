@@ -41,7 +41,7 @@
 		"@ai-sdk/react": "^4.0.40",
 		"@base-ui/react": "^1.6.0",
 		"@better-auth/oauth-provider": "1.6.25",
-		"@cloudflare/codemode": "^0.5.0",
+		"@cloudflare/codemode": "^0.5.1",
 		"@cloudflare/containers": "^0.3.7",
 		"@cloudflare/sandbox": "0.12.3",
 		"@cloudflare/shell": "^0.4.3",
