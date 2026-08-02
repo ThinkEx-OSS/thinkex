@@ -9,7 +9,10 @@ trustPolicyExclude:
   - semver@6.3.1
 
 overrides:
-  dompurify: 3.4.11
+  dompurify: 3.4.12
+  # drizzle-kit reaches esbuild through the deprecated @esbuild-kit/* packages,
+  # which pin 0.18.20 — under the advisory range for GHSA esbuild <= 0.24.2.
+  "@esbuild-kit/core-utils>esbuild": ^0.25.12
   vite: npm:@voidzero-dev/vite-plus-core@0.2.2
   vitest: 4.1.10
 
