@@ -11,6 +11,7 @@ dist-ssr
 .tanstack
 .content-collections/
 .wrangler
+*.cpuprofile
 .tmp
 tmp
 .output
