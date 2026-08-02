@@ -161,7 +161,7 @@
 		"@tanstack/react-devtools": "0.10.9",
 		"@tanstack/react-query-devtools": "5.101.4",
 		"@tanstack/router-plugin": "^1.168.23",
-		"@tiptap/y-tiptap": "^3.0.7",
+		"@tiptap/y-tiptap": "^3.0.8",
 		"@types/matter-js": "^0.20.2",
 		"@types/node": "^26.1.1",
 		"@types/papaparse": "^5.5.2",
