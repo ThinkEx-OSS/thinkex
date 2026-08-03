@@ -16,6 +16,7 @@ import {
 import type { AIInspectorSnapshot } from "#/features/workspaces/ai/ai-inspector";
 import { AiChatAttachmentDropBridge } from "#/features/workspaces/components/ai-chat/AiChatAttachmentDrop";
 import AiChatModelPicker from "#/features/workspaces/components/ai-chat/AiChatModelPicker";
+import { AiChatAllowanceNotice } from "#/features/workspaces/components/ai-chat/AiChatAllowanceNotice";
 import AiChatPromptContextBar from "#/features/workspaces/components/ai-chat/AiChatPromptContextBar";
 import AiChatPromptSubmit from "#/features/workspaces/components/ai-chat/AiChatPromptSubmit";
 import {
@@ -162,6 +163,7 @@ export default function AiChatPromptInput({
 				<AiChatAttachmentDropBridge />
 				<PromptInputHeader className={PROMPT_INPUT_HEADER_PADDING}>
 					<AiChatPromptContextBar context={context} />
+					<AiChatAllowanceNotice modelId={modelId} />
 				</PromptInputHeader>
 				<PromptInputBody>
 					<PromptInputTextarea

@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import { Check, ChevronUp, Waypoints } from "lucide-react";
 import { useState } from "react";
 
@@ -11,6 +12,7 @@ import {
 	type WorkspaceAiChatModelId,
 	type WorkspaceAiChatModelLevel,
 } from "#/features/workspaces/ai/models";
+import { useWorkspaceAiTierBalances } from "#/features/workspaces/ai/use-workspace-ai-allowance";
 import { ProviderLogo } from "#/features/workspaces/components/ai-chat/ProviderLogo";
 import { WorkspaceToolbarTextButton } from "#/features/workspaces/components/WorkspaceToolbar";
 import { cn } from "#/lib/utils";
@@ -36,6 +38,7 @@ export default function AiChatModelPicker({ modelId, onModelChange }: AiChatMode
 
 	const selectedModel = getWorkspaceAiChatModelById(modelId);
 	const detailModel = getWorkspaceAiChatModelById(previewId ?? modelId);
+	const premiumSpent = !useWorkspaceAiTierBalances().premium.hasBalance;
 
 	// The "Auto" option lives outside the provider groups — it's ThinkEx's own
 	// choice, not a provider's model.
@@ -136,13 +139,19 @@ export default function AiChatModelPicker({ modelId, onModelChange }: AiChatMode
 				</div>
 
 				{/* Right: details for the hovered (or selected) model */}
-				<ModelDetails model={detailModel} />
+				<ModelDetails model={detailModel} premiumSpent={premiumSpent} />
 			</PopoverContent>
 		</Popover>
 	);
 }
 
-function ModelDetails({ model }: { model: WorkspaceAiChatModel }) {
+function ModelDetails({
+	model,
+	premiumSpent,
+}: {
+	model: WorkspaceAiChatModel;
+	premiumSpent: boolean;
+}) {
 	return (
 		<div className="flex min-w-0 flex-col gap-3 p-4">
 			<div className="flex items-center gap-2.5">
@@ -174,6 +183,23 @@ function ModelDetails({ model }: { model: WorkspaceAiChatModel }) {
 						{model.billingTier === "premium" ? "Premium" : "Standard"}
 					</Badge>
 				</div>
+				{/* Availability lives here, not on every list row: it's one tier-level
+				    fact, and the detail panel shows one model at a time. This is also
+				    the highest-intent upgrade moment — reaching for a premium model is
+				    choosing to upgrade, rather than being interrupted mid-message. */}
+				{model.billingTier === "premium" && premiumSpent ? (
+					<Link
+						to="."
+						replace
+						search={(previous: Record<string, unknown>) => ({
+							...previous,
+							settings: "plan" as const,
+						})}
+						className="text-xs font-medium text-foreground underline underline-offset-4"
+					>
+						None left this month &mdash; get 400 with Pro
+					</Link>
+				) : null}
 			</div>
 		</div>
 	);
