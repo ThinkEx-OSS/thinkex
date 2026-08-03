@@ -5,6 +5,7 @@ import { z } from "zod";
 import { createDbContext } from "#/db/server";
 import { WorkspaceFileConversionError } from "#/features/workspaces/conversion/errors";
 import { requestWorkspaceFileExtraction } from "#/features/workspaces/extraction/request-workspace-file-extraction";
+import { checkWorkspaceFileUploadAccess } from "#/integrations/autumn/workspace-file-usage";
 import {
 	getWorkspaceFilePreviewObjectKey,
 	getWorkspaceFileSourceObjectKey,
@@ -82,6 +83,20 @@ async function initiateWorkspaceFileUpload(request: Request, workspaceId: string
 				validation.error.status,
 				validation.error.code,
 				validation.error.message,
+			);
+		}
+
+		// Before the presigned URL, so nobody uploads bytes we then reject.
+		const access = await checkWorkspaceFileUploadAccess({ env, userId });
+
+		if (!access.allowed) {
+			return apiError(
+				requestId,
+				402,
+				"upload_limit_reached",
+				// Gain-framed, and no raw date: the exact reset lives in settings, and a
+				// server-formatted date has no idea what locale is reading it.
+				"You've used all your file uploads this month. Pro includes 500 a month.",
 			);
 		}
 

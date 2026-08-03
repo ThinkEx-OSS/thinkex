@@ -1,4 +1,5 @@
-import { trackAutumnUsage } from "#/integrations/autumn/client";
+import { getAutumnClient, trackAutumnUsage } from "#/integrations/autumn/client";
+import { recordOperationalFailure } from "#/integrations/observability/operational-events";
 
 export const WORKSPACE_FILE_UPLOAD_FEATURE_ID = "file_uploads";
 
@@ -37,4 +38,53 @@ export async function trackWorkspaceFileUploadUsage(input: TrackWorkspaceFileUpl
 		},
 		userId: input.userId,
 	});
+}
+
+export interface CheckWorkspaceFileUploadAccessInput {
+	env: Cloudflare.Env;
+	userId: string;
+}
+
+export type WorkspaceFileUploadAccess =
+	| { allowed: true }
+	| { allowed: false; resetsAt: number | null };
+
+/**
+ * Checked before the presigned URL is handed out, so a user over their cap never
+ * uploads bytes we then reject — and never pays for the transfer either.
+ *
+ * No fallback here, unlike chat: the only cheaper path is keeping the free local
+ * parse and skipping the paid one, which silently returns worse text with no
+ * marker. A user can't tell degraded extraction from a bad product, so blocking
+ * is the honest option.
+ */
+export async function checkWorkspaceFileUploadAccess(
+	input: CheckWorkspaceFileUploadAccessInput,
+): Promise<WorkspaceFileUploadAccess> {
+	const autumn = getAutumnClient(input.env);
+
+	if (!autumn) {
+		return { allowed: true };
+	}
+
+	try {
+		const result = await autumn.check({
+			customerId: input.userId,
+			featureId: WORKSPACE_FILE_UPLOAD_FEATURE_ID,
+		});
+
+		return result.allowed
+			? { allowed: true }
+			: { allowed: false, resetsAt: result.balance?.nextResetAt ?? null };
+	} catch (error) {
+		// Autumn being unreachable must not block uploads. Fail open, stay visible.
+		recordOperationalFailure({
+			distinctId: input.userId,
+			error,
+			event: "workspace_file_upload_access_check",
+			fields: { user_id: input.userId },
+		});
+
+		return { allowed: true };
+	}
 }
