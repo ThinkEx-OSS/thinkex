@@ -3,6 +3,7 @@ import { asSchema, generateText, stepCountIs, tool, type ToolSet } from "ai";
 import type { z } from "zod";
 
 import { getAIThreadSoulPrompt } from "#/features/workspaces/ai/ai-thread-soul-prompt";
+import { createProviderCompatibleInputSchema } from "#/features/workspaces/ai/ai-thread-tool";
 import {
 	getWorkspaceAiGatewayProviderOptions,
 	getWorkspaceAiLanguageModel,
@@ -44,20 +45,48 @@ export interface WorkspaceAgentInput {
 	system?: string;
 }
 
-// Real workspace tools, but with stubbed execution. Evals grade tool *selection*
-// and *argument validity* — the two things schema/instruction changes move — so we
-// never touch a Durable Object or mutate a real workspace.
+// Deterministic read fixture: document HTML carrying real `data-ref` values, so a
+// read→edit turn can produce a *targeted* edit whose ref traces back to the read.
+// `scoreTargetedEditProvenance` checks that provenance against these refs.
+const STANDUP_HEADING_REF = "b_standupHead1.r_head000001";
+const STANDUP_LIST_REF = "b_standupList1.r_bullet0001";
+export const EVAL_READ_FIXTURE_REFS = [STANDUP_HEADING_REF, STANDUP_LIST_REF];
+
+// Per-tool stubbed outputs. Reads return editable HTML + refs; everything else
+// returns a neutral success so a follow-up step can still proceed. No real
+// Durable Object is touched and no workspace is mutated.
+const EVAL_TOOL_FIXTURES: Record<string, unknown> = {
+	workspace_read_items: {
+		items: [
+			{
+				path: "/Notes/Standup.md",
+				type: "document",
+				html: `<h1 data-ref="${STANDUP_HEADING_REF}">Standup</h1><ul data-ref="${STANDUP_LIST_REF}"><li>Discuss roadmap</li></ul>`,
+			},
+		],
+	},
+};
+
+function evalToolFixture(toolName: string): unknown {
+	return EVAL_TOOL_FIXTURES[toolName] ?? { ok: true, note: "eval stub — no real mutation" };
+}
+
+// Real workspace tools with stubbed execution. Evals grade tool *selection* and
+// *argument validity*, so the model must see the SAME surface production sends:
+// the provider-compatible schema (maxItems stripped, which Anthropic requires) via
+// the shared `createProviderCompatibleInputSchema`, plus the `inputExamples` the
+// gateway middleware injects. Only execution is stubbed.
 function buildEvalToolSet(): ToolSet {
 	return Object.fromEntries(
 		workspaceToolDefinitions.map((definition) => [
 			definition.name,
 			tool({
 				description: definition.description,
-				// Heterogeneous across tools; the eval only needs the schema rendered
-				// to the model, so widen past the per-tool union.
-				inputSchema: asSchema(definition.inputSchema as z.ZodTypeAny),
-				// Neutral stub so a follow-up step (e.g. read → edit) can still proceed.
-				execute: async () => ({ ok: true, note: "eval stub — no real mutation" }),
+				inputSchema: createProviderCompatibleInputSchema(
+					asSchema(definition.inputSchema as z.ZodTypeAny),
+				),
+				inputExamples: definition.inputExamples,
+				execute: async () => evalToolFixture(definition.name),
 			}),
 		]),
 	) as ToolSet;

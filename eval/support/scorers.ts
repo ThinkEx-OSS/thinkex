@@ -52,12 +52,50 @@ export function scoreNoForbiddenTools(
 	forbiddenTools: string[],
 ): ScoreResult {
 	const forbidden = new Set(forbiddenTools);
-	const hits = output.toolCalls.map((call) => call.name).filter((name) => forbidden.has(name));
+	const hits: string[] = [];
+	for (const call of output.toolCalls) {
+		if (forbidden.has(call.name)) hits.push(call.name);
+	}
 	const pass = hits.length === 0;
 	return {
 		score: pass ? 1 : 0,
 		pass,
 		message: pass ? "no forbidden tools called" : `forbidden tools called: [${hits.join(", ")}]`,
+	};
+}
+
+/**
+ * For a read→edit turn: the model must submit a *targeted* edit (replace / insert /
+ * delete) whose `ref` came from the read fixture — not a fabricated ref, and not a
+ * whole-document `replace_all`. Without this, a hollow read stub plus the permissive
+ * `ref` schema (any nonempty string) let a hallucinated target score a false pass.
+ */
+export function scoreTargetedEditProvenance(
+	output: WorkspaceAgentOutput,
+	validRefs: string[],
+): ScoreResult {
+	const refs = new Set(validRefs);
+	const edits = output.toolCalls
+		.filter((call) => call.name === "workspace_edit_item")
+		.flatMap((call) => {
+			const input = call.input as { edits?: Array<{ op?: string; ref?: string }> };
+			return Array.isArray(input.edits) ? input.edits : [];
+		});
+	const isValidRef = (edit: { ref?: string }) => typeof edit.ref === "string" && refs.has(edit.ref);
+	const targeted = edits.filter((edit) => edit.op !== "replace_all" && isValidRef(edit));
+	const fabricated = edits.filter((edit) => edit.op !== "replace_all" && !isValidRef(edit));
+	const usedReplaceAll = edits.some((edit) => edit.op === "replace_all");
+	const pass = targeted.length > 0 && fabricated.length === 0 && !usedReplaceAll;
+
+	const reasons: string[] = [];
+	if (targeted.length === 0) reasons.push("no targeted edit used a ref from the read");
+	if (fabricated.length > 0)
+		reasons.push(`fabricated ref(s): ${fabricated.map((e) => e.ref ?? "<none>").join(", ")}`);
+	if (usedReplaceAll) reasons.push("used replace_all instead of a targeted edit");
+	return {
+		score: pass ? 1 : 0,
+		pass,
+		message: pass ? "targeted edit used a ref from the read fixture" : reasons.join("; "),
 	};
 }
 

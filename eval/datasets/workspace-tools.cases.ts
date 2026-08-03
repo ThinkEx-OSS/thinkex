@@ -9,6 +9,8 @@ export interface WorkspaceToolCase {
 	forbiddenTools?: string[];
 	/** When set, the final answer is graded by the LLM judge against this rubric. */
 	qualityRubric?: string;
+	/** When true, the turn must produce a targeted edit whose ref traces to the read fixture. */
+	requiresTargetedEditFromRead?: boolean;
 }
 
 // A view-only scope block: mirrors what beforeTurn injects for a read-only viewer.
@@ -46,6 +48,7 @@ export const workspaceToolCases: WorkspaceToolCase[] = [
 				"In /Notes/Standup.md, add a second bullet that says 'Review metrics'. Read the document first, then make the edit.",
 		},
 		expectedTools: ["workspace_read_items", "workspace_edit_item"],
+		requiresTargetedEditFromRead: true,
 	},
 	{
 		name: "respects a read-only turn",

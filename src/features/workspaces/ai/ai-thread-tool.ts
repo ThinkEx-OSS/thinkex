@@ -114,7 +114,7 @@ type ModelJsonSchema = Awaited<Schema["jsonSchema"]>;
  * validation still uses the original schema, so omitting this model-facing
  * hint improves portability without changing accepted application input.
  */
-function createProviderCompatibleInputSchema<INPUT>(schema: Schema<INPUT>): Schema<INPUT> {
+export function createProviderCompatibleInputSchema<INPUT>(schema: Schema<INPUT>): Schema<INPUT> {
 	return jsonSchema<INPUT>(
 		async () =>
 			JSON.parse(

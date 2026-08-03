@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import { workspaceToolCases } from "./datasets/workspace-tools.cases";
-import { runWorkspaceAgent } from "./support/harness";
+import { EVAL_READ_FIXTURE_REFS, runWorkspaceAgent } from "./support/harness";
 import {
 	scoreAnswerQuality,
 	scoreExpectedTools,
 	scoreNoForbiddenTools,
+	scoreTargetedEditProvenance,
 	scoreToolInputsValid,
 } from "./support/scorers";
 
@@ -29,6 +30,13 @@ describe.skipIf(!process.env.AI_GATEWAY_API_KEY)("workspace tools", () => {
 		if (testCase.forbiddenTools?.length) {
 			const forbidden = scoreNoForbiddenTools(output, testCase.forbiddenTools);
 			expect(forbidden.pass, forbidden.message).toBe(true);
+		}
+
+		// 2b. Deterministic — a read→edit turn made a targeted edit whose ref came
+		//     from the read fixture, not a fabricated ref or a whole-doc replace_all.
+		if (testCase.requiresTargetedEditFromRead) {
+			const provenance = scoreTargetedEditProvenance(output, EVAL_READ_FIXTURE_REFS);
+			expect(provenance.pass, `edit provenance — ${provenance.message}`).toBe(true);
 		}
 
 		// 3. Model-graded — grade the prose answer against a rubric when set.
