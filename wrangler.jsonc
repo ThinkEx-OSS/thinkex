@@ -1,8 +1,10 @@
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
 	// Default config is used for local development. Deploys should target an
-	// explicit Wrangler environment.
-	"name": "thinkex",
+	// explicit Wrangler environment. This name deliberately differs from the
+	// production worker name so a bare `wrangler deploy` cannot overwrite
+	// production with this block's staging R2 and Vectorize bindings.
+	"name": "thinkex-dev",
 	"compatibility_date": "2026-03-24",
 	"compatibility_flags": ["nodejs_compat"],
 	"main": "src/server.ts",
