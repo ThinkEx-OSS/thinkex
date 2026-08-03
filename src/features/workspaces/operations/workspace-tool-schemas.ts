@@ -33,7 +33,7 @@ export {
 };
 
 export const workspaceDocumentHtmlInstruction =
-	'Use semantic HTML with paragraphs, h1-h4, blockquotes, lists, code blocks, horizontal rules, tables, links, and standard text marks. For math, use <span data-type="inline-math" data-latex="..."></span> or <div data-type="block-math" data-latex="..."></div>. For checkboxes, use <ul data-type="taskList"><li data-type="taskItem" data-checked="false"><label><input type="checkbox"><span></span></label><div><p>Item</p></div></li></ul>. Documents cannot hold images: never use <img> or <figure>, and describe the visual in words instead. Cite workspace sources in documents exactly as in a chat reply, with <citation ref="wr_7Kp2Qa9x"></citation> placed after the claim it supports.';
+	'Use semantic HTML with paragraphs, h1-h4, blockquotes, lists, code blocks, horizontal rules, tables, links, and standard text marks. For math, use <span data-type="inline-math" data-latex="..."></span> or <div data-type="block-math" data-latex="..."></div> — this is the only math that renders, so never write $...$, $$...$$, or \\(...\\) in the HTML, and never put dollar signs around the data-latex value. Put every subscript and superscript (exponents like 10^8, indices like x_1) inside math, not <sub> or <sup> tags, which are unsupported and reject the whole write. Chemistry renders with \\ce{...} (e.g. \\ce{CH4 + 2 O2 -> CO2 + 2 H2O}) and quantities with units render with \\pu{...} (e.g. \\pu{9.81 m/s^2}), both inside data-latex. Write literal money as plain text ($30, never \\$30) — this is HTML, not Markdown, so a backslash before a dollar sign shows on screen. For checkboxes, use <ul data-type="taskList"><li data-type="taskItem" data-checked="false"><label><input type="checkbox"><span></span></label><div><p>Item</p></div></li></ul>. Documents cannot hold images: never use <img> or <figure>, and describe the visual in words instead. Cite workspace sources in documents exactly as in a chat reply, with <citation ref="wr_7Kp2Qa9x"></citation> placed after the claim it supports.';
 
 const workspacePathSchema = z.string().min(1);
 const workspaceIndexSchema = z.number().int().nonnegative();
@@ -178,9 +178,9 @@ export const workspaceCreateItemsInputSchema = z.object({
 							"Optional relationships from this new document to other workspace items, at most 20.",
 						),
 					initialContent: documentAiHtmlSchema
-						.describe(
-							`Optional initial HTML content for the document. ${workspaceDocumentHtmlInstruction}`,
-						)
+						// Doc HTML rules live in the create tool description (see
+						// workspace-tool-definitions), so they are not repeated here.
+						.describe("Optional initial HTML content for the document.")
 						.optional(),
 				}),
 			]),
