@@ -101,9 +101,14 @@ async function initiateWorkspaceFileUpload(request: Request, workspaceId: string
 					requestId,
 					402,
 					"upload_limit_reached",
+					// Names what still works, because this is the only moment the user
+					// finds out the cap isn't total — hitting it otherwise reads as the
+					// whole product locking, which is what makes people leave rather
+					// than upgrade.
+					//
 					// Gain-framed, and no raw date: the exact reset lives in settings, and a
 					// server-formatted date has no idea what locale is reading it.
-					"You've used all your file uploads this month. Pro includes 500 a month.",
+					"You've used all your file uploads this month — Markdown, CSV, and text files still import. Pro includes 500 a month.",
 				);
 			}
 		}
