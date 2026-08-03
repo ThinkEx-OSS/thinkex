@@ -3,6 +3,8 @@ import { createMathPlugin } from "@streamdown/math";
 import { createContext, type ComponentProps, use, useEffect } from "react";
 import { Streamdown, type StreamdownProps } from "streamdown";
 import "katex/dist/katex.min.css";
+// Extends the shared KaTeX instance with \ce{} chemistry and \pu{} units.
+import "katex/contrib/mhchem";
 import {
 	parseWorkspaceReference,
 	type WorkspaceLocation,

@@ -1,6 +1,8 @@
 import CharacterCount from "@tiptap/extension-character-count";
 import Placeholder from "@tiptap/extension-placeholder";
 import "katex/dist/katex.min.css";
+// Extends the shared KaTeX instance with \ce{} chemistry and \pu{} units.
+import "katex/contrib/mhchem";
 
 import { CodeBlockShiki } from "#/features/workspaces/documents/code-block-shiki";
 import { DocumentCitation } from "#/features/workspaces/documents/document-citation-node";

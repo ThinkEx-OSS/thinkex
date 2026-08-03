@@ -9,6 +9,10 @@ trustPolicyExclude:
   - semver@6.3.1
 
 overrides:
+  # Dedupe KaTeX to one instance so the mhchem/pu extension import patches the
+  # same katex that BOTH surfaces render with (TipTap docs and rehype-katex
+  # chat), instead of only the app copy. rehype-katex pulls 0.16 otherwise.
+  katex: 0.17.0
   dompurify: 3.4.12
   # drizzle-kit reaches esbuild through the deprecated @esbuild-kit/* packages,
   # which pin 0.18.20 — under the advisory range for GHSA esbuild <= 0.24.2.
