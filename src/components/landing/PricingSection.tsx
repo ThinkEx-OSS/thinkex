@@ -22,6 +22,9 @@ const pricingPlans = [
 	},
 	{
 		id: "pro",
+		// ponytail: reads "Coming soon" until Pro actually goes live. The real price
+		// and allowances are in autumn.config.ts — update both together, or the
+		// landing page will quote a number nobody is charged.
 		name: "Pro",
 		price: "Coming soon",
 		features: [
