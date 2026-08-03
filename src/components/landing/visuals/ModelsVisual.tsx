@@ -5,6 +5,7 @@ import {
 	type WorkspaceAiChatModelId,
 	type WorkspaceAiChatModelLevel,
 } from "#/features/workspaces/ai/models";
+import { Badge } from "#/components/ui/badge";
 import { ProviderLogo } from "#/features/workspaces/components/ai-chat/ProviderLogo";
 import { cn } from "#/lib/utils";
 
@@ -96,9 +97,7 @@ export function ModelsVisual() {
 											: "text-foreground hover:text-accent-foreground focus-visible:text-accent-foreground",
 									)}
 								>
-									<div className="min-w-0">
-										<div className="truncate text-sm font-medium">{model.name}</div>
-									</div>
+									<div className="min-w-0 truncate text-sm font-medium">{model.name}</div>
 								</button>
 							);
 						})}
@@ -110,7 +109,9 @@ export function ModelsVisual() {
 					{detailProvider ? (
 						<ProviderLogo provider={detailProvider} className="size-5 shrink-0 opacity-75" />
 					) : null}
-					<div className="truncate text-base font-medium">{detailModel.name}</div>
+					{/* No truncate: the tier lives on its own row below, so the name owns
+					    the full width. Mirrors the in-app model picker. */}
+					<div className="min-w-0 text-base font-medium">{detailModel.name}</div>
 				</div>
 				<p className="line-clamp-4 text-sm leading-6 text-muted-foreground">
 					{detailModel.description}
@@ -121,7 +122,13 @@ export function ModelsVisual() {
 				</div>
 				<ModelStatBar label="Intelligence" value={detailModel.intelligence} />
 				<ModelStatBar label="Speed" value={detailModel.speed} />
-				<ModelStatBar label="Cost" value={detailModel.cost} />
+				{/* Both tiers render so the row holds one height while hovering models. */}
+				<div className="flex items-center justify-between gap-2">
+					<span className="text-[0.68rem] text-muted-foreground">Cost</span>
+					<Badge variant={detailModel.billingTier === "premium" ? "premium" : "secondary"}>
+						{detailModel.billingTier === "premium" ? "Premium" : "Standard"}
+					</Badge>
+				</div>
 			</div>
 		</div>
 	);

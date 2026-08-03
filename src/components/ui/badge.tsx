@@ -13,6 +13,12 @@ const badgeVariants = cva(
 				secondary: "bg-secondary text-secondary-foreground [a]:hover:bg-secondary/80",
 				destructive:
 					"bg-destructive/10 text-destructive focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:focus-visible:ring-destructive/40 [a]:hover:bg-destructive/20",
+				// Paid tiers: premium models, Pro plan, upgrade prompts. Deliberately a
+				// neutral fill rather than a hue — every accent in the palette is either
+				// already claimed (amber is --warning, blue is --info) or too light for
+				// small text, and brand colors aren't defined yet. In neutral chrome,
+				// "filled" is the strongest emphasis available and it can't clash later.
+				premium: "bg-primary text-primary-foreground [a]:hover:bg-primary/90",
 				outline: "border-border text-foreground [a]:hover:bg-muted [a]:hover:text-muted-foreground",
 				ghost: "hover:bg-muted hover:text-muted-foreground dark:hover:bg-muted/50",
 				link: "text-primary underline-offset-4 hover:underline",

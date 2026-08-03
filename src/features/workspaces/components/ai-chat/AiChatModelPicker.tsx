@@ -1,6 +1,7 @@
 import { Check, ChevronUp, Waypoints } from "lucide-react";
 import { useState } from "react";
 
+import { Badge } from "#/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "#/components/ui/popover";
 import {
 	getWorkspaceAiChatModelById,
@@ -119,9 +120,14 @@ export default function AiChatModelPicker({ modelId, onModelChange }: AiChatMode
 										)}
 									>
 										<span className="truncate">{model.name}</span>
-										{isSelected ? (
-											<Check className="ml-auto size-3.5 shrink-0 text-foreground" />
-										) : null}
+										{/* Quiet text rather than a badge: the rows are dense, and a
+										    filled pill on every premium row would out-shout the names. */}
+										<span className="ml-auto flex shrink-0 items-center gap-1.5">
+											{model.billingTier === "premium" ? (
+												<span className="text-[0.6875rem] text-muted-foreground">Premium</span>
+											) : null}
+											{isSelected ? <Check className="size-3.5 text-foreground" /> : null}
+										</span>
 									</button>
 								);
 							})}
@@ -146,9 +152,9 @@ function ModelDetails({ model }: { model: WorkspaceAiChatModel }) {
 				{model.provider !== "auto" ? (
 					<ProviderLogo provider={model.provider} className="size-4 shrink-0 opacity-65" />
 				) : null}
-				<div className="min-w-0">
-					<div className="font-medium text-foreground">{model.name}</div>
-				</div>
+				{/* No truncate: the tier moved down to its own row, so the name owns the
+				    full width and long names wrap rather than getting cut. */}
+				<div className="min-w-0 font-medium text-foreground">{model.name}</div>
 			</div>
 
 			<p className="text-xs leading-relaxed text-muted-foreground">{model.description}</p>
@@ -160,7 +166,14 @@ function ModelDetails({ model }: { model: WorkspaceAiChatModel }) {
 				</div>
 				<StatBar label="Intelligence" value={model.intelligence} />
 				<StatBar label="Speed" value={model.speed} />
-				<StatBar label="Cost" value={model.cost} />
+				{/* Both tiers render a badge so the row keeps one height as you hover
+				    between models. */}
+				<div className="flex items-center justify-between gap-3">
+					<span className="text-xs text-muted-foreground">Cost</span>
+					<Badge variant={model.billingTier === "premium" ? "premium" : "secondary"}>
+						{model.billingTier === "premium" ? "Premium" : "Standard"}
+					</Badge>
+				</div>
 			</div>
 		</div>
 	);
