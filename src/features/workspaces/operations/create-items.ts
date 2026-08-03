@@ -2,8 +2,8 @@ import { getAuthorizedWorkspaceKernel } from "#/features/workspaces/operations/w
 import {
 	resolveWorkspaceRelations,
 	type WorkspaceRelationInput,
-	workspaceRelationFailureCodes,
 } from "#/features/workspaces/operations/relations";
+import { createWorkspaceItemsFailureCodes } from "#/features/workspaces/operations/workspace-operation-failure-codes";
 import type { WorkspaceAccessContext } from "#/features/workspaces/operations/workspace-access-context";
 import type { WorkspaceKernelPathResolution } from "#/features/workspaces/kernel/workspace-kernel-types";
 import { parseDocumentAiHtml } from "#/features/workspaces/documents/document-ai-html";
@@ -31,17 +31,6 @@ export interface CreateWorkspaceItemOperationInput {
 export interface CreateWorkspaceItemsOperationInput {
 	items: CreateWorkspaceItemOperationInput[];
 }
-
-export const createWorkspaceItemsFailureCodes = [
-	"cannot_create_root",
-	"invalid_initial_content",
-	"path_already_exists",
-	"path_not_absolute",
-	"path_not_canonical",
-	"path_not_folder",
-	"path_not_found",
-	...workspaceRelationFailureCodes,
-] as const;
 
 type CreateWorkspaceItemsFailureCode = (typeof createWorkspaceItemsFailureCodes)[number];
 

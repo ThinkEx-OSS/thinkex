@@ -14,12 +14,7 @@ export interface RenameWorkspaceItemOperationInput {
 	path: string;
 }
 
-export const renameWorkspaceItemFailureCodes = [
-	"cannot_rename_root",
-	"path_already_exists",
-	"path_not_absolute",
-	"path_not_found",
-] as const;
+import { renameWorkspaceItemFailureCodes } from "#/features/workspaces/operations/workspace-operation-failure-codes";
 
 export interface RenameWorkspaceItemFailure {
 	code: (typeof renameWorkspaceItemFailureCodes)[number];

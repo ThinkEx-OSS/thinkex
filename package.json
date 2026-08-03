@@ -25,6 +25,8 @@
 		"prepare": "vp config --no-agent",
 		"test": "vp test --run",
 		"test:workers": "vp test --run --project=workers",
+		"eval": "infisical run --env=dev --path=/app -- vitest --config vitest.evals.config.ts --run",
+		"eval:watch": "infisical run --env=dev --path=/app -- vitest --config vitest.evals.config.ts",
 		"deploy:worker": "CLOUDFLARE_ENV=production wrangler deploy",
 		"deploy:worker:staging": "CLOUDFLARE_ENV=staging wrangler deploy --containers-rollout=none",
 		"deploy": "vp run build:production && vp run deploy:worker",
@@ -179,7 +181,6 @@
 		"vite-bundle-analyzer": "^1.3.9",
 		"vite-plus": "^0.2.7",
 		"vitest": "4.1.10",
-		"vitest-evals": "^0.15.0",
 		"wrangler": "^4.118.0"
 	},
 	"engines": {

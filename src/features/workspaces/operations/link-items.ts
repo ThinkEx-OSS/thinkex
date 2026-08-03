@@ -2,8 +2,8 @@ import type { WorkspaceItemSummary } from "#/features/workspaces/contracts";
 import {
 	resolveWorkspaceRelations,
 	type WorkspaceRelationInput,
-	workspaceRelationFailureCodes,
 } from "#/features/workspaces/operations/relations";
+import { linkWorkspaceItemsFailureCodes } from "#/features/workspaces/operations/workspace-operation-failure-codes";
 import type { WorkspaceAccessContext } from "#/features/workspaces/operations/workspace-access-context";
 import {
 	getAuthorizedWorkspaceKernel,
@@ -14,13 +14,6 @@ export interface LinkWorkspaceItemsOperationInput {
 	path: string;
 	relations: WorkspaceRelationInput[];
 }
-
-export const linkWorkspaceItemsFailureCodes = [
-	"cannot_link_root",
-	"path_not_absolute",
-	"path_not_found",
-	...workspaceRelationFailureCodes,
-] as const;
 
 type LinkWorkspaceItemsFailureCode = (typeof linkWorkspaceItemsFailureCodes)[number];
 

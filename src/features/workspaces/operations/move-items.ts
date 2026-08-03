@@ -15,17 +15,7 @@ export interface MoveWorkspaceItemsOperationInput {
 	paths: string[];
 }
 
-export const moveWorkspaceItemsFailureCodes = [
-	"already_in_destination",
-	"cannot_move_into_descendant",
-	"cannot_move_root",
-	"destination_path_not_absolute",
-	"destination_path_not_folder",
-	"destination_path_not_found",
-	"path_already_exists",
-	"path_not_absolute",
-	"path_not_found",
-] as const;
+import { moveWorkspaceItemsFailureCodes } from "#/features/workspaces/operations/workspace-operation-failure-codes";
 
 interface MoveWorkspaceDestinationFailure {
 	code:

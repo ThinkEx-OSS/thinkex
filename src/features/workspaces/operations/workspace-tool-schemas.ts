@@ -4,12 +4,14 @@ import {
 	workspaceReadItemsInputSchema,
 	workspaceReadItemsOutputSchema,
 } from "#/features/workspaces/content/workspace-content-contract";
-import { createWorkspaceItemsFailureCodes } from "#/features/workspaces/operations/create-items";
-import { deleteWorkspaceItemsFailureCodes } from "#/features/workspaces/operations/delete-items";
-import { editWorkspaceItemFailureCodes } from "#/features/workspaces/operations/edit-item";
-import { linkWorkspaceItemsFailureCodes } from "#/features/workspaces/operations/link-items";
-import { moveWorkspaceItemsFailureCodes } from "#/features/workspaces/operations/move-items";
-import { renameWorkspaceItemFailureCodes } from "#/features/workspaces/operations/rename-item";
+import {
+	createWorkspaceItemsFailureCodes,
+	deleteWorkspaceItemsFailureCodes,
+	editWorkspaceItemFailureCodes,
+	linkWorkspaceItemsFailureCodes,
+	moveWorkspaceItemsFailureCodes,
+	renameWorkspaceItemFailureCodes,
+} from "#/features/workspaces/operations/workspace-operation-failure-codes";
 import {
 	workspaceItemTypeSchema,
 	workspaceRelationKindSchema,

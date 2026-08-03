@@ -3,9 +3,11 @@
 		"src/**/*.ts",
 		"src/**/*.tsx",
 		"test/**/*.ts",
+		"eval/**/*.ts",
 		"drizzle.config.ts",
 		"vite.config.ts",
-		"vitest.config.ts"
+		"vitest.config.ts",
+		"vitest.evals.config.ts"
 	],
 	"compilerOptions": {
 		"target": "ES2022",

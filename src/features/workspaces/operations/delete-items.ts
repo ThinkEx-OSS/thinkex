@@ -9,11 +9,7 @@ export interface DeleteWorkspaceItemsOperationInput {
 	paths: string[];
 }
 
-export const deleteWorkspaceItemsFailureCodes = [
-	"cannot_delete_root",
-	"path_not_absolute",
-	"path_not_found",
-] as const;
+import { deleteWorkspaceItemsFailureCodes } from "#/features/workspaces/operations/workspace-operation-failure-codes";
 
 export interface DeleteWorkspaceItemsFailure {
 	code: (typeof deleteWorkspaceItemsFailureCodes)[number];
