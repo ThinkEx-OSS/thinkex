@@ -32,6 +32,7 @@ type WorkspaceFileExtractionOutcome = WorkspaceFileExtractionOutcomeBase &
 				outcome: "error";
 		  }
 		| {
+				creditsUsed: number | null;
 				outcome: "partial" | "success";
 				pageCount: number;
 				provider: WorkspaceFileExtractionProviderId | "liteparse";
@@ -50,6 +51,9 @@ export function recordWorkspaceFileExtractionOutcome(input: WorkspaceFileExtract
 	const outcomeFields =
 		input.outcome !== "error"
 			? {
+					// provider_mode is the tier we asked for; credits_used is what the cost
+					// optimizer actually billed, so the two disagree on mixed-complexity files.
+					credits_used: input.creditsUsed,
 					error_type: null,
 					page_count: input.pageCount,
 					provider: input.provider,
@@ -57,6 +61,7 @@ export function recordWorkspaceFileExtractionOutcome(input: WorkspaceFileExtract
 					route_reason: input.routeReason,
 				}
 			: {
+					credits_used: null,
 					error_type: input.error instanceof Error ? input.error.name : "UnknownError",
 					page_count: null,
 					provider: null,
@@ -107,6 +112,7 @@ export function recordWorkspaceFileExtractionOutcome(input: WorkspaceFileExtract
 	capturePostHogServerEvent({
 		distinctId: input.params.actorUserId ?? input.instanceId,
 		event: "workspace_file_extraction_completed",
+		processPerson: input.params.actorUserId !== null,
 		properties: fields,
 		requestContext,
 		schedule: input.schedule,

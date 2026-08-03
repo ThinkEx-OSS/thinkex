@@ -31,6 +31,12 @@ interface PostHogServerEvent<TEvent extends PostHogServerEventName> {
 	event: TEvent;
 	/** Person properties PostHog must set atomically with this event. */
 	personProperties?: Record<string, unknown>;
+	/**
+	 * Set false for background work with no real user. The caller still has to pass
+	 * some distinct id, and a synthetic one (workflow instance, request id) would
+	 * otherwise register a brand new person per run and inflate user counts.
+	 */
+	processPerson?: boolean;
 	properties: PostHogEventPropertiesByName[TEvent];
 	requestContext?: TelemetryRequestContext;
 	request?: TelemetryRequestDetails;
@@ -80,6 +86,7 @@ export function capturePostHogServerEvent<TEvent extends PostHogServerEventName>
 					...requestContext.properties,
 					...input.properties,
 					...(input.personProperties ? { $set: input.personProperties } : {}),
+					...(input.processPerson === false ? { $process_person_profile: false } : {}),
 				},
 				...(timestamp ? { timestamp } : {}),
 			})

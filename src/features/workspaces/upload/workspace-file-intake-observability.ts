@@ -71,6 +71,7 @@ export async function observeWorkspaceFileIntake(input: {
 		capturePostHogServerEvent({
 			distinctId: observation.userId ?? input.requestId,
 			event: "workspace_file_intake_completed",
+			processPerson: Boolean(observation.userId),
 			properties: fields,
 			requestContext,
 		});

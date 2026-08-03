@@ -148,6 +148,8 @@ export class WorkspaceFileExtractionWorkflow extends WorkflowEntrypoint<
 			if (liteParse.outcome === "success") {
 				await step.do("record partial extraction outcome", async () => {
 					recordWorkspaceFileExtractionOutcome({
+						// The enhancement job failed, so LlamaParse billed nothing for this run.
+						creditsUsed: null,
 						durationMs: Date.now() - event.timestamp.getTime(),
 						enhancement: {
 							durationMs: Date.now() - enhancementStartedAt,
@@ -215,6 +217,7 @@ export class WorkspaceFileExtractionWorkflow extends WorkflowEntrypoint<
 
 		await step.do("record extraction outcome", async () => {
 			recordWorkspaceFileExtractionOutcome({
+				creditsUsed: getExtractionCreditsUsed(extraction.metadata),
 				durationMs: Date.now() - event.timestamp.getTime(),
 				enhancement: {
 					durationMs: Date.now() - enhancementStartedAt,
@@ -267,4 +270,9 @@ function assertWorkflowParams(
 
 function getErrorMessage(error: unknown) {
 	return error instanceof Error ? error.message : String(error);
+}
+
+function getExtractionCreditsUsed(metadata: StagedPageExtractionResult["metadata"]) {
+	// Only LlamaParse reports credits; other providers leave the key absent.
+	return typeof metadata.creditsUsed === "number" ? metadata.creditsUsed : null;
 }
