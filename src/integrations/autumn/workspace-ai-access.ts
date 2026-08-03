@@ -30,13 +30,7 @@ export type WorkspaceAiMessageAccess =
 	| { allowed: true; modelId: WorkspaceAiChatModelId }
 	| { allowed: false; resetsAt: number | null };
 
-/**
- * Exported so the composer can name the model that will actually answer. The UI
- * used to assume `auto`, which is only right when the empty tier is premium.
- */
-export function getWorkspaceAiFallbackModelId(
-	modelId: WorkspaceAiChatModelId,
-): WorkspaceAiChatModelId {
+function getWorkspaceAiFallbackModelId(modelId: WorkspaceAiChatModelId): WorkspaceAiChatModelId {
 	const chosenTier = getWorkspaceAiChatModelById(modelId).billingTier;
 
 	return FALLBACK_MODEL_BY_TIER[chosenTier === "premium" ? "standard" : "premium"];

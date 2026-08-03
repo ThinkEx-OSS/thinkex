@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-	getWorkspaceAiFallbackModelId,
-	resolveWorkspaceAiMessageAccess,
-} from "#/integrations/autumn/workspace-ai-access";
+import { resolveWorkspaceAiMessageAccess } from "#/integrations/autumn/workspace-ai-access";
 
 const RESETS_AT = 1_788_400_648_450;
 
@@ -88,19 +85,5 @@ describe("resolveWorkspaceAiMessageAccess", () => {
 
 		expect(premiumSpent).toEqual({ allowed: true, modelId: "auto" });
 		expect(standardSpent).toEqual({ allowed: true, modelId: "claude-sonnet" });
-	});
-});
-
-// The composer names this model to the user before they send. It used to assume
-// "auto", which is right only when the empty tier is premium — so a user on Auto
-// who ran out of standard was told Auto would answer while the turn actually ran
-// on Claude Sonnet and spent premium allowance.
-describe("getWorkspaceAiFallbackModelId", () => {
-	it("sends a premium model down to auto", () => {
-		expect(getWorkspaceAiFallbackModelId("claude-sonnet")).toBe("auto");
-	});
-
-	it("sends a standard model up to the premium fallback", () => {
-		expect(getWorkspaceAiFallbackModelId("auto")).toBe("claude-sonnet");
 	});
 });

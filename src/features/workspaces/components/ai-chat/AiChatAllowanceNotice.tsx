@@ -4,8 +4,8 @@ import {
 	getWorkspaceAiChatModelById,
 	type WorkspaceAiChatModelId,
 } from "#/features/workspaces/ai/models";
+import { useIsProPlan } from "#/features/account/use-pro-plan";
 import { useWorkspaceAiAllowance } from "#/features/workspaces/ai/use-workspace-ai-allowance";
-import { getWorkspaceAiFallbackModelId } from "#/integrations/autumn/workspace-ai-access";
 
 interface AiChatAllowanceNoticeProps {
 	modelId: WorkspaceAiChatModelId;
@@ -24,26 +24,32 @@ interface AiChatAllowanceNoticeProps {
 export function AiChatAllowanceNotice({ modelId }: AiChatAllowanceNoticeProps) {
 	const allowance = useWorkspaceAiAllowance(modelId);
 	const resetsOn = formatResetDate(allowance.resetsAt);
+	// Subscribers get the fact without the pitch; there is nothing left to sell
+	// them, so an upgrade line would only advertise that we forgot they pay.
+	const isPro = useIsProPlan();
+	const upgrade = isPro ? null : (
+		<>
+			{" "}
+			<UpgradeLink>Pro includes 3,000 standard and 400 premium a month</UpgradeLink>
+		</>
+	);
 
 	if (allowance.isBlocked) {
 		return (
 			<Notice>
-				You&rsquo;re out of messages{resetsOn ? ` until ${resetsOn}` : ""}.{" "}
-				<UpgradeLink>Pro includes 3,000 standard and 400 premium a month</UpgradeLink>
+				You&rsquo;re out of messages{resetsOn ? ` until ${resetsOn}` : ""}.{upgrade}
 			</Notice>
 		);
 	}
 
-	if (allowance.willFallBack) {
-		// Derived, not assumed: the fallback is only Auto when the empty tier is
-		// premium. Run out of standard and the turn moves up to Claude Sonnet.
-		const fallbackName = getWorkspaceAiChatModelById(getWorkspaceAiFallbackModelId(modelId)).name;
+	if (allowance.fallbackModelId) {
+		// The model the gate actually resolved, not a guess made here.
+		const fallbackName = getWorkspaceAiChatModelById(allowance.fallbackModelId).name;
 
 		return (
 			<Notice>
 				{fallbackName} will answer this &mdash; no {getWorkspaceAiChatModelById(modelId).name} left
-				{resetsOn ? ` until ${resetsOn}` : ""}.{" "}
-				<UpgradeLink>Pro includes 3,000 standard and 400 premium a month</UpgradeLink>
+				{resetsOn ? ` until ${resetsOn}` : ""}.{upgrade}
 			</Notice>
 		);
 	}

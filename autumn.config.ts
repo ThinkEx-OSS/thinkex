@@ -1,10 +1,11 @@
 import { feature, item, plan } from "atmn";
 
-// Allowances are metered internally in credits (see `cost` in
-// features/workspaces/ai/models.ts: Luna 1, Flash 3, Haiku 5, premium 10) but
-// exposed to users as plain message and document counts. Students are not
-// developers; a credit balance they have to do arithmetic against is the thing
-// that makes people ration instead of use the product.
+// Metered per message and per upload, one unit each — not by credit weight. The
+// `cost` ladder in features/workspaces/ai/models.ts prices models against each
+// other for routing, and deliberately does not reach allowances: students are
+// not developers, and a balance they have to do arithmetic against is the thing
+// that makes people ration instead of use the product. The two tiers are how
+// model cost is reflected, which is as much arithmetic as anyone should face.
 
 // Features
 export const standardMessages = feature({

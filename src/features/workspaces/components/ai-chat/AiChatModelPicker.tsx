@@ -12,6 +12,7 @@ import {
 	type WorkspaceAiChatModelId,
 	type WorkspaceAiChatModelLevel,
 } from "#/features/workspaces/ai/models";
+import { useIsProPlan } from "#/features/account/use-pro-plan";
 import { useWorkspaceAiTierBalances } from "#/features/workspaces/ai/use-workspace-ai-allowance";
 import { ProviderLogo } from "#/features/workspaces/components/ai-chat/ProviderLogo";
 import { WorkspaceToolbarTextButton } from "#/features/workspaces/components/WorkspaceToolbar";
@@ -152,6 +153,8 @@ function ModelDetails({
 	model: WorkspaceAiChatModel;
 	premiumSpent: boolean;
 }) {
+	const isPro = useIsProPlan();
+
 	return (
 		<div className="flex min-w-0 flex-col gap-3 p-4">
 			<div className="flex items-center gap-2.5">
@@ -188,17 +191,24 @@ function ModelDetails({
 				    the highest-intent upgrade moment — reaching for a premium model is
 				    choosing to upgrade, rather than being interrupted mid-message. */}
 				{model.billingTier === "premium" && premiumSpent ? (
-					<Link
-						to="."
-						replace
-						search={(previous: Record<string, unknown>) => ({
-							...previous,
-							settings: "plan" as const,
-						})}
-						className="text-xs font-medium text-foreground underline underline-offset-4"
-					>
-						None left this month &mdash; get 400 with Pro
-					</Link>
+					// Subscribers get the fact without the pitch. Offering Pro to someone
+					// who already pays for it reads as the product not knowing who they
+					// are, and the plan panel has nothing more to sell them anyway.
+					isPro ? (
+						<span className="text-xs text-muted-foreground">None left this month</span>
+					) : (
+						<Link
+							to="."
+							replace
+							search={(previous: Record<string, unknown>) => ({
+								...previous,
+								settings: "plan" as const,
+							})}
+							className="text-xs font-medium text-foreground underline underline-offset-4"
+						>
+							None left this month &mdash; get 400 with Pro
+						</Link>
+					)
 				) : null}
 			</div>
 		</div>

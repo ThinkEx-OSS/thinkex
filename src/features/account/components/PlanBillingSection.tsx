@@ -12,8 +12,7 @@ import {
 } from "#/components/ui/item";
 import { Progress } from "#/components/ui/progress";
 import { Skeleton } from "#/components/ui/skeleton";
-
-const PRO_PLAN_ID = "pro";
+import { PRO_PLAN_ID, useIsProPlan } from "#/features/account/use-pro-plan";
 
 // Feature IDs are the contract with autumn.config.ts. Labels are ours.
 const METERS = [
@@ -36,15 +35,7 @@ export function PlanBillingSection() {
 		),
 	);
 
-	// `subscriptions` carries scheduled plans alongside active ones, and the status
-	// enum is open — Autumn can add states we've never seen. Matching on "active"
-	// means a plan that hasn't started, or one in some future non-paying state,
-	// can't light up the Pro badge and hide the upgrade button behind it.
-	const isPro = Boolean(
-		customer?.subscriptions?.some(
-			(subscription) => subscription.planId === PRO_PLAN_ID && subscription.status === "active",
-		),
-	);
+	const isPro = useIsProPlan();
 
 	return (
 		// No heading — the active tab already says "Plan & usage".

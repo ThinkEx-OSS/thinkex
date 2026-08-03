@@ -5,7 +5,10 @@ import {
 	type WorkspaceAiChatModelBillingTier,
 	type WorkspaceAiChatModelId,
 } from "#/features/workspaces/ai/models";
-import { WORKSPACE_AI_MESSAGE_FEATURE_IDS } from "#/integrations/autumn/workspace-ai-access";
+import {
+	resolveWorkspaceAiMessageAccess,
+	WORKSPACE_AI_MESSAGE_FEATURE_IDS,
+} from "#/integrations/autumn/workspace-ai-access";
 
 export interface WorkspaceAiTierBalance {
 	hasBalance: boolean;
@@ -50,8 +53,8 @@ export function useWorkspaceAiTierBalances(): WorkspaceAiTierBalances {
 }
 
 export interface WorkspaceAiAllowance {
-	/** True once the selected tier is empty but the other still has balance. */
-	willFallBack: boolean;
+	/** The model that will answer instead, or null when the choice stands. */
+	fallbackModelId: WorkspaceAiChatModelId | null;
 	/** True once nothing is left to send with. */
 	isBlocked: boolean;
 	resetsAt: number | null;
@@ -72,11 +75,20 @@ export function useWorkspaceAiAllowance(modelId: WorkspaceAiChatModelId): Worksp
 	const tier = getWorkspaceAiChatModelById(modelId).billingTier;
 	const selected = balances[tier];
 	const fallback = balances[tier === "premium" ? "standard" : "premium"];
-	const exhausted = !selected.hasBalance;
+
+	// Runs the server's own decision rather than a parallel copy of it. Restating
+	// the matrix here is what let the composer promise one model while the gate
+	// picked another, and it would drift again the next time the rules move.
+	const access = resolveWorkspaceAiMessageAccess({
+		chosenModelId: modelId,
+		chosenTierAllowed: selected.hasBalance,
+		fallbackTierAllowed: fallback.hasBalance,
+		resetsAt: selected.resetsAt,
+	});
 
 	return {
-		isBlocked: exhausted && !fallback.hasBalance,
+		fallbackModelId: access.allowed && access.modelId !== modelId ? access.modelId : null,
+		isBlocked: !access.allowed,
 		resetsAt: selected.resetsAt,
-		willFallBack: exhausted && fallback.hasBalance,
 	};
 }
