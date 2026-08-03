@@ -42,14 +42,9 @@ export function DeleteAccountSection() {
 	};
 
 	return (
-		<div className="space-y-3 border-t border-border pt-6">
-			<div className="space-y-1">
-				<h2 className="text-sm font-medium text-destructive">Danger zone</h2>
-				<p className="text-sm text-muted-foreground">
-					Permanently delete your ThinkEx account. Every workspace you own will also be deleted,
-					including all items and files inside them. This action cannot be undone.
-				</p>
-			</div>
+		<>
+			{/* No heading and no blurb: the consequences live in the confirm dialog,
+			    which is where someone actually needs to read them. */}
 
 			<AlertDialog open={open} onOpenChange={setOpen}>
 				<AlertDialogTrigger
@@ -83,6 +78,6 @@ export function DeleteAccountSection() {
 					</AlertDialogFooter>
 				</AlertDialogContent>
 			</AlertDialog>
-		</div>
+		</>
 	);
 }

@@ -128,7 +128,17 @@ export default function UserProfileDropdown() {
 							) : null}
 							<DropdownMenuItem
 								onClick={() => {
-									void navigate({ to: "/settings" });
+									// Stay on the current route: settings is a dialog now, and
+									// navigating to /settings would bounce the user out of
+									// whatever workspace they were in.
+									void navigate({
+										replace: true,
+										search: (previous: Record<string, unknown>) => ({
+											...previous,
+											settings: "account" as const,
+										}),
+										to: ".",
+									});
 								}}
 							>
 								<Settings className="size-4" />

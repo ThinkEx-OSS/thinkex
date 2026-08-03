@@ -1,14 +1,12 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
-import { SettingsPage } from "#/features/account/components/SettingsPage";
-
+/**
+ * Settings moved from a page to a dialog driven by the `settings` search param.
+ * Kept as a redirect so existing links, bookmarks, and upgrade prompts still
+ * land somewhere sensible instead of 404ing.
+ */
 export const Route = createFileRoute("/_protected/settings")({
-	head: () => ({
-		meta: [
-			{
-				title: "ThinkEx | Settings",
-			},
-		],
-	}),
-	component: SettingsPage,
+	beforeLoad: () => {
+		throw redirect({ to: "/home", search: { settings: "account" } });
+	},
 });
