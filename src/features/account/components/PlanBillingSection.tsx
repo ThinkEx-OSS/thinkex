@@ -36,9 +36,13 @@ export function PlanBillingSection() {
 		),
 	);
 
+	// `subscriptions` carries scheduled plans alongside active ones, and the status
+	// enum is open — Autumn can add states we've never seen. Matching on "active"
+	// means a plan that hasn't started, or one in some future non-paying state,
+	// can't light up the Pro badge and hide the upgrade button behind it.
 	const isPro = Boolean(
 		customer?.subscriptions?.some(
-			(subscription: { planId?: string | null }) => subscription.planId === PRO_PLAN_ID,
+			(subscription) => subscription.planId === PRO_PLAN_ID && subscription.status === "active",
 		),
 	);
 
