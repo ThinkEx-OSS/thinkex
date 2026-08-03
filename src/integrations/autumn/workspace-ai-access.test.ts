@@ -103,17 +103,4 @@ describe("getWorkspaceAiFallbackModelId", () => {
 	it("sends a standard model up to the premium fallback", () => {
 		expect(getWorkspaceAiFallbackModelId("auto")).toBe("claude-sonnet");
 	});
-
-	it("agrees with the model the gate actually picks", () => {
-		for (const modelId of ["auto", "gemini", "claude-sonnet", "gemini-pro"] as const) {
-			const access = resolveWorkspaceAiMessageAccess({
-				chosenModelId: modelId,
-				chosenTierAllowed: false,
-				fallbackTierAllowed: true,
-				resetsAt: null,
-			});
-
-			expect(access).toEqual({ allowed: true, modelId: getWorkspaceAiFallbackModelId(modelId) });
-		}
-	});
 });

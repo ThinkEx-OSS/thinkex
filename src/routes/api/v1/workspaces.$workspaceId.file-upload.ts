@@ -86,13 +86,10 @@ async function initiateWorkspaceFileUpload(request: Request, workspaceId: string
 			);
 		}
 
-		// Only uploads headed for extraction. Extraction is the part that costs money
-		// and the only path that decrements the meter, so gating document imports —
-		// CSV, Markdown, code, text, all converted locally for free — would block
-		// something we never charged for and leave the cap describing a different set
-		// of uploads than the counter behind it.
-		//
-		// Before the presigned URL, so nobody uploads bytes we then reject.
+		// Only uploads headed for extraction: that's the part that costs money and the
+		// only path that decrements the meter. Gating local conversions would block
+		// something free and never counted. Before the presigned URL, so nobody
+		// uploads bytes we then reject.
 		if (validation.plan.kind === "file") {
 			const access = await checkWorkspaceFileUploadAccess({ env, userId });
 

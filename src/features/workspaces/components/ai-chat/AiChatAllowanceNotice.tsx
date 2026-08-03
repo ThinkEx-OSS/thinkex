@@ -35,10 +35,8 @@ export function AiChatAllowanceNotice({ modelId }: AiChatAllowanceNoticeProps) {
 	}
 
 	if (allowance.willFallBack) {
-		// Derived rather than assumed: the fallback is only Auto when the empty tier
-		// is premium. Run out of standard and the turn moves up to Claude Sonnet, so
-		// hardcoding Auto both named the wrong model and hid that the message was
-		// about to spend premium allowance.
+		// Derived, not assumed: the fallback is only Auto when the empty tier is
+		// premium. Run out of standard and the turn moves up to Claude Sonnet.
 		const fallbackName = getWorkspaceAiChatModelById(getWorkspaceAiFallbackModelId(modelId)).name;
 
 		return (
