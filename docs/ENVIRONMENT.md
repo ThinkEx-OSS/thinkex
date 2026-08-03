@@ -37,7 +37,8 @@ The dev server boots and lets you sign in with just the two variables below. Eve
 | --- | --- | --- |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google sign-in | Google sign-in fails; use **Continue as guest** (shown in local dev) |
 | `AI_GATEWAY_API_KEY` | AI chat / title generation (Vercel AI Gateway) | AI calls error when invoked |
-| `AUTUMN_SECRET_KEY` | Autumn usage analytics for completed AI chat messages | Usage tracking is skipped |
+| `AUTUMN_SECRET_KEY` | Autumn usage analytics for completed AI chat messages, against the Autumn **sandbox**. Set in staging and dev only | Usage tracking is skipped |
+| `AUTUMN_PROD_SECRET_KEY` | Same, against Autumn **production**. Set in production only, and takes precedence when both are present | Falls back to `AUTUMN_SECRET_KEY` |
 | `FIRECRAWL_API_KEY` | Web search + URL/PDF extraction (Firecrawl) | Those calls error when invoked |
 | `TCC_API_KEY` | Agent observability export (The Context Company) | AI chat still works; TCC export is skipped |
 | `LLAMA_CLOUD_API_KEY` | Document extraction (LlamaParse) | Those calls error when invoked |

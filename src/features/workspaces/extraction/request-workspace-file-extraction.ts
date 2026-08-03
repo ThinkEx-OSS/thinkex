@@ -4,6 +4,7 @@ import type { WorkspaceFileExtractionWorkflowParams } from "#/features/workspace
 import { getWorkspaceFileExtractionWorkflowId } from "#/features/workspaces/extraction/workspace-file-extraction-workflow-id";
 import { getWorkspaceKernel } from "#/features/workspaces/kernel/workspace-kernel-access";
 import type { WorkspaceFileAssetKind } from "#/features/workspaces/model/workspace-file";
+import { trackWorkspaceFileUploadUsage } from "#/integrations/autumn/workspace-file-usage";
 import { recordOperationalFailure } from "#/integrations/observability/operational-events";
 
 export async function requestWorkspaceFileExtraction(input: {
@@ -33,6 +34,16 @@ export async function requestWorkspaceFileExtraction(input: {
 				params,
 			},
 		]);
+
+		// After the workflow is queued, so a failed enqueue doesn't bill the user
+		// for an extraction that never ran.
+		await trackWorkspaceFileUploadUsage({
+			assetKind: input.assetKind,
+			env,
+			itemId: input.itemId,
+			userId: input.actorUserId,
+			workspaceId: input.workspaceId,
+		});
 	} catch (error) {
 		recordOperationalFailure({
 			distinctId: input.actorUserId ?? undefined,

@@ -28,6 +28,9 @@ BETTER_AUTH_URL="http://localhost:3000"
 # AI_GATEWAY_API_KEY=""
 
 # Autumn usage analytics. When unset, usage tracking is skipped.
+# Sandbox key — staging and dev only. Production sets AUTUMN_PROD_SECRET_KEY
+# instead, and never this, so a misconfigured deploy skips tracking rather than
+# reporting into the wrong Autumn environment.
 # AUTUMN_SECRET_KEY=""
 
 # Web search and URL/PDF extraction (Firecrawl).

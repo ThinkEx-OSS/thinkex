@@ -4,6 +4,7 @@ import { betterAuth } from "better-auth/minimal";
 import { anonymous, jwt } from "better-auth/plugins";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
 import { oauthProvider } from "@better-auth/oauth-provider";
+import { autumn } from "autumn-js/better-auth";
 import { sql } from "drizzle-orm";
 
 import { getMcpResource, mcpOAuthScopes } from "#/features/mcp/mcp-config";
@@ -13,12 +14,18 @@ import {
 } from "#/features/workspaces/durable-object-lifecycle";
 import * as schema from "#/db/schema";
 import { createDbContext } from "#/db/server";
+import { resolveAutumnSecretKey } from "#/integrations/autumn/secret-key";
 import { capturePostHogServerEvent } from "#/integrations/posthog/server";
 import { getAuthBaseURL, getTrustedAppOrigins } from "#/lib/app-origin";
 
 const isProduction = import.meta.env.PROD;
 
-type AuthEnvKey = "BETTER_AUTH_SECRET" | "GOOGLE_CLIENT_ID" | "GOOGLE_CLIENT_SECRET";
+type AuthEnvKey =
+	| "AUTUMN_PROD_SECRET_KEY"
+	| "AUTUMN_SECRET_KEY"
+	| "BETTER_AUTH_SECRET"
+	| "GOOGLE_CLIENT_ID"
+	| "GOOGLE_CLIENT_SECRET";
 
 type AuthRuntimeEnv = Record<AuthEnvKey, string | undefined>;
 type Db = Awaited<ReturnType<typeof createDbContext>>["db"];
@@ -30,6 +37,8 @@ function getEnvString(name: AuthEnvKey) {
 
 function getAuthRuntimeEnv(): AuthRuntimeEnv {
 	return {
+		AUTUMN_PROD_SECRET_KEY: getEnvString("AUTUMN_PROD_SECRET_KEY"),
+		AUTUMN_SECRET_KEY: getEnvString("AUTUMN_SECRET_KEY"),
 		BETTER_AUTH_SECRET: getEnvString("BETTER_AUTH_SECRET"),
 		GOOGLE_CLIENT_ID: getEnvString("GOOGLE_CLIENT_ID"),
 		GOOGLE_CLIENT_SECRET: getEnvString("GOOGLE_CLIENT_SECRET"),
@@ -173,6 +182,7 @@ async function transferAnonymousUserData(
 }
 
 function createAuth(database: Db, env: AuthRuntimeEnv) {
+	const autumnSecretKey = resolveAutumnSecretKey(env);
 	const baseURL = getAuthBaseURL();
 	const appOrigin =
 		typeof baseURL === "string" ? baseURL : (baseURL.fallback ?? "http://localhost:3000");
@@ -223,6 +233,9 @@ function createAuth(database: Db, env: AuthRuntimeEnv) {
 						}),
 					]
 				: []),
+			// Mounted only when a key resolves, matching how usage tracking degrades:
+			// a deployment without one loses billing endpoints rather than failing auth.
+			...(autumnSecretKey ? [autumn({ secretKey: autumnSecretKey })] : []),
 			jwt({ disableSettingJwtHeader: true }),
 			oauthProvider({
 				allowDynamicClientRegistration: true,
