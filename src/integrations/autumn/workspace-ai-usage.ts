@@ -1,19 +1,14 @@
 import {
 	getWorkspaceAiChatModelById,
 	type WorkspaceAiChatModelId,
-	type WorkspaceAiChatModelBillingTier,
 } from "#/features/workspaces/ai/models";
 import {
 	resolveWorkspaceAiMessageAccess,
+	WORKSPACE_AI_MESSAGE_FEATURE_IDS,
 	type WorkspaceAiMessageAccess,
 } from "#/integrations/autumn/workspace-ai-access";
 import { getAutumnClient, trackAutumnUsage } from "#/integrations/autumn/client";
 import { recordOperationalFailure } from "#/integrations/observability/operational-events";
-
-export const WORKSPACE_AI_MESSAGE_FEATURE_IDS = {
-	standard: "standard_messages",
-	premium: "premium_messages",
-} as const satisfies Record<WorkspaceAiChatModelBillingTier, string>;
 
 export interface TrackWorkspaceAiMessageUsageInput {
 	env: Cloudflare.Env;

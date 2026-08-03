@@ -5,7 +5,7 @@ import {
 	type WorkspaceAiChatModelBillingTier,
 	type WorkspaceAiChatModelId,
 } from "#/features/workspaces/ai/models";
-import { WORKSPACE_AI_MESSAGE_FEATURE_IDS } from "#/integrations/autumn/workspace-ai-usage";
+import { WORKSPACE_AI_MESSAGE_FEATURE_IDS } from "#/integrations/autumn/workspace-ai-access";
 
 export interface WorkspaceAiTierBalance {
 	hasBalance: boolean;

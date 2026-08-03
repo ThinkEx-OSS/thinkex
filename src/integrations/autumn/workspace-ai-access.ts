@@ -5,6 +5,15 @@ import {
 } from "#/features/workspaces/ai/models";
 
 /**
+ * Lives here rather than next to the Autumn calls because the chat UI needs it
+ * too, and this module is the half with no server-only imports.
+ */
+export const WORKSPACE_AI_MESSAGE_FEATURE_IDS = {
+	standard: "standard_messages",
+	premium: "premium_messages",
+} as const satisfies Record<WorkspaceAiChatModelBillingTier, string>;
+
+/**
  * Where a turn goes when the tier it asked for is empty. Points at catalog slots
  * rather than gateway models, so repointing `auto` moves the fallback with it.
  */
