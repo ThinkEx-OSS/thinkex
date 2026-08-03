@@ -6,31 +6,34 @@ import { PRICING_SECTION_ID } from "#/components/landing/landing-sections";
 import { Button } from "#/components/ui/button";
 import { cn } from "#/lib/utils";
 
+// Allowances must match autumn.config.ts, which is what actually gets granted.
+// The two drift silently, and this page is where a wrong number becomes a
+// promise you didn't keep.
 const pricingPlans = [
 	{
 		id: "free",
 		name: "Free",
 		price: "$0",
 		features: [
-			"No credit card required",
-			"Limited AI usage",
-			"Limited uploads and storage",
+			"500 messages a month",
+			"30 messages on premium models",
+			"50 file uploads",
 			"Live collaboration",
+			"No credit card required",
 		],
 		cta: "Get started",
 		emphasized: false,
 	},
 	{
 		id: "pro",
-		// ponytail: reads "Coming soon" until Pro actually goes live. The real price
-		// and allowances are in autumn.config.ts — update both together, or the
-		// landing page will quote a number nobody is charged.
 		name: "Pro",
-		price: "Coming soon",
+		price: "$7.99",
+		priceSuffix: "per month",
 		features: [
-			"More AI usage",
-			"Premium models",
-			"Larger uploads and storage",
+			"3,000 messages a month",
+			"400 messages on premium models",
+			"500 file uploads",
+			"Live collaboration",
 			"Priority access to new features",
 		],
 		cta: "Get started",
@@ -75,7 +78,12 @@ function PricingPlanCard({ plan }: { plan: (typeof pricingPlans)[number] }) {
 				<div>
 					<h3 className="text-2xl font-medium tracking-tight">{plan.name}</h3>
 				</div>
-				<div className="shrink-0 text-right text-xl font-medium tracking-tight">{plan.price}</div>
+				<div className="shrink-0 text-right">
+					<div className="text-xl font-medium tracking-tight">{plan.price}</div>
+					{"priceSuffix" in plan ? (
+						<div className="text-xs text-muted-foreground">{plan.priceSuffix}</div>
+					) : null}
+				</div>
 			</div>
 			<ul className="mt-6 grid gap-3 text-sm text-muted-foreground">
 				{plan.features.map((feature) => (
