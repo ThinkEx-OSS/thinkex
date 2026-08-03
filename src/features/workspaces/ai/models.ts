@@ -17,9 +17,21 @@ export type WorkspaceAiChatModelLevel = 1 | 2 | 3 | 4;
 export type WorkspaceAiChatModelBillingTier = "standard" | "premium";
 
 // Slugs, names, context windows, and pricing are sourced from the live Vercel
-// AI Gateway catalog (GET https://ai-gateway.vercel.sh/v1/models). The 1-4
-// cost level is derived from each model's real output-token price; speed and
+// AI Gateway catalog (GET https://ai-gateway.vercel.sh/v1/models). Speed and
 // intelligence are relative, lay-friendly estimates.
+//
+// `cost` is a real multiplier, not a 1-4 level: what one typical chat step
+// (~15k input at ~65% cache hit, ~500 output) costs relative to Luna, priced
+// across input, cached input, and output rather than output alone — output
+// price by itself understates the models we send the most tokens to.
+//
+// Measured 1.0x / 2.5x / 4.7x / 9.5x / 10x, rounded to a clean ladder so these
+// double as credit weights if usage is ever metered. Re-derive from the gateway
+// catalog when the lineup changes; a stale multiplier misprices the plan.
+//
+// Internal only — never rendered. The picker shows a "Premium" badge off
+// billingTier instead, because a raw multiplier means nothing to a user who
+// isn't paying per message.
 export const WORKSPACE_AI_CHAT_MODELS = [
 	{
 		id: "auto",
@@ -48,7 +60,7 @@ export const WORKSPACE_AI_CHAT_MODELS = [
 		bestFor: "Writing, analysis & coding",
 		intelligence: 4,
 		speed: 3,
-		cost: 4,
+		cost: 10,
 		billingTier: "premium",
 	},
 	{
@@ -61,7 +73,7 @@ export const WORKSPACE_AI_CHAT_MODELS = [
 		bestFor: "Quick help & short drafts",
 		intelligence: 2,
 		speed: 4,
-		cost: 1,
+		cost: 5,
 		billingTier: "standard",
 	},
 	{
@@ -75,7 +87,7 @@ export const WORKSPACE_AI_CHAT_MODELS = [
 		bestFor: "Planning, research & knowledge work",
 		intelligence: 4,
 		speed: 3,
-		cost: 3,
+		cost: 10,
 		billingTier: "premium",
 	},
 	{
@@ -102,7 +114,7 @@ export const WORKSPACE_AI_CHAT_MODELS = [
 		bestFor: "Long docs, research & hard problems",
 		intelligence: 4,
 		speed: 2,
-		cost: 3,
+		cost: 10,
 		billingTier: "premium",
 	},
 	{
@@ -116,7 +128,7 @@ export const WORKSPACE_AI_CHAT_MODELS = [
 		bestFor: "Fast answers & big context",
 		intelligence: 3,
 		speed: 4,
-		cost: 1,
+		cost: 3,
 		billingTier: "standard",
 	},
 ] as const;
