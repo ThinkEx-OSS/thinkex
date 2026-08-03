@@ -3,7 +3,12 @@ import {
 	type WorkspaceAiChatModelId,
 	type WorkspaceAiChatModelBillingTier,
 } from "#/features/workspaces/ai/models";
-import { trackAutumnUsage } from "#/integrations/autumn/client";
+import {
+	resolveWorkspaceAiMessageAccess,
+	type WorkspaceAiMessageAccess,
+} from "#/integrations/autumn/workspace-ai-access";
+import { getAutumnClient, trackAutumnUsage } from "#/integrations/autumn/client";
+import { recordOperationalFailure } from "#/integrations/observability/operational-events";
 
 export const WORKSPACE_AI_MESSAGE_FEATURE_IDS = {
 	standard: "standard_messages",
@@ -25,12 +30,53 @@ export interface CheckWorkspaceAiMessageAccessInput {
 }
 
 export async function checkWorkspaceAiMessageAccess(
-	_input: CheckWorkspaceAiMessageAccessInput,
-): Promise<{ allowed: true } | { allowed: false; reason: "usage_limit_reached" }> {
-	// Usage enforcement is intentionally disabled while we learn from real usage.
-	// Keep this function as the future server-side gate for message quotas and
-	// premium model access instead of sprinkling checks through the chat runtime.
-	return { allowed: true };
+	input: CheckWorkspaceAiMessageAccessInput,
+): Promise<WorkspaceAiMessageAccess> {
+	const autumn = getAutumnClient(input.env);
+
+	// No key configured means no plans to enforce — never gate on infrastructure.
+	if (!autumn) {
+		return { allowed: true, modelId: input.modelId };
+	}
+
+	const chosenTier = getWorkspaceAiChatModelById(input.modelId).billingTier;
+	const otherTier = chosenTier === "premium" ? "standard" : "premium";
+
+	try {
+		const chosen = await autumn.check({
+			customerId: input.userId,
+			featureId: WORKSPACE_AI_MESSAGE_FEATURE_IDS[chosenTier],
+		});
+
+		if (chosen.allowed) {
+			return { allowed: true, modelId: input.modelId };
+		}
+
+		// Only reached once a tier is empty, so the second call costs nothing in the
+		// common case.
+		const fallback = await autumn.check({
+			customerId: input.userId,
+			featureId: WORKSPACE_AI_MESSAGE_FEATURE_IDS[otherTier],
+		});
+
+		return resolveWorkspaceAiMessageAccess({
+			chosenModelId: input.modelId,
+			chosenTierAllowed: false,
+			fallbackTierAllowed: fallback.allowed,
+			resetsAt: chosen.balance?.nextResetAt ?? null,
+		});
+	} catch (error) {
+		// Autumn being unreachable must not take chat down with it. Fail open and
+		// make the gap visible instead.
+		recordOperationalFailure({
+			distinctId: input.userId,
+			error,
+			event: "workspace_ai_access_check",
+			fields: { model_id: input.modelId, user_id: input.userId },
+		});
+
+		return { allowed: true, modelId: input.modelId };
+	}
 }
 
 export async function trackWorkspaceAiMessageUsage(input: TrackWorkspaceAiMessageUsageInput) {
