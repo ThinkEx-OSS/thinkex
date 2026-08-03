@@ -9,6 +9,7 @@ import {
 } from "#/integrations/autumn/workspace-ai-access";
 import { getAutumnClient, trackAutumnUsage } from "#/integrations/autumn/client.server";
 import { recordOperationalFailure } from "#/integrations/observability/operational-events";
+import { capturePostHogServerEvent } from "#/integrations/posthog/server";
 
 export interface TrackWorkspaceAiMessageUsageInput {
 	env: Cloudflare.Env;
@@ -54,12 +55,25 @@ export async function checkWorkspaceAiMessageAccess(
 			featureId: WORKSPACE_AI_MESSAGE_FEATURE_IDS[otherTier],
 		});
 
-		return resolveWorkspaceAiMessageAccess({
+		const access = resolveWorkspaceAiMessageAccess({
 			chosenModelId: input.modelId,
 			chosenTierAllowed: false,
 			fallbackTierAllowed: fallback.allowed,
 			resetsAt: chosen.balance?.nextResetAt ?? null,
 		});
+
+		if (!access.allowed) {
+			capturePostHogServerEvent({
+				distinctId: input.userId,
+				event: "usage_limit_reached",
+				properties: {
+					feature_id: WORKSPACE_AI_MESSAGE_FEATURE_IDS[chosenTier],
+					surface: "ai_message",
+				},
+			});
+		}
+
+		return access;
 	} catch (error) {
 		// Autumn being unreachable must not take chat down with it. Fail open and
 		// make the gap visible instead.

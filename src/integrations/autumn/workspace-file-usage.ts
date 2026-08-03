@@ -1,5 +1,6 @@
 import { getAutumnClient, trackAutumnUsage } from "#/integrations/autumn/client.server";
 import { recordOperationalFailure } from "#/integrations/observability/operational-events";
+import { capturePostHogServerEvent } from "#/integrations/posthog/server";
 
 export const WORKSPACE_FILE_UPLOAD_FEATURE_ID = "file_uploads";
 
@@ -74,9 +75,17 @@ export async function checkWorkspaceFileUploadAccess(
 			featureId: WORKSPACE_FILE_UPLOAD_FEATURE_ID,
 		});
 
-		return result.allowed
-			? { allowed: true }
-			: { allowed: false, resetsAt: result.balance?.nextResetAt ?? null };
+		if (result.allowed) {
+			return { allowed: true };
+		}
+
+		capturePostHogServerEvent({
+			distinctId: input.userId,
+			event: "usage_limit_reached",
+			properties: { feature_id: WORKSPACE_FILE_UPLOAD_FEATURE_ID, surface: "file_upload" },
+		});
+
+		return { allowed: false, resetsAt: result.balance?.nextResetAt ?? null };
 	} catch (error) {
 		// Autumn being unreachable must not block uploads. Fail open, stay visible.
 		recordOperationalFailure({
