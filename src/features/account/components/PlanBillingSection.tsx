@@ -23,7 +23,12 @@ const METERS = [
 ] as const;
 
 export function PlanBillingSection() {
-	const { data: customer, isLoading, attach, openCustomerPortal } = useCustomer();
+	const { data: customer, error, isLoading, attach, openCustomerPortal } = useCustomer();
+	// An error leaves `customer` undefined with loading finished, which would read
+	// as a confident "Free, nothing included" — the one wrong answer a paying
+	// customer must never be shown. Held in the loading state instead: skeletons
+	// say "unknown", and the plan row stays absent rather than lying.
+	const isPending = isLoading || Boolean(error);
 
 	const resetsOn = formatResetDate(
 		METERS.map((meter) => customer?.balances?.[meter.featureId]?.nextResetAt).find(
@@ -42,7 +47,7 @@ export function PlanBillingSection() {
 		<ItemGroup className="gap-0">
 			{/* Plan gets its own labelled row rather than a chip beside a button —
 			    it's the headline fact of this panel, not an afterthought. */}
-			{isLoading ? null : (
+			{isPending ? null : (
 				<>
 					{/* Label, status, action on one row — the action belongs next to the
 					    thing it changes, not stranded at the bottom of the panel. */}
@@ -95,7 +100,7 @@ export function PlanBillingSection() {
 			{/* No dividers between meters — they're one list of the same thing, and
 				    hairlines made three related bars read as three sections. */}
 			{METERS.map((meter) =>
-				isLoading ? (
+				isPending ? (
 					<Item key={meter.featureId} size="sm" className="px-0">
 						<ItemContent className="gap-2">
 							<div className="flex items-center justify-between gap-3">

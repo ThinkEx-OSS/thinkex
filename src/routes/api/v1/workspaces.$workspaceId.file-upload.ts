@@ -86,18 +86,26 @@ async function initiateWorkspaceFileUpload(request: Request, workspaceId: string
 			);
 		}
 
+		// Only uploads headed for extraction. Extraction is the part that costs money
+		// and the only path that decrements the meter, so gating document imports —
+		// CSV, Markdown, code, text, all converted locally for free — would block
+		// something we never charged for and leave the cap describing a different set
+		// of uploads than the counter behind it.
+		//
 		// Before the presigned URL, so nobody uploads bytes we then reject.
-		const access = await checkWorkspaceFileUploadAccess({ env, userId });
+		if (validation.plan.kind === "file") {
+			const access = await checkWorkspaceFileUploadAccess({ env, userId });
 
-		if (!access.allowed) {
-			return apiError(
-				requestId,
-				402,
-				"upload_limit_reached",
-				// Gain-framed, and no raw date: the exact reset lives in settings, and a
-				// server-formatted date has no idea what locale is reading it.
-				"You've used all your file uploads this month. Pro includes 500 a month.",
-			);
+			if (!access.allowed) {
+				return apiError(
+					requestId,
+					402,
+					"upload_limit_reached",
+					// Gain-framed, and no raw date: the exact reset lives in settings, and a
+					// server-formatted date has no idea what locale is reading it.
+					"You've used all your file uploads this month. Pro includes 500 a month.",
+				);
+			}
 		}
 
 		const session = await createWorkspaceDirectUploadSession(env, {

@@ -31,6 +31,18 @@ export type WorkspaceAiMessageAccess =
 	| { allowed: false; resetsAt: number | null };
 
 /**
+ * Exported so the composer can name the model that will actually answer. The UI
+ * used to assume `auto`, which is only right when the empty tier is premium.
+ */
+export function getWorkspaceAiFallbackModelId(
+	modelId: WorkspaceAiChatModelId,
+): WorkspaceAiChatModelId {
+	const chosenTier = getWorkspaceAiChatModelById(modelId).billingTier;
+
+	return FALLBACK_MODEL_BY_TIER[chosenTier === "premium" ? "standard" : "premium"];
+}
+
+/**
  * The decision itself, separated from the Autumn round-trips so the whole matrix
  * is testable without a network or a customer.
  */
@@ -48,10 +60,7 @@ export function resolveWorkspaceAiMessageAccess(input: {
 	// blocked the moment standard ran out, the model most people never change
 	// would be the first thing to break.
 	if (input.fallbackTierAllowed) {
-		const chosenTier = getWorkspaceAiChatModelById(input.chosenModelId).billingTier;
-		const otherTier = chosenTier === "premium" ? "standard" : "premium";
-
-		return { allowed: true, modelId: FALLBACK_MODEL_BY_TIER[otherTier] };
+		return { allowed: true, modelId: getWorkspaceAiFallbackModelId(input.chosenModelId) };
 	}
 
 	return { allowed: false, resetsAt: input.resetsAt };

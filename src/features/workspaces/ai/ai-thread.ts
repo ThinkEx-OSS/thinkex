@@ -229,7 +229,14 @@ export function createAIThreadClass(getUserAIStore: () => typeof UserAIStore) {
 
 			let modelId = resolveWorkspaceAiChatModelId(ctx.body?.modelId);
 
-			if (!ctx.continuation) {
+			if (ctx.continuation) {
+				// A continuation resumes a turn that was already gated on its first
+				// step, and possibly downgraded there. The body still carries whatever
+				// the user picked, so re-reading it would put the rejected model back
+				// for every tool round-trip after the first — running on a tier with no
+				// balance and billing it as the model the gate actually allowed.
+				modelId = this.activeUsageContext?.modelId ?? modelId;
+			} else {
 				const access = await checkWorkspaceAiMessageAccess({
 					env: this.env,
 					modelId,

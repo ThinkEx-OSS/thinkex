@@ -1,4 +1,4 @@
-import { getAutumnClient, trackAutumnUsage } from "#/integrations/autumn/client";
+import { getAutumnClient, trackAutumnUsage } from "#/integrations/autumn/client.server";
 import { recordOperationalFailure } from "#/integrations/observability/operational-events";
 
 export const WORKSPACE_FILE_UPLOAD_FEATURE_ID = "file_uploads";

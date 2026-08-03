@@ -40,6 +40,10 @@ export class WorkspaceFileExtractionWorkflow extends WorkflowEntrypoint<
 		const liteParse = await publishLiteParseProjection(this.env, step, params, event.instanceId);
 		const enhancementStartedAt = Date.now();
 		let extraction: StagedPageExtractionResult;
+		// Captured as soon as extraction returns, because the steps after it can still
+		// fail. LlamaParse has already billed by then, and reporting null there would
+		// quietly understate spend on exactly the runs worth investigating.
+		let extractionCreditsUsed: number | null = null;
 		let result: {
 			pageCount: number;
 			provider: WorkspaceFileExtractionProviderId;
@@ -104,6 +108,8 @@ export class WorkspaceFileExtractionWorkflow extends WorkflowEntrypoint<
 				},
 			);
 
+			extractionCreditsUsed = getExtractionCreditsUsed(extraction.metadata);
+
 			result = await step.do(
 				"write extracted projections",
 				{
@@ -148,8 +154,9 @@ export class WorkspaceFileExtractionWorkflow extends WorkflowEntrypoint<
 			if (liteParse.outcome === "success") {
 				await step.do("record partial extraction outcome", async () => {
 					recordWorkspaceFileExtractionOutcome({
-						// The enhancement job failed, so LlamaParse billed nothing for this run.
-						creditsUsed: null,
+						// Null only when extraction itself never completed; a failure in the
+						// steps after it still owes whatever LlamaParse already charged.
+						creditsUsed: extractionCreditsUsed,
 						durationMs: Date.now() - event.timestamp.getTime(),
 						enhancement: {
 							durationMs: Date.now() - enhancementStartedAt,

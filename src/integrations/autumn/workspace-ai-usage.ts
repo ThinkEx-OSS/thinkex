@@ -7,7 +7,7 @@ import {
 	WORKSPACE_AI_MESSAGE_FEATURE_IDS,
 	type WorkspaceAiMessageAccess,
 } from "#/integrations/autumn/workspace-ai-access";
-import { getAutumnClient, trackAutumnUsage } from "#/integrations/autumn/client";
+import { getAutumnClient, trackAutumnUsage } from "#/integrations/autumn/client.server";
 import { recordOperationalFailure } from "#/integrations/observability/operational-events";
 
 export interface TrackWorkspaceAiMessageUsageInput {

@@ -5,6 +5,7 @@ import {
 	type WorkspaceAiChatModelId,
 } from "#/features/workspaces/ai/models";
 import { useWorkspaceAiAllowance } from "#/features/workspaces/ai/use-workspace-ai-allowance";
+import { getWorkspaceAiFallbackModelId } from "#/integrations/autumn/workspace-ai-access";
 
 interface AiChatAllowanceNoticeProps {
 	modelId: WorkspaceAiChatModelId;
@@ -34,13 +35,17 @@ export function AiChatAllowanceNotice({ modelId }: AiChatAllowanceNoticeProps) {
 	}
 
 	if (allowance.willFallBack) {
-		const fallbackName = getWorkspaceAiChatModelById("auto").name;
+		// Derived rather than assumed: the fallback is only Auto when the empty tier
+		// is premium. Run out of standard and the turn moves up to Claude Sonnet, so
+		// hardcoding Auto both named the wrong model and hid that the message was
+		// about to spend premium allowance.
+		const fallbackName = getWorkspaceAiChatModelById(getWorkspaceAiFallbackModelId(modelId)).name;
 
 		return (
 			<Notice>
 				{fallbackName} will answer this &mdash; no {getWorkspaceAiChatModelById(modelId).name} left
 				{resetsOn ? ` until ${resetsOn}` : ""}.{" "}
-				<UpgradeLink>Get 400 premium messages a month</UpgradeLink>
+				<UpgradeLink>Pro includes 3,000 standard and 400 premium a month</UpgradeLink>
 			</Notice>
 		);
 	}
