@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
 
+import {
+	getWorkspaceAiChatModelById,
+	WORKSPACE_AI_CHAT_MODELS,
+} from "#/features/workspaces/ai/models";
 import { resolveWorkspaceAiMessageAccess } from "#/integrations/autumn/workspace-ai-access";
 
 const RESETS_AT = 1_788_400_648_450;
@@ -85,5 +89,36 @@ describe("resolveWorkspaceAiMessageAccess", () => {
 
 		expect(premiumSpent).toEqual({ allowed: true, modelId: "auto" });
 		expect(standardSpent).toEqual({ allowed: true, modelId: "claude-sonnet" });
+	});
+});
+
+// A guard on the hardcoded mapping rather than logic replacing it. Deriving the
+// cheapest model would let array order decide a three-way tie, so the pick stays
+// explicit — but gateway prices move (Luna was cut mid-quarter, and every weight
+// in models.ts was rewritten after), and nothing else would notice the fallback
+// quietly becoming the priciest model in the tier it lands on.
+describe("fallback pricing", () => {
+	it("lands on the cheapest model in the tier it falls back to", () => {
+		for (const chosenModelId of ["auto", "claude-sonnet"] as const) {
+			const access = resolveWorkspaceAiMessageAccess({
+				chosenModelId,
+				chosenTierAllowed: false,
+				fallbackTierAllowed: true,
+				resetsAt: null,
+			});
+
+			if (!access.allowed) {
+				throw new Error("expected a fallback");
+			}
+
+			const landedOn = getWorkspaceAiChatModelById(access.modelId);
+			const cheapestInTier = Math.min(
+				...WORKSPACE_AI_CHAT_MODELS.filter(
+					(model) => model.billingTier === landedOn.billingTier,
+				).map((model) => model.cost),
+			);
+
+			expect(landedOn.cost).toBe(cheapestInTier);
+		}
 	});
 });
