@@ -33,7 +33,6 @@ for (const entry of [
 	"katex.min.css",
 	"katex.min.js",
 	"fonts",
-	"contrib/auto-render.min.js",
 	// Chemistry (\ce) and units (\pu), matching what chat and documents import.
 	"contrib/mhchem.min.js",
 ]) {

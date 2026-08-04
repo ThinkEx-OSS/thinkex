@@ -98,22 +98,14 @@ describe("document AI edits", () => {
 		);
 	});
 
-	it("refuses an ambiguous widget source replacement", async () => {
-		const document = createDocument(
-			'<div data-type="widget">&lt;button&gt;Run&lt;/button&gt;&lt;button&gt;Run&lt;/button&gt;</div>',
-		);
-		const editRef = await getEditRef(document, "div");
+	it("rejects an ambiguous text replacement", async () => {
+		const document = createDocument("<p>Repeat. Repeat.</p>");
+		const editRef = await getEditRef(document, "p");
 		const result = await applyDocumentAiEdits(document, [
-			{ editRef, find: "Run", op: "replace_text", replace: "Stop" },
+			{ editRef, find: "Repeat", op: "replace_text", replace: "Stop" },
 		]);
 
-		expect(result).toMatchObject({
-			applied: 0,
-			failed: 1,
-			failures: [{ code: "edit_not_unique", index: 0 }],
-			status: "failed",
-		});
-		expect(getWidgetSource(result.document)).toContain("Run</button><button>Run");
+		expect(result.failures).toMatchObject([{ code: "edit_not_unique", index: 0 }]);
 	});
 
 	it("replaces the exact widget HTML returned by a block read", async () => {

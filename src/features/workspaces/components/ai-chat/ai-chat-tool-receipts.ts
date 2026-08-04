@@ -1,8 +1,3 @@
-import {
-	getWorkspaceItemRegistryEntry,
-	workspaceItemTypeSchema,
-} from "#/features/workspaces/workspace-item-registry";
-
 export type AiChatToolReceiptStatus = "completed" | "failed" | "interrupted" | "running";
 type AiChatFinishedToolReceiptStatus = Exclude<AiChatToolReceiptStatus, "interrupted" | "running">;
 
@@ -167,12 +162,8 @@ export function getFinishedToolReceipt(input: {
 			return summarizeWorkspaceBatch(input.output, {
 				failureVerb: "create",
 				successVerb: "Created",
-				typeFromItem: (item) => {
-					const type = workspaceItemTypeSchema.safeParse(getString(asRecord(item).type));
-					return type.success
-						? getWorkspaceItemRegistryEntry(type.data).label.toLowerCase()
-						: "item";
-				},
+				typeFromItem: (item) =>
+					getString(asRecord(item).type) === "folder" ? "folder" : "document",
 			});
 		case "workspace_delete_items":
 			return summarizeWorkspaceBatch(input.output, {

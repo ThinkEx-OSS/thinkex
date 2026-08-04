@@ -127,11 +127,6 @@ export function WorkspaceWidgetSandbox({
 		return () => window.removeEventListener("message", onMessage);
 	}, []);
 
-	const retryWidget = () => {
-		readySessionIdRef.current = null;
-		setError(null);
-		setHeight(WIDGET_SANDBOX_MIN_HEIGHT);
-	};
 	const showFrame = !error || error.preserveFrame;
 
 	return (
@@ -162,26 +157,25 @@ export function WorkspaceWidgetSandbox({
 					<div className="max-h-32 w-full max-w-lg overflow-auto whitespace-pre-wrap rounded-md bg-muted px-4 py-3 font-mono text-muted-foreground text-xs leading-relaxed">
 						{error.message}
 					</div>
-					<div className="flex items-center gap-2">
-						<Button
-							type="button"
-							size="sm"
-							variant="outline"
-							onClick={error.preserveFrame ? () => setError(null) : retryWidget}
-						>
-							{error.preserveFrame ? "Dismiss" : "Try again"}
-						</Button>
-						{onAskAiToFix ? (
-							<Button
-								type="button"
-								size="sm"
-								variant="secondary"
-								onClick={() => onAskAiToFix(error.message)}
-							>
-								Ask AI to fix
-							</Button>
-						) : null}
-					</div>
+					{error.preserveFrame || onAskAiToFix ? (
+						<div className="flex items-center gap-2">
+							{error.preserveFrame ? (
+								<Button type="button" size="sm" variant="outline" onClick={() => setError(null)}>
+									Dismiss
+								</Button>
+							) : null}
+							{onAskAiToFix ? (
+								<Button
+									type="button"
+									size="sm"
+									variant="secondary"
+									onClick={() => onAskAiToFix(error.message)}
+								>
+									Ask AI to fix
+								</Button>
+							) : null}
+						</div>
+					) : null}
 				</div>
 			) : null}
 		</div>

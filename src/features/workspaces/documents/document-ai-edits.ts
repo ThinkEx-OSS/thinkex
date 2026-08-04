@@ -238,32 +238,26 @@ function applyDocumentAiEdit(
 	const children = getDocumentChildren(document);
 	if (edit.op === "delete") {
 		children.splice(targetIndex, 1);
-	} else if (edit.op === "replace_text") {
-		const target = document.child(targetIndex);
-		const replaced = replaceUniqueText(
-			serializeTiptapNodeToEditableAiHtml(target),
-			edit.find,
-			edit.replace,
-		);
-		if (!replaced.ok) {
-			return { code: replaced.code, detail: replaced.detail, status: "failed" };
+	} else {
+		let operation: "insert_after" | "insert_before" | "replace";
+		let html: string;
+		if (edit.op === "replace_text") {
+			const replaced = replaceUniqueText(
+				serializeTiptapNodeToEditableAiHtml(document.child(targetIndex)),
+				edit.find,
+				edit.replace,
+			);
+			if (!replaced.ok) {
+				return { code: replaced.code, detail: replaced.detail, status: "failed" };
+			}
+			operation = "replace";
+			html = replaced.text;
+		} else {
+			operation = edit.op;
+			html = edit.html;
 		}
 
-		const parsed = parseEditHtml(replaced.text);
-		if (!parsed.children) {
-			return { code: "invalid_html", detail: parsed.detail, status: "failed" };
-		}
-		const targetBlockId = readTiptapNodeBlockId(target);
-		const firstNode = parsed.children[0];
-		children.splice(
-			targetIndex,
-			1,
-			...(targetBlockId && firstNode
-				? [withTiptapNodeAiRef(firstNode, targetBlockId), ...parsed.children.slice(1)]
-				: parsed.children),
-		);
-	} else {
-		const parsed = parseEditHtml(edit.html);
+		const parsed = parseEditHtml(html);
 		if (!parsed.children) {
 			return { code: "invalid_html", detail: parsed.detail, status: "failed" };
 		}
@@ -272,11 +266,11 @@ function applyDocumentAiEdit(
 		// A replacement inherits the block ID of the block it stands in for, so a
 		// model holding its editRef can keep editing it.
 		const inserted =
-			edit.op === "replace" && targetBlockId && firstNode
+			operation === "replace" && targetBlockId && firstNode
 				? [withTiptapNodeAiRef(firstNode, targetBlockId), ...parsed.children.slice(1)]
 				: parsed.children;
 
-		switch (edit.op) {
+		switch (operation) {
 			case "insert_after":
 				children.splice(targetIndex + 1, 0, ...inserted);
 				break;
@@ -295,8 +289,6 @@ function applyDocumentAiEdit(
 		: { document: next, status: "applied" };
 }
 
-const DATA_EDIT_REF_ATTRIBUTE = /\s+data-edit-ref="[^"]*"/g;
-
 /**
  * Replaces a single unique occurrence, or explains why it could not.
  *
@@ -311,8 +303,8 @@ function replaceUniqueText(
 ):
 	| { ok: true; text: string }
 	| { ok: false; code: "edit_not_found" | "edit_not_unique"; detail: string } {
-	const haystack = source.replaceAll("\r\n", "\n").replace(DATA_EDIT_REF_ATTRIBUTE, "");
-	const needle = find.replaceAll("\r\n", "\n").replace(DATA_EDIT_REF_ATTRIBUTE, "");
+	const haystack = source.replaceAll("\r\n", "\n");
+	const needle = find.replaceAll("\r\n", "\n");
 	const matches = haystack.split(needle).length - 1;
 
 	if (matches === 0) {

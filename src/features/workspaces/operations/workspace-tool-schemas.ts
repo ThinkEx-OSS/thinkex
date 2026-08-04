@@ -39,7 +39,7 @@ export {
  * both HTML, so they share one rule and the model tracks "Markdown or HTML?"
  * rather than three per-surface dialects — chat keeps the `$…$` Markdown form.
  */
-export const workspaceHtmlMathInstruction =
+const workspaceHtmlMathInstruction =
 	'This is HTML, so math is markup rather than delimiters: use <span data-type="inline-math" data-latex="..."></span> or <div data-type="block-math" data-latex="..."></div>, and keep dollar signs out of the data-latex value. Put every subscript and superscript (exponents like 10^8, indices like x_1) inside math rather than <sub>/<sup> tags. Chemistry renders with \\ce{...} (e.g. \\ce{CH4 + 2 O2 -> CO2 + 2 H2O}) and quantities with units render with \\pu{...} (e.g. \\pu{9.81 m/s^2}), both inside data-latex. Write literal money as plain text ($30, never \\$30) — a backslash before a dollar sign shows on screen in HTML.';
 
 /**

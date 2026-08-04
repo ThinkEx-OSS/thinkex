@@ -94,12 +94,10 @@ const WIDGET_KATEX_STYLESHEET_PATH = `${WIDGET_KATEX_BASE_PATH}/katex.min.css`;
 const WIDGET_KATEX_SCRIPT_PATHS = [
 	`${WIDGET_KATEX_BASE_PATH}/katex.min.js`,
 	`${WIDGET_KATEX_BASE_PATH}/contrib/mhchem.min.js`,
-	`${WIDGET_KATEX_BASE_PATH}/contrib/auto-render.min.js`,
 ] as const;
 const WIDGET_KATEX_FONT_PATH = `${WIDGET_KATEX_BASE_PATH}/fonts/`;
 
-/** Any supported math notation: chat LaTeX delimiters, document markup, or the API. */
-const WIDGET_MATH_PATTERN = /\$\$|\\\(|\\\[|data-latex|katex|renderMathInElement/;
+const WIDGET_MATH_PATTERN = /data-latex|dataset\.latex/;
 
 /**
  * Restrictive CSP for the frame. Widgets are self-contained HTML: only inline
@@ -156,15 +154,8 @@ export function buildWidgetSandboxDocument({
 ${WIDGET_KATEX_SCRIPT_PATHS.map((path) => `<script src="${origin}${path}"></script>`).join("\n")}`
 		: "";
 
-	// Widgets are HTML, so math is authored the same way documents author it —
-	// `data-latex` markup — and the unambiguous LaTeX delimiters are accepted too
-	// for when a model reaches for chat habits. Single `$…$` is deliberately NOT
-	// a delimiter: it cannot be told apart from prices, so "$30 an hour … $75 an
-	// hour" would render the text between them as math. Dropping it is safer than
-	// defending it with a currency heuristic, and `$$…$$` still covers real math.
-	// Bad expressions render muted in place rather than throwing, so one
-	// malformed formula never takes the whole widget down.
-	//
+	// Widgets and documents use the same data-latex markup. The iframe still has
+	// to render it locally because its opaque origin cannot reuse the parent DOM.
 	// The base stylesheet deliberately sets no height. The frame reports what its
 	// content measures and the host sizes the block to match, so a widget takes
 	// the room it needs rather than a number picked here. Layout beyond that
@@ -220,7 +211,7 @@ body{padding:clamp(10px,2.5%,16px);}
     report("Unhandled promise rejection: "+((reason&&reason.stack)||reason));
   });
   window.addEventListener("DOMContentLoaded",function(){
-    if(typeof renderMathInElement==="function"){
+    if(typeof katex!=="undefined"&&typeof katex.render==="function"){
       var mathOptions={throwOnError:false,errorColor:"var(--muted-foreground)"};
       function renderLatexNode(node){
         if(node.dataset.widgetMathRendered)return;
@@ -233,13 +224,6 @@ body{padding:clamp(10px,2.5%,16px);}
         if(root.querySelectorAll)root.querySelectorAll("[data-latex]").forEach(renderLatexNode);
       }
       try{
-        renderMathInElement(document.body,Object.assign({
-          delimiters:[
-            {left:"$$",right:"$$",display:true},
-            {left:"\\\\[",right:"\\\\]",display:true},
-            {left:"\\\\(",right:"\\\\)",display:false}
-          ]
-        },mathOptions));
         renderLatexIn(document.body);
       }catch(_){}
       new MutationObserver(function(records){
