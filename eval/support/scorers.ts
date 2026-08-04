@@ -83,7 +83,9 @@ export function scoreTargetedEditProvenance(output: WorkspaceAgentOutput): Score
 		if (!Array.isArray(input.edits)) continue;
 
 		const priorReadEditRefs = new Set(
-			typeof input.path === "string" ? call.priorReadEditRefsByPath[input.path] : [],
+			typeof input.path === "string" && Object.hasOwn(call.priorReadEditRefsByPath, input.path)
+				? call.priorReadEditRefsByPath[input.path]
+				: [],
 		);
 		for (const edit of input.edits) {
 			if (edit.op === "overwrite") {
