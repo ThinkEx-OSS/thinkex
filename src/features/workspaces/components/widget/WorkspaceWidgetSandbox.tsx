@@ -41,24 +41,30 @@ export function WorkspaceWidgetSandbox({
 	const [height, setHeight] = useState(WIDGET_SANDBOX_MIN_HEIGHT);
 
 	// Build the sandbox document from the authored HTML plus the host's resolved
-	// design tokens (read from the live root). Rebuilding on theme change or edit
-	// is a fresh render, so the previous error clears with it. State is set in a
-	// frame callback, not synchronously, to keep the effect render-safe.
+	// design tokens. Rebuilding on theme change or edit is a fresh render, so the
+	// previous error clears with it.
+	//
+	// Everything happens in a frame callback, which also keeps the effect
+	// render-safe. The tokens have to be read there rather than here: the theme
+	// provider applies the `.dark` class in its own effect, and React runs a
+	// child's effects before its parents', so reading now would take the previous
+	// theme's values and pair them with the new theme's class.
 	useEffect(() => {
-		const style = getComputedStyle(document.documentElement);
-		const tokens: Record<string, string> = {};
-		for (const name of WIDGET_SANDBOX_TOKENS) {
-			tokens[name] = style.getPropertyValue(name).trim();
-		}
-		const nextDoc = buildWidgetSandboxDocument({
-			html,
-			theme: resolvedTheme,
-			tokens,
-			origin: window.location.origin,
-		});
-
 		const frame = requestAnimationFrame(() => {
-			setSrcDoc(nextDoc);
+			const style = getComputedStyle(document.documentElement);
+			const tokens: Record<string, string> = {};
+			for (const name of WIDGET_SANDBOX_TOKENS) {
+				tokens[name] = style.getPropertyValue(name).trim();
+			}
+
+			setSrcDoc(
+				buildWidgetSandboxDocument({
+					html,
+					theme: resolvedTheme,
+					tokens,
+					origin: window.location.origin,
+				}),
+			);
 			setError(null);
 		});
 		return () => cancelAnimationFrame(frame);

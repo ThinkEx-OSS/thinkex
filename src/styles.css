@@ -497,7 +497,16 @@
 	}
 
 	.workspace-document-prose {
-		--workspace-document-measure: 72ch;
+		/*
+		 * A readable measure, held by the container's own padding rather than a
+		 * max-width on each block. Blocks set margin shorthand (widgets, tables,
+		 * rules, block math all do), which would reset any inline auto-margin and
+		 * strand them left of the text. Padding cannot be overridden that way, and
+		 * the editable element stays full width so a click anywhere still focuses
+		 * the editor.
+		 */
+		--workspace-document-measure: 80ch;
+		padding-inline: max(1rem, calc((100% - var(--workspace-document-measure)) / 2));
 		--workspace-document-code-background: var(--muted);
 		--workspace-document-highlight: oklch(0.9 0.14 90 / 70%);
 		--workspace-document-highlight-foreground: oklch(0.2 0.05 78);
@@ -555,16 +564,6 @@
 	.dark .workspace-document-prose {
 		--workspace-document-highlight: oklch(0.82 0.12 88 / 82%);
 		--workspace-document-highlight-foreground: var(--foreground);
-	}
-
-	/*
-	 * A readable measure, applied to the blocks rather than the editable element
-	 * so the whole pane still focuses the editor on click. Widgets take the same
-	 * width as the prose around them, so nothing reads as a narrower island.
-	 */
-	.workspace-document-prose > * {
-		margin-inline: auto;
-		max-width: var(--workspace-document-measure);
 	}
 
 	.workspace-document-prose > * + * {

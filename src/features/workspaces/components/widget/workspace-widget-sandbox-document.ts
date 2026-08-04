@@ -9,16 +9,15 @@
  * remove its own sandbox.
  *
  * Two things are composed around the authored HTML:
- *  - a theme layer: the resolved design tokens (read from the host at build
- *    time) are injected as CSS variables so widgets look native, plus a `.dark`
- *    class toggled from the passed theme.
+ *  - a theme layer: the resolved design tokens (read from the host when this
+ *    document is built) are injected as CSS variables so widgets look native,
+ *    plus a `.dark` class from the passed theme. A theme change rebuilds the
+ *    document, so there is no host-to-frame channel to keep in sync.
  *  - an error harness: window `error` / `unhandledrejection` are forwarded to
  *    the host via postMessage so a crashed widget surfaces an "Ask AI to fix"
  *    affordance instead of a silent blank frame.
  */
 
-/** Host → frame messages (theme updates). */
-export const WIDGET_SANDBOX_HOST_SOURCE = "thinkex-widget-host" as const;
 /** Frame → host messages (ready / height / runtime errors). */
 export const WIDGET_SANDBOX_FRAME_SOURCE = "thinkex-widget-frame" as const;
 
@@ -151,7 +150,7 @@ body{padding:clamp(10px,2.5%,16px);}
 ${html}
 <script>
 (function(){
-  var HOST="${WIDGET_SANDBOX_HOST_SOURCE}",FRAME="${WIDGET_SANDBOX_FRAME_SOURCE}";
+  var FRAME="${WIDGET_SANDBOX_FRAME_SOURCE}";
   function post(message){ try{ parent.postMessage(message,"*"); }catch(_){} }
   function report(message){ post({source:FRAME,kind:"error",message:String(message)}); }
   window.addEventListener("error",function(event){
@@ -180,14 +179,6 @@ ${html}
   window.addEventListener("unhandledrejection",function(event){
     var reason=event.reason;
     report("Unhandled promise rejection: "+((reason&&reason.stack)||reason));
-  });
-  window.addEventListener("message",function(event){
-    var data=event.data;
-    if(!data||data.source!==HOST)return;
-    if(data.type==="theme"){
-      document.documentElement.classList.toggle("dark",data.theme==="dark");
-      document.documentElement.style.colorScheme=data.theme;
-    }
   });
   var lastHeight=0;
   function measure(){

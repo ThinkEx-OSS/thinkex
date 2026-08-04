@@ -98,7 +98,7 @@ function DocumentEditorInstance({
 				"aria-label": capabilities.canMutateContent
 					? `${item.name} editor`
 					: `${item.name} document`,
-				class: "workspace-document-prose min-h-full p-4 outline-none",
+				class: "workspace-document-prose min-h-full py-4 outline-none",
 			},
 			handleKeyDown: (_view, event) => {
 				if (event.key !== "Escape" || !paneRuntime?.onCloseItemView) {
