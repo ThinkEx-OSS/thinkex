@@ -214,7 +214,7 @@ export const workspaceToolDefinitions = [
 	defineWorkspaceTool({
 		name: "workspace_create_items",
 		access: "write",
-		description: `Create one or more folders or documents at exact absolute paths. If a path already exists, creation fails instead of renaming. A document is also how interactive work ships: give it a widget block, on its own or alongside prose. ${workspaceDocumentHtmlInstruction}`,
+		description: `Create one or more folders or documents at exact absolute paths. If a path already exists, creation fails instead of renaming. ${workspaceDocumentHtmlInstruction}`,
 		inputSchema: workspaceCreateItemsInputSchema,
 		inputExamples: workspaceCreateItemsInputExamples,
 		outputSchema: workspaceCreateItemsOutputSchema,

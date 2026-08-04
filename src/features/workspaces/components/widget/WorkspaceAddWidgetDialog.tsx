@@ -34,77 +34,59 @@ export function WorkspaceAddWidgetDialog({
 	workspaceId: string;
 	onOpenChange: (open: boolean) => void;
 }) {
-	return (
-		<Dialog open={open} onOpenChange={onOpenChange}>
-			{open ? (
-				<WorkspaceAddWidgetDialogContent
-					documentPath={documentPath}
-					workspaceId={workspaceId}
-					onOpenChange={onOpenChange}
-				/>
-			) : null}
-		</Dialog>
-	);
-}
-
-function WorkspaceAddWidgetDialogContent({
-	documentPath,
-	workspaceId,
-	onOpenChange,
-}: {
-	documentPath: string;
-	workspaceId: string;
-	onOpenChange: (open: boolean) => void;
-}) {
 	const descriptionId = useId();
 
 	return (
-		<DialogContent>
-			<form
-				className="grid gap-6"
-				action={(formData) => {
-					const raw = formData.get("description");
-					const description = (typeof raw === "string" ? raw : "").trim();
+		<Dialog open={open} onOpenChange={onOpenChange}>
+			{open ? (
+				<DialogContent>
+					<form
+						className="grid gap-6"
+						action={(formData) => {
+							const raw = formData.get("description");
+							const description = (typeof raw === "string" ? raw : "").trim();
 
-					if (!description) {
-						return;
-					}
+							if (!description) {
+								return;
+							}
 
-					stageComposerPrompt(
-						workspaceId,
-						`Add an interactive widget to ${documentPath}: ${description}`,
-					);
-					onOpenChange(false);
-				}}
-			>
-				<DialogHeader>
-					<DialogTitle>Add a widget</DialogTitle>
-					<DialogDescription>
-						A widget is an interactive tool that lives in this document, such as a simulation,
-						calculator, diagram, or visualization. Describe what you want, and the AI will build it
-						for you.
-					</DialogDescription>
-				</DialogHeader>
-				<FieldGroup>
-					<Field>
-						<FieldLabel htmlFor={descriptionId}>What should it do?</FieldLabel>
-						<Textarea
-							id={descriptionId}
-							name="description"
-							rows={4}
-							required
-							autoFocus
-							placeholder="e.g. An interactive unit circle that shows sine and cosine as I drag the angle"
-						/>
-					</Field>
-				</FieldGroup>
-				<DialogFooter>
-					<Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-						Cancel
-					</Button>
-					<Button type="submit">Add with AI</Button>
-				</DialogFooter>
-			</form>
-		</DialogContent>
+							stageComposerPrompt(
+								workspaceId,
+								`Add an interactive widget to ${documentPath}: ${description}`,
+							);
+							onOpenChange(false);
+						}}
+					>
+						<DialogHeader>
+							<DialogTitle>Add a widget</DialogTitle>
+							<DialogDescription>
+								A widget is an interactive tool that lives in this document, such as a simulation,
+								calculator, diagram, or visualization. Describe what you want, and the AI will build
+								it for you.
+							</DialogDescription>
+						</DialogHeader>
+						<FieldGroup>
+							<Field>
+								<FieldLabel htmlFor={descriptionId}>What should it do?</FieldLabel>
+								<Textarea
+									id={descriptionId}
+									name="description"
+									rows={4}
+									required
+									autoFocus
+									placeholder="e.g. An interactive unit circle that shows sine and cosine as I drag the angle"
+								/>
+							</Field>
+						</FieldGroup>
+						<DialogFooter>
+							<Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+								Cancel
+							</Button>
+							<Button type="submit">Add with AI</Button>
+						</DialogFooter>
+					</form>
+				</DialogContent>
+			) : null}
+		</Dialog>
 	);
 }
