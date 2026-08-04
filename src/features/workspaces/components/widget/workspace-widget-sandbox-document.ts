@@ -99,7 +99,7 @@ const WIDGET_KATEX_SCRIPT_PATHS = [
 const WIDGET_KATEX_FONT_PATH = `${WIDGET_KATEX_BASE_PATH}/fonts/`;
 
 /** Any supported math notation: chat LaTeX delimiters, document markup, or the API. */
-const WIDGET_MATH_PATTERN = /\$\$|\\\(|\\\[|data-latex|katex|renderMathInElement|renderWidgetMath/;
+const WIDGET_MATH_PATTERN = /\$\$|\\\(|\\\[|data-latex|katex|renderMathInElement/;
 
 /**
  * Restrictive CSP for the frame. Widgets are self-contained HTML: only inline
@@ -222,23 +222,45 @@ body{padding:clamp(10px,2.5%,16px);}
   window.addEventListener("DOMContentLoaded",function(){
     if(typeof renderMathInElement==="function"){
       var mathOptions={throwOnError:false,errorColor:"var(--muted-foreground)"};
-      window.renderWidgetMath=function(target){
-        var root=target||document.body;
-        renderMathInElement(root,Object.assign({
+      function renderLatexNode(node){
+        if(node.dataset.widgetMathRendered)return;
+        node.dataset.widgetMathRendered="1";
+        katex.render(node.getAttribute("data-latex"),node,Object.assign(
+          {displayMode:node.getAttribute("data-type")==="block-math"},mathOptions));
+      }
+      function renderLatexIn(root){
+        if(root.matches&&root.matches("[data-latex]"))renderLatexNode(root);
+        if(root.querySelectorAll)root.querySelectorAll("[data-latex]").forEach(renderLatexNode);
+      }
+      try{
+        renderMathInElement(document.body,Object.assign({
           delimiters:[
             {left:"$$",right:"$$",display:true},
             {left:"\\\\[",right:"\\\\]",display:true},
             {left:"\\\\(",right:"\\\\)",display:false}
           ]
         },mathOptions));
-        root.querySelectorAll("[data-latex]").forEach(function(node){
-          if(node.dataset.widgetMathRendered)return;
-          node.dataset.widgetMathRendered="1";
-          katex.render(node.getAttribute("data-latex"),node,Object.assign(
-            {displayMode:node.getAttribute("data-type")==="block-math"},mathOptions));
+        renderLatexIn(document.body);
+      }catch(_){}
+      new MutationObserver(function(records){
+        records.forEach(function(record){
+          if(record.type==="attributes"){
+            if(record.target.matches&&record.target.matches("[data-latex]")){
+              delete record.target.dataset.widgetMathRendered;
+              try{renderLatexNode(record.target);}catch(_){}
+            }
+            return;
+          }
+          record.addedNodes.forEach(function(node){
+            if(node.nodeType===1)try{renderLatexIn(node);}catch(_){}
+          });
         });
-      };
-      try{ window.renderWidgetMath(); }catch(_){}
+      }).observe(document.body,{
+        attributeFilter:["data-latex","data-type"],
+        attributes:true,
+        childList:true,
+        subtree:true
+      });
     }
     var lastHeight=0;
     var measureScheduled=false;

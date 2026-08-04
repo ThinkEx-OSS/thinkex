@@ -29,7 +29,7 @@ Read these bundled references only when they apply:
 - For a new widget or a ground-up rebuild, read `references/starter.md` before writing source.
 - For any `<canvas>` drawing, read `references/canvas.md` before writing source.
 
-Use the document tool's HTML math markup. After adding math dynamically, call `renderWidgetMath(element)`. KaTeX is the only bundled library; create other diagrams and charts with inline SVG or canvas.
+Use the document tool's HTML math markup. The runtime renders matching math elements when they are added or changed. KaTeX is the only bundled library; create other diagrams and charts with inline SVG or canvas.
 
 ## Edit
 

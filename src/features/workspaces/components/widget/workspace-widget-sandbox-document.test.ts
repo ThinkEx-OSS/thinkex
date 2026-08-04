@@ -24,7 +24,6 @@ describe("buildWidgetSandboxDocument", () => {
 		expect(loadsKatex("<p>$$E = mc^2$$</p>")).toBe(true);
 		expect(loadsKatex("<p>\\(x\\)</p>")).toBe(true);
 		expect(loadsKatex("<script>renderMathInElement(el)</script>")).toBe(true);
-		expect(loadsKatex("<script>button.onclick=()=>renderWidgetMath(output)</script>")).toBe(true);
 	});
 
 	it("skips KaTeX for a widget with no math, including prices", () => {
