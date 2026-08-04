@@ -56,19 +56,9 @@ const STANDUP_HEADING_REF = "b_standupHead1.r_head000001";
 const STANDUP_LIST_REF = "b_standupList1.r_bullet0001";
 export const EVAL_READ_FIXTURE_REFS = [STANDUP_HEADING_REF, STANDUP_LIST_REF];
 
-const KINEMATICS_HEADING_REF = "b_kinematicsH1.r_head000002";
-const KINEMATICS_MATH_REF = "b_kinematicsEq1.r_math000001";
-const PRICING_TABLE_REF = "b_pricingTable.r_table00001";
-export const EVAL_DOCUMENT_FIXTURE_REFS = [
-	KINEMATICS_HEADING_REF,
-	KINEMATICS_MATH_REF,
-	PRICING_TABLE_REF,
-];
-
 /**
  * Realistic items the model reads before editing — written exactly as the real
- * serializer emits them, so an edit turn sees production markup: math as empty
- * `data-latex` elements, currency as plain text, widgets as raw HTML.
+ * serializer emits it, so an edit turn sees production markup and real refs.
  */
 const EVAL_READ_ITEMS: Record<string, unknown> = {
 	"/Notes/Standup.md": {
@@ -76,24 +66,6 @@ const EVAL_READ_ITEMS: Record<string, unknown> = {
 		type: "document",
 		format: "html",
 		content: `<h1 data-ref="${STANDUP_HEADING_REF}">Standup</h1><ul data-ref="${STANDUP_LIST_REF}"><li>Discuss roadmap</li></ul>`,
-	},
-	"/Physics/Kinematics.md": {
-		path: "/Physics/Kinematics.md",
-		type: "document",
-		format: "html",
-		content: `<h1 data-ref="${KINEMATICS_HEADING_REF}">Kinematics</h1><p>For constant acceleration, displacement over time is</p><div data-latex="s = ut + \\tfrac{1}{2}at^2" data-type="block-math" data-ref="${KINEMATICS_MATH_REF}"></div>`,
-	},
-	"/Tutoring/Pricing.md": {
-		path: "/Tutoring/Pricing.md",
-		type: "document",
-		format: "html",
-		content: `<h1 data-ref="${PRICING_TABLE_REF}">Tutoring rates</h1><p>Standard sessions are $30 an hour, and exam-prep intensives are $75 an hour.</p>`,
-	},
-	"/Physics/Wave Explorer": {
-		path: "/Physics/Wave Explorer",
-		type: "widget",
-		format: "html",
-		content: `<style>.tx-root{height:100%;padding:16px;display:flex;flex-direction:column;gap:12px}</style><div class="tx-root"><p>Adjust the frequency to see how $y = A\\sin(2\\pi f t)$ changes.</p><input id="freq" type="range" min="1" max="10" value="3" /><canvas id="wave"></canvas></div><script>const c=document.getElementById("wave");/* draws the wave */</script>`,
 	},
 };
 

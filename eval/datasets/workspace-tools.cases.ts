@@ -28,6 +28,11 @@ const BRACKET_DELIMITED_MATH = { label: "\\(...\\) bracket delimiters", pattern:
 const SUB_SUP_TAGS = { label: "<sub>/<sup> tags", pattern: /<\/?(sub|sup)>/ };
 const ESCAPED_DOLLAR = { label: "backslash-escaped \\$", pattern: /\\\$/ };
 const MHCHEM_CE = { label: "\\ce{...} chemistry", pattern: /\\\\?ce\{/ };
+const DOCUMENT_WIDGET_MARKUP = {
+	label: "a document widget block",
+	pattern: /data-type=["']widget["']/,
+};
+const FULL_HTML_DOCUMENT = { label: "a full HTML document", pattern: /<(html|head|body)\b/i };
 
 // A view-only scope block: mirrors what beforeTurn injects for a read-only viewer.
 // Used to prove the model respects the boundary the prompt sets.
@@ -43,6 +48,21 @@ export const workspaceToolCases: WorkspaceToolCase[] = [
 		},
 		expectedTools: ["workspace_create_items"],
 		forbiddenTools: ["workspace_delete_items"],
+	},
+	{
+		name: "interactive requests create a document with a widget block",
+		input: {
+			prompt:
+				"Create /Physics/Wave Explorer.md with an interactive widget that lets me adjust wave frequency and see the wave update.",
+		},
+		expectedTools: ["workspace_create_items"],
+		contentChecks: [
+			{
+				source: { tool: "workspace_create_items" },
+				mustMatch: [DOCUMENT_WIDGET_MARKUP],
+				mustNotMatch: [FULL_HTML_DOCUMENT],
+			},
+		],
 	},
 	{
 		name: "search before answering a content question",
