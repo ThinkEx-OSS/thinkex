@@ -497,6 +497,7 @@
 	}
 
 	.workspace-document-prose {
+		--workspace-document-measure: 72ch;
 		--workspace-document-code-background: var(--muted);
 		--workspace-document-highlight: oklch(0.9 0.14 90 / 70%);
 		--workspace-document-highlight-foreground: oklch(0.2 0.05 78);
@@ -554,6 +555,16 @@
 	.dark .workspace-document-prose {
 		--workspace-document-highlight: oklch(0.82 0.12 88 / 82%);
 		--workspace-document-highlight-foreground: var(--foreground);
+	}
+
+	/*
+	 * A readable measure, applied to the blocks rather than the editable element
+	 * so the whole pane still focuses the editor on click. Widgets take the same
+	 * width as the prose around them, so nothing reads as a narrower island.
+	 */
+	.workspace-document-prose > * {
+		margin-inline: auto;
+		max-width: var(--workspace-document-measure);
 	}
 
 	.workspace-document-prose > * + * {
