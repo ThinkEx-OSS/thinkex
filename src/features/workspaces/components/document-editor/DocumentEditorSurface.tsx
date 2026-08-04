@@ -87,11 +87,13 @@ function DocumentEditorInstance({
 			disableCollaboration();
 		},
 		extensions: getDocumentEditorExtensions(collaborationSession, {
-			onAskAiToFixWidget: (error) =>
-				stageComposerPrompt(
-					workspaceId,
-					`A widget in ${readWorkspaceItemPath(queryClient, workspaceId, item) ?? item.name} hit this error — please fix it:\n\n${error}`,
-				),
+			onAskAiToFixWidget: capabilities.canMutateContent
+				? (error) =>
+						stageComposerPrompt(
+							workspaceId,
+							`A widget in ${readWorkspaceItemPath(queryClient, workspaceId, item) ?? item.name} hit this error. Please fix it:\n\n${error}`,
+						)
+				: undefined,
 		}),
 		editorProps: {
 			attributes: {
@@ -147,7 +149,7 @@ function DocumentEditorInstance({
 
 function getDocumentEditorExtensions(
 	collaborationSession: DocumentCollaborationSession,
-	options: { onAskAiToFixWidget: (error: string) => void },
+	options: { onAskAiToFixWidget?: (error: string) => void },
 ) {
 	const baseExtensions = getTiptapDocumentBaseExtensions(options);
 

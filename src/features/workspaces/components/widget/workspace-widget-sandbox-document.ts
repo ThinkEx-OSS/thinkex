@@ -10,9 +10,9 @@
  *
  * Two things are composed around the authored HTML:
  *  - a theme layer: the resolved design tokens (read from the host when this
- *    document is built) are injected as CSS variables so widgets look native,
- *    plus a `.dark` class from the passed theme. A theme change rebuilds the
- *    document, so there is no host-to-frame channel to keep in sync.
+ *    document is built) are injected as CSS variables so widgets look native.
+ *    Later theme changes arrive over a small host-to-frame message channel, so
+ *    live widget state survives them.
  *  - an error harness: window `error` / `unhandledrejection` are forwarded to
  *    the host via postMessage so a crashed widget surfaces an "Ask AI to fix"
  *    affordance instead of a silent blank frame.
@@ -20,11 +20,33 @@
 
 /** Frame → host messages (ready / height / runtime errors). */
 export const WIDGET_SANDBOX_FRAME_SOURCE = "thinkex-widget-frame" as const;
+export const WIDGET_SANDBOX_HOST_SOURCE = "thinkex-widget-host" as const;
+
+export type WidgetSandboxTheme = {
+	theme: "light" | "dark";
+	tokens: Record<string, string>;
+};
+
+export type WidgetSandboxHostMessage = WidgetSandboxTheme & {
+	source: typeof WIDGET_SANDBOX_HOST_SOURCE;
+	kind: "theme";
+	sessionId: number;
+};
 
 export type WidgetSandboxFrameMessage =
-	| { source: typeof WIDGET_SANDBOX_FRAME_SOURCE; kind: "ready" }
-	| { source: typeof WIDGET_SANDBOX_FRAME_SOURCE; kind: "height"; height: number }
-	| { source: typeof WIDGET_SANDBOX_FRAME_SOURCE; kind: "error"; message: string };
+	| { source: typeof WIDGET_SANDBOX_FRAME_SOURCE; kind: "ready"; sessionId: number }
+	| {
+			source: typeof WIDGET_SANDBOX_FRAME_SOURCE;
+			kind: "height";
+			height: number;
+			sessionId: number;
+	  }
+	| {
+			source: typeof WIDGET_SANDBOX_FRAME_SOURCE;
+			kind: "error";
+			message: string;
+			sessionId: number;
+	  };
 
 /**
  * Bounds on a widget's reported height. A widget sits in the flow of a
@@ -62,13 +84,15 @@ export const WIDGET_SANDBOX_TOKENS = [
 	"--warning",
 	"--info",
 	"--radius",
+	"--font-sans",
+	"--font-mono",
 ] as const;
 
 /** Path KaTeX's browser build is served from (see scripts/copy-widget-libs.mjs). */
 const WIDGET_KATEX_BASE_PATH = "/widget-libs/katex";
 
 /** Any supported math notation: chat LaTeX delimiters, document markup, or the API. */
-const WIDGET_MATH_PATTERN = /\$\$|\\\(|\\\[|\$[^$\n]+\$|data-latex|katex|renderMathInElement/;
+const WIDGET_MATH_PATTERN = /\$\$|\\\(|\\\[|data-latex|katex|renderMathInElement/;
 
 /**
  * Restrictive CSP for the frame. Widgets are self-contained HTML: inline
@@ -80,20 +104,22 @@ function getWidgetSandboxCsp(origin: string) {
 		"default-src 'none'",
 		`style-src 'unsafe-inline' ${origin}`,
 		`script-src 'unsafe-inline' ${origin}`,
-		"img-src data: https:",
-		`font-src data: https: ${origin}`,
-		"media-src data: https:",
+		"img-src data: blob:",
+		`font-src data: ${origin}`,
+		"media-src data: blob:",
 		"connect-src 'none'",
+		"object-src 'none'",
+		"base-uri 'none'",
+		"form-action 'none'",
 	].join("; ");
 }
 
-type BuildWidgetSandboxDocumentInput = {
+type BuildWidgetSandboxDocumentInput = WidgetSandboxTheme & {
 	html: string;
-	theme: "light" | "dark";
-	/** `--token` → resolved value, read from the host via getComputedStyle. */
-	tokens: Record<string, string>;
 	/** App origin the frame may load bundled libraries from. */
 	origin: string;
+	/** Changes only when authored HTML changes, to reject messages from the old document. */
+	sessionId: number;
 };
 
 export function buildWidgetSandboxDocument({
@@ -101,6 +127,7 @@ export function buildWidgetSandboxDocument({
 	theme,
 	tokens,
 	origin,
+	sessionId,
 }: BuildWidgetSandboxDocumentInput): string {
 	const tokenDeclarations = Object.entries(tokens)
 		.filter(([, value]) => value.trim().length > 0)
@@ -132,7 +159,7 @@ export function buildWidgetSandboxDocument({
 	// belongs to the widget — host-side centring or max-widths strand it in dead
 	// space.
 	return `<!doctype html>
-<html lang="en"${theme === "dark" ? ' class="dark"' : ""}>
+<html lang="en" data-theme="${theme}"${theme === "dark" ? ' class="dark"' : ""}>
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -140,63 +167,96 @@ export function buildWidgetSandboxDocument({
 ${katexTags}
 <style>
 :root{${tokenDeclarations}color-scheme:${theme};}
-html,body{margin:0;background:var(--background);color:var(--foreground);font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;}
+html,body{margin:0;background:var(--background);color:var(--foreground);font-family:var(--font-sans,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif);}
 html{padding:0;}
 body{padding:clamp(10px,2.5%,16px);}
 *,*::before,*::after{box-sizing:border-box;}
 </style>
 </head>
 <body>
-${html}
 <script>
 (function(){
   var FRAME="${WIDGET_SANDBOX_FRAME_SOURCE}";
-  function post(message){ try{ parent.postMessage(message,"*"); }catch(_){} }
-  function report(message){ post({source:FRAME,kind:"error",message:String(message)}); }
+  var HOST="${WIDGET_SANDBOX_HOST_SOURCE}";
+  var SESSION=${sessionId};
+  var TOKENS=${JSON.stringify(WIDGET_SANDBOX_TOKENS)};
+  function post(message){
+    message.source=FRAME;
+    message.sessionId=SESSION;
+    try{ parent.postMessage(message,"*"); }catch(_){}
+  }
+  function report(message){ post({kind:"error",message:String(message)}); }
+  window.addEventListener("message",function(event){
+    var message=event.data;
+    if(event.source!==parent||!message||message.source!==HOST||message.kind!=="theme"||message.sessionId!==SESSION)return;
+    if((message.theme!=="light"&&message.theme!=="dark")||!message.tokens||typeof message.tokens!=="object")return;
+    var root=document.documentElement;
+    root.classList.toggle("dark",message.theme==="dark");
+    root.dataset.theme=message.theme;
+    root.style.colorScheme=message.theme;
+    TOKENS.forEach(function(name){
+      var value=message.tokens[name];
+      if(typeof value==="string")root.style.setProperty(name,value);
+    });
+    window.dispatchEvent(new CustomEvent("thinkex:themechange",{detail:{theme:message.theme}}));
+  });
   window.addEventListener("error",function(event){
     report((event.message||"Error")+(event.error&&event.error.stack?"\\n"+event.error.stack:""));
   });
-  if(typeof renderMathInElement==="function"){
-    var mathOptions={throwOnError:false,errorColor:"var(--muted-foreground)"};
-    window.renderWidgetMath=function(target){
-      var root=target||document.body;
-      renderMathInElement(root,Object.assign({
-        delimiters:[
-          {left:"$$",right:"$$",display:true},
-          {left:"\\\\[",right:"\\\\]",display:true},
-          {left:"\\\\(",right:"\\\\)",display:false}
-        ]
-      },mathOptions));
-      root.querySelectorAll("[data-latex]").forEach(function(node){
-        if(node.dataset.widgetMathRendered)return;
-        node.dataset.widgetMathRendered="1";
-        katex.render(node.getAttribute("data-latex"),node,Object.assign(
-          {displayMode:node.getAttribute("data-type")==="block-math"},mathOptions));
-      });
-    };
-    try{ window.renderWidgetMath(); }catch(_){}
-  }
   window.addEventListener("unhandledrejection",function(event){
     var reason=event.reason;
     report("Unhandled promise rejection: "+((reason&&reason.stack)||reason));
   });
-  var lastHeight=0;
-  function measure(){
-    // scrollHeight over getBoundingClientRect: it accounts for margins that
-    // escape the body box, which would otherwise report short and clip.
-    var height=Math.ceil(Math.max(document.documentElement.scrollHeight,document.body.scrollHeight));
-    if(!height||Math.abs(height-lastHeight)<2)return;
-    lastHeight=height;
-    post({source:FRAME,kind:"height",height:height});
-  }
-  if(typeof ResizeObserver==="function"){
-    new ResizeObserver(measure).observe(document.body);
-  }
-  window.addEventListener("load",measure);
-  measure();
-  post({source:FRAME,kind:"ready"});
+  window.addEventListener("DOMContentLoaded",function(){
+    if(typeof renderMathInElement==="function"){
+      var mathOptions={throwOnError:false,errorColor:"var(--muted-foreground)"};
+      window.renderWidgetMath=function(target){
+        var root=target||document.body;
+        renderMathInElement(root,Object.assign({
+          delimiters:[
+            {left:"$$",right:"$$",display:true},
+            {left:"\\\\[",right:"\\\\]",display:true},
+            {left:"\\\\(",right:"\\\\)",display:false}
+          ]
+        },mathOptions));
+        root.querySelectorAll("[data-latex]").forEach(function(node){
+          if(node.dataset.widgetMathRendered)return;
+          node.dataset.widgetMathRendered="1";
+          katex.render(node.getAttribute("data-latex"),node,Object.assign(
+            {displayMode:node.getAttribute("data-type")==="block-math"},mathOptions));
+        });
+      };
+      try{ window.renderWidgetMath(); }catch(_){}
+    }
+    var lastHeight=0;
+    var measureScheduled=false;
+    function measure(){
+      if(measureScheduled)return;
+      measureScheduled=true;
+      requestAnimationFrame(function(){
+        measureScheduled=false;
+        var root=document.documentElement;
+        var previousHeight=root.style.height;
+        root.style.height="max-content";
+        var height=Math.ceil(root.getBoundingClientRect().height);
+        root.style.height=previousHeight;
+        if(!height||Math.abs(height-lastHeight)<2)return;
+        lastHeight=height;
+        post({kind:"height",height:height});
+      });
+    }
+    if(typeof ResizeObserver==="function"){
+      var resizeObserver=new ResizeObserver(measure);
+      resizeObserver.observe(document.documentElement);
+      resizeObserver.observe(document.body);
+    }
+    window.addEventListener("load",measure);
+    measure();
+    post({kind:"ready"});
+  },{once:true});
 })();
 </script>
+${html}
 </body>
 </html>`;
 }
@@ -206,9 +266,31 @@ export function isWidgetSandboxFrameMessage(value: unknown): value is WidgetSand
 		return false;
 	}
 
-	const message = value as { source?: unknown; kind?: unknown };
+	const message = value as {
+		source?: unknown;
+		kind?: unknown;
+		height?: unknown;
+		message?: unknown;
+		sessionId?: unknown;
+	};
+	if (
+		message.source !== WIDGET_SANDBOX_FRAME_SOURCE ||
+		typeof message.sessionId !== "number" ||
+		!Number.isInteger(message.sessionId) ||
+		message.sessionId < 1
+	) {
+		return false;
+	}
+	if (message.kind === "ready") {
+		return true;
+	}
+	if (message.kind === "error") {
+		return typeof message.message === "string";
+	}
 	return (
-		message.source === WIDGET_SANDBOX_FRAME_SOURCE &&
-		(message.kind === "ready" || message.kind === "error" || message.kind === "height")
+		message.kind === "height" &&
+		typeof message.height === "number" &&
+		Number.isFinite(message.height) &&
+		message.height > 0
 	);
 }

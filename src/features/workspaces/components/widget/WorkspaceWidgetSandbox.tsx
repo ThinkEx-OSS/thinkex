@@ -1,4 +1,3 @@
-import { Sparkles } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { useTheme } from "#/components/theme-provider";
@@ -6,8 +5,11 @@ import { Button } from "#/components/ui/button";
 import {
 	buildWidgetSandboxDocument,
 	isWidgetSandboxFrameMessage,
+	type WidgetSandboxHostMessage,
+	type WidgetSandboxTheme,
 	WIDGET_SANDBOX_MAX_HEIGHT,
 	WIDGET_SANDBOX_MIN_HEIGHT,
+	WIDGET_SANDBOX_HOST_SOURCE,
 	WIDGET_SANDBOX_TOKENS,
 } from "#/features/workspaces/components/widget/workspace-widget-sandbox-document";
 import { cn } from "#/lib/utils";
@@ -15,11 +17,6 @@ import { cn } from "#/lib/utils";
 type WorkspaceWidgetSandboxProps = {
 	html: string;
 	className?: string;
-	/**
-	 * Fill the available space instead of sizing to the widget's own content.
-	 * For the fullscreen view, where the container decides the height.
-	 */
-	fill?: boolean;
 	/**
 	 * Called with the runtime error text when the user asks the AI to fix a
 	 * crashed widget. Omit to hide the affordance.
@@ -37,18 +34,20 @@ type WorkspaceWidgetSandboxProps = {
 export function WorkspaceWidgetSandbox({
 	html,
 	className,
-	fill = false,
 	onAskAiToFix,
 }: WorkspaceWidgetSandboxProps) {
 	const { resolvedTheme } = useTheme();
 	const iframeRef = useRef<HTMLIFrameElement>(null);
+	const renderedHtmlRef = useRef<string | null>(null);
+	const sessionIdRef = useRef(0);
+	const readySessionIdRef = useRef<number | null>(null);
+	const themeRef = useRef<WidgetSandboxTheme | null>(null);
 	const [srcDoc, setSrcDoc] = useState<string | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [height, setHeight] = useState(WIDGET_SANDBOX_MIN_HEIGHT);
 
-	// Build the sandbox document from the authored HTML plus the host's resolved
-	// design tokens. Rebuilding on theme change or edit is a fresh render, so the
-	// previous error clears with it.
+	// Build a fresh document only when authored HTML changes. Theme changes send
+	// a full token snapshot into the existing frame, preserving its JS state.
 	//
 	// Everything happens in a frame callback, which also keeps the effect
 	// render-safe. The tokens have to be read there rather than here: the theme
@@ -57,21 +56,28 @@ export function WorkspaceWidgetSandbox({
 	// theme's values and pair them with the new theme's class.
 	useEffect(() => {
 		const frame = requestAnimationFrame(() => {
-			const style = getComputedStyle(document.documentElement);
-			const tokens: Record<string, string> = {};
-			for (const name of WIDGET_SANDBOX_TOKENS) {
-				tokens[name] = style.getPropertyValue(name).trim();
+			const theme = readWidgetSandboxTheme(resolvedTheme);
+			themeRef.current = theme;
+
+			if (renderedHtmlRef.current !== html) {
+				renderedHtmlRef.current = html;
+				sessionIdRef.current += 1;
+				readySessionIdRef.current = null;
+				setSrcDoc(
+					buildWidgetSandboxDocument({
+						html,
+						...theme,
+						origin: window.location.origin,
+						sessionId: sessionIdRef.current,
+					}),
+				);
+				setError(null);
+				return;
 			}
 
-			setSrcDoc(
-				buildWidgetSandboxDocument({
-					html,
-					theme: resolvedTheme,
-					tokens,
-					origin: window.location.origin,
-				}),
-			);
-			setError(null);
+			if (readySessionIdRef.current === sessionIdRef.current) {
+				postWidgetSandboxTheme(iframeRef.current, sessionIdRef.current, theme);
+			}
 		});
 		return () => cancelAnimationFrame(frame);
 	}, [html, resolvedTheme]);
@@ -82,6 +88,9 @@ export function WorkspaceWidgetSandbox({
 				return;
 			}
 			if (!isWidgetSandboxFrameMessage(event.data)) {
+				return;
+			}
+			if (event.data.sessionId !== sessionIdRef.current) {
 				return;
 			}
 			if (event.data.kind === "error") {
@@ -97,7 +106,10 @@ export function WorkspaceWidgetSandbox({
 				);
 				return;
 			}
-			setError(null);
+			readySessionIdRef.current = event.data.sessionId;
+			if (themeRef.current) {
+				postWidgetSandboxTheme(iframeRef.current, event.data.sessionId, themeRef.current);
+			}
 		}
 
 		window.addEventListener("message", onMessage);
@@ -107,41 +119,54 @@ export function WorkspaceWidgetSandbox({
 	return (
 		// Height comes from the frame's own content, so the block takes the room
 		// the widget needs instead of a number chosen here.
-		<div
-			className={cn("relative bg-background", fill && "h-full", className)}
-			style={fill ? undefined : { height }}
-		>
-			<iframe
-				ref={iframeRef}
-				title="Widget preview"
-				sandbox="allow-scripts"
-				srcDoc={srcDoc ?? undefined}
-				className="h-full w-full border-0 bg-background"
-			/>
+		<div className={cn("relative bg-background", className)} style={error ? undefined : { height }}>
 			{error ? (
-				<div className="absolute inset-x-0 bottom-0 border-border/70 border-t bg-background/95 p-3 backdrop-blur-sm">
-					<div className="flex items-start justify-between gap-3">
-						<div className="min-w-0">
-							<p className="font-medium text-foreground text-sm">This widget hit an error</p>
-							<pre className="mt-1 max-h-24 overflow-auto whitespace-pre-wrap font-mono text-muted-foreground text-xs">
-								{error}
-							</pre>
-						</div>
-						{onAskAiToFix ? (
-							<Button
-								type="button"
-								size="sm"
-								variant="secondary"
-								className="shrink-0"
-								onClick={() => onAskAiToFix(error)}
-							>
-								<Sparkles className="size-4" />
-								Ask AI to fix
-							</Button>
-						) : null}
+				<div
+					role="alert"
+					className="flex min-h-48 flex-col items-center justify-center gap-4 bg-background p-6 text-center"
+				>
+					<p className="font-medium text-foreground text-sm">Widget error</p>
+					<div className="max-h-32 w-full max-w-lg overflow-auto whitespace-pre-wrap rounded-md bg-muted px-4 py-3 font-mono text-muted-foreground text-xs leading-relaxed">
+						{error}
 					</div>
+					{onAskAiToFix ? (
+						<Button type="button" size="sm" variant="secondary" onClick={() => onAskAiToFix(error)}>
+							Ask AI to fix
+						</Button>
+					) : null}
 				</div>
-			) : null}
+			) : (
+				<iframe
+					ref={iframeRef}
+					title="Widget preview"
+					sandbox="allow-scripts"
+					srcDoc={srcDoc ?? undefined}
+					className="h-full w-full border-0 bg-background"
+				/>
+			)}
 		</div>
 	);
+}
+
+function readWidgetSandboxTheme(theme: WidgetSandboxTheme["theme"]): WidgetSandboxTheme {
+	const style = getComputedStyle(document.documentElement);
+	const tokens: Record<string, string> = {};
+	for (const name of WIDGET_SANDBOX_TOKENS) {
+		tokens[name] = style.getPropertyValue(name).trim();
+	}
+	return { theme, tokens };
+}
+
+function postWidgetSandboxTheme(
+	iframe: HTMLIFrameElement | null,
+	sessionId: number,
+	theme: WidgetSandboxTheme,
+) {
+	const message: WidgetSandboxHostMessage = {
+		source: WIDGET_SANDBOX_HOST_SOURCE,
+		kind: "theme",
+		sessionId,
+		...theme,
+	};
+	iframe?.contentWindow?.postMessage(message, "*");
 }

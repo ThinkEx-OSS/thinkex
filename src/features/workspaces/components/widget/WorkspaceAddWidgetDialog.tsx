@@ -81,9 +81,9 @@ function WorkspaceAddWidgetDialogContent({
 				<DialogHeader>
 					<DialogTitle>Add a widget</DialogTitle>
 					<DialogDescription>
-						A widget is a small interactive tool — a simulation, calculator, diagram, or
-						visualization — that lives in this document. Describe what you want and the AI will
-						build it for you.
+						A widget is an interactive tool that lives in this document, such as a simulation,
+						calculator, diagram, or visualization. Describe what you want, and the AI will build it
+						for you.
 					</DialogDescription>
 				</DialogHeader>
 				<FieldGroup>

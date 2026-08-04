@@ -1,16 +1,12 @@
 import type { NodeViewProps } from "@tiptap/react";
 import { NodeViewContent, NodeViewWrapper, ReactNodeViewRenderer } from "@tiptap/react";
-import { Maximize2, Minimize2, Shapes } from "lucide-react";
-import { useState } from "react";
+import { Shapes } from "lucide-react";
 
 import {
-	CodeBlockActions,
 	CodeBlockHeader,
 	CodeBlockLabel,
 	CodeBlockTitle,
 } from "#/components/code-block/code-block-chrome";
-import { Button } from "#/components/ui/button";
-import { Dialog, DialogContent, DialogTitle } from "#/components/ui/dialog";
 import { WorkspaceWidgetSandbox } from "#/features/workspaces/components/widget/WorkspaceWidgetSandbox";
 import { Widget } from "#/features/workspaces/documents/tiptap-schema";
 
@@ -52,7 +48,6 @@ function DocumentWidgetView({ extension, node, selected }: NodeViewProps) {
 	const html = node.textContent;
 	const title = typeof node.attrs.title === "string" ? node.attrs.title : "";
 	const { onAskAiToFix } = extension.options as DocumentWidgetOptions;
-	const [isFullscreen, setIsFullscreen] = useState(false);
 	const label = title || "Widget";
 	const askAiToFix = onAskAiToFix
 		? (error: string) => onAskAiToFix(title ? `the "${title}" widget: ${error}` : error)
@@ -77,77 +72,17 @@ function DocumentWidgetView({ extension, node, selected }: NodeViewProps) {
 					<Shapes className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
 					<CodeBlockLabel>{label}</CodeBlockLabel>
 				</CodeBlockTitle>
-				<CodeBlockActions>
-					<WidgetControl label="View fullscreen" onClick={() => setIsFullscreen(true)}>
-						<Maximize2 />
-					</WidgetControl>
-				</CodeBlockActions>
 			</CodeBlockHeader>
-			{/* Hidden while fullscreen: two live frames would run the widget twice,
-			    and the one behind the dialog would keep its own separate state. */}
-			{isFullscreen ? null : (
-				<WorkspaceWidgetSandbox
-					html={html}
-					className="workspace-document-widget-frame"
-					onAskAiToFix={askAiToFix}
-				/>
-			)}
+			<WorkspaceWidgetSandbox
+				html={html}
+				className="workspace-document-widget-frame"
+				onAskAiToFix={askAiToFix}
+			/>
 			{/* A widget's source is its text content, so ProseMirror needs somewhere
 			    to render it. Without this element Tiptap appends one itself and the
 			    raw source shows up as prose in the document. It stays hidden: the
 			    source is the frame's input, not something to read in the page. */}
 			<NodeViewContent className="workspace-document-widget-source" />
-
-			<Dialog open={isFullscreen} onOpenChange={setIsFullscreen}>
-				<DialogContent
-					className="fixed inset-0 top-0 left-0 flex h-dvh w-dvw max-w-none translate-x-0 translate-y-0 flex-col gap-0 rounded-none border-0 bg-background p-0 sm:max-w-none"
-					showCloseButton={false}
-				>
-					<CodeBlockHeader className="min-h-12 shrink-0 px-4">
-						<CodeBlockTitle>
-							<Shapes className="size-4 text-muted-foreground" aria-hidden="true" />
-							<DialogTitle className="text-sm">{label}</DialogTitle>
-						</CodeBlockTitle>
-						<CodeBlockActions>
-							<WidgetControl label="Exit fullscreen" onClick={() => setIsFullscreen(false)}>
-								<Minimize2 />
-							</WidgetControl>
-						</CodeBlockActions>
-					</CodeBlockHeader>
-					{isFullscreen ? (
-						<WorkspaceWidgetSandbox
-							html={html}
-							className="min-h-0 flex-1"
-							fill
-							onAskAiToFix={askAiToFix}
-						/>
-					) : null}
-				</DialogContent>
-			</Dialog>
 		</NodeViewWrapper>
-	);
-}
-
-function WidgetControl({
-	children,
-	label,
-	onClick,
-}: {
-	children: React.ReactNode;
-	label: string;
-	onClick: () => void;
-}) {
-	return (
-		<Button
-			aria-label={label}
-			className="size-7 text-muted-foreground [&_svg]:size-3.5"
-			onClick={onClick}
-			size="icon"
-			title={label}
-			type="button"
-			variant="ghost"
-		>
-			{children}
-		</Button>
 	);
 }
