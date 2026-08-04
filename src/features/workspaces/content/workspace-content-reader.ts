@@ -134,9 +134,14 @@ async function readWorkspaceItem(input: {
 	request: WorkspaceContentReadRequest;
 }): Promise<WorkspaceContentReadResult> {
 	if (input.item.type === "document") {
-		return input.request.mode === "block" ? readDocumentBlock(input) : readDocument(input);
+		return input.request.mode === "block"
+			? readDocumentBlock(input, input.request.editRef)
+			: readDocument(input);
 	}
 	if (input.item.type === "file") {
+		if (input.request.mode === "block") {
+			return { code: "invalid_selection", path: input.path, status: "failed" };
+		}
 		return readFile(input);
 	}
 	return { code: "unsupported_item_type", path: input.path, status: "failed" };
@@ -149,18 +154,16 @@ async function readWorkspaceItem(input: {
  * this is how the assistant fetches that source before editing it. It works for
  * any block, so a long table or code block can be pulled up on its own too.
  */
-async function readDocumentBlock(input: {
-	getDocumentSession: (itemId: string) => DocumentContentReader | Promise<DocumentContentReader>;
-	item: WorkspaceItemSummary;
-	path: string;
-	request: WorkspaceContentReadRequest;
-}): Promise<WorkspaceContentReadResult> {
-	if (input.request.mode !== "block") {
-		return { code: "invalid_selection", path: input.path, status: "failed" };
-	}
-
+async function readDocumentBlock(
+	input: {
+		getDocumentSession: (itemId: string) => DocumentContentReader | Promise<DocumentContentReader>;
+		item: WorkspaceItemSummary;
+		path: string;
+	},
+	editRef: string,
+): Promise<WorkspaceContentReadResult> {
 	const documentSession = await input.getDocumentSession(input.item.id);
-	const block = await documentSession.readBlock({ editRef: input.request.editRef });
+	const block = await documentSession.readBlock({ editRef });
 	if (block.status !== "ready") {
 		return { code: "edit_ref_not_found", path: input.path, status: "failed" };
 	}

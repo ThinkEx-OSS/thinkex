@@ -518,6 +518,7 @@ exports[`workspace tool surface > workspace_read_items input schema is stable 1`
             "properties": {
               "editRef": {
                 "description": "editRef of one block from an earlier document read. The result returns the block in full with its current editRef.",
+                "maxLength": 64,
                 "minLength": 1,
                 "type": "string",
               },

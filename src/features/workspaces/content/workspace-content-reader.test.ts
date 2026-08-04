@@ -229,6 +229,32 @@ describe("WorkspaceContentReader", () => {
 		expect(block.content).not.toContain("data-edit-ref");
 	});
 
+	it("rejects block reads for files", async () => {
+		const fileItem = {
+			...documentItem,
+			id: "file-1",
+			meta: "PDF",
+			name: "Book.pdf",
+			title: "Book.pdf",
+			type: "file",
+		} satisfies WorkspaceItemSummary;
+		const read = createReader({
+			bucket: {} as R2Bucket,
+			getDocumentSession: () => createDocumentSession({ html: "", revision: "revision-1" }),
+			kernel: createKernel(fileItem),
+		});
+
+		await expect(
+			read([
+				{
+					editRef: "b_abcdefghijkl.r_0123456789",
+					mode: "block",
+					path: "/Book.pdf",
+				},
+			]),
+		).resolves.toEqual([{ code: "invalid_selection", path: "/Book.pdf", status: "failed" }]);
+	});
+
 	it("keeps one ordered result for every requested path", async () => {
 		const kernel = createKernel();
 		kernel.resolvePaths = vi.fn(
@@ -293,13 +319,13 @@ function createDocumentSession(input: { html: string; revision: string }) {
 	};
 }
 
-function createKernel() {
+function createKernel(item: WorkspaceItemSummary = documentItem) {
 	return {
 		resolvePaths: vi.fn(async ({ paths }: { paths: string[] }) =>
-			paths.map((path) => ({ item: documentItem, path, status: "item" as const })),
+			paths.map((path) => ({ item, path, status: "item" as const })),
 		),
 		listItemRelations: vi.fn(async () => []),
-		getItemPaths: vi.fn(async () => [{ itemId: documentItem.id, path: "/Notes" }]),
+		getItemPaths: vi.fn(async () => [{ itemId: item.id, path: `/${item.name}` }]),
 	} as unknown as WorkspaceKernelClient;
 }
 

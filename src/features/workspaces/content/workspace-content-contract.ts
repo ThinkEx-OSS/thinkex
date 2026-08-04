@@ -5,6 +5,7 @@ import { workspaceReferenceRecordSchema } from "#/features/workspaces/locations/
 import { workspaceFileAssetKindSchema } from "#/features/workspaces/model/workspace-file";
 
 const workspacePathSchema = z.string().min(1);
+const workspaceEditRefSchema = z.string().min(1).max(64);
 
 const readWorkspaceItemsFailureCodes = [
 	"content_changed",
@@ -53,12 +54,9 @@ const workspaceContentReadRequestSchema = z.union([
 	}),
 	z.strictObject({
 		...workspaceContentReadRequestBase,
-		editRef: z
-			.string()
-			.min(1)
-			.describe(
-				"editRef of one block from an earlier document read. The result returns the block in full with its current editRef.",
-			),
+		editRef: workspaceEditRefSchema.describe(
+			"editRef of one block from an earlier document read. The result returns the block in full with its current editRef.",
+		),
 		mode: z.literal("block"),
 	}),
 ]);
@@ -147,7 +145,7 @@ const workspaceContentReadResultSchema = z.union([
 	}),
 	z.object({
 		content: z.string(),
-		editRef: z.string().min(1),
+		editRef: workspaceEditRefSchema,
 		format: z.literal("html"),
 		itemId: z.string().min(1),
 		path: workspacePathSchema,
