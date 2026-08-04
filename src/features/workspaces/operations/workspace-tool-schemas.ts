@@ -43,15 +43,10 @@ export const workspaceHtmlMathInstruction =
 	'This is HTML, so math is markup rather than delimiters: use <span data-type="inline-math" data-latex="..."></span> or <div data-type="block-math" data-latex="..."></div>, and keep dollar signs out of the data-latex value. Put every subscript and superscript (exponents like 10^8, indices like x_1) inside math rather than <sub>/<sup> tags. Chemistry renders with \\ce{...} (e.g. \\ce{CH4 + 2 O2 -> CO2 + 2 H2O}) and quantities with units render with \\pu{...} (e.g. \\pu{9.81 m/s^2}), both inside data-latex. Write literal money as plain text ($30, never \\$30) — a backslash before a dollar sign shows on screen in HTML.';
 
 /**
- * The hard constraints only — enough that a widget written without the skill
- * still renders. Activate the widget-authoring skill for the full contract,
- * starter template, and canvas/layout guidance rather than restating it here on
- * every turn.
- *
- * Carried by the document instruction because a widget is a document block: the
- * model reaches for one from inside the same write it would write prose in.
+ * Keep discovery and serialization beside the document tool. The activated
+ * skill owns the authoring contract so the two prompts cannot drift apart.
  */
-const workspaceWidgetHtmlInstruction = `A widget is one interactive block inside a document, written as <div data-type="widget" title="Short title">…escaped HTML source…</div>. Use one only when the user explicitly asks for a widget, asks for interaction or live computation, or wants a visual artifact inside the document that ordinary blocks cannot express. Do not add a widget merely to decorate an explanation; keep normal content in normal blocks. Activate the "widget-authoring" skill before writing widget source; it has the full contract, a starter template, and canvas/layout rules. Hard constraints: the source is a self-contained fragment run in a sandboxed iframe, so provide only inner content (HTML plus inline <style> and <script>), never <!doctype>, <html>, <head>, or <body>; keep all JavaScript inline and do not use external scripts, imports, fetch, or navigation; style with the injected app CSS variables (--background, --foreground, --primary, --border, --radius, etc.) instead of hard-coded colors.`;
+const workspaceWidgetHtmlInstruction = `A widget is one interactive block inside a document. Use one when the user explicitly asks for a widget, asks for interaction or live computation, or wants a document visual that ordinary blocks cannot express. Keep ordinary content in ordinary blocks. Before authoring or editing widget source, activate the "widget-authoring" skill and follow its HTML, sandbox, layout, and editing contract. Serialize the result as <div data-type="widget" title="Short title">…HTML-escaped fragment…</div>.`;
 
 export const workspaceDocumentHtmlInstruction = `Use semantic HTML with paragraphs, h1-h4, blockquotes, lists, code blocks, horizontal rules, tables, links, and standard text marks. ${workspaceHtmlMathInstruction} For checkboxes, use <ul data-type="taskList"><li data-type="taskItem" data-checked="false"><label><input type="checkbox"><span></span></label><div><p>Item</p></div></li></ul>. Documents cannot hold images: never use <img> or <figure>, and describe the visual in words instead. Cite workspace sources in documents exactly as in a chat reply, with <citation ref="wr_7Kp2Qa9x"></citation> placed after the claim it supports. ${workspaceWidgetHtmlInstruction}`;
 
