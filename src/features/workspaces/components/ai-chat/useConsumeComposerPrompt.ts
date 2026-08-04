@@ -36,7 +36,7 @@ export function useConsumeComposerPrompt({
 		);
 		clearPrompt(workspaceId);
 
-		const frame = requestAnimationFrame(() => {
+		requestAnimationFrame(() => {
 			const textarea = textareaRef.current;
 			if (!textarea) {
 				return;
@@ -46,7 +46,5 @@ export function useConsumeComposerPrompt({
 			const caret = textarea.value.length;
 			textarea.setSelectionRange(caret, caret);
 		});
-
-		return () => cancelAnimationFrame(frame);
 	}, [pendingPrompt, workspaceId, clearPrompt, setInput, textareaRef]);
 }
