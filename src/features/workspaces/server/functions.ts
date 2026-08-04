@@ -15,7 +15,6 @@ import {
 	createWorkspaceKernelItem,
 	deleteWorkspaceKernelItems,
 	moveWorkspaceKernelItems,
-	readWorkspaceKernelItemContent,
 	renameWorkspaceKernelItem,
 	updateWorkspaceKernelItemColor,
 } from "#/features/workspaces/kernel/workspace-kernel-access";
@@ -42,16 +41,6 @@ export const listWorkspacesFn = createServerFn({ method: "GET" }).handler(async 
 export const getWorkspacePageFn = createServerFn({ method: "GET" })
 	.validator(workspaceIdInputSchema)
 	.handler(async ({ data }) => getWorkspacePageForCurrentUser(data.workspaceId));
-
-export const readWorkspaceItemContentFn = createServerFn({ method: "GET" })
-	.validator(z.object({ workspaceId: z.string().min(1), itemId: z.string().min(1) }))
-	.handler(async ({ data }) =>
-		readWorkspaceKernelItemContent({
-			workspaceId: data.workspaceId,
-			itemId: data.itemId,
-			userId: await getCurrentUserId(),
-		}),
-	);
 
 export const createWorkspaceFn = createServerFn({ method: "POST" })
 	.validator(createWorkspaceInputSchema)

@@ -1,4 +1,3 @@
-import type { WorkspaceCreatableItemType } from "#/features/workspaces/workspace-item-registry";
 import { getAuthorizedWorkspaceKernel } from "#/features/workspaces/operations/workspace-operation-context";
 import {
 	resolveWorkspaceRelations,
@@ -23,7 +22,7 @@ import {
 } from "#/features/workspaces/kernel/workspace-kernel-paths";
 
 export interface CreateWorkspaceItemOperationInput {
-	type: WorkspaceCreatableItemType;
+	type: "document" | "folder";
 	path: string;
 	initialContent?: string;
 	relations?: WorkspaceRelationInput[];
@@ -44,7 +43,7 @@ export interface CreateWorkspaceItemsFailure {
 export interface CreatedWorkspaceItem {
 	itemId: string;
 	path: string;
-	type: WorkspaceCreatableItemType;
+	type: "document" | "folder";
 }
 
 export interface CreateWorkspaceItemsOperationResult {

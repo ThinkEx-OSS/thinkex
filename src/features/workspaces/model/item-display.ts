@@ -1,12 +1,10 @@
 import { Mic, Upload } from "lucide-react";
 
-import type { WorkspaceItemType } from "#/features/workspaces/contracts";
 import { getWorkspaceObjectRegistryEntry } from "#/features/workspaces/model/object-registry";
 import type { WorkspaceItem } from "#/features/workspaces/model/types";
 import { workspaceColors } from "#/features/workspaces/model/workspace-colors";
 import { resolveWorkspaceFileTypeFromItem } from "#/features/workspaces/model/workspace-file";
 import { getWorkspaceItemPalette } from "#/features/workspaces/model/workspace-item-colors";
-import { getWorkspaceItemRegistryEntry } from "#/features/workspaces/workspace-item-registry";
 
 export function getWorkspaceItemDisplay(item: WorkspaceItem) {
 	const typeDisplay = getWorkspaceObjectRegistryEntry(item.type);
@@ -28,13 +26,10 @@ const workspaceItemLearnCreateActionOrder = ["flashcard", "quiz"] as const;
 export const workspaceItemPrimaryCreateActions =
 	workspaceItemPrimaryCreateActionOrder.map(createWorkspaceItemAction);
 
-export const workspaceItemLearnCreateActions = workspaceItemLearnCreateActionOrder.map((type) => ({
-	...createWorkspaceItemAction(type),
-	// A type with no create flow yet is shown disabled rather than hidden.
-	comingSoon: !getWorkspaceItemRegistryEntry(type).creatable,
-}));
+export const workspaceItemLearnCreateActions =
+	workspaceItemLearnCreateActionOrder.map(createWorkspaceItemAction);
 
-function createWorkspaceItemAction(type: WorkspaceItemType) {
+function createWorkspaceItemAction(type: "document" | "folder" | "flashcard" | "quiz") {
 	const display = getWorkspaceObjectRegistryEntry(type);
 	return {
 		type,

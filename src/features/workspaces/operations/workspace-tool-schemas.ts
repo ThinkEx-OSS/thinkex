@@ -16,7 +16,6 @@ import {
 	workspaceItemTypeSchema,
 	workspaceRelationKindSchema,
 } from "#/features/workspaces/contracts";
-import { workspaceCreatableItemTypeSchema } from "#/features/workspaces/workspace-item-registry";
 import { workspaceReferenceRecordSchema } from "#/features/workspaces/locations/workspace-location";
 import {
 	documentAiEditSchema,
@@ -367,9 +366,9 @@ export const workspaceListItemsOutputSchema = z.object({
 export const workspaceCreateItemsOutputSchema = createWorkspaceItemsResultSchema({
 	itemSchema: workspacePathItemSchema.extend({
 		itemId: z.string().min(1),
-		// Creation makes these three and nothing else; the shared item type covers
+		// Creation makes these two and nothing else; the shared item type covers
 		// files and study items this tool cannot produce.
-		type: workspaceCreatableItemTypeSchema,
+		type: z.enum(["document", "folder"]),
 	}),
 	failureSchema: createFailureSchema(createWorkspaceItemsFailureCodes),
 }).extend({

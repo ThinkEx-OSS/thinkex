@@ -6,11 +6,7 @@ export type WorkspaceItemType = z.infer<typeof workspaceItemTypeSchema>;
 
 interface WorkspaceItemRegistryEntry {
 	color: "amber" | "emerald" | "rose" | "sky" | "violet";
-	/**
-	 * Whether the create pipeline and AI create tool can materialise this type.
-	 * Files arrive by upload, and study types have no create flow yet.
-	 */
-	creatable: boolean;
+	contentKind: "document" | "empty" | "flashcard" | "quiz";
 	defaultName: string;
 	extension: "json" | "txt" | null;
 	label: string;
@@ -23,7 +19,7 @@ interface WorkspaceItemRegistryEntry {
 const workspaceItemRegistry = {
 	folder: {
 		color: "amber",
-		creatable: true,
+		contentKind: "empty",
 		defaultName: "New folder",
 		extension: null,
 		label: "Folder",
@@ -33,7 +29,7 @@ const workspaceItemRegistry = {
 	},
 	document: {
 		color: "sky",
-		creatable: true,
+		contentKind: "document",
 		defaultName: "New document",
 		extension: "json",
 		label: "Document",
@@ -43,7 +39,7 @@ const workspaceItemRegistry = {
 	},
 	file: {
 		color: "rose",
-		creatable: false,
+		contentKind: "empty",
 		defaultName: "New file",
 		extension: "txt",
 		label: "File",
@@ -53,7 +49,7 @@ const workspaceItemRegistry = {
 	},
 	flashcard: {
 		color: "violet",
-		creatable: false,
+		contentKind: "flashcard",
 		defaultName: "New flashcards",
 		extension: "json",
 		label: "Flashcard deck",
@@ -63,7 +59,7 @@ const workspaceItemRegistry = {
 	},
 	quiz: {
 		color: "emerald",
-		creatable: false,
+		contentKind: "quiz",
 		defaultName: "New quiz",
 		extension: "json",
 		label: "Quiz",
@@ -76,25 +72,6 @@ const workspaceItemRegistry = {
 export function getWorkspaceItemRegistryEntry(type: WorkspaceItemType) {
 	return workspaceItemRegistry[type];
 }
-
-/**
- * The item types the create pipeline can materialise, per the registry.
- *
- * Derive from this rather than restating the list: every hand-copied version is
- * a place a new type silently falls out of (a stale copy in the AI result
- * adapter is what dropped widget citation refs).
- */
-export type WorkspaceCreatableItemType = {
-	[Type in WorkspaceItemType]: (typeof workspaceItemRegistry)[Type]["creatable"] extends true
-		? Type
-		: never;
-}[WorkspaceItemType];
-
-export const workspaceCreatableItemTypes = workspaceItemTypes.filter(
-	(type): type is WorkspaceCreatableItemType => workspaceItemRegistry[type].creatable,
-) as [WorkspaceCreatableItemType, ...WorkspaceCreatableItemType[]];
-
-export const workspaceCreatableItemTypeSchema = z.enum(workspaceCreatableItemTypes);
 
 /** The item types workspace search indexes and filters on, per the registry. */
 export type WorkspaceSearchableItemType = {

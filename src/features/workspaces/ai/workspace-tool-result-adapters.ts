@@ -50,10 +50,7 @@ const workspaceCreateItemsResultAdapter = defineWorkspaceToolResultAdapter({
 			z.object({
 				itemId: z.string(),
 				path: z.string(),
-				// Deliberately not an enum: this adapter only forwards the type, and
-				// a stale list here silently fails the whole result, dropping the
-				// citation refs the model needs to cite what it just created.
-				type: z.string(),
+				type: z.enum(["document", "folder"]),
 			}),
 		),
 		references: z.array(workspaceReferenceRecordSchema),

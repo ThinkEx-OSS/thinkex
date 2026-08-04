@@ -155,7 +155,7 @@ export class DocumentSession extends YServer {
 
 		const room = getDocumentSessionRoomNameParts(this.name);
 		const kernel = await this.getWorkspaceKernel(room.workspaceId);
-		const { content } = await kernel.readItemContent({ itemId: room.itemId });
+		const { content } = await kernel.readDocumentCheckpoint({ itemId: room.itemId });
 		if (this.deleted) {
 			return;
 		}
@@ -392,7 +392,7 @@ export class DocumentSession extends YServer {
 		const document = this.getCurrentTiptapDocument();
 		const kernel = await this.getWorkspaceKernel(room.workspaceId);
 
-		await kernel.writeItemContent({
+		await kernel.commitDocumentCheckpoint({
 			itemId: room.itemId,
 			content: stringifyTiptapDocumentJson(document),
 			actorUserId: null,
