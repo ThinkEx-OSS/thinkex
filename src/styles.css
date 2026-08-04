@@ -709,15 +709,9 @@
 		outline-offset: 1px;
 	}
 
-	.workspace-document-prose .workspace-document-widget-handle {
-		display: flex;
-		align-items: center;
-		gap: 0.4rem;
-		border-bottom: 1px solid var(--border);
-		background: var(--muted);
-		padding: 0.3rem 0.6rem;
-		color: var(--muted-foreground);
-		font-size: 0.75rem;
+	/* Layout comes from the shared block chrome; only the drag affordance is
+	   the widget's own. */
+	.workspace-document-prose .workspace-document-widget-header {
 		cursor: grab;
 		user-select: none;
 	}

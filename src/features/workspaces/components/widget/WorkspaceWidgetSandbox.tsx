@@ -16,6 +16,11 @@ type WorkspaceWidgetSandboxProps = {
 	html: string;
 	className?: string;
 	/**
+	 * Fill the available space instead of sizing to the widget's own content.
+	 * For the fullscreen view, where the container decides the height.
+	 */
+	fill?: boolean;
+	/**
 	 * Called with the runtime error text when the user asks the AI to fix a
 	 * crashed widget. Omit to hide the affordance.
 	 */
@@ -32,6 +37,7 @@ type WorkspaceWidgetSandboxProps = {
 export function WorkspaceWidgetSandbox({
 	html,
 	className,
+	fill = false,
 	onAskAiToFix,
 }: WorkspaceWidgetSandboxProps) {
 	const { resolvedTheme } = useTheme();
@@ -101,7 +107,10 @@ export function WorkspaceWidgetSandbox({
 	return (
 		// Height comes from the frame's own content, so the block takes the room
 		// the widget needs instead of a number chosen here.
-		<div className={cn("relative bg-background", className)} style={{ height }}>
+		<div
+			className={cn("relative bg-background", fill && "h-full", className)}
+			style={fill ? undefined : { height }}
+		>
 			<iframe
 				ref={iframeRef}
 				title="Widget preview"
