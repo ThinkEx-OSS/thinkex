@@ -96,6 +96,7 @@ export class WorkspaceFileExtractionWorkflow extends WorkflowEntrypoint<
 					});
 
 					return {
+						hasExtractableText: projection.hasExtractableText,
 						manifestObjectKey: projection.manifestObjectKey,
 						markdownLength: projection.manifest.markdownLength,
 						provider: extraction.provider,
@@ -127,6 +128,7 @@ export class WorkspaceFileExtractionWorkflow extends WorkflowEntrypoint<
 						routeReason: extraction.routeReason,
 						pageCount: extraction.pageCount,
 						markdownLength: extraction.markdownLength,
+						hasExtractableText: extraction.hasExtractableText,
 					};
 
 					await kernel.upsertFileProjection({
@@ -249,6 +251,7 @@ export class WorkspaceFileExtractionWorkflow extends WorkflowEntrypoint<
 }
 
 interface StagedPageExtractionResult {
+	hasExtractableText: boolean;
 	manifestObjectKey: string;
 	markdownLength: number;
 	provider: WorkspaceFileExtractionProviderId;
