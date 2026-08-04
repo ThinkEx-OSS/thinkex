@@ -76,6 +76,32 @@ function getNamedCustomerFields(row: { email: string; name: string }) {
 	};
 }
 
+/**
+ * Autumn rejects balances.check / balances.track for unknown customers
+ * (`customer_not_found`). Track and billing already called get_or_create; the
+ * access gates must too, or a user who has never been billed 404s on their
+ * first check, fail-opens, and lands in PostHog (ThinkEx-OSS/thinkex#727).
+ *
+ * Returns the resolved secret key so callers can keep going without a second
+ * env lookup, or undefined when billing is not configured.
+ */
+export async function ensureAutumnCustomer(input: {
+	env: Cloudflare.Env;
+	userId: string;
+}): Promise<string | undefined> {
+	const secretKey = resolveAutumnSecretKey(input.env);
+
+	if (!secretKey) {
+		return undefined;
+	}
+
+	const customerFields = await getAutumnCustomerFields(input.userId);
+
+	await getOrCreateAutumnCustomer({ customerId: input.userId, secretKey, ...customerFields });
+
+	return secretKey;
+}
+
 export interface TrackAutumnUsageInput {
 	env: Cloudflare.Env;
 	/** Operational event name, used for both the partial log and the failure. */
@@ -92,18 +118,14 @@ export interface TrackAutumnUsageInput {
  * every metered feature — only the feature id and properties differ.
  */
 export async function trackAutumnUsage(input: TrackAutumnUsageInput) {
-	const secretKey = resolveAutumnSecretKey(input.env);
-
-	if (!secretKey) {
-		return;
-	}
-
 	const fields = { ...input.properties, feature_id: input.featureId, user_id: input.userId };
 
 	try {
-		const customerFields = await getAutumnCustomerFields(input.userId);
+		const secretKey = await ensureAutumnCustomer({ env: input.env, userId: input.userId });
 
-		await getOrCreateAutumnCustomer({ customerId: input.userId, secretKey, ...customerFields });
+		if (!secretKey) {
+			return;
+		}
 
 		await trackAutumnBalance({
 			customerId: input.userId,
