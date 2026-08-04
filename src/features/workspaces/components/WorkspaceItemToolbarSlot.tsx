@@ -16,8 +16,7 @@ import { WorkspaceFileToolbar } from "#/features/workspaces/components/Workspace
 type WorkspaceItemToolbarRegistration =
 	| {
 			canEdit: boolean;
-			/** Null until the workspace page is cached; the widget action waits on it. */
-			documentPath: string | null;
+			documentPath: string;
 			editor: Editor | null;
 			itemId: string;
 			kind: "document";
@@ -63,7 +62,7 @@ export function useDocumentEditorToolbar({
 	workspaceId,
 }: {
 	canEdit: boolean;
-	documentPath: string | null;
+	documentPath: string;
 	editor: Editor | null;
 	itemId: string;
 	slotId: string;

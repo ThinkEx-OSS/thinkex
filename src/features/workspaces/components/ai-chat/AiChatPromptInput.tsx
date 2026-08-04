@@ -1,5 +1,13 @@
 import { Bug, Mic, Paperclip } from "lucide-react";
-import { lazy, type SetStateAction, Suspense, useRef, useState } from "react";
+import {
+	lazy,
+	type SetStateAction,
+	Suspense,
+	useCallback,
+	useEffect,
+	useRef,
+	useState,
+} from "react";
 
 import {
 	type AttachmentsContext,
@@ -26,7 +34,6 @@ import {
 import type { AiChatModelId, AiChatStatus } from "#/features/workspaces/components/ai-chat/types";
 import { useAiChatAttachmentIntake } from "#/features/workspaces/components/ai-chat/useAiChatAttachmentIntake";
 import { useAiChatDictation } from "#/features/workspaces/components/ai-chat/useAiChatDictation";
-import { useConsumeComposerPrompt } from "#/features/workspaces/components/ai-chat/useConsumeComposerPrompt";
 import { useTypeToFocusPrompt } from "#/features/workspaces/components/ai-chat/useTypeToFocusPrompt";
 import { WorkspaceFileIntakeReviewDialog } from "#/features/workspaces/components/WorkspaceFileIntakeReviewDialog";
 import { useWorkspaceFileUpload } from "#/features/workspaces/components/WorkspaceFileUploadProvider";
@@ -42,6 +49,7 @@ import {
 	useWorkspaceAiComposerDraftFiles,
 	useWorkspaceAiComposerDraftStore,
 	useWorkspaceAiComposerDraftText,
+	useWorkspaceAiComposerFocusRequest,
 } from "#/features/workspaces/state/workspace-ai-composer-draft-store";
 import { cn } from "#/lib/utils";
 
@@ -105,7 +113,12 @@ export default function AiChatPromptInput({
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 	const input = useWorkspaceAiComposerDraftText(activeThreadId);
 	const setDraftText = useWorkspaceAiComposerDraftStore((state) => state.setText);
-	const setInput = (value: SetStateAction<string>) => setDraftText(activeThreadId, value);
+	const setInput = useCallback(
+		(value: SetStateAction<string>) => setDraftText(activeThreadId, value),
+		[activeThreadId, setDraftText],
+	);
+	const focusRequest = useWorkspaceAiComposerFocusRequest(activeThreadId);
+	const clearFocusRequest = useWorkspaceAiComposerDraftStore((state) => state.clearFocusRequest);
 	const dictation = useAiChatDictation({ input, setInput });
 	const draftFiles = useWorkspaceAiComposerDraftFiles(activeThreadId);
 	const attachmentsReady =
@@ -131,11 +144,25 @@ export default function AiChatPromptInput({
 		setInput,
 		textareaRef,
 	});
-	useConsumeComposerPrompt({
-		setInput,
-		textareaRef,
-		workspaceId: context.workspaceId,
-	});
+	useEffect(() => {
+		if (focusRequest === 0) {
+			return;
+		}
+
+		const frame = requestAnimationFrame(() => {
+			const textarea = textareaRef.current;
+			if (!textarea) {
+				return;
+			}
+
+			textarea.focus();
+			const caret = textarea.value.length;
+			textarea.setSelectionRange(caret, caret);
+			clearFocusRequest(activeThreadId, focusRequest);
+		});
+
+		return () => cancelAnimationFrame(frame);
+	}, [activeThreadId, clearFocusRequest, focusRequest]);
 
 	const attachments: Omit<AttachmentsContext, "openFileDialog"> = {
 		add: addFiles,

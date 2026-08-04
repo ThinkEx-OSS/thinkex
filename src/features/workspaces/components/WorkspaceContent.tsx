@@ -1,5 +1,5 @@
 import { Eye, FolderOpen } from "lucide-react";
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import { ContextMenu, ContextMenuContent, ContextMenuTrigger } from "#/components/ui/context-menu";
 import {
@@ -40,7 +40,11 @@ import { useWorkspaceMutationAccess } from "#/features/workspaces/components/wor
 import { useWorkspaceViewCapabilities } from "#/features/workspaces/components/workspace-view-policy";
 import type { WorkspaceItemType, WorkspaceSummary } from "#/features/workspaces/contracts";
 import { getWorkspaceItemDisplay } from "#/features/workspaces/model/item-display";
-import { getWorkspaceChildren, splitWorkspaceChildren } from "#/features/workspaces/model/tree";
+import {
+	getWorkspaceChildren,
+	getWorkspaceItemPath,
+	splitWorkspaceChildren,
+} from "#/features/workspaces/model/tree";
 import type { WorkspaceItem } from "#/features/workspaces/model/types";
 import { getWorkspaceBrowseParentId, isWorkspaceItemView } from "#/features/workspaces/model/view";
 import { workspaceUploadTypeLabel } from "#/features/workspaces/upload/workspace-upload-intake";
@@ -69,11 +73,13 @@ export default function WorkspaceContent({
 }: WorkspaceContentProps) {
 	const workspaceId = workspace.id;
 	const actionDialogs = useWorkspaceItemActionDialogState();
+	const itemsById = useMemo(() => new Map(items.map((item) => [item.id, item])), [items]);
 
 	if (isWorkspaceItemView(activeItem)) {
 		return (
 			<>
 				<WorkspaceItemView
+					documentPath={getWorkspaceItemPath(activeItem, itemsById)}
 					item={activeItem}
 					viewInstanceId={viewInstanceId}
 					workspaceId={workspaceId}
@@ -472,6 +478,7 @@ function WorkspaceContentActionDialogs({
 }
 
 function WorkspaceItemView({
+	documentPath,
 	item,
 	viewInstanceId,
 	workspaceId,
@@ -479,6 +486,7 @@ function WorkspaceItemView({
 	onMoveItem,
 	onDeleteItem,
 }: {
+	documentPath: string;
 	item: WorkspaceItem;
 	viewInstanceId: string;
 	workspaceId: string;
@@ -491,6 +499,7 @@ function WorkspaceItemView({
 	if (item.type === "document") {
 		return (
 			<DocumentEditorSurface
+				documentPath={documentPath}
 				item={item}
 				viewInstanceId={viewInstanceId}
 				workspaceId={workspaceId}

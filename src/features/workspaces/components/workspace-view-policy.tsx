@@ -40,7 +40,7 @@ function subscribeToWorkspaceViewportChange(onChange: () => void) {
 	return () => media.removeEventListener("change", onChange);
 }
 
-function getWorkspaceViewportSnapshot(): WorkspaceViewportMode {
+export function getWorkspaceViewportMode(): WorkspaceViewportMode {
 	return window.matchMedia(WORKSPACE_DESKTOP_MEDIA_QUERY).matches ? "desktop" : "mobile";
 }
 
@@ -51,7 +51,7 @@ function getWorkspaceViewportServerSnapshot(): WorkspaceViewportMode {
 export function useWorkspaceViewPolicy() {
 	const viewportMode = useSyncExternalStore(
 		subscribeToWorkspaceViewportChange,
-		getWorkspaceViewportSnapshot,
+		getWorkspaceViewportMode,
 		getWorkspaceViewportServerSnapshot,
 	);
 

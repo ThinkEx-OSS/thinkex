@@ -47,7 +47,7 @@ export function DocumentToolbar({
 	workspaceId,
 }: {
 	canEdit: boolean;
-	documentPath: string | null;
+	documentPath: string;
 	editor: Editor | null;
 	itemId: string;
 	workspaceId: string;
@@ -90,7 +90,7 @@ export function DocumentToolbar({
 					<DocumentMobileMenuContent
 						editor={editor}
 						editorState={editorState}
-						onAddWidget={documentPath ? () => setAddWidgetOpen(true) : undefined}
+						onAddWidget={() => setAddWidgetOpen(true)}
 					/>
 				}
 				mobileContentClassName="max-h-[min(var(--available-height),28rem)] w-64 max-w-[calc(100dvw-2rem)] overscroll-contain"
@@ -113,25 +113,17 @@ export function DocumentToolbar({
 				>
 					<Redo2 />
 				</ToolbarButton>
-				{/* Disabled rather than hidden while the path loads, so the control
-				    does not appear and disappear as the workspace page settles. */}
-				<ToolbarButton
-					label="Add widget"
-					disabled={!documentPath}
-					onClick={() => setAddWidgetOpen(true)}
-				>
+				<ToolbarButton label="Add widget" onClick={() => setAddWidgetOpen(true)}>
 					<Shapes />
 				</ToolbarButton>
 				<DocumentMoreMenu disabled={!editor} />
 			</WorkspaceResponsiveToolbar>
-			{documentPath ? (
-				<WorkspaceAddWidgetDialog
-					documentPath={documentPath}
-					open={addWidgetOpen}
-					workspaceId={workspaceId}
-					onOpenChange={setAddWidgetOpen}
-				/>
-			) : null}
+			<WorkspaceAddWidgetDialog
+				documentPath={documentPath}
+				open={addWidgetOpen}
+				workspaceId={workspaceId}
+				onOpenChange={setAddWidgetOpen}
+			/>
 		</>
 	);
 }
@@ -184,7 +176,7 @@ function DocumentMobileMenuContent({
 }: {
 	editor: Editor | null;
 	editorState: DocumentEditorUiState;
-	onAddWidget?: () => void;
+	onAddWidget: () => void;
 }) {
 	return (
 		<>
@@ -228,12 +220,7 @@ function DocumentMobileMenuContent({
 					label="Redo"
 					onClick={() => editor?.chain().focus().redo().run()}
 				/>
-				<DocumentHistoryMenuItem
-					disabled={!onAddWidget}
-					icon={<Shapes />}
-					label="Add widget"
-					onClick={() => onAddWidget?.()}
-				/>
+				<DocumentHistoryMenuItem icon={<Shapes />} label="Add widget" onClick={onAddWidget} />
 			</DropdownMenuGroup>
 			<DropdownMenuSeparator />
 			<DocumentExportMenuGroup />

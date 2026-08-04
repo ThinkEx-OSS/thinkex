@@ -1,4 +1,5 @@
 import type { WorkspaceItem } from "#/features/workspaces/model/types";
+import { joinWorkspacePathSegment } from "#/features/workspaces/kernel/workspace-kernel-paths";
 
 interface WorkspaceTreeItem {
 	id: string;
@@ -125,6 +126,18 @@ export function getWorkspaceBreadcrumbItems(
 	}
 
 	return [...ancestors, item];
+}
+
+export function getWorkspaceItemPath(
+	item: WorkspaceItem,
+	itemsById: ReadonlyMap<string, WorkspaceItem>,
+) {
+	const relativePath = getWorkspaceBreadcrumbItems(item, itemsById).reduce(
+		(path, entry) => joinWorkspacePathSegment(path, entry.name),
+		"",
+	);
+
+	return `/${relativePath}`;
 }
 
 export function getWorkspaceItemMeta(item: WorkspaceItem, allItems: WorkspaceItem[]) {

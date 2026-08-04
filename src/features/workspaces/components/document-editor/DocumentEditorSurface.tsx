@@ -1,7 +1,7 @@
 import Collaboration from "@tiptap/extension-collaboration";
 import CollaborationCaret from "@tiptap/extension-collaboration-caret";
 import { EditorContent, useEditor } from "@tiptap/react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { Skeleton } from "#/components/ui/skeleton";
@@ -12,6 +12,7 @@ import { useDocumentEditorToolbar } from "#/features/workspaces/components/Works
 import { useWorkspacePaneRuntime } from "#/features/workspaces/components/WorkspacePaneRuntime";
 import { useWorkspaceMutationAccess } from "#/features/workspaces/components/workspace-mutation-access";
 import { DocumentEditReviewExtension } from "#/features/workspaces/documents/document-edit-review-extension";
+import { DocumentWidgetActionProvider } from "#/features/workspaces/documents/document-widget-node";
 import {
 	getTiptapDocumentBaseExtensions,
 	tiptapDocumentYjsField,
@@ -22,18 +23,16 @@ import {
 } from "#/features/workspaces/documents/use-document-collaboration-session";
 import { useDocumentEditReviewOverlay } from "#/features/workspaces/documents/use-document-edit-review-overlay";
 import type { WorkspaceItem } from "#/features/workspaces/model/types";
-import {
-	readWorkspaceItemPath,
-	useWorkspaceItemPath,
-} from "#/features/workspaces/model/use-workspace-item-path";
 import { DEFAULT_COLLABORATION_COLOR } from "#/lib/design-system-colors";
 import { getAuthSessionQueryOptions } from "#/lib/session-query";
 
 export function DocumentEditorSurface({
+	documentPath,
 	item,
 	viewInstanceId,
 	workspaceId,
 }: {
+	documentPath: string;
 	item: WorkspaceItem;
 	viewInstanceId: string;
 	workspaceId: string;
@@ -55,6 +54,7 @@ export function DocumentEditorSurface({
 	return (
 		<DocumentEditorInstance
 			collaborationSession={collaborationSession}
+			documentPath={documentPath}
 			item={item}
 			viewInstanceId={viewInstanceId}
 			workspaceId={workspaceId}
@@ -64,19 +64,19 @@ export function DocumentEditorSurface({
 
 function DocumentEditorInstance({
 	collaborationSession,
+	documentPath,
 	item,
 	viewInstanceId,
 	workspaceId,
 }: {
 	collaborationSession: DocumentCollaborationSession;
+	documentPath: string;
 	item: WorkspaceItem;
 	viewInstanceId: string;
 	workspaceId: string;
 }) {
 	const { capabilities } = useWorkspaceMutationAccess();
-	const documentPath = useWorkspaceItemPath(workspaceId, item);
 	const paneRuntime = useWorkspacePaneRuntime();
-	const queryClient = useQueryClient();
 	const [scrollTarget, setScrollTarget] = useState<HTMLDivElement | null>(null);
 	const editor = useEditor({
 		immediatelyRender: false,
@@ -86,15 +86,7 @@ function DocumentEditorInstance({
 		onContentError: ({ disableCollaboration }) => {
 			disableCollaboration();
 		},
-		extensions: getDocumentEditorExtensions(collaborationSession, {
-			onAskAiToFixWidget: capabilities.canMutateContent
-				? (error) =>
-						stageComposerPrompt(
-							workspaceId,
-							`A widget in ${readWorkspaceItemPath(queryClient, workspaceId, item) ?? item.name} hit this error. Please fix it:\n\n${error}`,
-						)
-				: undefined,
-		}),
+		extensions: getDocumentEditorExtensions(collaborationSession),
 		editorProps: {
 			attributes: {
 				"aria-label": capabilities.canMutateContent
@@ -139,7 +131,19 @@ function DocumentEditorInstance({
 						scrollTarget={scrollTarget}
 						workspaceId={workspaceId}
 					/>
-					<EditorContent className="min-h-full" editor={editor} />
+					<DocumentWidgetActionProvider
+						onAskAiToFix={
+							capabilities.canMutateContent
+								? (error) =>
+										stageComposerPrompt(
+											workspaceId,
+											`A widget in ${documentPath} hit this error. Please fix it:\n\n${error}`,
+										)
+								: undefined
+						}
+					>
+						<EditorContent className="min-h-full" editor={editor} />
+					</DocumentWidgetActionProvider>
 				</div>
 			</div>
 			<DocumentWordCount editor={editor} />
@@ -147,11 +151,8 @@ function DocumentEditorInstance({
 	);
 }
 
-function getDocumentEditorExtensions(
-	collaborationSession: DocumentCollaborationSession,
-	options: { onAskAiToFixWidget?: (error: string) => void },
-) {
-	const baseExtensions = getTiptapDocumentBaseExtensions(options);
+function getDocumentEditorExtensions(collaborationSession: DocumentCollaborationSession) {
+	const baseExtensions = getTiptapDocumentBaseExtensions();
 
 	return [
 		...baseExtensions,

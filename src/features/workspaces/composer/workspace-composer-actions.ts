@@ -1,5 +1,6 @@
 import { toast } from "sonner";
 import { WORKSPACE_AI_CHAT_ATTACHMENT_POLICY } from "#/features/workspaces/components/ai-chat/constants";
+import { getWorkspaceViewportMode } from "#/features/workspaces/components/workspace-view-policy";
 import { getDefaultWorkspaceThreadId } from "#/features/workspaces/ai/ai-thread-identity";
 import type { WorkspaceSelectedQuote } from "#/features/workspaces/model/workspace-selected-quotes";
 import { useWorkspaceAiComposerDraftStore } from "#/features/workspaces/state/workspace-ai-composer-draft-store";
@@ -39,10 +40,10 @@ export function stageComposerPrompt(
 		return;
 	}
 
-	useWorkspaceAiComposerDraftStore.getState().setPrompt(workspaceId, trimmed);
+	useWorkspaceAiComposerDraftStore.getState().stageText(getComposerThreadId(workspaceId), trimmed);
 
 	if (revealChat) {
-		useWorkspaceUiStore.getState().setChatSurfaceMode(workspaceId, "docked");
+		revealComposer(workspaceId);
 	}
 }
 
@@ -56,7 +57,7 @@ export function stageComposerQuote(
 	useWorkspaceAiComposerDraftStore.getState().addQuote(workspaceId, quote);
 
 	if (revealChat) {
-		useWorkspaceUiStore.getState().setChatSurfaceMode(workspaceId, "docked");
+		revealComposer(workspaceId);
 	}
 }
 
@@ -74,8 +75,17 @@ export function stageComposerFiles(
 	});
 
 	if (revealChat) {
-		useWorkspaceUiStore.getState().setChatSurfaceMode(workspaceId, "docked");
+		revealComposer(workspaceId);
 	}
+}
+
+function revealComposer(workspaceId: string) {
+	useWorkspaceUiStore
+		.getState()
+		.setChatSurfaceMode(
+			workspaceId,
+			getWorkspaceViewportMode() === "mobile" ? "fullscreen" : "docked",
+		);
 }
 
 export function stageCaptureAttachmentToComposer(

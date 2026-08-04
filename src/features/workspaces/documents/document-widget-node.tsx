@@ -1,6 +1,7 @@
 import type { NodeViewProps } from "@tiptap/react";
 import { NodeViewContent, NodeViewWrapper } from "@tiptap/react";
 import { Shapes } from "lucide-react";
+import { createContext, type ReactNode, use } from "react";
 
 import {
 	CodeBlockHeader,
@@ -9,13 +10,20 @@ import {
 } from "#/components/code-block/code-block-chrome";
 import { WorkspaceWidgetSandbox } from "#/features/workspaces/components/widget/WorkspaceWidgetSandbox";
 
-export interface DocumentWidgetViewOptions {
-	/**
-	 * Called with a crashed widget's error text so the surface can offer a way
-	 * out. Left unset the affordance is hidden, which is right for any read-only
-	 * rendering of a document.
-	 */
-	onAskAiToFix: ((error: string) => void) | null;
+const DocumentWidgetActionContext = createContext<((error: string) => void) | null>(null);
+
+export function DocumentWidgetActionProvider({
+	children,
+	onAskAiToFix,
+}: {
+	children: ReactNode;
+	onAskAiToFix?: (error: string) => void;
+}) {
+	return (
+		<DocumentWidgetActionContext value={onAskAiToFix ?? null}>
+			{children}
+		</DocumentWidgetActionContext>
+	);
 }
 
 /**
@@ -31,10 +39,10 @@ export interface DocumentWidgetViewOptions {
  * and `ignoreMutation` stops the editor re-parsing when React re-renders the
  * header — selection mutations pass through so clicking away behaves normally.
  */
-export function DocumentWidgetView({ extension, node, selected }: NodeViewProps) {
+export function DocumentWidgetView({ node, selected }: NodeViewProps) {
 	const html = node.textContent;
 	const title = typeof node.attrs.title === "string" ? node.attrs.title : "";
-	const { onAskAiToFix } = extension.options as DocumentWidgetViewOptions;
+	const onAskAiToFix = use(DocumentWidgetActionContext);
 	const label = title || "Widget";
 	const askAiToFix = onAskAiToFix
 		? (error: string) => onAskAiToFix(title ? `the "${title}" widget: ${error}` : error)
@@ -62,6 +70,7 @@ export function DocumentWidgetView({ extension, node, selected }: NodeViewProps)
 			</CodeBlockHeader>
 			<WorkspaceWidgetSandbox
 				html={html}
+				label={title || undefined}
 				className="workspace-document-widget-frame"
 				onAskAiToFix={askAiToFix}
 			/>

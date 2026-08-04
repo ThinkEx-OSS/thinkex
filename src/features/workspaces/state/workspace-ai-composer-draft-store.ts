@@ -29,15 +29,9 @@ type WorkspaceAiComposerDraftFileError = {
 
 interface WorkspaceAiComposerDraftState {
 	filesByThreadId: Record<string, WorkspaceAiComposerDraftFile[] | undefined>;
+	focusRequestByThreadId: Record<string, number | undefined>;
 	quotesByWorkspaceId: Record<string, WorkspaceSelectedQuote[] | undefined>;
 	textByThreadId: Record<string, string | undefined>;
-	/**
-	 * Editable text staged into the composer from outside the composer component
-	 * (e.g. a document toolbar's "Add widget"). The composer consumes and clears
-	 * it on mount, appending it to whatever the user already typed; it is never
-	 * auto-sent.
-	 */
-	promptByWorkspaceId: Record<string, string | undefined>;
 	addFiles: (
 		workspaceId: string,
 		threadId: string,
@@ -47,12 +41,12 @@ interface WorkspaceAiComposerDraftState {
 	addQuote: (workspaceId: string, quote: WorkspaceSelectedQuote) => void;
 	clearDraftArtifacts: (workspaceId: string, threadId: string) => void;
 	clearFiles: (threadId: string) => void;
-	clearPrompt: (workspaceId: string) => void;
+	clearFocusRequest: (threadId: string, request: number) => void;
 	clearQuotes: (workspaceId: string) => void;
 	removeFile: (threadId: string, fileId: string) => void;
 	removeQuote: (workspaceId: string, quoteId: string) => void;
-	setPrompt: (workspaceId: string, text: string) => void;
 	setText: (threadId: string, value: SetStateAction<string>) => void;
+	stageText: (threadId: string, text: string) => void;
 }
 
 const EMPTY_DRAFT_FILES: WorkspaceAiComposerDraftFile[] = [];
@@ -138,7 +132,19 @@ export const useWorkspaceAiComposerDraftStore = create<WorkspaceAiComposerDraftS
 		clearDraftArtifacts: (workspaceId, threadId) =>
 			set((state) => clearDraftArtifacts(state, workspaceId, threadId)),
 		clearFiles: (threadId) => set((state) => clearFilesForThread(state, threadId)),
-		clearPrompt: (workspaceId) => set((state) => clearPromptForWorkspace(state, workspaceId)),
+		clearFocusRequest: (threadId, request) =>
+			set((state) => {
+				if (state.focusRequestByThreadId[threadId] !== request) {
+					return state;
+				}
+
+				return {
+					focusRequestByThreadId: {
+						...state.focusRequestByThreadId,
+						[threadId]: undefined,
+					},
+				};
+			}),
 		clearQuotes: (workspaceId) =>
 			set((state) => {
 				const current = state.quotesByWorkspaceId[workspaceId] ?? EMPTY_DRAFT_QUOTES;
@@ -154,7 +160,7 @@ export const useWorkspaceAiComposerDraftStore = create<WorkspaceAiComposerDraftS
 				};
 			}),
 		filesByThreadId: {},
-		promptByWorkspaceId: {},
+		focusRequestByThreadId: {},
 		quotesByWorkspaceId: {},
 		removeFile: (threadId, fileId) => {
 			const file = get().filesByThreadId[threadId]?.find((item) => item.id === fileId);
@@ -178,20 +184,6 @@ export const useWorkspaceAiComposerDraftStore = create<WorkspaceAiComposerDraftS
 					},
 				};
 			}),
-		setPrompt: (workspaceId, text) =>
-			set((state) => {
-				const trimmed = text.trim();
-				if (!trimmed) {
-					return state;
-				}
-
-				return {
-					promptByWorkspaceId: {
-						...state.promptByWorkspaceId,
-						[workspaceId]: trimmed,
-					},
-				};
-			}),
 		setText: (threadId, value) =>
 			set((state) => {
 				const current = state.textByThreadId[threadId] ?? "";
@@ -205,6 +197,27 @@ export const useWorkspaceAiComposerDraftStore = create<WorkspaceAiComposerDraftS
 					textByThreadId: {
 						...state.textByThreadId,
 						[threadId]: next || undefined,
+					},
+				};
+			}),
+		stageText: (threadId, text) =>
+			set((state) => {
+				const stagedText = text.trim();
+				if (!stagedText) {
+					return state;
+				}
+
+				const current = state.textByThreadId[threadId] ?? "";
+				const next = current.trim() ? `${current.trimEnd()}\n\n${stagedText}` : stagedText;
+
+				return {
+					focusRequestByThreadId: {
+						...state.focusRequestByThreadId,
+						[threadId]: (state.focusRequestByThreadId[threadId] ?? 0) + 1,
+					},
+					textByThreadId: {
+						...state.textByThreadId,
+						[threadId]: next,
 					},
 				};
 			}),
@@ -241,11 +254,11 @@ export function useWorkspaceAiComposerDraftText(threadId: string) {
 	);
 }
 
-export function useWorkspaceAiComposerDraftPrompt(workspaceId: string) {
+export function useWorkspaceAiComposerFocusRequest(threadId: string) {
 	return useWorkspaceAiComposerDraftStore(
 		useMemo(
-			() => (state: WorkspaceAiComposerDraftState) => state.promptByWorkspaceId[workspaceId],
-			[workspaceId],
+			() => (state: WorkspaceAiComposerDraftState) => state.focusRequestByThreadId[threadId] ?? 0,
+			[threadId],
 		),
 	);
 }
@@ -255,27 +268,10 @@ function clearDraftArtifacts(
 	workspaceId: string,
 	threadId: string,
 ) {
-	return clearPromptForWorkspace(
-		clearQuotesForWorkspace(
-			clearTextForThread(clearFilesForThread(state, threadId), threadId),
-			workspaceId,
-		),
+	return clearQuotesForWorkspace(
+		clearTextForThread(clearFilesForThread(state, threadId), threadId),
 		workspaceId,
 	);
-}
-
-function clearPromptForWorkspace(state: WorkspaceAiComposerDraftState, workspaceId: string) {
-	if (state.promptByWorkspaceId[workspaceId] === undefined) {
-		return state;
-	}
-
-	return {
-		...state,
-		promptByWorkspaceId: {
-			...state.promptByWorkspaceId,
-			[workspaceId]: undefined,
-		},
-	};
 }
 
 function clearFilesForThread(state: WorkspaceAiComposerDraftState, threadId: string) {
