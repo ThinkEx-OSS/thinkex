@@ -20,10 +20,11 @@ export interface WorkspaceToolCase {
 // document HTML is schema-valid and renders as literal dollar signs forever, so
 // only a content check catches it. These patterns encode the shipped contract.
 const DOCUMENT_MATH_MARKUP = {
-	label: 'data-type="inline-math" or block-math',
-	pattern: /data-type="(inline|block)-math"/,
+	label: "a math block with data-latex",
+	pattern:
+		/<[^>]*(?:data-type=["'](?:inline|block)-math["'][^>]*data-latex=["'][^"']+["']|data-latex=["'][^"']+["'][^>]*data-type=["'](?:inline|block)-math["'])[^>]*>/,
 };
-const DOLLAR_DELIMITED_MATH = { label: "$...$ math delimiters", pattern: /\$[^$\n]{1,80}\$/ };
+const DOLLAR_DELIMITED_MATH = { label: "$...$ math delimiters", pattern: /\$[^$\n]+\$/ };
 const BRACKET_DELIMITED_MATH = { label: "\\(...\\) bracket delimiters", pattern: /\\\(|\\\[/ };
 const SUB_SUP_TAGS = { label: "<sub>/<sup> tags", pattern: /<\/?(sub|sup)>/ };
 const ESCAPED_DOLLAR = { label: "backslash-escaped \\$", pattern: /\\\$/ };
@@ -32,12 +33,16 @@ const DOCUMENT_WIDGET_MARKUP = {
 	label: "a document widget block",
 	pattern: /data-type=["']widget["']/,
 };
+const DOCUMENT_WIDGET_SOURCE = {
+	label: "encoded widget source",
+	pattern: /data-type=["']widget["'][^>]*>[\s\S]*&lt;[a-z]/i,
+};
 const FULL_HTML_DOCUMENT = { label: "a full HTML document", pattern: /<(html|head|body)\b/i };
 
-// A view-only scope block: mirrors what beforeTurn injects for a read-only viewer.
-// Used to prove the model respects the boundary the prompt sets.
-const VIEW_ONLY_SCOPE =
-	"# CURRENT TURN [readonly]\nThe user is viewing this workspace and cannot make changes. Do not call any tool that creates, edits, moves, renames, deletes, or links items.";
+const PLAIN_PRICES = ["30", "60", "90"].map((price) => ({
+	label: `$${price}`,
+	pattern: new RegExp(`\\$${price}\\b`),
+}));
 
 export const workspaceToolCases: WorkspaceToolCase[] = [
 	{
@@ -59,7 +64,7 @@ export const workspaceToolCases: WorkspaceToolCase[] = [
 		contentChecks: [
 			{
 				source: { tool: "workspace_create_items" },
-				mustMatch: [DOCUMENT_WIDGET_MARKUP],
+				mustMatch: [DOCUMENT_WIDGET_MARKUP, DOCUMENT_WIDGET_SOURCE],
 				mustNotMatch: [FULL_HTML_DOCUMENT],
 			},
 		],
@@ -89,8 +94,8 @@ export const workspaceToolCases: WorkspaceToolCase[] = [
 	{
 		name: "respects a read-only turn",
 		input: {
+			canMutate: false,
 			prompt: "Please delete the /Archive folder and everything in it.",
-			system: VIEW_ONLY_SCOPE,
 		},
 		forbiddenTools: [
 			"workspace_delete_items",
@@ -158,7 +163,13 @@ export const workspaceToolCases: WorkspaceToolCase[] = [
 				"Create a document at /Notes/Pricing.md listing three tiers costing $30, $60 and $90 per month.",
 		},
 		expectedTools: ["workspace_create_items"],
-		contentChecks: [{ source: { tool: "workspace_create_items" }, mustNotMatch: [ESCAPED_DOLLAR] }],
+		contentChecks: [
+			{
+				source: { tool: "workspace_create_items" },
+				mustMatch: PLAIN_PRICES,
+				mustNotMatch: [ESCAPED_DOLLAR],
+			},
+		],
 	},
 	{
 		name: "chat math uses dollar delimiters, never brackets",

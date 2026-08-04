@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { workspaceToolCases } from "./datasets/workspace-tools.cases";
-import { EVAL_READ_FIXTURE_REFS, runWorkspaceAgent } from "./support/harness";
+import { runWorkspaceAgent, type WorkspaceAgentOutput } from "./support/harness";
 import {
 	scoreAnswerQuality,
 	scoreContent,
@@ -10,6 +10,30 @@ import {
 	scoreTargetedEditProvenance,
 	scoreToolInputsValid,
 } from "./support/scorers";
+
+const STANDUP_LIST_REF = "b_standupList1.r_bullet0001";
+
+describe("workspace eval scorers", () => {
+	it.each([
+		{ expected: false, priorReadEditRefs: [] },
+		{ expected: true, priorReadEditRefs: [STANDUP_LIST_REF] },
+	])("requires an editRef from a completed earlier read", ({ expected, priorReadEditRefs }) => {
+		const output: WorkspaceAgentOutput = {
+			text: "",
+			toolCalls: [
+				{
+					input: { edits: [{ editRef: STANDUP_LIST_REF, op: "insert_after" }] },
+					issues: [],
+					name: "workspace_edit_item",
+					priorReadEditRefs,
+					valid: true,
+				},
+			],
+		};
+
+		expect(scoreTargetedEditProvenance(output).pass).toBe(expected);
+	});
+});
 
 // Live evals: real model turns through the real gateway wiring. On-demand and
 // billed, so they live outside `pnpm test` — run with `pnpm eval`. Skip cleanly
@@ -36,7 +60,7 @@ describe.skipIf(!process.env.AI_GATEWAY_API_KEY)("workspace tools", () => {
 		// 2b. Deterministic — a read→edit turn made a targeted edit whose ref came
 		//     from the read fixture, not a fabricated ref or a whole-doc overwrite.
 		if (testCase.requiresTargetedEditFromRead) {
-			const provenance = scoreTargetedEditProvenance(output, EVAL_READ_FIXTURE_REFS);
+			const provenance = scoreTargetedEditProvenance(output);
 			expect(provenance.pass, `edit provenance — ${provenance.message}`).toBe(true);
 		}
 

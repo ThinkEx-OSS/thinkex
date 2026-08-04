@@ -66,39 +66,40 @@ export function scoreNoForbiddenTools(
 
 /**
  * For a read→edit turn: the model must submit a *targeted* edit (replace / insert /
- * delete) whose `editRef` came from the read fixture — not a fabricated target,
- * and not a whole-document `overwrite`. Without this, a hollow read stub plus the
- * permissive string schema let a hallucinated target score a false pass.
+ * delete) whose `editRef` came from a completed earlier read, not a fabricated
+ * target or a whole-document `overwrite`.
  */
-export function scoreTargetedEditProvenance(
-	output: WorkspaceAgentOutput,
-	validEditRefs: string[],
-): ScoreResult {
-	const editRefs = new Set(validEditRefs);
-	const edits = output.toolCalls
-		.filter((call) => call.name === "workspace_edit_item")
-		.flatMap((call) => {
-			const input = call.input as { edits?: Array<{ editRef?: string; op?: string }> };
-			return Array.isArray(input.edits) ? input.edits : [];
-		});
-	const isValidRef = (edit: { editRef?: string }) =>
-		typeof edit.editRef === "string" && editRefs.has(edit.editRef);
-	const targeted = edits.filter((edit) => edit.op !== "overwrite" && isValidRef(edit));
-	const fabricated = edits.filter((edit) => edit.op !== "overwrite" && !isValidRef(edit));
-	const usedOverwrite = edits.some((edit) => edit.op === "overwrite");
-	const pass = targeted.length > 0 && fabricated.length === 0 && !usedOverwrite;
+export function scoreTargetedEditProvenance(output: WorkspaceAgentOutput): ScoreResult {
+	let targeted = 0;
+	const fabricated: string[] = [];
+	let usedOverwrite = false;
+
+	for (const call of output.toolCalls) {
+		if (call.name !== "workspace_edit_item") continue;
+		const input = call.input as { edits?: Array<{ editRef?: string; op?: string }> };
+		if (!Array.isArray(input.edits)) continue;
+
+		const priorReadEditRefs = new Set(call.priorReadEditRefs);
+		for (const edit of input.edits) {
+			if (edit.op === "overwrite") {
+				usedOverwrite = true;
+			} else if (typeof edit.editRef === "string" && priorReadEditRefs.has(edit.editRef)) {
+				targeted += 1;
+			} else {
+				fabricated.push(edit.editRef ?? "<none>");
+			}
+		}
+	}
+	const pass = targeted > 0 && fabricated.length === 0 && !usedOverwrite;
 
 	const reasons: string[] = [];
-	if (targeted.length === 0) reasons.push("no targeted edit used an editRef from the read");
-	if (fabricated.length > 0)
-		reasons.push(
-			`fabricated editRef(s): ${fabricated.map((edit) => edit.editRef ?? "<none>").join(", ")}`,
-		);
+	if (targeted === 0) reasons.push("no targeted edit used an editRef from the read");
+	if (fabricated.length > 0) reasons.push(`fabricated editRef(s): ${fabricated.join(", ")}`);
 	if (usedOverwrite) reasons.push("used overwrite instead of a targeted edit");
 	return {
 		score: pass ? 1 : 0,
 		pass,
-		message: pass ? "targeted edit used an editRef from the read fixture" : reasons.join("; "),
+		message: pass ? "targeted edit used an editRef from a prior read" : reasons.join("; "),
 	};
 }
 
@@ -134,13 +135,13 @@ function collectStrings(value: unknown, out: string[] = []): string[] {
 
 export function scoreContent(output: WorkspaceAgentOutput, check: ContentCheck): ScoreResult {
 	const source = check.source;
-	const subject =
-		typeof source === "string"
-			? output.text
-			: output.toolCalls
-					.filter((call) => call.name === source.tool)
-					.flatMap((call) => collectStrings(call.input))
-					.join("\n");
+	const strings: string[] = [];
+	if (typeof source !== "string") {
+		for (const call of output.toolCalls) {
+			if (call.name === source.tool) collectStrings(call.input, strings);
+		}
+	}
+	const subject = typeof source === "string" ? output.text : strings.join("\n");
 
 	if (!subject.trim()) {
 		const label = typeof check.source === "string" ? "final answer" : `${check.source.tool} input`;
