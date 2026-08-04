@@ -4,28 +4,44 @@ import { NodeViewContent, NodeViewWrapper, ReactNodeViewRenderer } from "@tiptap
 import { WorkspaceWidgetSandbox } from "#/features/workspaces/components/widget/WorkspaceWidgetSandbox";
 import { Widget } from "#/features/workspaces/documents/tiptap-schema";
 
+export interface DocumentWidgetOptions {
+	/**
+	 * Called with a crashed widget's error text so the surface can offer a way
+	 * out. Left unset the affordance is hidden, which is right for any read-only
+	 * rendering of a document.
+	 */
+	onAskAiToFix: ((error: string) => void) | null;
+}
+
 /**
  * The editor's widget: the authored HTML running in its sandboxed frame.
  *
- * Three things keep ProseMirror and the frame out of each other's way.
- * `contentEditable={false}` stops a click inside the widget being read as a text
- * selection. `stopEvent` keeps events raised inside the node view from reaching
- * the editor at all. `ignoreMutation` stops the editor re-parsing when the frame
- * changes its own DOM — selection mutations still pass through, so clicking away
- * from the widget behaves normally.
+ * The frame is a separate document, so its own events never reach the editor and
+ * there is nothing to suppress. What does reach the editor is a click or drag on
+ * the handle, and those have to get through: they are how the widget is selected,
+ * deleted and moved. Tiptap's default `stopEvent` already lets exactly those
+ * through for a selectable, draggable node, so overriding it only breaks them.
+ *
+ * `contentEditable={false}` still stops a click being read as a text selection,
+ * and `ignoreMutation` stops the editor re-parsing when React re-renders the
+ * handle — selection mutations pass through so clicking away behaves normally.
  */
-export const DocumentWidget = Widget.extend({
+export const DocumentWidget = Widget.extend<DocumentWidgetOptions>({
+	addOptions() {
+		return { onAskAiToFix: null };
+	},
+
 	addNodeView() {
 		return ReactNodeViewRenderer(DocumentWidgetView, {
-			stopEvent: () => true,
 			ignoreMutation: ({ mutation }) => mutation.type !== "selection",
 		});
 	},
 });
 
-function DocumentWidgetView({ node, selected }: NodeViewProps) {
+function DocumentWidgetView({ extension, node, selected }: NodeViewProps) {
 	const html = node.textContent;
 	const title = typeof node.attrs.title === "string" ? node.attrs.title : "";
+	const { onAskAiToFix } = extension.options as DocumentWidgetOptions;
 
 	return (
 		<NodeViewWrapper
@@ -38,7 +54,15 @@ function DocumentWidgetView({ node, selected }: NodeViewProps) {
 			<div className="workspace-document-widget-handle" data-drag-handle contentEditable={false}>
 				<span>{title || "Widget"}</span>
 			</div>
-			<WorkspaceWidgetSandbox html={html} className="workspace-document-widget-frame" />
+			<WorkspaceWidgetSandbox
+				html={html}
+				className="workspace-document-widget-frame"
+				onAskAiToFix={
+					onAskAiToFix
+						? (error) => onAskAiToFix(title ? `the "${title}" widget: ${error}` : error)
+						: undefined
+				}
+			/>
 			{/* A widget's source is its text content, so ProseMirror needs somewhere
 			    to render it. Without this element Tiptap appends one itself and the
 			    raw source shows up as prose in the document. It stays hidden: the

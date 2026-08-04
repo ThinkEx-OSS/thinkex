@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { type QueryClient, useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 
 import type { WorkspaceItem } from "#/features/workspaces/model/types";
@@ -23,4 +23,24 @@ export function useWorkspaceItemPath(workspaceId: string, item: WorkspaceItem | 
 
 		return getWorkspaceAiContextItemPath(item, new Map(items.map((entry) => [entry.id, entry])));
 	}, [item, items]);
+}
+
+/**
+ * The same path, read imperatively at call time.
+ *
+ * For callbacks that outlive the render that created them — a Tiptap extension
+ * option, say — where capturing the path would pin whatever was known when the
+ * editor was built, which is usually nothing.
+ */
+export function readWorkspaceItemPath(
+	queryClient: QueryClient,
+	workspaceId: string,
+	item: WorkspaceItem,
+) {
+	const page = queryClient.getQueryData(workspacePageQueryOptions(workspaceId).queryKey);
+	if (!page) {
+		return null;
+	}
+
+	return getWorkspaceAiContextItemPath(item, new Map(page.items.map((entry) => [entry.id, entry])));
 }

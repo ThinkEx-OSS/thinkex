@@ -23,7 +23,7 @@ Use **ordinary blocks** when the value is in _rich text_: notes, explanations, s
    `--background`, `--foreground`, `--card`, `--card-foreground`, `--primary`, `--primary-foreground`, `--secondary`, `--secondary-foreground`, `--muted`, `--muted-foreground`, `--accent`, `--border`, `--input`, `--ring`, `--radius`.
    The sandbox toggles a `.dark` class on the root element when the app is in dark mode; because you use the variables, you rarely need to special-case `.dark` yourself.
 4. **No chrome of your own.** The block already draws a border and a title strip showing the `title` attribute, and the surrounding prose says what the widget is for. So do **not** repeat the title as a heading, and do **not** wrap everything in an outer bordered/rounded panel. Start straight into the content. Borders and `var(--card)` backgrounds are for genuinely separate sub-regions (a stat tile, a chart panel), never the outer shell. One short line of instructions is fine when it says something the title doesn't.
-5. **Fill the frame.** The block is a fixed 420px tall. Your HTML goes directly in `<body>`, which is `height: 100%`, so put `height: 100%` on your root and design for that height rather than assuming the page will grow. Do **not** cap the width with `max-width`, centre it with `margin: auto`, or leave wide outer gutters; that strands the content in dead space. Modest padding (about 16px) is enough. Let the main visual area grow with `flex: 1` (a flex child that must shrink also needs `min-height: 0`). Anything taller scrolls inside the frame, so keep the primary controls visible without scrolling.
+5. **Let the height come from your content.** The block measures what you render and sizes itself to match, between 120px and 720px; past that it scrolls. So do **not** set `height: 100%` on your root — there is no fixed frame to fill, and it will collapse. Give any element that has no natural height — a `<canvas>`, a chart area, a map — an explicit height in px, and let everything else flow. Do **not** cap the width with `max-width`, centre it with `margin: auto`, or add outer padding; the frame already provides a gutter that scales with its width, and anything on top of it strands the content in dead space. Keep a widget to roughly one screenful: a compact layout beats one the reader has to scroll inside.
 6. **Fail loudly, not silently.** If something can error, let it throw — the sandbox catches runtime errors and offers the user an "Ask AI to fix" button that sends the error back to you.
 
 ## Starter template
@@ -33,8 +33,6 @@ Note what is _absent_: no title, no outer panel. The content starts immediately.
 ```html
 <style>
 	.tx-root {
-		height: 100%;
-		padding: 16px;
 		display: flex;
 		flex-direction: column;
 		gap: 12px;
@@ -88,10 +86,11 @@ Always size the backing store from the measured layout box, account for device p
 
 ```html
 <style>
+	/* An explicit height: the block sizes itself to the content, so a canvas
+	   with only a percentage height would measure zero and never appear. */
 	.chart-wrap {
-		flex: 1;
-		min-height: 0;
-	} /* min-height:0 lets a flex child actually shrink */
+		height: 320px;
+	}
 	canvas {
 		display: block;
 		width: 100%;

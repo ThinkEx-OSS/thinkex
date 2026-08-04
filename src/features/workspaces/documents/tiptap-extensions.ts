@@ -14,13 +14,17 @@ import {
 
 export { tiptapDocumentYjsField };
 
-export function getTiptapDocumentBaseExtensions() {
+export function getTiptapDocumentBaseExtensions(
+	options: { onAskAiToFixWidget?: (error: string) => void } = {},
+) {
 	return [
 		...getTiptapDocumentSchemaExtensions({
-			// Both extend the node spec the server uses, adding only how it draws.
+			// All three extend the node spec the server uses, adding only how it draws.
 			citation: DocumentCitation,
 			codeBlock: CodeBlockShiki,
-			widget: DocumentWidget,
+			widget: DocumentWidget.configure({
+				onAskAiToFix: options.onAskAiToFixWidget ?? null,
+			}),
 		}),
 		Placeholder.configure({
 			placeholder: ({ node }) => (node.type.name === "heading" ? "Untitled" : "Write something..."),

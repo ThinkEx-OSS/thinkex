@@ -6,6 +6,8 @@ import { Button } from "#/components/ui/button";
 import {
 	buildWidgetSandboxDocument,
 	isWidgetSandboxFrameMessage,
+	WIDGET_SANDBOX_MAX_HEIGHT,
+	WIDGET_SANDBOX_MIN_HEIGHT,
 	WIDGET_SANDBOX_TOKENS,
 } from "#/features/workspaces/components/widget/workspace-widget-sandbox-document";
 import { cn } from "#/lib/utils";
@@ -36,6 +38,7 @@ export function WorkspaceWidgetSandbox({
 	const iframeRef = useRef<HTMLIFrameElement>(null);
 	const [srcDoc, setSrcDoc] = useState<string | null>(null);
 	const [error, setError] = useState<string | null>(null);
+	const [height, setHeight] = useState(WIDGET_SANDBOX_MIN_HEIGHT);
 
 	// Build the sandbox document from the authored HTML plus the host's resolved
 	// design tokens (read from the live root). Rebuilding on theme change or edit
@@ -71,9 +74,18 @@ export function WorkspaceWidgetSandbox({
 			}
 			if (event.data.kind === "error") {
 				setError(event.data.message);
-			} else {
-				setError(null);
+				return;
 			}
+			if (event.data.kind === "height") {
+				setHeight(
+					Math.min(
+						WIDGET_SANDBOX_MAX_HEIGHT,
+						Math.max(WIDGET_SANDBOX_MIN_HEIGHT, event.data.height),
+					),
+				);
+				return;
+			}
+			setError(null);
 		}
 
 		window.addEventListener("message", onMessage);
@@ -81,7 +93,9 @@ export function WorkspaceWidgetSandbox({
 	}, []);
 
 	return (
-		<div className={cn("relative h-full min-h-0 bg-background", className)}>
+		// Height comes from the frame's own content, so the block takes the room
+		// the widget needs instead of a number chosen here.
+		<div className={cn("relative bg-background", className)} style={{ height }}>
 			<iframe
 				ref={iframeRef}
 				title="Widget preview"

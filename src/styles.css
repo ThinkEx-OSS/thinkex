@@ -712,8 +712,9 @@
 		user-select: none;
 	}
 
+	/* No height here: the frame measures its own content and sizes itself. */
 	.workspace-document-prose .workspace-document-widget-frame {
-		height: 420px;
+		width: 100%;
 	}
 
 	/* Holds the widget's source, which ProseMirror must render somewhere but the

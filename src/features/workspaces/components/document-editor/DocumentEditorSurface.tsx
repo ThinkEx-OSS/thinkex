@@ -1,10 +1,11 @@
 import Collaboration from "@tiptap/extension-collaboration";
 import CollaborationCaret from "@tiptap/extension-collaboration-caret";
 import { EditorContent, useEditor } from "@tiptap/react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { Skeleton } from "#/components/ui/skeleton";
+import { stageComposerPrompt } from "#/features/workspaces/composer/workspace-composer-actions";
 import { DocumentAskSelectionMenu } from "#/features/workspaces/components/document-editor/DocumentAskSelectionMenu";
 import { DocumentWordCount } from "#/features/workspaces/components/document-editor/DocumentWordCount";
 import { useDocumentEditorToolbar } from "#/features/workspaces/components/WorkspaceItemToolbarSlot";
@@ -21,7 +22,10 @@ import {
 } from "#/features/workspaces/documents/use-document-collaboration-session";
 import { useDocumentEditReviewOverlay } from "#/features/workspaces/documents/use-document-edit-review-overlay";
 import type { WorkspaceItem } from "#/features/workspaces/model/types";
-import { useWorkspaceItemPath } from "#/features/workspaces/model/use-workspace-item-path";
+import {
+	readWorkspaceItemPath,
+	useWorkspaceItemPath,
+} from "#/features/workspaces/model/use-workspace-item-path";
 import { DEFAULT_COLLABORATION_COLOR } from "#/lib/design-system-colors";
 import { getAuthSessionQueryOptions } from "#/lib/session-query";
 
@@ -72,6 +76,7 @@ function DocumentEditorInstance({
 	const { capabilities } = useWorkspaceMutationAccess();
 	const documentPath = useWorkspaceItemPath(workspaceId, item);
 	const paneRuntime = useWorkspacePaneRuntime();
+	const queryClient = useQueryClient();
 	const [scrollTarget, setScrollTarget] = useState<HTMLDivElement | null>(null);
 	const editor = useEditor({
 		immediatelyRender: false,
@@ -81,7 +86,13 @@ function DocumentEditorInstance({
 		onContentError: ({ disableCollaboration }) => {
 			disableCollaboration();
 		},
-		extensions: getDocumentEditorExtensions(collaborationSession),
+		extensions: getDocumentEditorExtensions(collaborationSession, {
+			onAskAiToFixWidget: (error) =>
+				stageComposerPrompt(
+					workspaceId,
+					`A widget in ${readWorkspaceItemPath(queryClient, workspaceId, item) ?? item.name} hit this error — please fix it:\n\n${error}`,
+				),
+		}),
 		editorProps: {
 			attributes: {
 				"aria-label": capabilities.canMutateContent
@@ -134,8 +145,11 @@ function DocumentEditorInstance({
 	);
 }
 
-function getDocumentEditorExtensions(collaborationSession: DocumentCollaborationSession) {
-	const baseExtensions = getTiptapDocumentBaseExtensions();
+function getDocumentEditorExtensions(
+	collaborationSession: DocumentCollaborationSession,
+	options: { onAskAiToFixWidget: (error: string) => void },
+) {
+	const baseExtensions = getTiptapDocumentBaseExtensions(options);
 
 	return [
 		...baseExtensions,

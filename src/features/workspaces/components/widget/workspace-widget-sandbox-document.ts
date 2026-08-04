@@ -19,12 +19,22 @@
 
 /** Host → frame messages (theme updates). */
 export const WIDGET_SANDBOX_HOST_SOURCE = "thinkex-widget-host" as const;
-/** Frame → host messages (ready / runtime errors). */
+/** Frame → host messages (ready / height / runtime errors). */
 export const WIDGET_SANDBOX_FRAME_SOURCE = "thinkex-widget-frame" as const;
 
 export type WidgetSandboxFrameMessage =
 	| { source: typeof WIDGET_SANDBOX_FRAME_SOURCE; kind: "ready" }
+	| { source: typeof WIDGET_SANDBOX_FRAME_SOURCE; kind: "height"; height: number }
 	| { source: typeof WIDGET_SANDBOX_FRAME_SOURCE; kind: "error"; message: string };
+
+/**
+ * Bounds on a widget's reported height. A widget sits in the flow of a
+ * document, so it should take the room it needs and no more: a four-line
+ * converter should not reserve a screenful, and a tall explorer should not be
+ * cut off. Past the maximum the widget scrolls inside its own frame.
+ */
+export const WIDGET_SANDBOX_MIN_HEIGHT = 120;
+export const WIDGET_SANDBOX_MAX_HEIGHT = 720;
 
 /**
  * Semantic design tokens copied from the host into the frame. Kept to a curated
@@ -117,10 +127,11 @@ export function buildWidgetSandboxDocument({
 	// Bad expressions render muted in place rather than throwing, so one
 	// malformed formula never takes the whole widget down.
 	//
-	// The base stylesheet sets a definite height chain and nothing else: widgets
-	// fill the frame with `height: 100%`, and a percentage height only resolves
-	// against a parent with a definite height. Layout beyond that belongs to the
-	// widget — host-side centring or max-widths just strand it in dead space.
+	// The base stylesheet deliberately sets no height. The frame reports what its
+	// content measures and the host sizes the block to match, so a widget takes
+	// the room it needs rather than a number picked here. Layout beyond that
+	// belongs to the widget — host-side centring or max-widths strand it in dead
+	// space.
 	return `<!doctype html>
 <html lang="en"${theme === "dark" ? ' class="dark"' : ""}>
 <head>
@@ -130,7 +141,9 @@ export function buildWidgetSandboxDocument({
 ${katexTags}
 <style>
 :root{${tokenDeclarations}color-scheme:${theme};}
-html,body{margin:0;padding:0;height:100%;background:var(--background);color:var(--foreground);font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;}
+html,body{margin:0;background:var(--background);color:var(--foreground);font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;}
+html{padding:0;}
+body{padding:clamp(10px,2.5%,16px);}
 *,*::before,*::after{box-sizing:border-box;}
 </style>
 </head>
@@ -176,6 +189,20 @@ ${html}
       document.documentElement.style.colorScheme=data.theme;
     }
   });
+  var lastHeight=0;
+  function measure(){
+    // scrollHeight over getBoundingClientRect: it accounts for margins that
+    // escape the body box, which would otherwise report short and clip.
+    var height=Math.ceil(Math.max(document.documentElement.scrollHeight,document.body.scrollHeight));
+    if(!height||Math.abs(height-lastHeight)<2)return;
+    lastHeight=height;
+    post({source:FRAME,kind:"height",height:height});
+  }
+  if(typeof ResizeObserver==="function"){
+    new ResizeObserver(measure).observe(document.body);
+  }
+  window.addEventListener("load",measure);
+  measure();
   post({source:FRAME,kind:"ready"});
 })();
 </script>
@@ -191,6 +218,6 @@ export function isWidgetSandboxFrameMessage(value: unknown): value is WidgetSand
 	const message = value as { source?: unknown; kind?: unknown };
 	return (
 		message.source === WIDGET_SANDBOX_FRAME_SOURCE &&
-		(message.kind === "ready" || message.kind === "error")
+		(message.kind === "ready" || message.kind === "error" || message.kind === "height")
 	);
 }
