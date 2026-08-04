@@ -90,22 +90,35 @@ export const WIDGET_SANDBOX_TOKENS = [
 
 /** Path KaTeX's browser build is served from (see scripts/copy-widget-libs.mjs). */
 const WIDGET_KATEX_BASE_PATH = "/widget-libs/katex";
+const WIDGET_KATEX_STYLESHEET_PATH = `${WIDGET_KATEX_BASE_PATH}/katex.min.css`;
+const WIDGET_KATEX_SCRIPT_PATHS = [
+	`${WIDGET_KATEX_BASE_PATH}/katex.min.js`,
+	`${WIDGET_KATEX_BASE_PATH}/contrib/mhchem.min.js`,
+	`${WIDGET_KATEX_BASE_PATH}/contrib/auto-render.min.js`,
+] as const;
+const WIDGET_KATEX_FONT_PATH = `${WIDGET_KATEX_BASE_PATH}/fonts/`;
 
 /** Any supported math notation: chat LaTeX delimiters, document markup, or the API. */
 const WIDGET_MATH_PATTERN = /\$\$|\\\(|\\\[|data-latex|katex|renderMathInElement/;
 
 /**
- * Restrictive CSP for the frame. Widgets are self-contained HTML: inline
- * scripts/styles, plus the app's own origin so the bundled KaTeX build can
- * load. `connect-src 'none'` still blocks every runtime network call.
+ * Restrictive CSP for the frame. Widgets are self-contained HTML: only inline
+ * scripts/styles and the exact bundled KaTeX resources may load. Connection
+ * APIs such as fetch, XHR, and WebSocket are blocked. A script can still
+ * navigate its own sandboxed frame, so this policy promises isolation from the
+ * host app rather than impossible zero communication.
  */
 function getWidgetSandboxCsp(origin: string) {
+	const stylesheetUrl = `${origin}${WIDGET_KATEX_STYLESHEET_PATH}`;
+	const scriptUrls = WIDGET_KATEX_SCRIPT_PATHS.map((path) => `${origin}${path}`).join(" ");
+	const fontUrl = `${origin}${WIDGET_KATEX_FONT_PATH}`;
+
 	return [
 		"default-src 'none'",
-		`style-src 'unsafe-inline' ${origin}`,
-		`script-src 'unsafe-inline' ${origin}`,
+		`style-src 'unsafe-inline' ${stylesheetUrl}`,
+		`script-src 'unsafe-inline' ${scriptUrls}`,
 		"img-src data: blob:",
-		`font-src data: ${origin}`,
+		`font-src data: ${fontUrl}`,
 		"media-src data: blob:",
 		"connect-src 'none'",
 		"object-src 'none'",
@@ -129,19 +142,18 @@ export function buildWidgetSandboxDocument({
 	origin,
 	sessionId,
 }: BuildWidgetSandboxDocumentInput): string {
-	const tokenDeclarations = Object.entries(tokens)
-		.filter(([, value]) => value.trim().length > 0)
-		.map(([name, value]) => `${name}: ${value};`)
-		.join("");
+	let tokenDeclarations = "";
+	for (const name of WIDGET_SANDBOX_TOKENS) {
+		const value = tokens[name]?.trim();
+		if (value) tokenDeclarations += `${name}: ${value};`;
+	}
 
 	// Only widgets that actually contain math pay for KaTeX (~290KB plus fonts).
 	// Over-matching just costs a cached fetch; under-matching leaves math
 	// unrendered, so the test is deliberately loose.
 	const katexTags = WIDGET_MATH_PATTERN.test(html)
-		? `<link rel="stylesheet" href="${origin}${WIDGET_KATEX_BASE_PATH}/katex.min.css" />
-<script src="${origin}${WIDGET_KATEX_BASE_PATH}/katex.min.js"></script>
-<script src="${origin}${WIDGET_KATEX_BASE_PATH}/contrib/mhchem.min.js"></script>
-<script src="${origin}${WIDGET_KATEX_BASE_PATH}/contrib/auto-render.min.js"></script>`
+		? `<link rel="stylesheet" href="${origin}${WIDGET_KATEX_STYLESHEET_PATH}" />
+${WIDGET_KATEX_SCRIPT_PATHS.map((path) => `<script src="${origin}${path}"></script>`).join("\n")}`
 		: "";
 
 	// Widgets are HTML, so math is authored the same way documents author it —

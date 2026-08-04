@@ -43,10 +43,13 @@ describe("WorkspaceWidgetSandbox", () => {
 	});
 
 	it("updates the live frame theme without rebuilding authored HTML", async () => {
-		await act(async () => root.render(<WorkspaceWidgetSandbox html="<p>one</p>" />));
+		await act(async () =>
+			root.render(<WorkspaceWidgetSandbox html="<p>one</p>" label="Counter" />),
+		);
 
 		const iframe = container.querySelector("iframe");
 		expect(iframe).not.toBeNull();
+		expect(iframe?.title).toBe("Counter widget");
 		if (!iframe?.contentWindow) throw new Error("Expected the sandbox iframe window");
 
 		const initialDocument = iframe.getAttribute("srcdoc");
@@ -69,7 +72,9 @@ describe("WorkspaceWidgetSandbox", () => {
 
 		themeState.resolvedTheme = "dark";
 		document.documentElement.style.setProperty("--background", "black");
-		await act(async () => root.render(<WorkspaceWidgetSandbox html="<p>one</p>" />));
+		await act(async () =>
+			root.render(<WorkspaceWidgetSandbox html="<p>one</p>" label="Counter" />),
+		);
 
 		expect(container.querySelector("iframe")).toBe(iframe);
 		expect(iframe.getAttribute("srcdoc")).toBe(initialDocument);
@@ -84,10 +89,53 @@ describe("WorkspaceWidgetSandbox", () => {
 			"*",
 		);
 
-		await act(async () => root.render(<WorkspaceWidgetSandbox html="<p>two</p>" />));
+		await act(async () =>
+			root.render(<WorkspaceWidgetSandbox html="<p>two</p>" label="Counter" />),
+		);
 		expect(iframe.getAttribute("srcdoc")).not.toBe(initialDocument);
 		expect(iframe.getAttribute("srcdoc")).toContain("<p>two</p>");
 		expect(iframe.getAttribute("srcdoc")).toContain("var SESSION=2");
+	});
+
+	it("resets height for new HTML and ignores messages from the old frame", async () => {
+		await act(async () => root.render(<WorkspaceWidgetSandbox html="<p>tall</p>" />));
+
+		const iframe = container.querySelector("iframe");
+		if (!iframe?.contentWindow) throw new Error("Expected the sandbox iframe window");
+		const frame = iframe.parentElement;
+
+		await act(async () => {
+			window.dispatchEvent(
+				new MessageEvent("message", {
+					data: {
+						source: WIDGET_SANDBOX_FRAME_SOURCE,
+						kind: "height",
+						height: 900,
+						sessionId: 1,
+					},
+					source: iframe.contentWindow,
+				}),
+			);
+		});
+		expect(frame?.style.height).toBe("720px");
+
+		await act(async () => root.render(<WorkspaceWidgetSandbox html="<p>short</p>" />));
+		expect(frame?.style.height).toBe("120px");
+
+		await act(async () => {
+			window.dispatchEvent(
+				new MessageEvent("message", {
+					data: {
+						source: WIDGET_SANDBOX_FRAME_SOURCE,
+						kind: "height",
+						height: 500,
+						sessionId: 1,
+					},
+					source: iframe.contentWindow,
+				}),
+			);
+		});
+		expect(frame?.style.height).toBe("120px");
 	});
 
 	it("lets the error view size itself instead of keeping the widget height", async () => {
@@ -113,5 +161,56 @@ describe("WorkspaceWidgetSandbox", () => {
 
 		expect(frame?.style.height).toBe("");
 		expect(frame?.querySelector('[role="alert"]')).not.toBeNull();
+		expect(frame?.querySelector("iframe")).toBeNull();
+
+		const retry = [...(frame?.querySelectorAll("button") ?? [])].find(
+			(button) => button.textContent === "Try again",
+		);
+		await act(async () => retry?.click());
+
+		expect(frame?.querySelector('[role="alert"]')).toBeNull();
+		expect(frame?.querySelector("iframe")).not.toBeNull();
+		expect(frame?.style.height).toBe("120px");
+	});
+
+	it("keeps a ready widget mounted after a runtime error", async () => {
+		await act(async () => root.render(<WorkspaceWidgetSandbox html="<button>Run</button>" />));
+
+		const iframe = container.querySelector("iframe");
+		if (!iframe?.contentWindow) throw new Error("Expected the sandbox iframe window");
+		const frame = iframe.parentElement;
+
+		await act(async () => {
+			window.dispatchEvent(
+				new MessageEvent("message", {
+					data: {
+						source: WIDGET_SANDBOX_FRAME_SOURCE,
+						kind: "ready",
+						sessionId: 1,
+					},
+					source: iframe.contentWindow,
+				}),
+			);
+			window.dispatchEvent(
+				new MessageEvent("message", {
+					data: {
+						source: WIDGET_SANDBOX_FRAME_SOURCE,
+						kind: "error",
+						message: "Click failed",
+						sessionId: 1,
+					},
+					source: iframe.contentWindow,
+				}),
+			);
+		});
+
+		expect(frame?.querySelector("iframe")).toBe(iframe);
+		expect(frame?.querySelector('[role="alert"]')).not.toBeNull();
+		const dismiss = [...(frame?.querySelectorAll("button") ?? [])].find(
+			(button) => button.textContent === "Dismiss",
+		);
+		await act(async () => dismiss?.click());
+		expect(frame?.querySelector('[role="alert"]')).toBeNull();
+		expect(frame?.querySelector("iframe")).toBe(iframe);
 	});
 });

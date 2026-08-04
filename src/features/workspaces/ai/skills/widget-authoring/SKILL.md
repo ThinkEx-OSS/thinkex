@@ -18,7 +18,7 @@ Do not add a widget merely to decorate an explanation. Use **ordinary blocks** f
 ## The HTML contract (read this before writing any widget)
 
 1. **Fragment only.** Provide the inner content only — HTML, one or more inline `<style>` blocks, and inline `<script>`. Do **NOT** include `<!doctype>`, `<html>`, `<head>`, or `<body>`. The sandbox wraps your fragment in a full document.
-2. **All JS is inline.** No external scripts, no `import`, no `fetch`, no network, no CDN links. `connect-src` is blocked and external scripts will not load. Write vanilla JS (or hand-rolled helpers) inline in a `<script>` tag.
+2. **All JS is inline.** Do not use external scripts, `import`, `fetch`, navigation, or CDN links. Connection APIs and external subresources are blocked; the frame itself remains isolated from the ThinkEx app. Write vanilla JS (or hand-rolled helpers) inline in a `<script>` tag.
 3. **Theme with the app's CSS variables.** The host injects these variables so the widget looks native in light and dark mode. Use them instead of hard-coded colors:
    `--background`, `--foreground`, `--card`, `--card-foreground`, `--primary`, `--primary-foreground`, `--secondary`, `--secondary-foreground`, `--muted`, `--muted-foreground`, `--accent`, `--border`, `--input`, `--ring`, `--radius`, `--font-sans`, `--font-mono`.
    The sandbox sets `data-theme="light|dark"` and toggles a `.dark` class on the root element; because you use the variables, you rarely need to special-case either one.

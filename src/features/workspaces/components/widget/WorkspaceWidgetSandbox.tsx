@@ -17,11 +17,17 @@ import { cn } from "#/lib/utils";
 type WorkspaceWidgetSandboxProps = {
 	html: string;
 	className?: string;
+	label?: string;
 	/**
 	 * Called with the runtime error text when the user asks the AI to fix a
 	 * crashed widget. Omit to hide the affordance.
 	 */
 	onAskAiToFix?: (error: string) => void;
+};
+
+type WidgetSandboxError = {
+	message: string;
+	preserveFrame: boolean;
 };
 
 /**
@@ -34,6 +40,7 @@ type WorkspaceWidgetSandboxProps = {
 export function WorkspaceWidgetSandbox({
 	html,
 	className,
+	label,
 	onAskAiToFix,
 }: WorkspaceWidgetSandboxProps) {
 	const { resolvedTheme } = useTheme();
@@ -43,7 +50,7 @@ export function WorkspaceWidgetSandbox({
 	const readySessionIdRef = useRef<number | null>(null);
 	const themeRef = useRef<WidgetSandboxTheme | null>(null);
 	const [srcDoc, setSrcDoc] = useState<string | null>(null);
-	const [error, setError] = useState<string | null>(null);
+	const [error, setError] = useState<WidgetSandboxError | null>(null);
 	const [height, setHeight] = useState(WIDGET_SANDBOX_MIN_HEIGHT);
 
 	// Build a fresh document only when authored HTML changes. Theme changes send
@@ -63,6 +70,7 @@ export function WorkspaceWidgetSandbox({
 				renderedHtmlRef.current = html;
 				sessionIdRef.current += 1;
 				readySessionIdRef.current = null;
+				setHeight(WIDGET_SANDBOX_MIN_HEIGHT);
 				setSrcDoc(
 					buildWidgetSandboxDocument({
 						html,
@@ -94,7 +102,10 @@ export function WorkspaceWidgetSandbox({
 				return;
 			}
 			if (event.data.kind === "error") {
-				setError(event.data.message);
+				setError({
+					message: event.data.message,
+					preserveFrame: readySessionIdRef.current === event.data.sessionId,
+				});
 				return;
 			}
 			if (event.data.kind === "height") {
@@ -116,34 +127,63 @@ export function WorkspaceWidgetSandbox({
 		return () => window.removeEventListener("message", onMessage);
 	}, []);
 
+	const retryWidget = () => {
+		readySessionIdRef.current = null;
+		setError(null);
+		setHeight(WIDGET_SANDBOX_MIN_HEIGHT);
+	};
+	const showFrame = !error || error.preserveFrame;
+
 	return (
 		// Height comes from the frame's own content, so the block takes the room
 		// the widget needs instead of a number chosen here.
-		<div className={cn("relative bg-background", className)} style={error ? undefined : { height }}>
-			{error ? (
-				<div
-					role="alert"
-					className="flex min-h-48 flex-col items-center justify-center gap-4 bg-background p-6 text-center"
-				>
-					<p className="font-medium text-foreground text-sm">Widget error</p>
-					<div className="max-h-32 w-full max-w-lg overflow-auto whitespace-pre-wrap rounded-md bg-muted px-4 py-3 font-mono text-muted-foreground text-xs leading-relaxed">
-						{error}
-					</div>
-					{onAskAiToFix ? (
-						<Button type="button" size="sm" variant="secondary" onClick={() => onAskAiToFix(error)}>
-							Ask AI to fix
-						</Button>
-					) : null}
-				</div>
-			) : (
+		<div
+			className={cn("relative bg-background", className)}
+			style={showFrame ? { height } : undefined}
+		>
+			{showFrame ? (
 				<iframe
 					ref={iframeRef}
-					title="Widget preview"
+					title={label ? `${label} widget` : "Widget"}
 					sandbox="allow-scripts"
 					srcDoc={srcDoc ?? undefined}
 					className="h-full w-full border-0 bg-background"
 				/>
-			)}
+			) : null}
+			{error ? (
+				<div
+					role="alert"
+					className={cn(
+						"flex min-h-48 flex-col items-center justify-center gap-4 bg-background p-6 text-center",
+						error.preserveFrame && "absolute inset-0 z-10 min-h-0 bg-background/95",
+					)}
+				>
+					<p className="font-medium text-foreground text-sm">Widget error</p>
+					<div className="max-h-32 w-full max-w-lg overflow-auto whitespace-pre-wrap rounded-md bg-muted px-4 py-3 font-mono text-muted-foreground text-xs leading-relaxed">
+						{error.message}
+					</div>
+					<div className="flex items-center gap-2">
+						<Button
+							type="button"
+							size="sm"
+							variant="outline"
+							onClick={error.preserveFrame ? () => setError(null) : retryWidget}
+						>
+							{error.preserveFrame ? "Dismiss" : "Try again"}
+						</Button>
+						{onAskAiToFix ? (
+							<Button
+								type="button"
+								size="sm"
+								variant="secondary"
+								onClick={() => onAskAiToFix(error.message)}
+							>
+								Ask AI to fix
+							</Button>
+						) : null}
+					</div>
+				</div>
+			) : null}
 		</div>
 	);
 }
