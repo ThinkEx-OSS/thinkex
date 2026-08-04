@@ -14,27 +14,18 @@ import {
 import { sha256Base64UrlText } from "#/lib/binary";
 
 const TEXT_NODE = 3;
-const documentAiRefPattern = /^b_[A-Za-z0-9_-]{12}$/;
-const documentAiTargetRefPattern = /^(b_[A-Za-z0-9_-]{12})\.r_[A-Za-z0-9_-]{10}$/;
+const documentBlockIdPattern = /^b_[A-Za-z0-9_-]{12}$/;
+const documentAiEditRefPattern = /^(b_[A-Za-z0-9_-]{12})\.r_[A-Za-z0-9_-]{10}$/;
 export class DocumentAiHtmlError extends Error {}
 
-export interface ParseDocumentAiHtmlOptions {
-	/**
-	 * Source for a widget the model sent back empty. Reads elide widget source,
-	 * so HTML that came from a read carries placeholders — without this they
-	 * would be written back as empty widgets, silently destroying the source.
-	 */
-	resolveWidgetSource?: (ref: string) => string | null;
+export interface DocumentAiBlockSnapshot {
+	content: string;
+	editRef: string;
 }
 
-export function parseDocumentAiHtml(
-	html: string,
-	options: ParseDocumentAiHtmlOptions = {},
-): TiptapDocumentJson {
+export function parseDocumentAiHtml(html: string): TiptapDocumentJson {
 	const htmlDocument = createHtmlDocument();
 	htmlDocument.body.innerHTML = html;
-
-	restoreElidedWidgets(htmlDocument, options.resolveWidgetSource);
 
 	// A citation the operation could not resolve to a real item cannot navigate
 	// anywhere, so it becomes its own label rather than failing the write.
@@ -46,8 +37,8 @@ export function parseDocumentAiHtml(
 
 	validateDocumentAiHtml(htmlDocument.body);
 
-	for (const element of htmlDocument.body.querySelectorAll("[data-ref]")) {
-		element.removeAttribute("data-ref");
+	for (const element of htmlDocument.body.querySelectorAll("[data-edit-ref]")) {
+		element.removeAttribute("data-edit-ref");
 	}
 
 	try {
@@ -75,10 +66,10 @@ export async function serializeTiptapDocumentToAiHtml(document: TiptapDocumentJs
 }
 
 export async function serializeTiptapNodeToAiHtml(node: ProseMirrorNode) {
-	// The ref is hashed from the full node, so a widget whose source changed
-	// still invalidates it — only the serialized form is elided.
-	const withRef = withTiptapNodeAiRef(node, await createDocumentAiTargetRef(node));
-	return serializeTiptapFragmentToAiHtml(Fragment.from(elideWidgetSource(withRef)));
+	// The editRef is hashed from the full node, so a widget source change still
+	// invalidates it. Only the serialized source is elided.
+	const withEditRef = withTiptapNodeAiRef(node, await createDocumentAiEditRef(node));
+	return serializeTiptapFragmentToAiHtml(Fragment.from(elideWidgetSource(withEditRef)));
 }
 
 /**
@@ -86,8 +77,8 @@ export async function serializeTiptapNodeToAiHtml(node: ProseMirrorNode) {
  *
  * A widget runs to kilobytes of markup and script. Inlining that in every read
  * would crowd out the prose the model actually needs — a handful of widgets
- * would fill a whole chunk. The placeholder keeps the ref and title, which is
- * enough to decide whether to read it in full.
+ * would fill a whole chunk. The placeholder keeps the editRef and title, which
+ * is enough to decide whether to read it in full.
  */
 function elideWidgetSource(node: ProseMirrorNode): ProseMirrorNode {
 	if (node.type.name !== "widget") {
@@ -96,48 +87,53 @@ function elideWidgetSource(node: ProseMirrorNode): ProseMirrorNode {
 	return node.type.create(node.attrs, undefined, node.marks);
 }
 
-export async function createDocumentAiTargetRef(node: ProseMirrorNode) {
-	const ref = readTiptapNodeAiRef(node);
-	if (!ref) {
-		throw new Error(`Top-level document node ${node.type.name} is missing an AI ref.`);
+export async function createDocumentAiEditRef(node: ProseMirrorNode) {
+	const blockId = readTiptapNodeBlockId(node);
+	if (!blockId) {
+		throw new Error(`Top-level document node ${node.type.name} is missing a block ID.`);
 	}
 
 	// Fingerprint the block's JSON rather than its HTML: rendering costs a whole
-	// second DOM pass per block per read, and the ref only has to change whenever
+	// second DOM pass per block per read, and the editRef only has to change when
 	// the block's content does.
 	const content = JSON.stringify(withTiptapNodeAiRef(node, null).toJSON());
 	const revision = (await sha256Base64UrlText(content)).slice(0, 10);
-	return `${ref}.r_${revision}`;
+	return `${blockId}.r_${revision}`;
 }
 
-export function parseDocumentAiTargetRef(ref: string) {
-	return documentAiTargetRefPattern.exec(ref)?.[1] ?? null;
+export function parseDocumentAiEditRef(editRef: string) {
+	return documentAiEditRefPattern.exec(editRef)?.[1] ?? null;
 }
 
-export function ensureTiptapDocumentAiRefs(document: TiptapDocumentJson): {
+export function ensureTiptapDocumentBlockIds(document: TiptapDocumentJson): {
 	changed: boolean;
 	document: TiptapDocumentJson;
 } {
-	const refs = ensureProseMirrorDocumentAiRefs(getTiptapDocumentSchema().nodeFromJSON(document));
-	return refs.changed
-		? { changed: true, document: coerceTiptapDocumentJson(refs.document.toJSON()) }
+	const result = ensureProseMirrorDocumentBlockIds(
+		getTiptapDocumentSchema().nodeFromJSON(document),
+	);
+	return result.changed
+		? { changed: true, document: coerceTiptapDocumentJson(result.document.toJSON()) }
 		: { changed: false, document };
 }
 
-export function ensureProseMirrorDocumentAiRefs(document: ProseMirrorNode): {
+export function ensureProseMirrorDocumentBlockIds(document: ProseMirrorNode): {
 	changed: boolean;
 	document: ProseMirrorNode;
 } {
-	const usedRefs = new Set<string>();
+	const usedBlockIds = new Set<string>();
 	let changed = false;
 	const children: ProseMirrorNode[] = [];
 
 	document.forEach((node) => {
-		const currentRef = readTiptapNodeAiRef(node);
-		const ref = currentRef && !usedRefs.has(currentRef) ? currentRef : createDocumentAiRef();
-		usedRefs.add(ref);
-		changed ||= ref !== currentRef;
-		children.push(withTiptapNodeAiRef(node, ref));
+		const currentBlockId = readTiptapNodeBlockId(node);
+		const blockId =
+			currentBlockId && !usedBlockIds.has(currentBlockId)
+				? currentBlockId
+				: createDocumentBlockId();
+		usedBlockIds.add(blockId);
+		changed ||= blockId !== currentBlockId;
+		children.push(withTiptapNodeAiRef(node, blockId));
 	});
 
 	if (!changed) {
@@ -150,19 +146,19 @@ export function ensureProseMirrorDocumentAiRefs(document: ProseMirrorNode): {
 	};
 }
 
-export function createDocumentAiRef() {
+function createDocumentBlockId() {
 	return `b_${nanoid(12)}`;
 }
 
-export function readTiptapNodeAiRef(node: ProseMirrorNode) {
-	const ref = node.attrs[tiptapDocumentAiRefAttribute];
-	return typeof ref === "string" && documentAiRefPattern.test(ref) ? ref : null;
+export function readTiptapNodeBlockId(node: ProseMirrorNode) {
+	const blockId = node.attrs[tiptapDocumentAiRefAttribute];
+	return typeof blockId === "string" && documentBlockIdPattern.test(blockId) ? blockId : null;
 }
 
 export function withTiptapNodeAiRef(node: ProseMirrorNode, ref: string | null) {
 	const attributes = node.type.spec.attrs;
 	if (!attributes || !(tiptapDocumentAiRefAttribute in attributes)) {
-		throw new Error(`Top-level document node ${node.type.name} cannot carry an AI ref.`);
+		throw new Error(`Top-level document node ${node.type.name} cannot carry a block ID.`);
 	}
 
 	return node.type.create(
@@ -172,9 +168,23 @@ export function withTiptapNodeAiRef(node: ProseMirrorNode, ref: string | null) {
 	);
 }
 
-/** One block as HTML, synchronously and without a ref — for text matching. */
-export function serializeTiptapNodeToPlainAiHtml(node: ProseMirrorNode) {
-	return serializeTiptapFragmentToAiHtml(Fragment.from(node));
+/**
+ * The exact block HTML returned by a block read and matched by `replace_text`.
+ * Its editRef travels beside it, never inside it, so there is only one target
+ * value for the model to copy.
+ */
+export function serializeTiptapNodeToEditableAiHtml(node: ProseMirrorNode) {
+	return serializeTiptapFragmentToAiHtml(Fragment.from(withTiptapNodeAiRef(node, null)));
+}
+
+/** Content and edit target minted together from one live block. */
+export async function createDocumentAiBlockSnapshot(
+	node: ProseMirrorNode,
+): Promise<DocumentAiBlockSnapshot> {
+	return {
+		content: serializeTiptapNodeToEditableAiHtml(node),
+		editRef: await createDocumentAiEditRef(node),
+	};
 }
 
 function serializeTiptapFragmentToAiHtml(fragment: Fragment) {
@@ -186,29 +196,6 @@ function serializeTiptapFragmentToAiHtml(fragment: Fragment) {
 	);
 	container.appendChild(serialized as unknown as globalThis.Node);
 	return container.innerHTML;
-}
-
-/**
- * Fills an elided widget back in from the live document before parsing.
- *
- * The model reads a widget as `<div data-type="widget" data-ref="...">` with no
- * body. Sending that straight back — which `overwrite` does by design — would
- * otherwise replace real source with an empty node.
- */
-function restoreElidedWidgets(
-	htmlDocument: Document,
-	resolveWidgetSource: ((ref: string) => string | null) | undefined,
-) {
-	for (const element of htmlDocument.body.querySelectorAll('div[data-type="widget"]')) {
-		if (element.textContent?.trim()) {
-			continue;
-		}
-		const ref = element.getAttribute("data-ref");
-		const source = ref && resolveWidgetSource ? resolveWidgetSource(ref) : null;
-		if (source) {
-			element.textContent = source;
-		}
-	}
 }
 
 /**

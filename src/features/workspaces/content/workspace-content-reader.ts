@@ -7,6 +7,7 @@ import type {
 	DocumentHtmlChunkReadInput,
 	DocumentHtmlChunkReadResult,
 } from "#/features/workspaces/documents/document-html-chunk";
+import type { DocumentAiBlockSnapshot } from "#/features/workspaces/documents/document-ai-html";
 import { readWorkspacePageProjection } from "#/features/workspaces/extraction/workspace-page-projection";
 import {
 	resolveWorkspaceProjectionReadiness,
@@ -26,8 +27,8 @@ const maxWorkspaceContentBatchBytes = 2 * 1024 * 1024 + 64 * 1024;
 interface DocumentContentReader {
 	readHtmlChunk(input: DocumentHtmlChunkReadInput): Promise<DocumentHtmlChunkReadResult>;
 	readBlock(input: {
-		ref: string;
-	}): Promise<{ content: string; status: "ready" } | { status: "ref_not_found" }>;
+		editRef: string;
+	}): Promise<(DocumentAiBlockSnapshot & { status: "ready" }) | { status: "edit_ref_not_found" }>;
 }
 
 interface PendingReadyResult {
@@ -159,17 +160,17 @@ async function readDocumentBlock(input: {
 	}
 
 	const documentSession = await input.getDocumentSession(input.item.id);
-	const block = await documentSession.readBlock({ ref: input.request.ref });
+	const block = await documentSession.readBlock({ editRef: input.request.editRef });
 	if (block.status !== "ready") {
-		return { code: "ref_not_found", path: input.path, status: "failed" };
+		return { code: "edit_ref_not_found", path: input.path, status: "failed" };
 	}
 
 	return {
 		content: block.content,
+		editRef: block.editRef,
 		format: "html",
 		itemId: input.item.id,
 		path: input.path,
-		ref: input.request.ref,
 		status: "ready",
 		type: "block",
 	};

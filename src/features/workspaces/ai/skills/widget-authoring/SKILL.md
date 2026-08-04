@@ -122,9 +122,9 @@ Key points: never draw using hard-coded pixel dimensions; derive everything from
 
 ## Editing an existing widget
 
-1. Read the document. A widget comes back as an empty placeholder carrying its `data-ref` and title, so the source does not crowd out the prose. Read that ref back with `{ mode: "block", path, ref }` to get the source in full — never edit a widget from the placeholder alone.
-2. Prefer **targeted replacement**: `edits: [{ op: "replace_text", ref, find, replace }]`, where `ref` is the widget block's data-ref. Copy the exact current substring into `find`. It must match exactly once within that block — if it matches more than once the edit fails and tells you the count, so add surrounding context rather than guessing.
-3. For a ground-up rebuild, `{ op: "replace", ref, html }` swaps the whole widget block. For small changes ("make the button red", "add a reset control"), use `replace_text`. Never reach for `overwrite` to change a widget — it discards the entire document.
+1. Read the document. A widget comes back as an empty placeholder carrying its `data-edit-ref` and title, so the source does not crowd out the prose. Read it back with `{ mode: "block", path, editRef }` to get the full block and its current `editRef` — never edit a widget from the placeholder alone.
+2. Prefer **targeted replacement**: `edits: [{ op: "replace_text", editRef, find, replace }]`. A block read returns the exact HTML searched by `replace_text`; copy the current substring into `find`. It must match exactly once within that block — if it matches more than once the edit fails and tells you the count, so add surrounding context rather than guessing.
+3. For a ground-up rebuild, `{ op: "replace", editRef, html }` swaps the whole widget block. For small changes ("make the button red", "add a reset control"), use `replace_text`. Never reach for `overwrite` to change a widget — it discards the entire document.
 
 ## Good habits
 

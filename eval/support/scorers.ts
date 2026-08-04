@@ -66,36 +66,39 @@ export function scoreNoForbiddenTools(
 
 /**
  * For a read→edit turn: the model must submit a *targeted* edit (replace / insert /
- * delete) whose `ref` came from the read fixture — not a fabricated ref, and not a
- * whole-document `overwrite`. Without this, a hollow read stub plus the permissive
- * `ref` schema (any nonempty string) let a hallucinated target score a false pass.
+ * delete) whose `editRef` came from the read fixture — not a fabricated target,
+ * and not a whole-document `overwrite`. Without this, a hollow read stub plus the
+ * permissive string schema let a hallucinated target score a false pass.
  */
 export function scoreTargetedEditProvenance(
 	output: WorkspaceAgentOutput,
-	validRefs: string[],
+	validEditRefs: string[],
 ): ScoreResult {
-	const refs = new Set(validRefs);
+	const editRefs = new Set(validEditRefs);
 	const edits = output.toolCalls
 		.filter((call) => call.name === "workspace_edit_item")
 		.flatMap((call) => {
-			const input = call.input as { edits?: Array<{ op?: string; ref?: string }> };
+			const input = call.input as { edits?: Array<{ editRef?: string; op?: string }> };
 			return Array.isArray(input.edits) ? input.edits : [];
 		});
-	const isValidRef = (edit: { ref?: string }) => typeof edit.ref === "string" && refs.has(edit.ref);
+	const isValidRef = (edit: { editRef?: string }) =>
+		typeof edit.editRef === "string" && editRefs.has(edit.editRef);
 	const targeted = edits.filter((edit) => edit.op !== "overwrite" && isValidRef(edit));
 	const fabricated = edits.filter((edit) => edit.op !== "overwrite" && !isValidRef(edit));
 	const usedOverwrite = edits.some((edit) => edit.op === "overwrite");
 	const pass = targeted.length > 0 && fabricated.length === 0 && !usedOverwrite;
 
 	const reasons: string[] = [];
-	if (targeted.length === 0) reasons.push("no targeted edit used a ref from the read");
+	if (targeted.length === 0) reasons.push("no targeted edit used an editRef from the read");
 	if (fabricated.length > 0)
-		reasons.push(`fabricated ref(s): ${fabricated.map((e) => e.ref ?? "<none>").join(", ")}`);
+		reasons.push(
+			`fabricated editRef(s): ${fabricated.map((edit) => edit.editRef ?? "<none>").join(", ")}`,
+		);
 	if (usedOverwrite) reasons.push("used overwrite instead of a targeted edit");
 	return {
 		score: pass ? 1 : 0,
 		pass,
-		message: pass ? "targeted edit used a ref from the read fixture" : reasons.join("; "),
+		message: pass ? "targeted edit used an editRef from the read fixture" : reasons.join("; "),
 	};
 }
 

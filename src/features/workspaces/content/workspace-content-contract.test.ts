@@ -14,7 +14,11 @@ describe("workspace read tool schemas", () => {
 					{ mode: "start", path: "/Notes" },
 					{ mode: "pages", path: "/Book.pdf", range: "1-3" },
 					{ cursor: "opaque", mode: "continue", path: "/Notes" },
-					{ mode: "block", path: "/Notes", ref: "b_abcdefghijkl.r_0123456789" },
+					{
+						editRef: "b_abcdefghijkl.r_0123456789",
+						mode: "block",
+						path: "/Notes",
+					},
 				],
 			}).success,
 		).toBe(true);
@@ -40,7 +44,7 @@ describe("workspace read tool schemas", () => {
 							{ additionalProperties: false, required: ["path", "mode"] },
 							{ additionalProperties: false, required: ["path", "mode", "range"] },
 							{ additionalProperties: false, required: ["path", "cursor", "mode"] },
-							{ additionalProperties: false, required: ["path", "mode", "ref"] },
+							{ additionalProperties: false, required: ["path", "editRef", "mode"] },
 						],
 					},
 				},
@@ -56,7 +60,7 @@ describe("workspace read tool schemas", () => {
 				references: [],
 				results: [
 					{
-						content: '<h1 data-ref="b_abcdefghijkl">Notes</h1>',
+						content: '<h1 data-edit-ref="b_abcdefghijkl.r_0123456789">Notes</h1>',
 						format: "html",
 						itemId: "notes",
 						location: { endBlock: 1, kind: "blocks", startBlock: 1, totalBlocks: 1 },

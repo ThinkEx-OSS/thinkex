@@ -19,7 +19,7 @@ const readWorkspaceItemsFailureCodes = [
 	"path_not_absolute",
 	"path_not_found",
 	"projection_failed",
-	"ref_not_found",
+	"edit_ref_not_found",
 	"unsupported_item_type",
 ] as const;
 
@@ -53,13 +53,13 @@ const workspaceContentReadRequestSchema = z.union([
 	}),
 	z.strictObject({
 		...workspaceContentReadRequestBase,
-		mode: z.literal("block"),
-		ref: z
+		editRef: z
 			.string()
 			.min(1)
 			.describe(
-				"data-ref of one block from an earlier read of this document, returned in full. Reads elide a widget's source, so this is how to fetch it before editing.",
+				"editRef of one block from an earlier document read. The result returns the block in full with its current editRef.",
 			),
+		mode: z.literal("block"),
 	}),
 ]);
 
@@ -147,10 +147,10 @@ const workspaceContentReadResultSchema = z.union([
 	}),
 	z.object({
 		content: z.string(),
+		editRef: z.string().min(1),
 		format: z.literal("html"),
 		itemId: z.string().min(1),
 		path: workspacePathSchema,
-		ref: z.string().min(1),
 		relations: workspaceReadRelationsSchema.optional(),
 		status: z.literal("ready"),
 		type: z.literal("block"),

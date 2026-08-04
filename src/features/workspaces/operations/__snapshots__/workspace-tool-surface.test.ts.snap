@@ -201,14 +201,20 @@ exports[`workspace tool surface > workspace_edit_item input schema is stable 1`]
   "additionalProperties": false,
   "properties": {
     "edits": {
-      "description": "Ordered edits, at most 40. Target a block by copying its data-ref into the "ref" field (these are local to the document, not workspace citation refs). Use replace_text to change text inside one block, including a widget's source. Use overwrite only to discard the entire document and write a new one.",
+      "description": "Ordered edits, at most 40. Target a block with the exact editRef from a document or block read. A block read returns the exact content that replace_text matches. Use overwrite only to discard the entire document and write a new one.",
       "items": {
         "anyOf": [
           {
             "additionalProperties": false,
             "properties": {
+              "editRef": {
+                "description": "Exact editRef from a recent document or block read.",
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string",
+              },
               "html": {
-                "description": "Schema-constrained HTML fragment. Model-supplied data-ref attributes are ignored.",
+                "description": "Schema-constrained HTML fragment. Model-supplied data-edit-ref attributes are ignored.",
                 "maxLength": 512000,
                 "type": "string",
               },
@@ -220,37 +226,31 @@ exports[`workspace tool surface > workspace_edit_item input schema is stable 1`]
                 ],
                 "type": "string",
               },
-              "ref": {
-                "description": "Exact data-ref from a recent HTML read. Put it in the "ref" field, never "target".",
-                "maxLength": 64,
-                "minLength": 1,
-                "type": "string",
-              },
             },
             "required": [
+              "editRef",
               "html",
               "op",
-              "ref",
             ],
             "type": "object",
           },
           {
             "additionalProperties": false,
             "properties": {
-              "op": {
-                "const": "delete",
-                "type": "string",
-              },
-              "ref": {
-                "description": "Exact data-ref from a recent HTML read. Put it in the "ref" field, never "target".",
+              "editRef": {
+                "description": "Exact editRef from a recent document or block read.",
                 "maxLength": 64,
                 "minLength": 1,
                 "type": "string",
               },
+              "op": {
+                "const": "delete",
+                "type": "string",
+              },
             },
             "required": [
+              "editRef",
               "op",
-              "ref",
             ],
             "type": "object",
           },
@@ -258,7 +258,7 @@ exports[`workspace tool surface > workspace_edit_item input schema is stable 1`]
             "additionalProperties": false,
             "properties": {
               "html": {
-                "description": "Schema-constrained HTML fragment. Model-supplied data-ref attributes are ignored.",
+                "description": "Schema-constrained HTML fragment. Model-supplied data-edit-ref attributes are ignored.",
                 "maxLength": 512000,
                 "type": "string",
               },
@@ -276,6 +276,12 @@ exports[`workspace tool surface > workspace_edit_item input schema is stable 1`]
           {
             "additionalProperties": false,
             "properties": {
+              "editRef": {
+                "description": "Exact editRef from a recent document or block read.",
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string",
+              },
               "find": {
                 "description": "Exact text to replace inside the target block, copied from a read. It must appear exactly once in that block; if it matches more than once the edit fails instead of replacing every occurrence.",
                 "maxLength": 512000,
@@ -286,12 +292,6 @@ exports[`workspace tool surface > workspace_edit_item input schema is stable 1`]
                 "const": "replace_text",
                 "type": "string",
               },
-              "ref": {
-                "description": "Exact data-ref from a recent HTML read. Put it in the "ref" field, never "target".",
-                "maxLength": 64,
-                "minLength": 1,
-                "type": "string",
-              },
               "replace": {
                 "description": "Replacement text. May be empty to delete the matched text.",
                 "maxLength": 512000,
@@ -299,9 +299,9 @@ exports[`workspace tool surface > workspace_edit_item input schema is stable 1`]
               },
             },
             "required": [
+              "editRef",
               "find",
               "op",
-              "ref",
               "replace",
             ],
             "type": "object",
@@ -516,6 +516,11 @@ exports[`workspace tool surface > workspace_read_items input schema is stable 1`
           {
             "additionalProperties": false,
             "properties": {
+              "editRef": {
+                "description": "editRef of one block from an earlier document read. The result returns the block in full with its current editRef.",
+                "minLength": 1,
+                "type": "string",
+              },
               "mode": {
                 "const": "block",
                 "type": "string",
@@ -525,16 +530,11 @@ exports[`workspace tool surface > workspace_read_items input schema is stable 1`
                 "minLength": 1,
                 "type": "string",
               },
-              "ref": {
-                "description": "data-ref of one block from an earlier read of this document, returned in full. Reads elide a widget's source, so this is how to fetch it before editing.",
-                "minLength": 1,
-                "type": "string",
-              },
             },
             "required": [
               "path",
+              "editRef",
               "mode",
-              "ref",
             ],
             "type": "object",
           },

@@ -17,10 +17,11 @@ import {
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 
 import {
-	ensureProseMirrorDocumentAiRefs,
-	parseDocumentAiTargetRef,
-	readTiptapNodeAiRef,
-	serializeTiptapNodeToPlainAiHtml,
+	createDocumentAiBlockSnapshot,
+	type DocumentAiBlockSnapshot,
+	ensureProseMirrorDocumentBlockIds,
+	parseDocumentAiEditRef,
+	readTiptapNodeBlockId,
 } from "#/features/workspaces/documents/document-ai-html";
 import {
 	type DocumentHtmlChunkReadInput,
@@ -351,29 +352,35 @@ export class DocumentSession extends YServer {
 	}
 
 	/**
-	 * One block in full, addressed by a ref from an earlier read.
+	 * One block in full, addressed by an editRef from an earlier read.
 	 *
 	 * Document reads elide a widget's source to keep prose in the chunk, so this
 	 * is how the assistant fetches it before editing — and it works for any block
 	 * that is easier to read alone than to page to.
 	 */
 	async readBlock(input: {
-		ref: string;
-	}): Promise<{ content: string; status: "ready" } | { status: "ref_not_found" }> {
+		editRef: string;
+	}): Promise<(DocumentAiBlockSnapshot & { status: "ready" }) | { status: "edit_ref_not_found" }> {
 		this.assertActive();
 		const { document } = await this.getReferencedDocumentSnapshot();
-		const stableRef = parseDocumentAiTargetRef(input.ref) ?? input.ref;
+		const blockId = parseDocumentAiEditRef(input.editRef);
+		if (!blockId) {
+			return { status: "edit_ref_not_found" };
+		}
 
 		let found: ProseMirrorNode | null = null;
 		document.forEach((node) => {
-			if (!found && readTiptapNodeAiRef(node) === stableRef) {
+			if (!found && readTiptapNodeBlockId(node) === blockId) {
 				found = node;
 			}
 		});
 
 		return found
-			? { content: serializeTiptapNodeToPlainAiHtml(found), status: "ready" }
-			: { status: "ref_not_found" };
+			? {
+					...(await createDocumentAiBlockSnapshot(found)),
+					status: "ready",
+				}
+			: { status: "edit_ref_not_found" };
 	}
 
 	async purgeForDeletion(): Promise<void> {
@@ -486,7 +493,7 @@ export class DocumentSession extends YServer {
 	}
 
 	private async getReferencedDocumentSnapshot() {
-		const refs = ensureProseMirrorDocumentAiRefs(this.getCurrentProseMirrorDocument());
+		const refs = ensureProseMirrorDocumentBlockIds(this.getCurrentProseMirrorDocument());
 		if (refs.changed) {
 			this.reconcileCurrentDocument(coerceTiptapDocumentJson(refs.document.toJSON()));
 			await this.persistYDoc();

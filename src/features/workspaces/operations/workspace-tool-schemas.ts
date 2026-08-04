@@ -142,7 +142,7 @@ export const workspaceEditItemInputSchema = z.object({
 		.min(1)
 		.max(40)
 		.describe(
-			'Ordered edits, at most 40. Target a block by copying its data-ref into the "ref" field (these are local to the document, not workspace citation refs). Use replace_text to change text inside one block, including a widget\'s source. Use overwrite only to discard the entire document and write a new one.',
+			"Ordered edits, at most 40. Target a block with the exact editRef from a document or block read. A block read returns the exact content that replace_text matches. Use overwrite only to discard the entire document and write a new one.",
 		),
 });
 
@@ -244,6 +244,15 @@ export const workspaceReadItemsInputExamples = createInputExamples<
 			},
 		],
 	},
+	{
+		requests: [
+			{
+				editRef: "b_JQrkL4Neurv2.r_6sNqkQxDdy",
+				mode: "block",
+				path: "/Demo Folder/Demo Document",
+			},
+		],
+	},
 );
 
 export const workspaceSearchInputExamples = createInputExamples<
@@ -310,8 +319,8 @@ export const workspaceEditItemInputExamples = createInputExamples<
 		path: "/Demo Folder/Demo Document",
 		edits: [
 			{
+				editRef: "b_JQrkL4Neurv2.r_6sNqkQxDdy",
 				op: "replace",
-				ref: "b_JQrkL4Neurv2.r_6sNqkQxDdy",
 				html: "<p>Updated paragraph.</p>",
 			},
 		],
@@ -329,8 +338,8 @@ export const workspaceEditItemInputExamples = createInputExamples<
 		path: "/Demo Folder/Demo Document",
 		edits: [
 			{
+				editRef: "b_JQrkL4Neurv2.r_6sNqkQxDdy",
 				op: "replace_text",
-				ref: "b_JQrkL4Neurv2.r_6sNqkQxDdy",
 				find: "gravity = 9.8",
 				replace: "gravity = 3.7",
 			},

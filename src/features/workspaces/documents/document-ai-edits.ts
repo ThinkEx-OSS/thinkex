@@ -2,13 +2,13 @@ import { Fragment, type Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { z } from "zod";
 
 import {
-	createDocumentAiTargetRef,
+	createDocumentAiEditRef,
 	DocumentAiHtmlError,
-	ensureProseMirrorDocumentAiRefs,
+	ensureProseMirrorDocumentBlockIds,
 	parseDocumentAiHtml,
-	parseDocumentAiTargetRef,
-	serializeTiptapNodeToPlainAiHtml,
-	readTiptapNodeAiRef,
+	parseDocumentAiEditRef,
+	serializeTiptapNodeToEditableAiHtml,
+	readTiptapNodeBlockId,
 	withTiptapNodeAiRef,
 } from "#/features/workspaces/documents/document-ai-html";
 import type { DocumentEditLineChanges } from "#/features/workspaces/documents/document-edit-receipt";
@@ -18,40 +18,42 @@ import {
 } from "#/features/workspaces/documents/tiptap-document";
 import { getTiptapDocumentSchema } from "#/features/workspaces/documents/tiptap-schema";
 
-const documentAiRefSchema = z
+const documentEditRefSchema = z
 	.string()
 	.trim()
 	.min(1)
 	.max(64)
-	.describe('Exact data-ref from a recent HTML read. Put it in the "ref" field, never "target".');
+	.describe("Exact editRef from a recent document or block read.");
 export const documentAiHtmlSchema = z
 	.string()
 	.max(512_000)
-	.describe("Schema-constrained HTML fragment. Model-supplied data-ref attributes are ignored.");
+	.describe(
+		"Schema-constrained HTML fragment. Model-supplied data-edit-ref attributes are ignored.",
+	);
 const documentAiEditTextSchema = z.string().max(512_000);
 
 export const documentAiEditSchema = z.union([
 	z.strictObject({
+		editRef: documentEditRefSchema,
 		html: documentAiHtmlSchema,
 		op: z.enum(["insert_after", "insert_before", "replace"]),
-		ref: documentAiRefSchema,
 	}),
 	z.strictObject({
+		editRef: documentEditRefSchema,
 		op: z.literal("delete"),
-		ref: documentAiRefSchema,
 	}),
 	z.strictObject({
 		html: documentAiHtmlSchema,
 		op: z.literal("overwrite"),
 	}),
 	z.strictObject({
+		editRef: documentEditRefSchema,
 		find: documentAiEditTextSchema
 			.min(1)
 			.describe(
 				"Exact text to replace inside the target block, copied from a read. It must appear exactly once in that block; if it matches more than once the edit fails instead of replacing every occurrence.",
 			),
 		op: z.literal("replace_text"),
-		ref: documentAiRefSchema,
 		replace: documentAiEditTextSchema.describe(
 			"Replacement text. May be empty to delete the matched text.",
 		),
@@ -65,8 +67,8 @@ export const documentAiEditFailureCodes = [
 	"edit_not_unique",
 	"invalid_html",
 	"no_change",
-	"ref_not_found",
-	"stale_target",
+	"edit_ref_not_found",
+	"edit_ref_stale",
 ] as const;
 
 export type DocumentAiEdit = z.infer<typeof documentAiEditSchema>;
@@ -89,28 +91,28 @@ export async function applyDocumentAiEdits(
 ): Promise<DocumentAiEditResult> {
 	let current = getTiptapDocumentSchema().nodeFromJSON(document);
 	// Validate every targeted edit against the document as it existed when this
-	// tool call began. That lets one ordered batch reuse a read ref while still
-	// rejecting the same ref in a later call after a human or agent changed it.
-	const requestedStableRefs = new Set(
+	// tool call began. That lets one ordered batch reuse an editRef while still
+	// rejecting it in a later call after a human or agent changed the block.
+	const requestedBlockIds = new Set(
 		edits.flatMap((edit) => {
 			if (edit.op === "overwrite") {
 				return [];
 			}
-			const stableRef = parseDocumentAiTargetRef(edit.ref);
-			return stableRef ? [stableRef] : [];
+			const blockId = parseDocumentAiEditRef(edit.editRef);
+			return blockId ? [blockId] : [];
 		}),
 	);
 	const requestedTargets: Array<readonly [string, ProseMirrorNode]> = [];
 	current.forEach((node) => {
-		const stableRef = readTiptapNodeAiRef(node);
-		if (stableRef && requestedStableRefs.has(stableRef)) {
-			requestedTargets.push([stableRef, node]);
+		const blockId = readTiptapNodeBlockId(node);
+		if (blockId && requestedBlockIds.has(blockId)) {
+			requestedTargets.push([blockId, node]);
 		}
 	});
-	const targetRefByStableRef = new Map(
+	const editRefByBlockId = new Map(
 		await Promise.all(
 			requestedTargets.map(
-				async ([stableRef, node]) => [stableRef, await createDocumentAiTargetRef(node)] as const,
+				async ([blockId, node]) => [blockId, await createDocumentAiEditRef(node)] as const,
 			),
 		),
 	);
@@ -118,21 +120,21 @@ export async function applyDocumentAiEdits(
 	let applied = 0;
 
 	for (const [index, edit] of edits.entries()) {
-		let stableRef: string | undefined;
+		let blockId: string | undefined;
 		if (edit.op !== "overwrite") {
-			const parsedRef = parseDocumentAiTargetRef(edit.ref);
-			if (!parsedRef || !targetRefByStableRef.has(parsedRef)) {
-				failures.push({ code: "ref_not_found", index });
+			const parsedBlockId = parseDocumentAiEditRef(edit.editRef);
+			if (!parsedBlockId || !editRefByBlockId.has(parsedBlockId)) {
+				failures.push({ code: "edit_ref_not_found", index });
 				continue;
 			}
-			if (targetRefByStableRef.get(parsedRef) !== edit.ref) {
-				failures.push({ code: "stale_target", index });
+			if (editRefByBlockId.get(parsedBlockId) !== edit.editRef) {
+				failures.push({ code: "edit_ref_stale", index });
 				continue;
 			}
-			stableRef = parsedRef;
+			blockId = parsedBlockId;
 		}
 
-		const result = applyDocumentAiEdit(current, edit, stableRef);
+		const result = applyDocumentAiEdit(current, edit, blockId);
 		if (result.status === "failed") {
 			failures.push({
 				code: result.code,
@@ -209,12 +211,12 @@ function countDocumentLines(document: TiptapDocumentJson) {
 function applyDocumentAiEdit(
 	document: ProseMirrorNode,
 	edit: DocumentAiEdit,
-	stableRef?: string,
+	blockId?: string,
 ):
 	| { code: DocumentAiEditFailureCode; detail?: string; status: "failed" }
 	| { document: ProseMirrorNode; status: "applied" } {
 	if (edit.op === "overwrite") {
-		const parsed = parseEditHtml(edit.html, document);
+		const parsed = parseEditHtml(edit.html);
 		if (!parsed.children) {
 			return { code: "invalid_html", detail: parsed.detail, status: "failed" };
 		}
@@ -225,12 +227,12 @@ function applyDocumentAiEdit(
 			: { document: next, status: "applied" };
 	}
 
-	if (!stableRef) {
-		throw new Error("Targeted document edits require a validated stable ref.");
+	if (!blockId) {
+		throw new Error("Targeted document edits require a validated block id.");
 	}
-	const targetIndex = findTargetIndex(document, stableRef);
+	const targetIndex = findTargetIndex(document, blockId);
 	if (targetIndex === -1) {
-		return { code: "ref_not_found", status: "failed" };
+		return { code: "edit_ref_not_found", status: "failed" };
 	}
 
 	const children = getDocumentChildren(document);
@@ -238,51 +240,40 @@ function applyDocumentAiEdit(
 		children.splice(targetIndex, 1);
 	} else if (edit.op === "replace_text") {
 		const target = document.child(targetIndex);
-		const replaced = replaceUniqueText(readBlockText(target), edit.find, edit.replace);
+		const replaced = replaceUniqueText(
+			serializeTiptapNodeToEditableAiHtml(target),
+			edit.find,
+			edit.replace,
+		);
 		if (!replaced.ok) {
 			return { code: replaced.code, detail: replaced.detail, status: "failed" };
 		}
 
-		if (target.type.name === "widget") {
-			// A widget holds raw source, so the replacement is written straight back.
-			children.splice(
-				targetIndex,
-				1,
-				target.type.create(
-					target.attrs,
-					replaced.text ? getTiptapDocumentSchema().text(replaced.text) : undefined,
-					target.marks,
-				),
-			);
-		} else {
-			// Prose is markup, so the edited HTML is re-parsed and refitted to the
-			// schema exactly as a `replace` would be.
-			const parsed = parseEditHtml(replaced.text, document);
-			if (!parsed.children) {
-				return { code: "invalid_html", detail: parsed.detail, status: "failed" };
-			}
-			const targetRef = readTiptapNodeAiRef(target);
-			const firstNode = parsed.children[0];
-			children.splice(
-				targetIndex,
-				1,
-				...(targetRef && firstNode
-					? [withTiptapNodeAiRef(firstNode, targetRef), ...parsed.children.slice(1)]
-					: parsed.children),
-			);
-		}
-	} else {
-		const parsed = parseEditHtml(edit.html, document);
+		const parsed = parseEditHtml(replaced.text);
 		if (!parsed.children) {
 			return { code: "invalid_html", detail: parsed.detail, status: "failed" };
 		}
-		const targetRef = readTiptapNodeAiRef(document.child(targetIndex));
+		const targetBlockId = readTiptapNodeBlockId(target);
 		const firstNode = parsed.children[0];
-		// A replacement inherits the ref of the block it stands in for, so a model
-		// holding that ref can keep editing it.
+		children.splice(
+			targetIndex,
+			1,
+			...(targetBlockId && firstNode
+				? [withTiptapNodeAiRef(firstNode, targetBlockId), ...parsed.children.slice(1)]
+				: parsed.children),
+		);
+	} else {
+		const parsed = parseEditHtml(edit.html);
+		if (!parsed.children) {
+			return { code: "invalid_html", detail: parsed.detail, status: "failed" };
+		}
+		const targetBlockId = readTiptapNodeBlockId(document.child(targetIndex));
+		const firstNode = parsed.children[0];
+		// A replacement inherits the block ID of the block it stands in for, so a
+		// model holding its editRef can keep editing it.
 		const inserted =
-			edit.op === "replace" && targetRef && firstNode
-				? [withTiptapNodeAiRef(firstNode, targetRef), ...parsed.children.slice(1)]
+			edit.op === "replace" && targetBlockId && firstNode
+				? [withTiptapNodeAiRef(firstNode, targetBlockId), ...parsed.children.slice(1)]
 				: parsed.children;
 
 		switch (edit.op) {
@@ -304,40 +295,7 @@ function applyDocumentAiEdit(
 		: { document: next, status: "applied" };
 }
 
-/**
- * Source for a widget the model sent back empty, looked up in the document as it
- * stands. Reads elide widget source, so any HTML that came from a read carries
- * placeholders — a `overwrite` echoing them back would otherwise blank every
- * widget in the document.
- */
-function createWidgetSourceResolver(document: ProseMirrorNode) {
-	return (ref: string) => {
-		const blockRef = parseDocumentAiTargetRef(ref) ?? ref;
-		let source: string | null = null;
-		document.forEach((node) => {
-			if (
-				source === null &&
-				node.type.name === "widget" &&
-				readTiptapNodeAiRef(node) === blockRef
-			) {
-				source = node.textContent;
-			}
-		});
-		return source;
-	};
-}
-
-/** The text `replace_text` matches against: raw source for a widget, markup otherwise. */
-function readBlockText(node: ProseMirrorNode): string {
-	if (node.type.name === "widget") {
-		return node.textContent;
-	}
-	// Serialized without its ref, and the model's `find` is stripped the same way,
-	// so text copied from a read matches whether or not it kept the data-ref.
-	return serializeTiptapNodeToPlainAiHtml(withTiptapNodeAiRef(node, null));
-}
-
-const DATA_REF_ATTRIBUTE = /\s+data-ref="[^"]*"/g;
+const DATA_EDIT_REF_ATTRIBUTE = /\s+data-edit-ref="[^"]*"/g;
 
 /**
  * Replaces a single unique occurrence, or explains why it could not.
@@ -353,8 +311,8 @@ function replaceUniqueText(
 ):
 	| { ok: true; text: string }
 	| { ok: false; code: "edit_not_found" | "edit_not_unique"; detail: string } {
-	const haystack = source.replaceAll("\r\n", "\n").replace(DATA_REF_ATTRIBUTE, "");
-	const needle = find.replaceAll("\r\n", "\n").replace(DATA_REF_ATTRIBUTE, "");
+	const haystack = source.replaceAll("\r\n", "\n").replace(DATA_EDIT_REF_ATTRIBUTE, "");
+	const needle = find.replaceAll("\r\n", "\n").replace(DATA_EDIT_REF_ATTRIBUTE, "");
 	const matches = haystack.split(needle).length - 1;
 
 	if (matches === 0) {
@@ -371,13 +329,11 @@ function replaceUniqueText(
 	return { ok: true, text: haystack.replace(needle, replace) };
 }
 
-function parseEditHtml(html: string, document: ProseMirrorNode) {
+function parseEditHtml(html: string) {
 	try {
 		return {
 			children: getDocumentChildren(
-				getTiptapDocumentSchema().nodeFromJSON(
-					parseDocumentAiHtml(html, { resolveWidgetSource: createWidgetSourceResolver(document) }),
-				),
+				getTiptapDocumentSchema().nodeFromJSON(parseDocumentAiHtml(html)),
 			),
 		};
 	} catch (error) {
@@ -400,7 +356,7 @@ function createDocument(children: ProseMirrorNode[]) {
 		editorChildren.push(schema.nodes.paragraph.create());
 	}
 
-	const document = ensureProseMirrorDocumentAiRefs(
+	const document = ensureProseMirrorDocumentBlockIds(
 		schema.topNodeType.create(null, Fragment.fromArray(editorChildren)),
 	).document;
 	document.check();
@@ -420,9 +376,9 @@ function withoutTopLevelAiRefs(document: ProseMirrorNode) {
 	);
 }
 
-function findTargetIndex(document: ProseMirrorNode, ref: string) {
+function findTargetIndex(document: ProseMirrorNode, blockId: string) {
 	for (let index = 0; index < document.childCount; index++) {
-		if (readTiptapNodeAiRef(document.child(index)) === ref) {
+		if (readTiptapNodeBlockId(document.child(index)) === blockId) {
 			return index;
 		}
 	}

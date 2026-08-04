@@ -68,7 +68,7 @@ describe("workspace citations", () => {
 			references: [first],
 			results: [
 				{
-					content: '<h1 data-ref="b_abcdefghijkl">Notes</h1>',
+					content: '<h1 data-edit-ref="b_abcdefghijkl.r_0123456789">Notes</h1>',
 					format: "html",
 					itemId: "item-1",
 					location: {

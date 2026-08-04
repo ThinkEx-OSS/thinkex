@@ -49,8 +49,8 @@ export interface WorkspaceAgentInput {
 	workspaceName?: string;
 }
 
-// Deterministic read fixture: document HTML carrying real `data-ref` values, so a
-// read→edit turn can produce a *targeted* edit whose ref traces back to the read.
+// Deterministic read fixture: document HTML carrying real `data-edit-ref` values,
+// so a read→edit turn can produce a targeted edit that traces back to the read.
 // `scoreTargetedEditProvenance` checks that provenance against these refs.
 const STANDUP_HEADING_REF = "b_standupHead1.r_head000001";
 const STANDUP_LIST_REF = "b_standupList1.r_bullet0001";
@@ -65,7 +65,7 @@ const EVAL_READ_ITEMS: Record<string, unknown> = {
 		path: "/Notes/Standup.md",
 		type: "document",
 		format: "html",
-		content: `<h1 data-ref="${STANDUP_HEADING_REF}">Standup</h1><ul data-ref="${STANDUP_LIST_REF}"><li>Discuss roadmap</li></ul>`,
+		content: `<h1 data-edit-ref="${STANDUP_HEADING_REF}">Standup</h1><ul data-edit-ref="${STANDUP_LIST_REF}"><li>Discuss roadmap</li></ul>`,
 	},
 };
 

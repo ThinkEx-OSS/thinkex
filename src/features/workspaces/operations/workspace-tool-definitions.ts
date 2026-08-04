@@ -149,7 +149,7 @@ export const workspaceToolDefinitions = [
 		name: "workspace_read_items",
 		access: "read",
 		description:
-			"Read ThinkEx documents and extracted files by absolute path. Documents return bounded HTML block chunks; each top-level data-ref is an item-local edit target, not a citation ref. Widgets come back as an empty placeholder, so read one back with mode block before editing its source. Files support explicit physical-page selections. Continue either kind with nextCursor. Uploaded files may still be extracting; each result carries any needed handling guidance.",
+			"Read ThinkEx documents and extracted files by absolute path. Document chunks give each top-level block an editRef. Widgets come back as an empty placeholder, so read one with mode block to get its full content and current editRef before editing it. Files support explicit physical-page selections. Continue either kind with nextCursor. Uploaded files may still be extracting; each result carries any needed handling guidance.",
 		inputSchema: workspaceReadItemsInputSchema,
 		inputExamples: workspaceReadItemsInputExamples,
 		outputSchema: workspaceReadItemsOutputSchema,
@@ -244,7 +244,7 @@ export const workspaceToolDefinitions = [
 	defineWorkspaceTool({
 		name: "workspace_edit_item",
 		access: "write",
-		description: `Edit one actual ThinkEx workspace document by absolute path. Read it first, then target blocks by data-ref. Only overwrite replaces the whole document, and only it works without a read. Use workspace_link_items to add relationships. ${workspaceDocumentHtmlInstruction}`,
+		description: `Edit one actual ThinkEx workspace document by absolute path. Read it first, then target blocks with their exact editRef. A block read returns the exact content that replace_text matches. Only overwrite replaces the whole document, and only it works without a read. Use workspace_link_items to add relationships. ${workspaceDocumentHtmlInstruction}`,
 		inputSchema: workspaceEditItemInputSchema,
 		inputExamples: workspaceEditItemInputExamples,
 		outputSchema: workspaceEditItemOutputSchema,
