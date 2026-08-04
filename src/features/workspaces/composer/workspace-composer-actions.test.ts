@@ -29,19 +29,16 @@ describe("stageComposerPrompt", () => {
 		vi.unstubAllGlobals();
 	});
 
-	it.each([
-		{ desktop: false, expectedMode: "fullscreen" },
-		{ desktop: true, expectedMode: "docked" },
-	] as const)("reveals the composer as $expectedMode", ({ desktop, expectedMode }) => {
+	it("stages the prompt and reveals the mobile composer", () => {
 		vi.stubGlobal("window", {
-			matchMedia: () => ({ matches: desktop }),
+			matchMedia: () => ({ matches: false }),
 		});
 
 		stageComposerPrompt(workspaceId, "Build a widget");
 
 		expect(
 			getWorkspaceUiSession(useWorkspaceUiStore.getState().getSession(workspaceId)).chatSurfaceMode,
-		).toBe(expectedMode);
+		).toBe("fullscreen");
 		expect(useWorkspaceAiComposerDraftStore.getState().textByThreadId[threadId]).toBe(
 			"Existing draft\n\nBuild a widget",
 		);

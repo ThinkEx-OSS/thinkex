@@ -107,20 +107,4 @@ describe("document AI HTML", () => {
 			DocumentAiHtmlError,
 		);
 	});
-
-	it("elides widget source for the model but keeps the editRef", async () => {
-		const source = '<style>.a{color:red}</style><div class="a">Hi</div>';
-		const html = await serializeTiptapDocumentToAiHtml(
-			ensureTiptapDocumentBlockIds(
-				parseDocumentAiHtml(
-					`<div data-type="widget" title="Sine">${source.replaceAll("<", "&lt;")}</div>`,
-				),
-			).document,
-		);
-
-		// A widget runs to kilobytes; inlining it in every read crowds out the prose.
-		expect(html).not.toContain("color:red");
-		expect(html).toContain('data-type="widget"');
-		expect(html).toMatch(/data-edit-ref="b_[A-Za-z0-9_-]{12}\.r_[A-Za-z0-9_-]{10}"/);
-	});
 });

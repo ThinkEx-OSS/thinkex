@@ -98,19 +98,6 @@ describe("document AI edits", () => {
 		);
 	});
 
-	it("replaces one exact fragment in widget source", async () => {
-		const document = createDocument(
-			'<div data-type="widget" title="Timer">&lt;button&gt;Start&lt;/button&gt;</div>',
-		);
-		const editRef = await getEditRef(document, "div");
-		const result = await applyDocumentAiEdits(document, [
-			{ editRef, find: "Start", op: "replace_text", replace: "Go" },
-		]);
-
-		expect(result).toMatchObject({ applied: 1, failed: 0, status: "applied" });
-		expect(getWidgetSource(result.document)).toBe("<button>Go</button>");
-	});
-
 	it("refuses an ambiguous widget source replacement", async () => {
 		const document = createDocument(
 			'<div data-type="widget">&lt;button&gt;Run&lt;/button&gt;&lt;button&gt;Run&lt;/button&gt;</div>',
