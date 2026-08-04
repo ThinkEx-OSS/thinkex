@@ -103,7 +103,7 @@ export interface WorkspaceKernelClient {
 		actorUserId?: string | null;
 		clientMutationId?: string | null;
 	}): Promise<WorkspaceCommandResult<DeleteWorkspaceKernelItemsResult>>;
-	readDocumentCheckpoint(input: {
+	readItemContent(input: {
 		itemId: string;
 	}): Promise<{ item: WorkspaceItemSummary; content: string }>;
 	getFileSource(input: { itemId: string }): Promise<WorkspaceKernelFileSource>;
@@ -114,7 +114,7 @@ export interface WorkspaceKernelClient {
 	readFileProjection(
 		input: ReadWorkspaceKernelFileProjectionArgs,
 	): Promise<ReadWorkspaceKernelFileProjectionResult | null>;
-	commitDocumentCheckpoint(input: {
+	writeItemContent(input: {
 		itemId: string;
 		content: string;
 		actorUserId?: string | null;
@@ -140,6 +140,23 @@ export async function readWorkspaceKernelFileSource(input: {
 		const kernel = await getWorkspaceKernel(input.workspaceId);
 
 		return await kernel.getFileSource({ itemId: input.itemId });
+	} finally {
+		await dbContext.dispose();
+	}
+}
+
+export async function readWorkspaceKernelItemContent(input: {
+	workspaceId: string;
+	userId: string;
+	itemId: string;
+}) {
+	const dbContext = await createDbContext();
+
+	try {
+		await assertCanReadWorkspace(dbContext.db, input);
+		const kernel = await getWorkspaceKernel(input.workspaceId);
+
+		return await kernel.readItemContent({ itemId: input.itemId });
 	} finally {
 		await dbContext.dispose();
 	}

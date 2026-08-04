@@ -163,10 +163,6 @@ export interface DeleteWorkspaceKernelItemsArgs {
 	clientMutationId?: string | null;
 }
 
-export interface ReadWorkspaceDocumentCheckpointArgs {
-	itemId: string;
-}
-
 export interface ReadWorkspaceKernelFileSourceArgs {
 	itemId: string;
 }
@@ -245,13 +241,6 @@ export interface ReadWorkspaceKernelFileProjectionResult {
 	sourceHash: string | null;
 	metadataJson: Record<string, JsonValue>;
 	updatedAt: string;
-}
-
-export interface CommitWorkspaceDocumentCheckpointArgs {
-	itemId: string;
-	content: string;
-	actorUserId?: string | null;
-	clientMutationId?: string | null;
 }
 
 export interface CreateWorkspaceKernelFileFromUploadArgs {

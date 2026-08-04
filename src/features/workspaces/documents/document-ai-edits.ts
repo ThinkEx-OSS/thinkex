@@ -7,6 +7,7 @@ import {
 	ensureProseMirrorDocumentAiRefs,
 	parseDocumentAiHtml,
 	parseDocumentAiTargetRef,
+	serializeTiptapNodeToPlainAiHtml,
 	readTiptapNodeAiRef,
 	withTiptapNodeAiRef,
 } from "#/features/workspaces/documents/document-ai-html";
@@ -40,11 +41,26 @@ export const documentAiEditSchema = z.union([
 	}),
 	z.strictObject({
 		html: documentAiHtmlSchema,
-		op: z.literal("replace_all"),
+		op: z.literal("overwrite"),
+	}),
+	z.strictObject({
+		find: z
+			.string()
+			.min(1)
+			.describe(
+				"Exact text to replace inside the target block, copied from a read. It must appear exactly once in that block; if it matches more than once the edit fails instead of replacing every occurrence.",
+			),
+		op: z.literal("replace_text"),
+		ref: documentAiRefSchema,
+		replace: z.string().describe("Replacement text. May be empty to delete the matched text."),
 	}),
 ]);
 
 export const documentAiEditFailureCodes = [
+	"edit_not_found",
+	// Deliberately a failure rather than a silent replace-all: a model retargeting
+	// one of three identical buttons would otherwise change all three, unnoticed.
+	"edit_not_unique",
 	"invalid_html",
 	"no_change",
 	"ref_not_found",
@@ -75,7 +91,7 @@ export async function applyDocumentAiEdits(
 	// rejecting the same ref in a later call after a human or agent changed it.
 	const requestedStableRefs = new Set(
 		edits.flatMap((edit) => {
-			if (edit.op === "replace_all") {
+			if (edit.op === "overwrite") {
 				return [];
 			}
 			const stableRef = parseDocumentAiTargetRef(edit.ref);
@@ -101,7 +117,7 @@ export async function applyDocumentAiEdits(
 
 	for (const [index, edit] of edits.entries()) {
 		let stableRef: string | undefined;
-		if (edit.op !== "replace_all") {
+		if (edit.op !== "overwrite") {
 			const parsedRef = parseDocumentAiTargetRef(edit.ref);
 			if (!parsedRef || !targetRefByStableRef.has(parsedRef)) {
 				failures.push({ code: "ref_not_found", index });
@@ -195,8 +211,8 @@ function applyDocumentAiEdit(
 ):
 	| { code: DocumentAiEditFailureCode; detail?: string; status: "failed" }
 	| { document: ProseMirrorNode; status: "applied" } {
-	if (edit.op === "replace_all") {
-		const parsed = parseEditHtml(edit.html);
+	if (edit.op === "overwrite") {
+		const parsed = parseEditHtml(edit.html, document);
 		if (!parsed.children) {
 			return { code: "invalid_html", detail: parsed.detail, status: "failed" };
 		}
@@ -218,8 +234,43 @@ function applyDocumentAiEdit(
 	const children = getDocumentChildren(document);
 	if (edit.op === "delete") {
 		children.splice(targetIndex, 1);
+	} else if (edit.op === "replace_text") {
+		const target = document.child(targetIndex);
+		const replaced = replaceUniqueText(readBlockText(target), edit.find, edit.replace);
+		if (!replaced.ok) {
+			return { code: replaced.code, detail: replaced.detail, status: "failed" };
+		}
+
+		if (target.type.name === "widget") {
+			// A widget holds raw source, so the replacement is written straight back.
+			children.splice(
+				targetIndex,
+				1,
+				target.type.create(
+					target.attrs,
+					replaced.text ? getTiptapDocumentSchema().text(replaced.text) : undefined,
+					target.marks,
+				),
+			);
+		} else {
+			// Prose is markup, so the edited HTML is re-parsed and refitted to the
+			// schema exactly as a `replace` would be.
+			const parsed = parseEditHtml(replaced.text, document);
+			if (!parsed.children) {
+				return { code: "invalid_html", detail: parsed.detail, status: "failed" };
+			}
+			const targetRef = readTiptapNodeAiRef(target);
+			const firstNode = parsed.children[0];
+			children.splice(
+				targetIndex,
+				1,
+				...(targetRef && firstNode
+					? [withTiptapNodeAiRef(firstNode, targetRef), ...parsed.children.slice(1)]
+					: parsed.children),
+			);
+		}
 	} else {
-		const parsed = parseEditHtml(edit.html);
+		const parsed = parseEditHtml(edit.html, document);
 		if (!parsed.children) {
 			return { code: "invalid_html", detail: parsed.detail, status: "failed" };
 		}
@@ -251,11 +302,80 @@ function applyDocumentAiEdit(
 		: { document: next, status: "applied" };
 }
 
-function parseEditHtml(html: string) {
+/**
+ * Source for a widget the model sent back empty, looked up in the document as it
+ * stands. Reads elide widget source, so any HTML that came from a read carries
+ * placeholders — a `overwrite` echoing them back would otherwise blank every
+ * widget in the document.
+ */
+function createWidgetSourceResolver(document: ProseMirrorNode) {
+	return (ref: string) => {
+		const blockRef = parseDocumentAiTargetRef(ref) ?? ref;
+		let source: string | null = null;
+		document.forEach((node) => {
+			if (
+				source === null &&
+				node.type.name === "widget" &&
+				readTiptapNodeAiRef(node) === blockRef
+			) {
+				source = node.textContent;
+			}
+		});
+		return source;
+	};
+}
+
+/** The text `replace_text` matches against: raw source for a widget, markup otherwise. */
+function readBlockText(node: ProseMirrorNode): string {
+	if (node.type.name === "widget") {
+		return node.textContent;
+	}
+	// Serialized without its ref, and the model's `find` is stripped the same way,
+	// so text copied from a read matches whether or not it kept the data-ref.
+	return serializeTiptapNodeToPlainAiHtml(withTiptapNodeAiRef(node, null));
+}
+
+const DATA_REF_ATTRIBUTE = /\s+data-ref="[^"]*"/g;
+
+/**
+ * Replaces a single unique occurrence, or explains why it could not.
+ *
+ * Line endings are normalised first: a model reproducing text with different
+ * newlines otherwise gets an unexplained miss. A non-unique match fails with its
+ * count so the next attempt can add surrounding context instead of guessing.
+ */
+function replaceUniqueText(
+	source: string,
+	find: string,
+	replace: string,
+):
+	| { ok: true; text: string }
+	| { ok: false; code: "edit_not_found" | "edit_not_unique"; detail: string } {
+	const haystack = source.replaceAll("\r\n", "\n").replace(DATA_REF_ATTRIBUTE, "");
+	const needle = find.replaceAll("\r\n", "\n").replace(DATA_REF_ATTRIBUTE, "");
+	const matches = haystack.split(needle).length - 1;
+
+	if (matches === 0) {
+		return { ok: false, code: "edit_not_found", detail: `No match for: ${needle.slice(0, 80)}` };
+	}
+	if (matches > 1) {
+		return {
+			ok: false,
+			code: "edit_not_unique",
+			detail: `Found ${matches} matches; include more surrounding text so it matches once.`,
+		};
+	}
+
+	return { ok: true, text: haystack.replace(needle, replace) };
+}
+
+function parseEditHtml(html: string, document: ProseMirrorNode) {
 	try {
 		return {
 			children: getDocumentChildren(
-				getTiptapDocumentSchema().nodeFromJSON(parseDocumentAiHtml(html)),
+				getTiptapDocumentSchema().nodeFromJSON(
+					parseDocumentAiHtml(html, { resolveWidgetSource: createWidgetSourceResolver(document) }),
+				),
 			),
 		};
 	} catch (error) {

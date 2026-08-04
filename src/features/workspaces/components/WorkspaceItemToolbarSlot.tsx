@@ -16,10 +16,13 @@ import { WorkspaceFileToolbar } from "#/features/workspaces/components/Workspace
 type WorkspaceItemToolbarRegistration =
 	| {
 			canEdit: boolean;
+			/** Null until the workspace page is cached; the widget action waits on it. */
+			documentPath: string | null;
 			editor: Editor | null;
 			itemId: string;
 			kind: "document";
 			slotId: string;
+			workspaceId: string;
 	  }
 	| {
 			capture?: {
@@ -53,14 +56,18 @@ export function WorkspaceItemToolbarProvider({ children }: { children: ReactNode
 
 export function useDocumentEditorToolbar({
 	canEdit,
+	documentPath,
 	editor,
 	itemId,
 	slotId,
+	workspaceId,
 }: {
 	canEdit: boolean;
+	documentPath: string | null;
 	editor: Editor | null;
 	itemId: string;
 	slotId: string;
+	workspaceId: string;
 }) {
 	const context = use(WorkspaceItemToolbarContext);
 	const setRegistration = context?.setRegistration;
@@ -70,15 +77,25 @@ export function useDocumentEditorToolbar({
 			return;
 		}
 
-		const registration = { canEdit, editor, itemId, kind: "document" as const, slotId };
+		const registration = {
+			canEdit,
+			documentPath,
+			editor,
+			itemId,
+			kind: "document" as const,
+			slotId,
+			workspaceId,
+		};
 		setRegistration((current) => {
 			const existing = current[slotId];
 			if (
 				existing?.kind === "document" &&
 				existing.canEdit === canEdit &&
+				existing.documentPath === documentPath &&
 				existing.editor === editor &&
 				existing.itemId === itemId &&
-				existing.slotId === slotId
+				existing.slotId === slotId &&
+				existing.workspaceId === workspaceId
 			) {
 				return current;
 			}
@@ -101,7 +118,7 @@ export function useDocumentEditorToolbar({
 				return next;
 			});
 		};
-	}, [canEdit, editor, itemId, slotId, setRegistration]);
+	}, [canEdit, documentPath, editor, itemId, slotId, workspaceId, setRegistration]);
 }
 
 export function useFileItemToolbar({
@@ -194,8 +211,10 @@ export function WorkspaceItemToolbarSlot({
 				{registration.kind === "document" ? (
 					<DocumentToolbar
 						canEdit={registration.canEdit}
+						documentPath={registration.documentPath}
 						editor={registration.editor}
 						itemId={registration.itemId}
+						workspaceId={registration.workspaceId}
 					/>
 				) : (
 					<WorkspaceFileToolbar

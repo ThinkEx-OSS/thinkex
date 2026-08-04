@@ -14,7 +14,14 @@ import {
 	type DocumentAiEditFailureCode,
 	type DocumentAiEditResultStatus,
 } from "#/features/workspaces/documents/document-ai-edits";
-import { ensureProseMirrorDocumentAiRefs } from "#/features/workspaces/documents/document-ai-html";
+import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
+
+import {
+	ensureProseMirrorDocumentAiRefs,
+	parseDocumentAiTargetRef,
+	readTiptapNodeAiRef,
+	serializeTiptapNodeToPlainAiHtml,
+} from "#/features/workspaces/documents/document-ai-html";
 import {
 	type DocumentHtmlChunkReadInput,
 	type DocumentHtmlChunkReadResult,
@@ -148,7 +155,7 @@ export class DocumentSession extends YServer {
 
 		const room = getDocumentSessionRoomNameParts(this.name);
 		const kernel = await this.getWorkspaceKernel(room.workspaceId);
-		const { content } = await kernel.readDocumentCheckpoint({ itemId: room.itemId });
+		const { content } = await kernel.readItemContent({ itemId: room.itemId });
 		if (this.deleted) {
 			return;
 		}
@@ -343,6 +350,32 @@ export class DocumentSession extends YServer {
 		return chunk ? { ...chunk, revision, status: "ready" } : { status: "invalid_offset" };
 	}
 
+	/**
+	 * One block in full, addressed by a ref from an earlier read.
+	 *
+	 * Document reads elide a widget's source to keep prose in the chunk, so this
+	 * is how the assistant fetches it before editing — and it works for any block
+	 * that is easier to read alone than to page to.
+	 */
+	async readBlock(input: {
+		ref: string;
+	}): Promise<{ content: string; status: "ready" } | { status: "ref_not_found" }> {
+		this.assertActive();
+		const { document } = await this.getReferencedDocumentSnapshot();
+		const stableRef = parseDocumentAiTargetRef(input.ref) ?? input.ref;
+
+		let found: ProseMirrorNode | null = null;
+		document.forEach((node) => {
+			if (!found && readTiptapNodeAiRef(node) === stableRef) {
+				found = node;
+			}
+		});
+
+		return found
+			? { content: serializeTiptapNodeToPlainAiHtml(found), status: "ready" }
+			: { status: "ref_not_found" };
+	}
+
 	async purgeForDeletion(): Promise<void> {
 		// Deliberately does not hydrate the document: this only wipes durable
 		// storage, and onLoad could otherwise reseed from the deleted item.
@@ -359,7 +392,7 @@ export class DocumentSession extends YServer {
 		const document = this.getCurrentTiptapDocument();
 		const kernel = await this.getWorkspaceKernel(room.workspaceId);
 
-		await kernel.commitDocumentCheckpoint({
+		await kernel.writeItemContent({
 			itemId: room.itemId,
 			content: stringifyTiptapDocumentJson(document),
 			actorUserId: null,

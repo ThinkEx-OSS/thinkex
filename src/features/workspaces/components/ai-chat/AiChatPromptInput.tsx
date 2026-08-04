@@ -26,6 +26,7 @@ import {
 import type { AiChatModelId, AiChatStatus } from "#/features/workspaces/components/ai-chat/types";
 import { useAiChatAttachmentIntake } from "#/features/workspaces/components/ai-chat/useAiChatAttachmentIntake";
 import { useAiChatDictation } from "#/features/workspaces/components/ai-chat/useAiChatDictation";
+import { useConsumeComposerPrompt } from "#/features/workspaces/components/ai-chat/useConsumeComposerPrompt";
 import { useTypeToFocusPrompt } from "#/features/workspaces/components/ai-chat/useTypeToFocusPrompt";
 import { WorkspaceFileIntakeReviewDialog } from "#/features/workspaces/components/WorkspaceFileIntakeReviewDialog";
 import { useWorkspaceFileUpload } from "#/features/workspaces/components/WorkspaceFileUploadProvider";
@@ -129,6 +130,11 @@ export default function AiChatPromptInput({
 		enabled: canType,
 		setInput,
 		textareaRef,
+	});
+	useConsumeComposerPrompt({
+		setInput,
+		textareaRef,
+		workspaceId: context.workspaceId,
 	});
 
 	const attachments: Omit<AttachmentsContext, "openFileDialog"> = {

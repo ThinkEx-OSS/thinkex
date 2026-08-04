@@ -1,5 +1,8 @@
 import type { QueryClient } from "@tanstack/react-query";
-import { workspacePageQueryKey } from "#/features/workspaces/cache-keys";
+import {
+	workspaceItemContentQueryKey,
+	workspacePageQueryKey,
+} from "#/features/workspaces/cache-keys";
 import type {
 	CreateWorkspaceItemInput,
 	MoveWorkspaceItemsInput,
@@ -115,4 +118,12 @@ export function applyWorkspaceEventToCache(
 	queryClient.setQueryData<WorkspacePage>(workspacePageQueryKey(event.workspaceId), (current) =>
 		current ? applyWorkspaceEventToPage(current, event) : current,
 	);
+
+	// A widget's rendered content lives in a separate query; refetch it when its
+	// stored content changes (e.g. the AI edits the widget) so the viewer updates.
+	if (event.type === "workspace.item.content.updated") {
+		void queryClient.invalidateQueries({
+			queryKey: workspaceItemContentQueryKey(event.workspaceId, event.payload.item.id),
+		});
+	}
 }

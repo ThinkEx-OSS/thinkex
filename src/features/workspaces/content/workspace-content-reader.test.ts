@@ -5,6 +5,9 @@ import type { WorkspaceContentReadRequest } from "#/features/workspaces/content/
 import {
 	ensureTiptapDocumentAiRefs,
 	parseDocumentAiHtml,
+	parseDocumentAiTargetRef,
+	readTiptapNodeAiRef,
+	serializeTiptapNodeToPlainAiHtml,
 } from "#/features/workspaces/documents/document-ai-html";
 import { readDocumentHtmlChunk } from "#/features/workspaces/documents/document-html-chunk";
 import { getTiptapDocumentSchema } from "#/features/workspaces/documents/tiptap-schema";
@@ -50,6 +53,7 @@ describe("WorkspaceContentReader", () => {
 		if (
 			!first ||
 			first.status !== "ready" ||
+			first.type !== "document" ||
 			first.location.kind !== "blocks" ||
 			!first.nextCursor
 		) {
@@ -63,7 +67,12 @@ describe("WorkspaceContentReader", () => {
 			status: "ready",
 			type: "document",
 		});
-		if (!second || second.status !== "ready" || second.location.kind !== "blocks") {
+		if (
+			!second ||
+			second.status !== "ready" ||
+			second.type !== "document" ||
+			second.location.kind !== "blocks"
+		) {
 			throw new Error("Expected a continued document chunk.");
 		}
 		expect(second.location.startBlock).toBeGreaterThan(first.location.startBlock);
@@ -80,7 +89,7 @@ describe("WorkspaceContentReader", () => {
 			kernel: createKernel(),
 		});
 		const [first] = await read([{ mode: "start", path: "/Notes" }]);
-		if (!first || first.status !== "ready" || !first.nextCursor) {
+		if (!first || first.status !== "ready" || first.type !== "document" || !first.nextCursor) {
 			throw new Error("Expected a continuation cursor.");
 		}
 
@@ -103,7 +112,7 @@ describe("WorkspaceContentReader", () => {
 		for (;;) {
 			const [result] = await read([request]);
 			expect(result).toMatchObject({ status: "ready", type: "document" });
-			if (!result || result.status !== "ready") {
+			if (!result || result.status !== "ready" || result.type !== "document") {
 				throw new Error("Expected a document chunk.");
 			}
 			contents.push(result.content);
@@ -185,6 +194,37 @@ describe("WorkspaceContentReader", () => {
 		);
 	});
 
+	it("returns one block in full, including a widget's elided source", async () => {
+		const source = "<div>Interactive</div>";
+		// One session across both reads: a fresh one would mint new refs.
+		const session = createDocumentSession({
+			html: `<p>Before</p><div data-type="widget" title="Sine">${source.replaceAll("<", "&lt;")}</div>`,
+			revision: "revision-1",
+		});
+		const read = createReader({
+			bucket: {} as R2Bucket,
+			getDocumentSession: () => session,
+			kernel: createKernel(),
+		});
+
+		const [chunk] = await read([{ mode: "start", path: "/Notes" }]);
+		if (!chunk || chunk.status !== "ready" || chunk.type !== "document") {
+			throw new Error("Expected a document chunk.");
+		}
+		// The chunk carries the placeholder, not the source.
+		expect(chunk.content).not.toContain("Interactive");
+		const widgetTag = /<div[^>]*data-type="widget"[^>]*>/.exec(chunk.content)?.[0] ?? "";
+		const ref = /data-ref="([^"]+)"/.exec(widgetTag)?.[1];
+		expect(ref).toBeTruthy();
+
+		const [block] = await read([{ mode: "block", path: "/Notes", ref: ref as string }]);
+		expect(block).toMatchObject({ status: "ready", type: "block", ref });
+		if (!block || block.status !== "ready" || block.type !== "block") {
+			throw new Error("Expected a block read.");
+		}
+		expect(block.content).toContain("Interactive");
+	});
+
 	it("keeps one ordered result for every requested path", async () => {
 		const kernel = createKernel();
 		kernel.resolvePaths = vi.fn(
@@ -227,6 +267,18 @@ function createDocumentSession(input: { html: string; revision: string }) {
 			return chunk
 				? { ...chunk, revision: input.revision, status: "ready" as const }
 				: { status: "invalid_offset" as const };
+		}),
+		readBlock: vi.fn(async ({ ref }: { ref: string }) => {
+			const stableRef = parseDocumentAiTargetRef(ref) ?? ref;
+			let found: ReturnType<typeof documentNode.child> | null = null;
+			documentNode.forEach((node) => {
+				if (!found && readTiptapNodeAiRef(node) === stableRef) {
+					found = node;
+				}
+			});
+			return found
+				? { content: serializeTiptapNodeToPlainAiHtml(found), status: "ready" as const }
+				: { status: "ref_not_found" as const };
 		}),
 	};
 }

@@ -21,6 +21,7 @@ import {
 } from "#/features/workspaces/documents/use-document-collaboration-session";
 import { useDocumentEditReviewOverlay } from "#/features/workspaces/documents/use-document-edit-review-overlay";
 import type { WorkspaceItem } from "#/features/workspaces/model/types";
+import { useWorkspaceItemPath } from "#/features/workspaces/model/use-workspace-item-path";
 import { DEFAULT_COLLABORATION_COLOR } from "#/lib/design-system-colors";
 import { getAuthSessionQueryOptions } from "#/lib/session-query";
 
@@ -69,6 +70,7 @@ function DocumentEditorInstance({
 	workspaceId: string;
 }) {
 	const { capabilities } = useWorkspaceMutationAccess();
+	const documentPath = useWorkspaceItemPath(workspaceId, item);
 	const paneRuntime = useWorkspacePaneRuntime();
 	const [scrollTarget, setScrollTarget] = useState<HTMLDivElement | null>(null);
 	const editor = useEditor({
@@ -102,9 +104,11 @@ function DocumentEditorInstance({
 
 	useDocumentEditorToolbar({
 		canEdit: capabilities.canMutateContent,
+		documentPath,
 		editor: capabilities.canMutateContent ? editor : null,
 		itemId: item.id,
 		slotId: viewInstanceId,
+		workspaceId,
 	});
 	useDocumentEditReviewOverlay({
 		canEdit: capabilities.canMutateContent,

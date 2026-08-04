@@ -14,6 +14,7 @@ describe("workspace read tool schemas", () => {
 					{ mode: "start", path: "/Notes" },
 					{ mode: "pages", path: "/Book.pdf", range: "1-3" },
 					{ cursor: "opaque", mode: "continue", path: "/Notes" },
+					{ mode: "block", path: "/Notes", ref: "b_abcdefghijkl.r_0123456789" },
 				],
 			}).success,
 		).toBe(true);
@@ -39,6 +40,7 @@ describe("workspace read tool schemas", () => {
 							{ additionalProperties: false, required: ["path", "mode"] },
 							{ additionalProperties: false, required: ["path", "mode", "range"] },
 							{ additionalProperties: false, required: ["path", "cursor", "mode"] },
+							{ additionalProperties: false, required: ["path", "mode", "ref"] },
 						],
 					},
 				},

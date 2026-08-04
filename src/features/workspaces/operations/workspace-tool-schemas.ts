@@ -16,6 +16,7 @@ import {
 	workspaceItemTypeSchema,
 	workspaceRelationKindSchema,
 } from "#/features/workspaces/contracts";
+import { workspaceCreatableItemTypeSchema } from "#/features/workspaces/workspace-item-registry";
 import { workspaceReferenceRecordSchema } from "#/features/workspaces/locations/workspace-location";
 import {
 	documentAiEditSchema,
@@ -34,8 +35,26 @@ export {
 	workspaceSearchOutputSchema,
 };
 
-export const workspaceDocumentHtmlInstruction =
-	'Use semantic HTML with paragraphs, h1-h4, blockquotes, lists, code blocks, horizontal rules, tables, links, and standard text marks. For math, use <span data-type="inline-math" data-latex="..."></span> or <div data-type="block-math" data-latex="..."></div> — this is the only math that renders, so never write $...$, $$...$$, or \\(...\\) in the HTML, and never put dollar signs around the data-latex value. Put every subscript and superscript (exponents like 10^8, indices like x_1) inside math, not <sub> or <sup> tags, which are unsupported and reject the whole write. Chemistry renders with \\ce{...} (e.g. \\ce{CH4 + 2 O2 -> CO2 + 2 H2O}) and quantities with units render with \\pu{...} (e.g. \\pu{9.81 m/s^2}), both inside data-latex. Write literal money as plain text ($30, never \\$30) — this is HTML, not Markdown, so a backslash before a dollar sign shows on screen. For checkboxes, use <ul data-type="taskList"><li data-type="taskItem" data-checked="false"><label><input type="checkbox"><span></span></label><div><p>Item</p></div></li></ul>. Documents cannot hold images: never use <img> or <figure>, and describe the visual in words instead. Cite workspace sources in documents exactly as in a chat reply, with <citation ref="wr_7Kp2Qa9x"></citation> placed after the claim it supports.';
+/**
+ * Math, chemistry, and money for the HTML surfaces. Documents and widgets are
+ * both HTML, so they share one rule and the model tracks "Markdown or HTML?"
+ * rather than three per-surface dialects — chat keeps the `$…$` Markdown form.
+ */
+export const workspaceHtmlMathInstruction =
+	'This is HTML, so math is markup rather than delimiters: use <span data-type="inline-math" data-latex="..."></span> or <div data-type="block-math" data-latex="..."></div>, and keep dollar signs out of the data-latex value. Put every subscript and superscript (exponents like 10^8, indices like x_1) inside math rather than <sub>/<sup> tags. Chemistry renders with \\ce{...} (e.g. \\ce{CH4 + 2 O2 -> CO2 + 2 H2O}) and quantities with units render with \\pu{...} (e.g. \\pu{9.81 m/s^2}), both inside data-latex. Write literal money as plain text ($30, never \\$30) — a backslash before a dollar sign shows on screen in HTML.';
+
+/**
+ * The hard constraints only — enough that a widget written without the skill
+ * still renders. Activate the widget-authoring skill for the full contract,
+ * starter template, and canvas/layout guidance rather than restating it here on
+ * every turn.
+ *
+ * Carried by the document instruction because a widget is a document block: the
+ * model reaches for one from inside the same write it would write prose in.
+ */
+const workspaceWidgetHtmlInstruction = `A widget is one interactive block inside a document, written as <div data-type="widget" title="Short title">…escaped HTML source…</div>. Reach for one when the user asks for something interactive — a simulation, calculator, diagram, or visualization — and keep the surrounding prose in normal blocks. Activate the "widget-authoring" skill before writing widget source; it has the full contract, a starter template, and canvas/layout rules. Hard constraints: the source is a self-contained fragment run in a sandboxed iframe, so provide only inner content (HTML plus inline <style> and <script>), never <!doctype>, <html>, <head>, or <body>; all JavaScript must be inline, with no external scripts, imports, or network access; style with the injected app CSS variables (--background, --foreground, --primary, --border, --radius, etc.) instead of hard-coded colors.`;
+
+export const workspaceDocumentHtmlInstruction = `Use semantic HTML with paragraphs, h1-h4, blockquotes, lists, code blocks, horizontal rules, tables, links, and standard text marks. ${workspaceHtmlMathInstruction} For checkboxes, use <ul data-type="taskList"><li data-type="taskItem" data-checked="false"><label><input type="checkbox"><span></span></label><div><p>Item</p></div></li></ul>. Documents cannot hold images: never use <img> or <figure>, and describe the visual in words instead. Cite workspace sources in documents exactly as in a chat reply, with <citation ref="wr_7Kp2Qa9x"></citation> placed after the claim it supports. ${workspaceWidgetHtmlInstruction}`;
 
 const workspacePathSchema = z.string().min(1);
 const workspaceIndexSchema = z.number().int().nonnegative();
@@ -124,7 +143,7 @@ export const workspaceEditItemInputSchema = z.object({
 		.min(1)
 		.max(40)
 		.describe(
-			'Ordered structural HTML edits, at most 40. For targeted operations, copy data-ref into the "ref" field; there is no "target" field. These refs are local to this document and are not workspace citation refs.',
+			'Ordered edits, at most 40. Target a block by copying its data-ref into the "ref" field (these are local to the document, not workspace citation refs). Use replace_text to change text inside one block, including a widget\'s source. Use overwrite only to discard the entire document and write a new one.',
 		),
 });
 
@@ -302,8 +321,19 @@ export const workspaceEditItemInputExamples = createInputExamples<
 		path: "/Demo Folder/Demo Document",
 		edits: [
 			{
-				op: "replace_all",
+				op: "overwrite",
 				html: "<h1>Demo Document</h1><p>This document was updated as part of the demo.</p>",
+			},
+		],
+	},
+	{
+		path: "/Demo Folder/Demo Document",
+		edits: [
+			{
+				op: "replace_text",
+				ref: "b_JQrkL4Neurv2.r_6sNqkQxDdy",
+				find: "gravity = 9.8",
+				replace: "gravity = 3.7",
 			},
 		],
 	},
@@ -337,9 +367,9 @@ export const workspaceListItemsOutputSchema = z.object({
 export const workspaceCreateItemsOutputSchema = createWorkspaceItemsResultSchema({
 	itemSchema: workspacePathItemSchema.extend({
 		itemId: z.string().min(1),
-		// Creation makes these two and nothing else; the shared item type covers
+		// Creation makes these three and nothing else; the shared item type covers
 		// files and study items this tool cannot produce.
-		type: z.enum(["document", "folder"]),
+		type: workspaceCreatableItemTypeSchema,
 	}),
 	failureSchema: createFailureSchema(createWorkspaceItemsFailureCodes),
 }).extend({

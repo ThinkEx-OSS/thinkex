@@ -77,7 +77,14 @@ export function getOpenTabItemIds(tabs: WorkspaceTab[]) {
 	return itemTabTitles;
 }
 
-function getWorkspaceAiContextItemPath(
+/**
+ * Absolute workspace path for one item, derived from the client item tree.
+ *
+ * Matches the paths the kernel resolves, so it is safe to hand to the model —
+ * a prefilled prompt naming a path stays correct even if the user switches
+ * views before sending it.
+ */
+export function getWorkspaceAiContextItemPath(
 	item: WorkspaceItem,
 	itemsById: ReadonlyMap<string, WorkspaceItem>,
 ) {

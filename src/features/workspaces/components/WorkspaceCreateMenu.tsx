@@ -116,14 +116,14 @@ function getWorkspaceCreateMenuActions({
 				onSelect: id === "upload-file" ? () => onUploadFile(parentId) : undefined,
 			}),
 		),
-		...workspaceItemLearnCreateActions.map(({ type, label, Icon, iconClassName }) => ({
+		...workspaceItemLearnCreateActions.map(({ type, label, Icon, iconClassName, comingSoon }) => ({
 			kind: "item" as const,
 			id: type,
 			label,
-			trailing: "Soon",
-			disabled: true,
+			trailing: comingSoon ? "Soon" : undefined,
+			disabled: comingSoon,
 			leading: <Icon className={`size-4 ${iconClassName}`} />,
-			onSelect: () => onCreateItem({ type, parentId }),
+			onSelect: comingSoon ? undefined : () => onCreateItem({ type, parentId }),
 		})),
 	];
 }

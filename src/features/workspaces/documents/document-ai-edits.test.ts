@@ -61,10 +61,10 @@ describe("document AI edits", () => {
 		const document = createDocument("<p>Before</p>");
 		const originalRef = stableRef(await getRef(document, "p"));
 		const rewritten = await applyDocumentAiEdits(document, [
-			{ html: "<h1>New</h1><p>Document</p>", op: "replace_all" },
+			{ html: "<h1>New</h1><p>Document</p>", op: "overwrite" },
 		]);
 		const noOp = await applyDocumentAiEdits(rewritten.document, [
-			{ html: "<h1>New</h1><p>Document</p>", op: "replace_all" },
+			{ html: "<h1>New</h1><p>Document</p>", op: "overwrite" },
 		]);
 
 		expect(rewritten).toMatchObject({ applied: 1, failed: 0, status: "applied" });
@@ -80,7 +80,7 @@ describe("document AI edits", () => {
 	it("matches the editor's trailing paragraph after a final structural block", async () => {
 		const document = createDocument("<p>Before</p>");
 		const rewritten = await applyDocumentAiEdits(document, [
-			{ html: "<ul><li>After</li></ul>", op: "replace_all" },
+			{ html: "<ul><li>After</li></ul>", op: "overwrite" },
 		]);
 
 		expect(rewritten.document.content?.at(-1)).toMatchObject({ type: "paragraph" });

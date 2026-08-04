@@ -12,6 +12,10 @@ export const WORKSPACE_DOCUMENT_PREVIEW_TEXT_MAX_LENGTH = 500;
 const documentPreviewTextSerializers: Record<string, TextSerializer> = {
 	blockMath: ({ node }) => getMathLatex(node.attrs.latex),
 	inlineMath: ({ node }) => getMathLatex(node.attrs.latex),
+	// A widget holds its source as text content, which is markup rather than
+	// prose. Preview its title so a widget-only document still reads as
+	// something, and never its source.
+	widget: ({ node }) => (typeof node.attrs.title === "string" ? node.attrs.title : ""),
 };
 
 export function getWorkspaceDocumentPreviewText(item: Pick<WorkspaceItemSummary, "metadataJson">) {

@@ -67,7 +67,7 @@ export function scoreNoForbiddenTools(
 /**
  * For a read→edit turn: the model must submit a *targeted* edit (replace / insert /
  * delete) whose `ref` came from the read fixture — not a fabricated ref, and not a
- * whole-document `replace_all`. Without this, a hollow read stub plus the permissive
+ * whole-document `overwrite`. Without this, a hollow read stub plus the permissive
  * `ref` schema (any nonempty string) let a hallucinated target score a false pass.
  */
 export function scoreTargetedEditProvenance(
@@ -82,20 +82,88 @@ export function scoreTargetedEditProvenance(
 			return Array.isArray(input.edits) ? input.edits : [];
 		});
 	const isValidRef = (edit: { ref?: string }) => typeof edit.ref === "string" && refs.has(edit.ref);
-	const targeted = edits.filter((edit) => edit.op !== "replace_all" && isValidRef(edit));
-	const fabricated = edits.filter((edit) => edit.op !== "replace_all" && !isValidRef(edit));
-	const usedReplaceAll = edits.some((edit) => edit.op === "replace_all");
-	const pass = targeted.length > 0 && fabricated.length === 0 && !usedReplaceAll;
+	const targeted = edits.filter((edit) => edit.op !== "overwrite" && isValidRef(edit));
+	const fabricated = edits.filter((edit) => edit.op !== "overwrite" && !isValidRef(edit));
+	const usedOverwrite = edits.some((edit) => edit.op === "overwrite");
+	const pass = targeted.length > 0 && fabricated.length === 0 && !usedOverwrite;
 
 	const reasons: string[] = [];
 	if (targeted.length === 0) reasons.push("no targeted edit used a ref from the read");
 	if (fabricated.length > 0)
 		reasons.push(`fabricated ref(s): ${fabricated.map((e) => e.ref ?? "<none>").join(", ")}`);
-	if (usedReplaceAll) reasons.push("used replace_all instead of a targeted edit");
+	if (usedOverwrite) reasons.push("used overwrite instead of a targeted edit");
 	return {
 		score: pass ? 1 : 0,
 		pass,
 		message: pass ? "targeted edit used a ref from the read fixture" : reasons.join("; "),
+	};
+}
+
+/**
+ * What the model actually *wrote* — the final answer, or the arguments it passed
+ * to a tool. Tool choice and schema validity say nothing about authoring dialect:
+ * `$x^2$` inside document HTML is schema-valid and renders as literal dollar
+ * signs forever, so only a content check can catch it.
+ */
+export interface ContentCheck {
+	/** `"text"` grades the final answer; `{ tool }` grades that tool's inputs. */
+	source: "text" | { tool: string };
+	mustMatch?: Array<{ label: string; pattern: RegExp }>;
+	mustNotMatch?: Array<{ label: string; pattern: RegExp }>;
+}
+
+/**
+ * Every string the model wrote inside a tool argument, unescaped. Matching
+ * against `JSON.stringify(input)` instead would compare patterns like
+ * `data-type="inline-math"` against the escaped `data-type=\"inline-math\"` and
+ * silently never match — a false failure that looks exactly like a real one.
+ */
+function collectStrings(value: unknown, out: string[] = []): string[] {
+	if (typeof value === "string") {
+		out.push(value);
+	} else if (Array.isArray(value)) {
+		for (const item of value) collectStrings(item, out);
+	} else if (value && typeof value === "object") {
+		for (const item of Object.values(value)) collectStrings(item, out);
+	}
+	return out;
+}
+
+export function scoreContent(output: WorkspaceAgentOutput, check: ContentCheck): ScoreResult {
+	const source = check.source;
+	const subject =
+		typeof source === "string"
+			? output.text
+			: output.toolCalls
+					.filter((call) => call.name === source.tool)
+					.flatMap((call) => collectStrings(call.input))
+					.join("\n");
+
+	if (!subject.trim()) {
+		const label = typeof check.source === "string" ? "final answer" : `${check.source.tool} input`;
+		return { score: 0, pass: false, message: `no ${label} to grade` };
+	}
+
+	const missing = (check.mustMatch ?? []).filter((rule) => !rule.pattern.test(subject));
+	const present = (check.mustNotMatch ?? []).filter((rule) => rule.pattern.test(subject));
+	const total = (check.mustMatch?.length ?? 0) + (check.mustNotMatch?.length ?? 0);
+	const failures = missing.length + present.length;
+	const reasons = [
+		...missing.map((rule) => `missing ${rule.label}`),
+		...present.map((rule) => `must not contain ${rule.label}`),
+	];
+
+	// Include what was actually written on failure — a dialect miss is only
+	// actionable if you can see the markup the model chose instead.
+	const excerpt = subject.length > 600 ? `${subject.slice(0, 600)}…` : subject;
+
+	return {
+		score: total === 0 ? 1 : 1 - failures / total,
+		pass: failures === 0,
+		message:
+			failures === 0
+				? "content matched every rule"
+				: `${reasons.join("; ")}\n--- wrote: ${excerpt}`,
 	};
 }
 

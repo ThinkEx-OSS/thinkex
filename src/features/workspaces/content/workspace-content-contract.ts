@@ -19,6 +19,7 @@ const readWorkspaceItemsFailureCodes = [
 	"path_not_absolute",
 	"path_not_found",
 	"projection_failed",
+	"ref_not_found",
 	"unsupported_item_type",
 ] as const;
 
@@ -49,6 +50,16 @@ const workspaceContentReadRequestSchema = z.union([
 		...workspaceContentReadRequestBase,
 		cursor: z.string().min(1).max(4_096).describe("Opaque cursor returned by a previous read."),
 		mode: z.literal("continue"),
+	}),
+	z.strictObject({
+		...workspaceContentReadRequestBase,
+		mode: z.literal("block"),
+		ref: z
+			.string()
+			.min(1)
+			.describe(
+				"data-ref of one block from an earlier read of this document, returned in full. Reads elide a widget's source, so this is how to fetch it before editing.",
+			),
 	}),
 ]);
 
@@ -133,6 +144,16 @@ const workspaceContentReadResultSchema = z.union([
 			.describe("Suggested wait before reading this path again."),
 		status: z.literal("pending"),
 		type: z.literal("file"),
+	}),
+	z.object({
+		content: z.string(),
+		format: z.literal("html"),
+		itemId: z.string().min(1),
+		path: workspacePathSchema,
+		ref: z.string().min(1),
+		relations: workspaceReadRelationsSchema.optional(),
+		status: z.literal("ready"),
+		type: z.literal("block"),
 	}),
 	z.object({
 		code: z.enum(readWorkspaceItemsFailureCodes),

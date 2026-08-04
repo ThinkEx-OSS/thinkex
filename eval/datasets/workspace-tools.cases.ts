@@ -1,4 +1,5 @@
 import type { WorkspaceAgentInput } from "../support/harness";
+import type { ContentCheck } from "../support/scorers";
 
 export interface WorkspaceToolCase {
 	name: string;
@@ -11,7 +12,22 @@ export interface WorkspaceToolCase {
 	qualityRubric?: string;
 	/** When true, the turn must produce a targeted edit whose ref traces to the read fixture. */
 	requiresTargetedEditFromRead?: boolean;
+	/** Grade what the model wrote — the answer text, or a tool's arguments. */
+	contentChecks?: ContentCheck[];
 }
+
+// Math is authored differently per surface and the failure is silent: `$x^2$` in
+// document HTML is schema-valid and renders as literal dollar signs forever, so
+// only a content check catches it. These patterns encode the shipped contract.
+const DOCUMENT_MATH_MARKUP = {
+	label: 'data-type="inline-math" or block-math',
+	pattern: /data-type="(inline|block)-math"/,
+};
+const DOLLAR_DELIMITED_MATH = { label: "$...$ math delimiters", pattern: /\$[^$\n]{1,80}\$/ };
+const BRACKET_DELIMITED_MATH = { label: "\\(...\\) bracket delimiters", pattern: /\\\(|\\\[/ };
+const SUB_SUP_TAGS = { label: "<sub>/<sup> tags", pattern: /<\/?(sub|sup)>/ };
+const ESCAPED_DOLLAR = { label: "backslash-escaped \\$", pattern: /\\\$/ };
+const MHCHEM_CE = { label: "\\ce{...} chemistry", pattern: /\\\\?ce\{/ };
 
 // A view-only scope block: mirrors what beforeTurn injects for a read-only viewer.
 // Used to prove the model respects the boundary the prompt sets.
@@ -79,5 +95,73 @@ export const workspaceToolCases: WorkspaceToolCase[] = [
 		],
 		qualityRubric:
 			"The answer correctly explains that a folder contains items while a document holds content, in roughly one sentence.",
+	},
+
+	// ---- Math authoring, per surface -------------------------------------------
+	// The shipped contract: documents use data-latex markup and never dollar
+	// delimiters; chat replies use dollar delimiters and never brackets; literal
+	// currency is escaped in Markdown but plain in document HTML.
+	{
+		name: "document math uses data-latex markup, never dollar delimiters",
+		input: {
+			prompt:
+				"Create a document at /Notes/Quadratic.md that explains the quadratic formula and shows the formula itself, plus the discriminant b^2 - 4ac.",
+		},
+		expectedTools: ["workspace_create_items"],
+		contentChecks: [
+			{
+				source: { tool: "workspace_create_items" },
+				mustMatch: [DOCUMENT_MATH_MARKUP],
+				mustNotMatch: [DOLLAR_DELIMITED_MATH, BRACKET_DELIMITED_MATH, SUB_SUP_TAGS],
+			},
+		],
+	},
+	{
+		name: "document chemistry uses \\ce inside math markup",
+		input: {
+			prompt:
+				"Create a document at /Notes/Combustion.md showing the balanced equation for methane combustion and the standard gravity constant with units.",
+		},
+		expectedTools: ["workspace_create_items"],
+		contentChecks: [
+			{
+				source: { tool: "workspace_create_items" },
+				mustMatch: [DOCUMENT_MATH_MARKUP, MHCHEM_CE],
+				mustNotMatch: [DOLLAR_DELIMITED_MATH, SUB_SUP_TAGS],
+			},
+		],
+	},
+	{
+		name: "document currency stays plain, not markdown-escaped",
+		input: {
+			prompt:
+				"Create a document at /Notes/Pricing.md listing three tiers costing $30, $60 and $90 per month.",
+		},
+		expectedTools: ["workspace_create_items"],
+		contentChecks: [{ source: { tool: "workspace_create_items" }, mustNotMatch: [ESCAPED_DOLLAR] }],
+	},
+	{
+		name: "chat math uses dollar delimiters, never brackets",
+		input: {
+			prompt:
+				"Explain the quadratic formula in a couple of sentences and show the formula. Answer in chat; do not create anything.",
+		},
+		forbiddenTools: ["workspace_create_items", "workspace_edit_item"],
+		contentChecks: [
+			{
+				source: "text",
+				mustMatch: [DOLLAR_DELIMITED_MATH],
+				mustNotMatch: [BRACKET_DELIMITED_MATH],
+			},
+		],
+	},
+	{
+		name: "chat escapes literal currency",
+		input: {
+			prompt:
+				"A jacket costs $80 and is 25% off. What is the sale price? Answer in chat; do not create anything.",
+		},
+		forbiddenTools: ["workspace_create_items"],
+		contentChecks: [{ source: "text", mustMatch: [ESCAPED_DOLLAR] }],
 	},
 ];

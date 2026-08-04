@@ -29,7 +29,7 @@ export function createWorkspaceReadReferences(
 			continue;
 		}
 
-		if (result.type === "document" || result.assetKind !== "pdf") {
+		if (result.type !== "file" || result.assetKind !== "pdf") {
 			locations.push({
 				itemId: result.itemId,
 				kind: "item",
@@ -132,7 +132,7 @@ export function createWorkspaceReadItemsModelOutput(output: WorkspaceReadItemsOu
 				return result;
 			}
 
-			if (result.type === "document" || result.assetKind !== "pdf") {
+			if (result.type !== "file" || result.assetKind !== "pdf") {
 				const ref = refsByLocation.get(
 					getWorkspaceLocationKey({
 						itemId: result.itemId,

@@ -23,14 +23,15 @@ export function getWorkspaceKernelContentMimeType(type: WorkspaceItemType) {
 }
 
 export function getInitialWorkspaceKernelContent(type: WorkspaceItemType) {
-	switch (getWorkspaceItemRegistryEntry(type).contentKind) {
+	switch (type) {
 		case "document":
 			return stringifyTiptapDocumentJson(createInitialTiptapDocumentJson());
 		case "flashcard":
 			return JSON.stringify({ version: 1, cards: [] }, null, 2);
 		case "quiz":
 			return JSON.stringify({ version: 1, questions: [] }, null, 2);
-		case "empty":
+		case "file":
+		case "folder":
 			return "";
 	}
 }

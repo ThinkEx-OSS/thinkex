@@ -31,6 +31,13 @@ interface WorkspaceAiComposerDraftState {
 	filesByThreadId: Record<string, WorkspaceAiComposerDraftFile[] | undefined>;
 	quotesByWorkspaceId: Record<string, WorkspaceSelectedQuote[] | undefined>;
 	textByThreadId: Record<string, string | undefined>;
+	/**
+	 * Editable text staged into the composer from outside the composer component
+	 * (e.g. a document toolbar's "Add widget"). The composer consumes and clears
+	 * it on mount, appending it to whatever the user already typed; it is never
+	 * auto-sent.
+	 */
+	promptByWorkspaceId: Record<string, string | undefined>;
 	addFiles: (
 		workspaceId: string,
 		threadId: string,
@@ -40,9 +47,11 @@ interface WorkspaceAiComposerDraftState {
 	addQuote: (workspaceId: string, quote: WorkspaceSelectedQuote) => void;
 	clearDraftArtifacts: (workspaceId: string, threadId: string) => void;
 	clearFiles: (threadId: string) => void;
+	clearPrompt: (workspaceId: string) => void;
 	clearQuotes: (workspaceId: string) => void;
 	removeFile: (threadId: string, fileId: string) => void;
 	removeQuote: (workspaceId: string, quoteId: string) => void;
+	setPrompt: (workspaceId: string, text: string) => void;
 	setText: (threadId: string, value: SetStateAction<string>) => void;
 }
 
@@ -129,6 +138,7 @@ export const useWorkspaceAiComposerDraftStore = create<WorkspaceAiComposerDraftS
 		clearDraftArtifacts: (workspaceId, threadId) =>
 			set((state) => clearDraftArtifacts(state, workspaceId, threadId)),
 		clearFiles: (threadId) => set((state) => clearFilesForThread(state, threadId)),
+		clearPrompt: (workspaceId) => set((state) => clearPromptForWorkspace(state, workspaceId)),
 		clearQuotes: (workspaceId) =>
 			set((state) => {
 				const current = state.quotesByWorkspaceId[workspaceId] ?? EMPTY_DRAFT_QUOTES;
@@ -144,6 +154,7 @@ export const useWorkspaceAiComposerDraftStore = create<WorkspaceAiComposerDraftS
 				};
 			}),
 		filesByThreadId: {},
+		promptByWorkspaceId: {},
 		quotesByWorkspaceId: {},
 		removeFile: (threadId, fileId) => {
 			const file = get().filesByThreadId[threadId]?.find((item) => item.id === fileId);
@@ -164,6 +175,20 @@ export const useWorkspaceAiComposerDraftStore = create<WorkspaceAiComposerDraftS
 					quotesByWorkspaceId: {
 						...state.quotesByWorkspaceId,
 						[workspaceId]: next.length > 0 ? next : undefined,
+					},
+				};
+			}),
+		setPrompt: (workspaceId, text) =>
+			set((state) => {
+				const trimmed = text.trim();
+				if (!trimmed) {
+					return state;
+				}
+
+				return {
+					promptByWorkspaceId: {
+						...state.promptByWorkspaceId,
+						[workspaceId]: trimmed,
 					},
 				};
 			}),
@@ -216,15 +241,41 @@ export function useWorkspaceAiComposerDraftText(threadId: string) {
 	);
 }
 
+export function useWorkspaceAiComposerDraftPrompt(workspaceId: string) {
+	return useWorkspaceAiComposerDraftStore(
+		useMemo(
+			() => (state: WorkspaceAiComposerDraftState) => state.promptByWorkspaceId[workspaceId],
+			[workspaceId],
+		),
+	);
+}
+
 function clearDraftArtifacts(
 	state: WorkspaceAiComposerDraftState,
 	workspaceId: string,
 	threadId: string,
 ) {
-	return clearQuotesForWorkspace(
-		clearTextForThread(clearFilesForThread(state, threadId), threadId),
+	return clearPromptForWorkspace(
+		clearQuotesForWorkspace(
+			clearTextForThread(clearFilesForThread(state, threadId), threadId),
+			workspaceId,
+		),
 		workspaceId,
 	);
+}
+
+function clearPromptForWorkspace(state: WorkspaceAiComposerDraftState, workspaceId: string) {
+	if (state.promptByWorkspaceId[workspaceId] === undefined) {
+		return state;
+	}
+
+	return {
+		...state,
+		promptByWorkspaceId: {
+			...state.promptByWorkspaceId,
+			[workspaceId]: undefined,
+		},
+	};
 }
 
 function clearFilesForThread(state: WorkspaceAiComposerDraftState, threadId: string) {

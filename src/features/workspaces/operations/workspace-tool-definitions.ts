@@ -149,7 +149,7 @@ export const workspaceToolDefinitions = [
 		name: "workspace_read_items",
 		access: "read",
 		description:
-			"Read ThinkEx documents and extracted files by absolute path. Documents return bounded HTML block chunks; each top-level data-ref is an item-local edit target, not a citation ref. Files support explicit physical-page selections. Continue either kind with nextCursor. Uploaded files may still be extracting; each result carries any needed handling guidance.",
+			"Read ThinkEx documents and extracted files by absolute path. Documents return bounded HTML block chunks; each top-level data-ref is an item-local edit target, not a citation ref. Widgets come back as an empty placeholder, so read one back with mode block before editing its source. Files support explicit physical-page selections. Continue either kind with nextCursor. Uploaded files may still be extracting; each result carries any needed handling guidance.",
 		inputSchema: workspaceReadItemsInputSchema,
 		inputExamples: workspaceReadItemsInputExamples,
 		outputSchema: workspaceReadItemsOutputSchema,
@@ -214,7 +214,7 @@ export const workspaceToolDefinitions = [
 	defineWorkspaceTool({
 		name: "workspace_create_items",
 		access: "write",
-		description: `Create one or more folders or documents at exact absolute paths. If a path already exists, creation fails instead of renaming. ${workspaceDocumentHtmlInstruction}`,
+		description: `Create one or more folders or documents at exact absolute paths. If a path already exists, creation fails instead of renaming. A document is also how interactive work ships: give it a widget block, on its own or alongside prose. ${workspaceDocumentHtmlInstruction}`,
 		inputSchema: workspaceCreateItemsInputSchema,
 		inputExamples: workspaceCreateItemsInputExamples,
 		outputSchema: workspaceCreateItemsOutputSchema,
@@ -244,7 +244,7 @@ export const workspaceToolDefinitions = [
 	defineWorkspaceTool({
 		name: "workspace_edit_item",
 		access: "write",
-		description: `Edit one actual ThinkEx workspace document by absolute path using structural HTML operations. Read first for targeted edits; replace_all can rewrite the whole document without a read. Use workspace_link_items to add relationships. ${workspaceDocumentHtmlInstruction}`,
+		description: `Edit one actual ThinkEx workspace document by absolute path. Read it first, then target blocks by data-ref. Only overwrite replaces the whole document, and only it works without a read. Use workspace_link_items to add relationships. ${workspaceDocumentHtmlInstruction}`,
 		inputSchema: workspaceEditItemInputSchema,
 		inputExamples: workspaceEditItemInputExamples,
 		outputSchema: workspaceEditItemOutputSchema,

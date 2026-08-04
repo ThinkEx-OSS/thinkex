@@ -25,10 +25,8 @@ import type {
 	DeleteWorkspaceKernelItemsResult,
 	MoveWorkspaceKernelItemsArgs,
 	MoveWorkspaceKernelItemsResult,
-	ReadWorkspaceDocumentCheckpointArgs,
 	RenameWorkspaceKernelItemArgs,
 	UpdateWorkspaceKernelItemColorArgs,
-	CommitWorkspaceDocumentCheckpointArgs,
 	WorkspaceKernelMutationOutcome,
 } from "#/features/workspaces/kernel/workspace-kernel-types";
 import {
@@ -325,26 +323,35 @@ export class WorkspaceKernelItemCommands {
 		return { result, event };
 	}
 
-	async readDocumentCheckpoint(input: ReadWorkspaceDocumentCheckpointArgs) {
+	/** Reads the stored content blob of any content-bearing item. */
+	async readItemContent(input: { itemId: string }) {
 		const item = this.store.assertActiveItem(input.itemId);
-		if (item.type !== "document") {
-			throw new Error("Only document items have document checkpoints.");
+		if (item.type === "folder") {
+			throw new Error("Folders have no readable content.");
 		}
-		const itemSummary = mapKernelItemRow(item, this.workspaceId());
 		return {
-			item: itemSummary,
+			item: mapKernelItemRow(item, this.workspaceId()),
 			content: await this.workspace.readFile(item.shell_path),
 		};
 	}
 
-	async commitDocumentCheckpoint(
-		input: CommitWorkspaceDocumentCheckpointArgs,
-	): Promise<WorkspaceCommandResult<WorkspaceItemSummary>> {
+	/**
+	 * Writes the stored content blob of any content-bearing item.
+	 *
+	 * Documents additionally refresh the metadata preview derived from their
+	 * content; every other type just persists the blob.
+	 */
+	async writeItemContent(input: {
+		itemId: string;
+		content: string;
+		actorUserId?: string | null;
+		clientMutationId?: string | null;
+	}): Promise<WorkspaceCommandResult<WorkspaceItemSummary>> {
 		const item = this.store.assertActiveItem(input.itemId);
 		const type = workspaceItemTypeSchema.parse(item.type);
 
-		if (type !== "document") {
-			throw new Error("Only document checkpoints can update workspace text content.");
+		if (type === "folder") {
+			throw new Error("Folders have no writable content.");
 		}
 
 		await this.workspace.writeFile(
@@ -354,15 +361,24 @@ export class WorkspaceKernelItemCommands {
 		);
 
 		const currentItem = this.store.assertActiveItem(input.itemId);
+		// Keep updated_at strictly increasing so same-millisecond writes still order.
 		const updatedAt = Math.max(Date.now(), currentItem.updated_at + 1);
 
-		persistDocumentItemContentUpdate({
-			content: input.content,
-			itemId: input.itemId,
-			metadataJson: currentItem.metadata_json,
-			sql: this.sql,
-			updatedAt,
-		});
+		if (type === "document") {
+			persistDocumentItemContentUpdate({
+				content: input.content,
+				itemId: input.itemId,
+				metadataJson: currentItem.metadata_json,
+				sql: this.sql,
+				updatedAt,
+			});
+		} else {
+			this.sql`
+				UPDATE kernel_items
+				SET updated_at = ${updatedAt}
+				WHERE id = ${input.itemId} AND deleted_at IS NULL
+			`;
+		}
 
 		return this.commitItemEvent({
 			type: "workspace.item.content.updated",

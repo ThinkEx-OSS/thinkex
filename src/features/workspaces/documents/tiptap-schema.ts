@@ -1,9 +1,10 @@
-import { type AnyExtension, Extension, getSchema, Node } from "@tiptap/core";
+import { type AnyExtension, Extension, getSchema, mergeAttributes, Node } from "@tiptap/core";
 import CodeBlock from "@tiptap/extension-code-block";
 import Highlight from "@tiptap/extension-highlight";
 import HorizontalRule from "@tiptap/extension-horizontal-rule";
 import Link from "@tiptap/extension-link";
 import { TaskItem, TaskList } from "@tiptap/extension-list";
+import { Details, DetailsContent, DetailsSummary } from "@tiptap/extension-details";
 import { Mathematics } from "@tiptap/extension-mathematics";
 import { TableKit } from "@tiptap/extension-table";
 import TextAlign from "@tiptap/extension-text-align";
@@ -51,6 +52,49 @@ export const Citation = Node.create({
 		];
 	},
 });
+/**
+ * An interactive widget: a self-contained HTML fragment the assistant writes,
+ * rendered in a sandboxed iframe by the client's node view.
+ *
+ * The source is the node's text content rather than an attribute. A widget runs
+ * to several kilobytes of markup and script, and escaping all of that into an
+ * attribute is exactly the kind of thing a model gets subtly wrong — this is the
+ * same reason a code block holds its code as content. `atom` means the editor
+ * treats it as one unit: there is content, but it is not typed into directly.
+ * `code` keeps input rules and smart typography from rewriting the source.
+ */
+export const Widget = Node.create({
+	name: "widget",
+	group: "block",
+	content: "text*",
+	marks: "",
+	code: true,
+	atom: true,
+	defining: true,
+	selectable: true,
+	draggable: true,
+
+	addAttributes() {
+		return {
+			title: {
+				default: "",
+				parseHTML: (el) => el.getAttribute("title") ?? "",
+				renderHTML: (attrs) => (attrs.title ? { title: String(attrs.title) } : {}),
+			},
+		};
+	},
+
+	parseHTML() {
+		return [{ tag: 'div[data-type="widget"]', preserveWhitespace: "full" as const }];
+	},
+
+	renderHTML({ HTMLAttributes }) {
+		// Merge rather than replace: global attributes land here, and data-ref is
+		// how the assistant addresses this block for reads and edits.
+		return ["div", mergeAttributes(HTMLAttributes, { "data-type": "widget" }), 0];
+	},
+});
+
 export const tiptapDocumentAiRefAttribute = "aiRef";
 
 const DocumentAiRef = Extension.create({
@@ -96,9 +140,11 @@ export const tiptapDocumentKernelCodeBlock = CodeBlock;
 export function getTiptapDocumentSchemaExtensions({
 	citation = Citation,
 	codeBlock = tiptapDocumentKernelCodeBlock,
+	widget = Widget,
 }: {
 	citation?: AnyExtension;
 	codeBlock?: AnyExtension;
+	widget?: AnyExtension;
 } = {}) {
 	return [
 		DocumentAiRef,
@@ -114,6 +160,7 @@ export function getTiptapDocumentSchemaExtensions({
 			undoRedo: false,
 		}),
 		codeBlock,
+		widget,
 		HorizontalRule,
 		UnderlineExtension,
 		Highlight,
@@ -130,6 +177,12 @@ export function getTiptapDocumentSchemaExtensions({
 		TextAlign.configure({
 			types: ["heading", "paragraph"],
 		}),
+		// Collapsible sections. Registered for content only — the AI writes
+		// <details> naturally and it used to be flattened away; there is no
+		// toolbar affordance for inserting one by hand.
+		Details,
+		DetailsSummary,
+		DetailsContent,
 		TaskList,
 		TaskItem.configure({
 			nested: true,

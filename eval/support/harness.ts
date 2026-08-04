@@ -5,6 +5,7 @@ import type { z } from "zod";
 import { getAIThreadSoulPrompt } from "#/features/workspaces/ai/ai-thread-soul-prompt";
 import { createProviderCompatibleInputSchema } from "#/features/workspaces/ai/ai-thread-tool";
 import {
+	getAIThreadSystemPromptForWorkspace,
 	getWorkspaceAiGatewayProviderOptions,
 	getWorkspaceAiLanguageModel,
 } from "#/features/workspaces/ai/ai-thread-runtime";
@@ -41,8 +42,11 @@ export interface WorkspaceAgentInput {
 	prompt: string;
 	/** Friendly model id from `models.ts` (e.g. "claude-sonnet"). Defaults to "auto". */
 	modelId?: string;
-	/** Extra system text appended to the soul prompt (e.g. a workspace scope block). */
+	/** Extra system text appended to the workspace prompt (e.g. a scope override). */
 	system?: string;
+	/** Whether the turn may mutate; drives the real runtime scope block. */
+	canMutate?: boolean;
+	workspaceName?: string;
 }
 
 // Deterministic read fixture: document HTML carrying real `data-ref` values, so a
@@ -52,23 +56,61 @@ const STANDUP_HEADING_REF = "b_standupHead1.r_head000001";
 const STANDUP_LIST_REF = "b_standupList1.r_bullet0001";
 export const EVAL_READ_FIXTURE_REFS = [STANDUP_HEADING_REF, STANDUP_LIST_REF];
 
-// Per-tool stubbed outputs. Reads return editable HTML + refs; everything else
-// returns a neutral success so a follow-up step can still proceed. No real
-// Durable Object is touched and no workspace is mutated.
-const EVAL_TOOL_FIXTURES: Record<string, unknown> = {
-	workspace_read_items: {
-		items: [
-			{
-				path: "/Notes/Standup.md",
-				type: "document",
-				html: `<h1 data-ref="${STANDUP_HEADING_REF}">Standup</h1><ul data-ref="${STANDUP_LIST_REF}"><li>Discuss roadmap</li></ul>`,
-			},
-		],
+const KINEMATICS_HEADING_REF = "b_kinematicsH1.r_head000002";
+const KINEMATICS_MATH_REF = "b_kinematicsEq1.r_math000001";
+const PRICING_TABLE_REF = "b_pricingTable.r_table00001";
+export const EVAL_DOCUMENT_FIXTURE_REFS = [
+	KINEMATICS_HEADING_REF,
+	KINEMATICS_MATH_REF,
+	PRICING_TABLE_REF,
+];
+
+/**
+ * Realistic items the model reads before editing — written exactly as the real
+ * serializer emits them, so an edit turn sees production markup: math as empty
+ * `data-latex` elements, currency as plain text, widgets as raw HTML.
+ */
+const EVAL_READ_ITEMS: Record<string, unknown> = {
+	"/Notes/Standup.md": {
+		path: "/Notes/Standup.md",
+		type: "document",
+		format: "html",
+		content: `<h1 data-ref="${STANDUP_HEADING_REF}">Standup</h1><ul data-ref="${STANDUP_LIST_REF}"><li>Discuss roadmap</li></ul>`,
+	},
+	"/Physics/Kinematics.md": {
+		path: "/Physics/Kinematics.md",
+		type: "document",
+		format: "html",
+		content: `<h1 data-ref="${KINEMATICS_HEADING_REF}">Kinematics</h1><p>For constant acceleration, displacement over time is</p><div data-latex="s = ut + \\tfrac{1}{2}at^2" data-type="block-math" data-ref="${KINEMATICS_MATH_REF}"></div>`,
+	},
+	"/Tutoring/Pricing.md": {
+		path: "/Tutoring/Pricing.md",
+		type: "document",
+		format: "html",
+		content: `<h1 data-ref="${PRICING_TABLE_REF}">Tutoring rates</h1><p>Standard sessions are $30 an hour, and exam-prep intensives are $75 an hour.</p>`,
+	},
+	"/Physics/Wave Explorer": {
+		path: "/Physics/Wave Explorer",
+		type: "widget",
+		format: "html",
+		content: `<style>.tx-root{height:100%;padding:16px;display:flex;flex-direction:column;gap:12px}</style><div class="tx-root"><p>Adjust the frequency to see how $y = A\\sin(2\\pi f t)$ changes.</p><input id="freq" type="range" min="1" max="10" value="3" /><canvas id="wave"></canvas></div><script>const c=document.getElementById("wave");/* draws the wave */</script>`,
 	},
 };
 
-function evalToolFixture(toolName: string): unknown {
-	return EVAL_TOOL_FIXTURES[toolName] ?? { ok: true, note: "eval stub — no real mutation" };
+// Per-tool stubbed outputs. Reads return the realistic item for the requested
+// path; everything else returns a neutral success so a follow-up step can still
+// proceed. No real Durable Object is touched and no workspace is mutated.
+function evalToolFixture(toolName: string, input: unknown): unknown {
+	if (toolName === "workspace_read_items") {
+		const requests = (input as { requests?: Array<{ path?: string }> })?.requests ?? [];
+		const items = requests
+			.map((request) => (request.path ? EVAL_READ_ITEMS[request.path] : undefined))
+			.filter(Boolean);
+		// Fall back to the standup doc so an unrecognised path still returns
+		// something editable rather than an empty read.
+		return { results: items.length > 0 ? items : [EVAL_READ_ITEMS["/Notes/Standup.md"]] };
+	}
+	return { ok: true, note: "eval stub — no real mutation" };
 }
 
 // Real workspace tools with stubbed execution. Evals grade tool *selection* and
@@ -86,7 +128,7 @@ function buildEvalToolSet(): ToolSet {
 					asSchema(definition.inputSchema as z.ZodTypeAny),
 				),
 				inputExamples: definition.inputExamples,
-				execute: async () => evalToolFixture(definition.name),
+				execute: async (input: unknown) => evalToolFixture(definition.name, input),
 			}),
 		]),
 	) as ToolSet;
@@ -103,9 +145,16 @@ export async function runWorkspaceAgent(input: WorkspaceAgentInput): Promise<Wor
 	const modelId = resolveWorkspaceAiChatModelId(
 		input.modelId ?? DEFAULT_WORKSPACE_AI_CHAT_MODEL_ID,
 	);
-	const system = input.system
-		? `${getAIThreadSoulPrompt()}\n\n${input.system}`
-		: getAIThreadSoulPrompt();
+	// Production-identical system text: the soul prompt, the workspace citation
+	// rules, and the runtime scope block that `beforeTurn` injects. Grading a
+	// model against a thinner prompt than production ships would measure the
+	// harness, not the product.
+	const workspacePrompt = getAIThreadSystemPromptForWorkspace(
+		getAIThreadSoulPrompt(),
+		{ canMutate: input.canMutate ?? true, workspaceName: input.workspaceName ?? "Study" },
+		{ timeZone: "America/New_York" },
+	);
+	const system = input.system ? `${workspacePrompt}\n\n${input.system}` : workspacePrompt;
 
 	const result = await generateText({
 		model: getWorkspaceAiLanguageModel(modelId, env, "eval"),

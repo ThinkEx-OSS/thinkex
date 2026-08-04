@@ -43,14 +43,12 @@ import type {
 	MoveWorkspaceKernelItemsResult,
 	ReadWorkspaceKernelFileSourceArgs,
 	ReadWorkspaceKernelFileProjectionArgs,
-	ReadWorkspaceDocumentCheckpointArgs,
 	ResolveWorkspaceKernelPathsArgs,
 	RenameWorkspaceKernelItemArgs,
 	UpdateWorkspaceKernelItemColorArgs,
 	UpsertWorkspaceKernelFileProjectionArgs,
 	WorkspaceKernelPage,
 	WorkspaceKernelMutationOutcome,
-	CommitWorkspaceDocumentCheckpointArgs,
 	WorkspaceKernelPathResolution,
 } from "#/features/workspaces/kernel/workspace-kernel-types";
 import { getChatAttachmentWorkspacePrefix } from "#/features/workspaces/ai/chat-attachment-storage";
@@ -379,15 +377,18 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 		}
 	}
 
-	async readDocumentCheckpoint(input: ReadWorkspaceDocumentCheckpointArgs) {
-		return await this.itemCommands.readDocumentCheckpoint(input);
+	async readItemContent(input: { itemId: string }) {
+		return await this.itemCommands.readItemContent(input);
 	}
 
-	async commitDocumentCheckpoint(
-		input: CommitWorkspaceDocumentCheckpointArgs,
-	): Promise<WorkspaceCommandResult<WorkspaceItemSummary>> {
-		return this.runMutation("commit_document_checkpoint", input, 1, () =>
-			this.itemCommands.commitDocumentCheckpoint(input),
+	async writeItemContent(input: {
+		itemId: string;
+		content: string;
+		actorUserId?: string | null;
+		clientMutationId?: string | null;
+	}): Promise<WorkspaceCommandResult<WorkspaceItemSummary>> {
+		return this.runMutation("write_item_content", input, 1, () =>
+			this.itemCommands.writeItemContent(input),
 		);
 	}
 

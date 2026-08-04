@@ -33,7 +33,8 @@ exports[`workspace tool surface > system prompt is stable 1`] = `
 - Let the app control Mermaid presentation: do not add frontmatter or init directives, custom styles or colors, embedded HTML, links, images, or other external resources. Include a concise \`accTitle\` and \`accDescr\` describing the diagram.
 - When writing Markdown with math, use \`$...$\` for inline math and \`$$...$$\` on separate lines for block math. Do not use \`\\(...\\)\` or \`\\[...\\]\`; our renderer only understands dollar-sign delimiters.
 - Chemistry renders with \`\\ce{...}\` (e.g. \`$\\ce{CH4 + 2 O2 -> CO2 + 2 H2O}$\`) and quantities with units render with \`\\pu{...}\`.
-- CRITICAL: every literal dollar sign — every price, cost, salary, or currency figure — MUST be escaped as \`\\$\`. Write \`\\$5\`, not \`$5\`. Write \`\\$1,000 − \\$200 = \\$800\`, not \`$1,000 − $200 = $800\`. A missed escape turns the price into broken math on screen.
+- CRITICAL, in chat replies only: every literal dollar sign — every price, cost, salary, or currency figure — MUST be escaped as \`\\$\`. Write \`\\$5\`, not \`$5\`. Write \`\\$1,000 − \\$200 = \\$800\`, not \`$1,000 − $200 = $800\`. A missed escape turns the price into broken math on screen.
+- That escape is a Markdown rule and applies to chat replies only. Document and widget content is HTML, where \`\\$\` renders as a visible backslash — write money plainly there, as \`$30\`.
 
 # Memory
 - Use memory only for durable preferences, workspace goals, thread goals, and decisions. Do not store transient requests, secrets, full documents, item bodies, or actual workspace state."
@@ -200,7 +201,7 @@ exports[`workspace tool surface > workspace_edit_item input schema is stable 1`]
   "additionalProperties": false,
   "properties": {
     "edits": {
-      "description": "Ordered structural HTML edits, at most 40. For targeted operations, copy data-ref into the "ref" field; there is no "target" field. These refs are local to this document and are not workspace citation refs.",
+      "description": "Ordered edits, at most 40. Target a block by copying its data-ref into the "ref" field (these are local to the document, not workspace citation refs). Use replace_text to change text inside one block, including a widget's source. Use overwrite only to discard the entire document and write a new one.",
       "items": {
         "anyOf": [
           {
@@ -262,13 +263,44 @@ exports[`workspace tool surface > workspace_edit_item input schema is stable 1`]
                 "type": "string",
               },
               "op": {
-                "const": "replace_all",
+                "const": "overwrite",
                 "type": "string",
               },
             },
             "required": [
               "html",
               "op",
+            ],
+            "type": "object",
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "find": {
+                "description": "Exact text to replace inside the target block, copied from a read. It must appear exactly once in that block; if it matches more than once the edit fails instead of replacing every occurrence.",
+                "minLength": 1,
+                "type": "string",
+              },
+              "op": {
+                "const": "replace_text",
+                "type": "string",
+              },
+              "ref": {
+                "description": "Exact data-ref from a recent HTML read. Put it in the "ref" field, never "target".",
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string",
+              },
+              "replace": {
+                "description": "Replacement text. May be empty to delete the matched text.",
+                "type": "string",
+              },
+            },
+            "required": [
+              "find",
+              "op",
+              "ref",
+              "replace",
             ],
             "type": "object",
           },
@@ -476,6 +508,31 @@ exports[`workspace tool surface > workspace_read_items input schema is stable 1`
               "path",
               "cursor",
               "mode",
+            ],
+            "type": "object",
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "mode": {
+                "const": "block",
+                "type": "string",
+              },
+              "path": {
+                "description": "Absolute path of the workspace item to read.",
+                "minLength": 1,
+                "type": "string",
+              },
+              "ref": {
+                "description": "data-ref of one block from an earlier read of this document, returned in full. Reads elide a widget's source, so this is how to fetch it before editing.",
+                "minLength": 1,
+                "type": "string",
+              },
+            },
+            "required": [
+              "path",
+              "mode",
+              "ref",
             ],
             "type": "object",
           },

@@ -685,6 +685,80 @@
 		color: inherit;
 	}
 
+	/* An interactive widget block. The frame owns every click inside it, so the
+	   handle strip above is the only way to select, drag, or delete the widget. */
+	.workspace-document-prose .workspace-document-widget {
+		margin: 1rem 0;
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
+		overflow: hidden;
+	}
+
+	.workspace-document-prose .workspace-document-widget[data-selected="true"] {
+		outline: 2px solid var(--ring);
+		outline-offset: 1px;
+	}
+
+	.workspace-document-prose .workspace-document-widget-handle {
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
+		border-bottom: 1px solid var(--border);
+		background: var(--muted);
+		padding: 0.3rem 0.6rem;
+		color: var(--muted-foreground);
+		font-size: 0.75rem;
+		cursor: grab;
+		user-select: none;
+	}
+
+	.workspace-document-prose .workspace-document-widget-frame {
+		height: 420px;
+	}
+
+	/* Collapsible sections. The Details node view renders a toggle button next to
+	   the summary and hides the content div, so it only needs layout here — the
+	   AI writes <details> and there is no toolbar affordance for inserting one. */
+	.workspace-document-prose details {
+		display: flex;
+		gap: 0.5rem;
+		margin: 0.85rem 0;
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
+		padding: 0.65rem 0.85rem;
+	}
+
+	.workspace-document-prose details > button {
+		display: flex;
+		align-items: center;
+		align-self: flex-start;
+		justify-content: center;
+		width: 1.15rem;
+		height: 1.15rem;
+		border-radius: var(--radius-sm);
+		color: var(--muted-foreground);
+		cursor: pointer;
+		line-height: 1;
+	}
+
+	.workspace-document-prose details > button::before {
+		content: "▸";
+	}
+
+	.workspace-document-prose details.is-open > button::before {
+		content: "▾";
+	}
+
+	.workspace-document-prose details > div {
+		flex: 1 1 auto;
+		min-width: 0;
+	}
+
+	.workspace-document-prose details summary {
+		font-weight: 600;
+		list-style: none;
+	}
+
 	.workspace-document-prose [data-type="inline-math"] {
 		display: inline-flex;
 		align-items: baseline;

@@ -25,6 +25,9 @@ const maxWorkspaceContentBatchBytes = 2 * 1024 * 1024 + 64 * 1024;
 
 interface DocumentContentReader {
 	readHtmlChunk(input: DocumentHtmlChunkReadInput): Promise<DocumentHtmlChunkReadResult>;
+	readBlock(input: {
+		ref: string;
+	}): Promise<{ content: string; status: "ready" } | { status: "ref_not_found" }>;
 }
 
 interface PendingReadyResult {
@@ -130,12 +133,46 @@ async function readWorkspaceItem(input: {
 	request: WorkspaceContentReadRequest;
 }): Promise<WorkspaceContentReadResult> {
 	if (input.item.type === "document") {
-		return readDocument(input);
+		return input.request.mode === "block" ? readDocumentBlock(input) : readDocument(input);
 	}
 	if (input.item.type === "file") {
 		return readFile(input);
 	}
 	return { code: "unsupported_item_type", path: input.path, status: "failed" };
+}
+
+/**
+ * One block of a document in full.
+ *
+ * Reads elide a widget's source so it does not crowd the prose out of a chunk;
+ * this is how the assistant fetches that source before editing it. It works for
+ * any block, so a long table or code block can be pulled up on its own too.
+ */
+async function readDocumentBlock(input: {
+	getDocumentSession: (itemId: string) => DocumentContentReader | Promise<DocumentContentReader>;
+	item: WorkspaceItemSummary;
+	path: string;
+	request: WorkspaceContentReadRequest;
+}): Promise<WorkspaceContentReadResult> {
+	if (input.request.mode !== "block") {
+		return { code: "invalid_selection", path: input.path, status: "failed" };
+	}
+
+	const documentSession = await input.getDocumentSession(input.item.id);
+	const block = await documentSession.readBlock({ ref: input.request.ref });
+	if (block.status !== "ready") {
+		return { code: "ref_not_found", path: input.path, status: "failed" };
+	}
+
+	return {
+		content: block.content,
+		format: "html",
+		itemId: input.item.id,
+		path: input.path,
+		ref: input.request.ref,
+		status: "ready",
+		type: "block",
+	};
 }
 
 async function readDocument(input: {
