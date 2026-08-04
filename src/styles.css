@@ -793,10 +793,6 @@
 		min-width: max-content;
 	}
 
-	.workspace-document-prose .tiptap-mathematics-render--editable {
-		cursor: pointer;
-	}
-
 	.workspace-document-prose .inline-math-error,
 	.workspace-document-prose .block-math-error {
 		background: color-mix(in oklch, var(--destructive) 12%, transparent);
