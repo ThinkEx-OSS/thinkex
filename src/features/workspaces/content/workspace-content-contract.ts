@@ -5,7 +5,7 @@ import { workspaceReferenceRecordSchema } from "#/features/workspaces/locations/
 import { workspaceFileAssetKindSchema } from "#/features/workspaces/model/workspace-file";
 
 const workspacePathSchema = z.string().min(1);
-const workspaceEditRefSchema = z.string().min(1).max(64);
+const workspaceEditRefSchema = z.string().trim().min(1).max(64);
 
 const readWorkspaceItemsFailureCodes = [
 	"content_changed",

@@ -99,7 +99,7 @@ const WIDGET_KATEX_SCRIPT_PATHS = [
 const WIDGET_KATEX_FONT_PATH = `${WIDGET_KATEX_BASE_PATH}/fonts/`;
 
 /** Any supported math notation: chat LaTeX delimiters, document markup, or the API. */
-const WIDGET_MATH_PATTERN = /\$\$|\\\(|\\\[|data-latex|katex|renderMathInElement/;
+const WIDGET_MATH_PATTERN = /\$\$|\\\(|\\\[|data-latex|katex|renderMathInElement|renderWidgetMath/;
 
 /**
  * Restrictive CSP for the frame. Widgets are self-contained HTML: only inline

@@ -18,33 +18,20 @@ type StageComposerQuoteOptions = {
 	revealChat?: boolean;
 };
 
-type StageComposerPromptOptions = {
-	revealChat?: boolean;
-};
-
 /**
  * Drop editable text into the AI composer from anywhere in the workspace (e.g.
- * an item viewer's "Ask AI to fix" button) and, by default, reveal the chat.
+ * an item viewer's "Ask AI to fix" button) and reveal the chat.
  * The text is staged as an editable draft — it is never auto-sent, so the user
  * can review or amend it before sending. Reusable across item types.
  */
-export function stageComposerPrompt(
-	workspaceId: string,
-	text: string,
-	options: StageComposerPromptOptions = {},
-) {
-	const { revealChat = true } = options;
-
+export function stageComposerPrompt(workspaceId: string, text: string) {
 	const trimmed = text.trim();
 	if (!trimmed) {
 		return;
 	}
 
 	useWorkspaceAiComposerDraftStore.getState().stageText(getComposerThreadId(workspaceId), trimmed);
-
-	if (revealChat) {
-		revealComposer(workspaceId);
-	}
+	revealComposer(workspaceId);
 }
 
 export function stageComposerQuote(

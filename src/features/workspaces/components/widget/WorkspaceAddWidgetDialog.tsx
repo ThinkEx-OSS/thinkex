@@ -73,7 +73,6 @@ function WorkspaceAddWidgetDialogContent({
 					stageComposerPrompt(
 						workspaceId,
 						`Add an interactive widget to ${documentPath}: ${description}`,
-						{ revealChat: true },
 					);
 					onOpenChange(false);
 				}}
