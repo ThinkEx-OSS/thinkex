@@ -1,5 +1,5 @@
 import type { NodeViewProps } from "@tiptap/react";
-import { NodeViewWrapper, ReactNodeViewRenderer } from "@tiptap/react";
+import { NodeViewContent, NodeViewWrapper, ReactNodeViewRenderer } from "@tiptap/react";
 
 import { WorkspaceWidgetSandbox } from "#/features/workspaces/components/widget/WorkspaceWidgetSandbox";
 import { Widget } from "#/features/workspaces/documents/tiptap-schema";
@@ -39,6 +39,11 @@ function DocumentWidgetView({ node, selected }: NodeViewProps) {
 				<span>{title || "Widget"}</span>
 			</div>
 			<WorkspaceWidgetSandbox html={html} className="workspace-document-widget-frame" />
+			{/* A widget's source is its text content, so ProseMirror needs somewhere
+			    to render it. Without this element Tiptap appends one itself and the
+			    raw source shows up as prose in the document. It stays hidden: the
+			    source is the frame's input, not something to read in the page. */}
+			<NodeViewContent className="workspace-document-widget-source" />
 		</NodeViewWrapper>
 	);
 }

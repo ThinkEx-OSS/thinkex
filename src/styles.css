@@ -716,6 +716,12 @@
 		height: 420px;
 	}
 
+	/* Holds the widget's source, which ProseMirror must render somewhere but the
+	   reader should never see. The frame is the visible form of this text. */
+	.workspace-document-prose .workspace-document-widget-source {
+		display: none;
+	}
+
 	/* Collapsible sections. The Details node view renders a toggle button next to
 	   the summary and hides the content div, so it only needs layout here — the
 	   AI writes <details> and there is no toolbar affordance for inserting one. */
