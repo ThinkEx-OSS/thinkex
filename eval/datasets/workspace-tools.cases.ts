@@ -1,5 +1,4 @@
 import type { WorkspaceAgentInput } from "../support/harness";
-import type { ContentCheck } from "../support/scorers";
 
 export interface WorkspaceToolCase {
 	name: string;
@@ -12,8 +11,6 @@ export interface WorkspaceToolCase {
 	qualityRubric?: string;
 	/** When true, the turn must produce a targeted edit whose editRef traces to the read fixture. */
 	requiresTargetedEditFromRead?: boolean;
-	/** Grade what the model wrote — the answer text, or a tool's arguments. */
-	contentChecks?: ContentCheck[];
 }
 
 export const workspaceToolCases: WorkspaceToolCase[] = [

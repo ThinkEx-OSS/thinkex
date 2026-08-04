@@ -4,7 +4,6 @@ import { workspaceToolCases } from "./datasets/workspace-tools.cases";
 import { runWorkspaceAgent, type WorkspaceAgentOutput } from "./support/harness";
 import {
 	scoreAnswerQuality,
-	scoreContent,
 	scoreExpectedTools,
 	scoreNoForbiddenTools,
 	scoreTargetedEditProvenance,
@@ -77,15 +76,6 @@ describe.skipIf(!process.env.AI_GATEWAY_API_KEY)("workspace tools", () => {
 		if (testCase.requiresTargetedEditFromRead) {
 			const provenance = scoreTargetedEditProvenance(output);
 			expect(provenance.pass, `edit provenance — ${provenance.message}`).toBe(true);
-		}
-
-		// 2c. Deterministic — what the model actually wrote. Tool choice and schema
-		//     validity cannot see authoring dialect: `$x^2$` in document HTML is
-		//     schema-valid and renders as literal dollar signs forever.
-		for (const check of testCase.contentChecks ?? []) {
-			const target = typeof check.source === "string" ? "answer" : check.source.tool;
-			const content = scoreContent(output, check);
-			expect(content.pass, `content (${target}) — ${content.message}`).toBe(true);
 		}
 
 		// 3. Model-graded — grade the prose answer against a rubric when set.

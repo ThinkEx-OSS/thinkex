@@ -49,8 +49,6 @@ export interface WorkspaceAgentInput {
 	modelId?: string;
 	/** Whether the turn may mutate; drives the real runtime scope block. */
 	canMutate?: boolean;
-	timeZone?: string;
-	workspaceName?: string;
 }
 
 const STANDUP_PATH = "/Notes/Standup.md";
@@ -178,8 +176,8 @@ export async function runWorkspaceAgent(input: WorkspaceAgentInput): Promise<Wor
 	// harness, not the product.
 	const workspacePrompt = getAIThreadSystemPromptForWorkspace(
 		getAIThreadSoulPrompt(),
-		{ canMutate, workspaceName: input.workspaceName ?? "Study" },
-		{ timeZone: input.timeZone ?? "America/New_York" },
+		{ canMutate, workspaceName: "Study" },
+		{ timeZone: "America/New_York" },
 	);
 
 	const result = await generateText({
