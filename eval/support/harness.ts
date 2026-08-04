@@ -17,13 +17,20 @@ import {
 	getWorkspaceToolDefinition,
 	workspaceToolDefinitions,
 } from "#/features/workspaces/operations/workspace-tool-definitions";
+import {
+	createDocumentAiBlockSnapshot,
+	parseDocumentAiHtml,
+	serializeTiptapNodeToAiHtml,
+	withTiptapNodeAiRef,
+} from "#/features/workspaces/documents/document-ai-html";
+import { getTiptapDocumentSchema } from "#/features/workspaces/documents/tiptap-schema";
 
 /** A single tool call the model emitted, graded against the real zod schema. */
 export interface WorkspaceAgentToolCall {
 	name: string;
 	input: unknown;
-	/** editRefs returned by completed read steps before this call was made. */
-	priorReadEditRefs: string[];
+	/** editRefs returned by completed read steps before this call, grouped by source path. */
+	priorReadEditRefsByPath: Record<string, string[]>;
 	/** `input` satisfies the tool's real zod input schema. */
 	valid: boolean;
 	/** Human-readable zod issues (`path: message`) when invalid. */
@@ -46,29 +53,46 @@ export interface WorkspaceAgentInput {
 	workspaceName?: string;
 }
 
-// Deterministic read fixture: document HTML carrying real `data-edit-ref` values,
-// so a read→edit turn can produce a targeted edit that traces back to the read.
-// `scoreTargetedEditProvenance` checks that provenance against the refs that
-// were actually returned during each run.
-const STANDUP_HEADING_REF = "b_standupHead1.r_head000001";
-const STANDUP_LIST_REF = "b_standupList1.r_bullet0001";
 const STANDUP_PATH = "/Notes/Standup.md";
 
-/**
- * Realistic items the model reads before editing — written exactly as the real
- * serializer emits it, so an edit turn sees production markup and real refs.
- */
-const EVAL_STANDUP_BLOCKS = {
-	[STANDUP_HEADING_REF]: '<h1 data-block-id="b_standupHead1">Standup</h1>',
-	[STANDUP_LIST_REF]: '<ul data-block-id="b_standupList1"><li><p>Discuss roadmap</p></li></ul>',
+type EvalStandupFixture = {
+	blocks: Map<string, string>;
+	content: string;
 };
-const EVAL_STANDUP_CONTENT = `<h1 data-edit-ref="${STANDUP_HEADING_REF}">Standup</h1><ul data-edit-ref="${STANDUP_LIST_REF}"><li>Discuss roadmap</li></ul>`;
+
+let evalStandupFixture: Promise<EvalStandupFixture> | undefined;
+
+function getEvalStandupFixture() {
+	return (evalStandupFixture ??= createEvalStandupFixture());
+}
+
+/** Derive the eval read fixture from the production serializers so it cannot drift. */
+async function createEvalStandupFixture(): Promise<EvalStandupFixture> {
+	const document = getTiptapDocumentSchema().nodeFromJSON(
+		parseDocumentAiHtml("<h1>Standup</h1><ul><li>Discuss roadmap</li></ul>"),
+	);
+	const blockIds = ["b_standupHead1", "b_standupList1"];
+	const blocks = new Map<string, string>();
+	const content: string[] = [];
+
+	for (let index = 0; index < document.childCount; index += 1) {
+		const blockId = blockIds[index];
+		if (!blockId) throw new Error("Eval standup fixture has an unexpected block count.");
+		const node = withTiptapNodeAiRef(document.child(index), blockId);
+		const snapshot = await createDocumentAiBlockSnapshot(node);
+		blocks.set(snapshot.editRef, snapshot.content);
+		content.push(await serializeTiptapNodeToAiHtml(node));
+	}
+
+	return { blocks, content: content.join("") };
+}
 
 // Per-tool stubbed outputs. Reads return the realistic item for the requested
 // path; everything else returns a neutral success so a follow-up step can still
 // proceed. No real Durable Object is touched and no workspace is mutated.
-function evalToolFixture(toolName: string, input: unknown): unknown {
+async function evalToolFixture(toolName: string, input: unknown): Promise<unknown> {
 	if (toolName === "workspace_read_items") {
+		const fixture = await getEvalStandupFixture();
 		const requests = (
 			input as {
 				requests?: Array<{ editRef?: string; mode?: string; path?: string }>;
@@ -80,7 +104,7 @@ function evalToolFixture(toolName: string, input: unknown): unknown {
 			}
 			if (request.mode === "block") {
 				const editRef = request.editRef ?? "";
-				const content = EVAL_STANDUP_BLOCKS[editRef as keyof typeof EVAL_STANDUP_BLOCKS];
+				const content = fixture.blocks.get(editRef);
 				if (!content) {
 					return { code: "edit_ref_not_found", path: STANDUP_PATH, status: "failed" };
 				}
@@ -100,7 +124,7 @@ function evalToolFixture(toolName: string, input: unknown): unknown {
 			}
 
 			return {
-				content: EVAL_STANDUP_CONTENT,
+				content: fixture.content,
 				format: "html",
 				itemId: "standup-document",
 				location: { endBlock: 2, kind: "blocks", startBlock: 1, totalBlocks: 2 },
@@ -169,7 +193,7 @@ export async function runWorkspaceAgent(input: WorkspaceAgentInput): Promise<Wor
 	});
 
 	const toolCalls: WorkspaceAgentToolCall[] = [];
-	const priorReadEditRefs = new Set<string>();
+	const priorReadEditRefsByPath = new Map<string, Set<string>>();
 	for (const step of result.steps) {
 		for (const part of step.content) {
 			if (part.type !== "tool-call") continue;
@@ -178,7 +202,9 @@ export async function runWorkspaceAgent(input: WorkspaceAgentInput): Promise<Wor
 			toolCalls.push({
 				name: part.toolName,
 				input: part.input,
-				priorReadEditRefs: [...priorReadEditRefs],
+				priorReadEditRefsByPath: Object.fromEntries(
+					[...priorReadEditRefsByPath].map(([path, refs]) => [path, [...refs]]),
+				),
 				valid: parsed ? parsed.success : false,
 				issues: parsed
 					? parsed.success
@@ -191,7 +217,7 @@ export async function runWorkspaceAgent(input: WorkspaceAgentInput): Promise<Wor
 		}
 		for (const toolResult of step.toolResults) {
 			if (toolResult.toolName === "workspace_read_items") {
-				collectReadEditRefs(toolResult.output, priorReadEditRefs);
+				collectReadEditRefs(toolResult.output, priorReadEditRefsByPath);
 			}
 		}
 	}
@@ -199,7 +225,7 @@ export async function runWorkspaceAgent(input: WorkspaceAgentInput): Promise<Wor
 	return { text: result.text, toolCalls };
 }
 
-function collectReadEditRefs(output: unknown, refs: Set<string>) {
+function collectReadEditRefs(output: unknown, refsByPath: Map<string, Set<string>>) {
 	const results = (output as { results?: unknown[] })?.results;
 	if (!Array.isArray(results)) {
 		return;
@@ -210,7 +236,19 @@ function collectReadEditRefs(output: unknown, refs: Set<string>) {
 			continue;
 		}
 
-		const { content, editRef } = result as { content?: unknown; editRef?: unknown };
+		const { content, editRef, path } = result as {
+			content?: unknown;
+			editRef?: unknown;
+			path?: unknown;
+		};
+		if (typeof path !== "string") {
+			continue;
+		}
+		let refs = refsByPath.get(path);
+		if (!refs) {
+			refs = new Set<string>();
+			refsByPath.set(path, refs);
+		}
 		if (typeof editRef === "string") {
 			refs.add(editRef);
 		}

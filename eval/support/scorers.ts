@@ -76,10 +76,15 @@ export function scoreTargetedEditProvenance(output: WorkspaceAgentOutput): Score
 
 	for (const call of output.toolCalls) {
 		if (call.name !== "workspace_edit_item") continue;
-		const input = call.input as { edits?: Array<{ editRef?: string; op?: string }> };
+		const input = call.input as {
+			edits?: Array<{ editRef?: string; op?: string }>;
+			path?: string;
+		};
 		if (!Array.isArray(input.edits)) continue;
 
-		const priorReadEditRefs = new Set(call.priorReadEditRefs);
+		const priorReadEditRefs = new Set(
+			typeof input.path === "string" ? call.priorReadEditRefsByPath[input.path] : [],
+		);
 		for (const edit of input.edits) {
 			if (edit.op === "overwrite") {
 				usedOverwrite = true;

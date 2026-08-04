@@ -37,7 +37,10 @@ const DOCUMENT_WIDGET_SOURCE = {
 	label: "encoded widget source",
 	pattern: /data-type=["']widget["'][^>]*>[\s\S]*&lt;[a-z]/i,
 };
-const FULL_HTML_DOCUMENT = { label: "a full HTML document", pattern: /<(html|head|body)\b/i };
+const FULL_HTML_DOCUMENT = {
+	label: "a full HTML document",
+	pattern: /(?:<|&lt;)\s*(?:!doctype\b|html\b|head\b|body\b)/i,
+};
 
 const PLAIN_PRICES = ["30", "60", "90"].map((price) => ({
 	label: `$${price}`,
