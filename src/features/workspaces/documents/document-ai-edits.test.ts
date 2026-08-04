@@ -6,6 +6,7 @@ import {
 	parseDocumentAiHtml,
 	serializeTiptapDocumentToAiHtml,
 } from "#/features/workspaces/documents/document-ai-html";
+import { getTiptapDocumentSchema } from "#/features/workspaces/documents/tiptap-schema";
 
 describe("document AI edits", () => {
 	it("applies consecutive structural edits while preserving the target ref", async () => {
@@ -88,6 +89,37 @@ describe("document AI edits", () => {
 			/<\/ul><p data-ref="b_[A-Za-z0-9_-]{12}\.r_[A-Za-z0-9_-]{10}"><\/p>$/,
 		);
 	});
+
+	it("replaces one exact fragment in widget source", async () => {
+		const document = createDocument(
+			'<div data-type="widget" title="Timer">&lt;button&gt;Start&lt;/button&gt;</div>',
+		);
+		const ref = await getRef(document, "div");
+		const result = await applyDocumentAiEdits(document, [
+			{ find: ">Start<", op: "replace_text", ref, replace: ">Go<" },
+		]);
+
+		expect(result).toMatchObject({ applied: 1, failed: 0, status: "applied" });
+		expect(getWidgetSource(result.document)).toBe("<button>Go</button>");
+	});
+
+	it("refuses an ambiguous widget source replacement", async () => {
+		const document = createDocument(
+			'<div data-type="widget">&lt;button&gt;Run&lt;/button&gt;&lt;button&gt;Run&lt;/button&gt;</div>',
+		);
+		const ref = await getRef(document, "div");
+		const result = await applyDocumentAiEdits(document, [
+			{ find: "Run", op: "replace_text", ref, replace: "Stop" },
+		]);
+
+		expect(result).toMatchObject({
+			applied: 0,
+			failed: 1,
+			failures: [{ code: "edit_not_unique", index: 0 }],
+			status: "failed",
+		});
+		expect(getWidgetSource(result.document)).toContain("Run</button><button>Run");
+	});
 });
 
 function createDocument(html: string) {
@@ -96,7 +128,7 @@ function createDocument(html: string) {
 
 async function getRef(document: ReturnType<typeof createDocument>, tagName: string) {
 	const match = (await serializeTiptapDocumentToAiHtml(document)).match(
-		new RegExp(`<${tagName} data-ref="([^"]+)"`),
+		new RegExp(`<${tagName}\\b[^>]*\\sdata-ref="([^"]+)"`),
 	);
 	if (!match?.[1]) {
 		throw new Error(`Expected ${tagName} ref.`);
@@ -106,4 +138,16 @@ async function getRef(document: ReturnType<typeof createDocument>, tagName: stri
 
 function stableRef(ref: string) {
 	return ref.split(".r_")[0];
+}
+
+function getWidgetSource(document: ReturnType<typeof createDocument>) {
+	let source = "";
+	getTiptapDocumentSchema()
+		.nodeFromJSON(document)
+		.forEach((node) => {
+			if (node.type.name === "widget") {
+				source = node.textContent;
+			}
+		});
+	return source;
 }

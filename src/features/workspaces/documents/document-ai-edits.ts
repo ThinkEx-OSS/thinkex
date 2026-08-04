@@ -28,6 +28,7 @@ export const documentAiHtmlSchema = z
 	.string()
 	.max(512_000)
 	.describe("Schema-constrained HTML fragment. Model-supplied data-ref attributes are ignored.");
+const documentAiEditTextSchema = z.string().max(512_000);
 
 export const documentAiEditSchema = z.union([
 	z.strictObject({
@@ -44,15 +45,16 @@ export const documentAiEditSchema = z.union([
 		op: z.literal("overwrite"),
 	}),
 	z.strictObject({
-		find: z
-			.string()
+		find: documentAiEditTextSchema
 			.min(1)
 			.describe(
 				"Exact text to replace inside the target block, copied from a read. It must appear exactly once in that block; if it matches more than once the edit fails instead of replacing every occurrence.",
 			),
 		op: z.literal("replace_text"),
 		ref: documentAiRefSchema,
-		replace: z.string().describe("Replacement text. May be empty to delete the matched text."),
+		replace: documentAiEditTextSchema.describe(
+			"Replacement text. May be empty to delete the matched text.",
+		),
 	}),
 ]);
 

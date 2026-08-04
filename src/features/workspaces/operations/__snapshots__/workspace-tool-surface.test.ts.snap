@@ -278,6 +278,7 @@ exports[`workspace tool surface > workspace_edit_item input schema is stable 1`]
             "properties": {
               "find": {
                 "description": "Exact text to replace inside the target block, copied from a read. It must appear exactly once in that block; if it matches more than once the edit fails instead of replacing every occurrence.",
+                "maxLength": 512000,
                 "minLength": 1,
                 "type": "string",
               },
@@ -293,6 +294,7 @@ exports[`workspace tool surface > workspace_edit_item input schema is stable 1`]
               },
               "replace": {
                 "description": "Replacement text. May be empty to delete the matched text.",
+                "maxLength": 512000,
                 "type": "string",
               },
             },
