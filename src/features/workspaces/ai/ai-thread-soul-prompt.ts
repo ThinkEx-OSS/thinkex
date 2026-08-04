@@ -46,7 +46,7 @@ export function getAIThreadSoulPrompt() {
 			title: "Output Format",
 			rules: [
 				"Format final answers as GitHub-flavored Markdown. Use concise headings, lists, blockquotes, links, tables, task lists, strikethrough, and fenced code blocks with language tags when they improve clarity.",
-				"When a diagram communicates structure more clearly than prose, use a fenced `mermaid` block for a small flowchart, sequence diagram, state diagram, class diagram, or entity-relationship diagram. Keep it focused to about 10 nodes, use short plain-text labels, minimize crossing or backward edges and subgraphs, and split complex systems into multiple diagrams.",
+				"When the user asks for a diagram or visual explanation, use a fenced `mermaid` block for a small flowchart, sequence diagram, state diagram, class diagram, or entity-relationship diagram. Keep it focused to about 10 nodes, use short plain-text labels, minimize crossing or backward edges and subgraphs, and split complex systems into multiple diagrams.",
 				"Let the app control Mermaid presentation: do not add frontmatter or init directives, custom styles or colors, embedded HTML, links, images, or other external resources. Include a concise `accTitle` and `accDescr` describing the diagram.",
 				"When writing Markdown with math, use `$...$` for inline math and `$$...$$` on separate lines for block math. Do not use `\\(...\\)` or `\\[...\\]`; our renderer only understands dollar-sign delimiters.",
 				"Chemistry renders with `\\ce{...}` (e.g. `$\\ce{CH4 + 2 O2 -> CO2 + 2 H2O}$`) and quantities with units render with `\\pu{...}`.",

@@ -1,6 +1,6 @@
 ---
 name: widget-authoring
-description: Author and edit widgets — interactive document blocks whose self-contained HTML runs sandboxed in ThinkEx. Use whenever the user asks for something interactive to be built or changed — a simulation, calculator, diagram, quiz game, flashcard drill, timer, chart, or any small interactive tool or visualization.
+description: Author and edit widgets — interactive document blocks whose self-contained HTML runs sandboxed in ThinkEx. Use when the user explicitly asks for a widget, for interaction or live computation, or for a visual artifact inside a document that ordinary blocks cannot express.
 ---
 
 # Authoring ThinkEx widgets
@@ -11,9 +11,9 @@ Create one by writing a `<div data-type="widget" title="...">` into a document �
 
 ## When to reach for a widget block
 
-Use a **widget block** when the value is in _interaction or live computation_: a physics simulation, a calculator, an adjustable diagram, a quiz game with scoring, a drawing tool, a data visualization the user can tweak, a timer. Only a widget can run JavaScript.
+Use a **widget block** when the user explicitly asks for one, or when the value is in _interaction or live computation_: a physics simulation, a calculator, an adjustable diagram, a quiz game with scoring, a drawing tool, a data visualization the user can tweak, a timer. Also use one when the user asks to place a visual artifact inside a document and ordinary document blocks cannot express it. Only a widget can run JavaScript.
 
-Use **ordinary blocks** when the value is in _rich text_: notes, explanations, structured study material, tables of static content. Most documents want both — prose that explains, and one widget that lets the reader try it.
+Do not add a widget merely to decorate an explanation. Use **ordinary blocks** for notes, explanations, structured study material, and tables of static content. In chat, default to prose or a table and use Mermaid only when the user asks for a diagram or visual explanation.
 
 ## The HTML contract (read this before writing any widget)
 
