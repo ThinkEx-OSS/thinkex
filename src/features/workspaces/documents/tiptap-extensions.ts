@@ -5,7 +5,7 @@ import "katex/dist/katex.min.css";
 import "katex/contrib/mhchem";
 
 import { CodeBlockShiki } from "#/features/workspaces/documents/code-block-shiki";
-import { DocumentWidget } from "#/features/workspaces/documents/document-widget-node";
+import { DocumentWidget } from "#/features/workspaces/documents/document-widget-extension";
 import { DocumentCitation } from "#/features/workspaces/documents/document-citation-node";
 import {
 	getTiptapDocumentSchemaExtensions,

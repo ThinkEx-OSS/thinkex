@@ -1,5 +1,5 @@
 import type { NodeViewProps } from "@tiptap/react";
-import { NodeViewContent, NodeViewWrapper, ReactNodeViewRenderer } from "@tiptap/react";
+import { NodeViewContent, NodeViewWrapper } from "@tiptap/react";
 import { Shapes } from "lucide-react";
 
 import {
@@ -8,9 +8,8 @@ import {
 	CodeBlockTitle,
 } from "#/components/code-block/code-block-chrome";
 import { WorkspaceWidgetSandbox } from "#/features/workspaces/components/widget/WorkspaceWidgetSandbox";
-import { Widget } from "#/features/workspaces/documents/tiptap-schema";
 
-export interface DocumentWidgetOptions {
+export interface DocumentWidgetViewOptions {
 	/**
 	 * Called with a crashed widget's error text so the surface can offer a way
 	 * out. Left unset the affordance is hidden, which is right for any read-only
@@ -20,7 +19,7 @@ export interface DocumentWidgetOptions {
 }
 
 /**
- * The editor's widget: the authored HTML running in its sandboxed frame.
+ * The editor view for authored widget HTML running in its sandboxed frame.
  *
  * The frame is a separate document, so its own events never reach the editor and
  * there is nothing to suppress. What does reach the editor is a click or drag on
@@ -32,22 +31,10 @@ export interface DocumentWidgetOptions {
  * and `ignoreMutation` stops the editor re-parsing when React re-renders the
  * header — selection mutations pass through so clicking away behaves normally.
  */
-export const DocumentWidget = Widget.extend<DocumentWidgetOptions>({
-	addOptions() {
-		return { onAskAiToFix: null };
-	},
-
-	addNodeView() {
-		return ReactNodeViewRenderer(DocumentWidgetView, {
-			ignoreMutation: ({ mutation }) => mutation.type !== "selection",
-		});
-	},
-});
-
-function DocumentWidgetView({ extension, node, selected }: NodeViewProps) {
+export function DocumentWidgetView({ extension, node, selected }: NodeViewProps) {
 	const html = node.textContent;
 	const title = typeof node.attrs.title === "string" ? node.attrs.title : "";
-	const { onAskAiToFix } = extension.options as DocumentWidgetOptions;
+	const { onAskAiToFix } = extension.options as DocumentWidgetViewOptions;
 	const label = title || "Widget";
 	const askAiToFix = onAskAiToFix
 		? (error: string) => onAskAiToFix(title ? `the "${title}" widget: ${error}` : error)
