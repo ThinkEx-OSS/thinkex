@@ -45,7 +45,7 @@
 		"@better-auth/oauth-provider": "1.6.25",
 		"@cloudflare/codemode": "^0.5.1",
 		"@cloudflare/containers": "^0.3.7",
-		"@cloudflare/sandbox": "0.12.3",
+		"@cloudflare/sandbox": "0.12.4",
 		"@cloudflare/shell": "^0.4.3",
 		"@cloudflare/think": "^0.15.0",
 		"@content-collections/core": "^0.15.2",
