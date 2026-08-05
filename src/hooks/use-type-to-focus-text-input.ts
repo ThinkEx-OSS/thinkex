@@ -56,7 +56,7 @@ export function useTypeToFocusTextInput({
 	}, [enabled, inputRef, setValue]);
 }
 
-function shouldRouteTypingToTextInput(event: KeyboardEvent) {
+export function shouldRouteTypingToTextInput(event: KeyboardEvent) {
 	if (
 		event.defaultPrevented ||
 		event.metaKey ||
@@ -67,7 +67,7 @@ function shouldRouteTypingToTextInput(event: KeyboardEvent) {
 		return false;
 	}
 
-	if (event.key.length !== 1) {
+	if (!event.key || event.key.length !== 1) {
 		return false;
 	}
 
