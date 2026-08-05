@@ -172,7 +172,7 @@
 		"atmn": "^1.1.16",
 		"babel-plugin-react-compiler": "^1.0.0",
 		"knip": "^6.31.0",
-		"react-doctor": "0.6.0",
+		"react-doctor": "0.9.3",
 		"tailwindcss": "^4.3.3",
 		"tsx": "^4.23.1",
 		"typescript": "^6.0.3",
