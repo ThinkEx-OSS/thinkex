@@ -94,6 +94,7 @@ type AiChatListRow =
 interface AiChatMessageListProps {
 	assistantError?: AiChatAssistantErrorState | null;
 	browser: AiChatBrowserSessionController;
+	hasComposerDraft?: boolean;
 	messages: AiChatMessage[];
 	onRegenerateLastResponse?: () => void;
 	onStopBrowser: () => void;
@@ -105,6 +106,7 @@ interface AiChatMessageListProps {
 export default function AiChatMessageList({
 	assistantError,
 	browser,
+	hasComposerDraft = false,
 	messages,
 	onRegenerateLastResponse,
 	onStopBrowser,
@@ -119,7 +121,7 @@ export default function AiChatMessageList({
 	const listRef = useRef<HTMLDivElement>(null);
 	const shouldReduceMotion = useReducedMotion();
 	const [selectedText, setSelectedText] = useState<SelectedText | null>(null);
-	const showEmptyState = rows.length === 0 && !assistantError;
+	const showEmptyState = rows.length === 0 && !assistantError && !hasComposerDraft;
 
 	useEffect(() => {
 		const updateSelection = () => {

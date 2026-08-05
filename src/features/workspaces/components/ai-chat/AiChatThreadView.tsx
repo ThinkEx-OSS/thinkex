@@ -15,7 +15,10 @@ import type {
 import { useWorkspaceAiChat } from "#/features/workspaces/components/ai-chat/useWorkspaceAiChat";
 import type { WorkspaceAiContextScope } from "#/features/workspaces/model/workspace-ai-context";
 import { buildWorkspaceAiContextSnapshot } from "#/features/workspaces/model/workspace-ai-context";
-import { useWorkspaceAiComposerDraftStore } from "#/features/workspaces/state/workspace-ai-composer-draft-store";
+import {
+	useWorkspaceAiComposerDraftStore,
+	useWorkspaceAiComposerDraftText,
+} from "#/features/workspaces/state/workspace-ai-composer-draft-store";
 
 export default function AiChatThreadView({
 	context,
@@ -50,6 +53,7 @@ export default function AiChatThreadView({
 	const clearDraftArtifacts = useWorkspaceAiComposerDraftStore(
 		(state) => state.clearDraftArtifacts,
 	);
+	const composerDraft = useWorkspaceAiComposerDraftText(threadId);
 
 	useEffect(() => {
 		onRecoveringChange?.(presentation.isRecovering);
@@ -95,6 +99,7 @@ export default function AiChatThreadView({
 			<AiChatMessageList
 				assistantError={assistantError}
 				browser={browser}
+				hasComposerDraft={composerDraft.length > 0}
 				messages={messages}
 				presentation={presentation}
 				sentMessageAnimationId={sentMessageAnimationId}
