@@ -85,7 +85,10 @@ export function capturePostHogClientEvent<TEvent extends PostHogClientEventName>
 	posthog.capture(event, properties);
 }
 
-export function capturePostHogClientException(error: Error, properties?: Record<string, unknown>) {
+export function capturePostHogClientException(
+	error: unknown,
+	properties?: Record<string, unknown>,
+) {
 	if (!isPostHogEnabled) {
 		return;
 	}

@@ -234,8 +234,7 @@ const highlightCode = (
 			pendingTokenKeys.delete(tokensCacheKey);
 		})
 		// oxlint-disable-next-line eslint-plugin-promise(prefer-await-to-then), eslint-plugin-promise(prefer-await-to-callbacks)
-		.catch((error) => {
-			console.error("Failed to highlight code:", error);
+		.catch(() => {
 			pendingTokenKeys.delete(tokensCacheKey);
 			subscribers.delete(tokensCacheKey);
 		});

@@ -2,7 +2,6 @@ import type { ReactElement } from "react";
 
 import ThinkExLogo from "#/components/ThinkExLogo";
 import { Button } from "#/components/ui/button";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "#/components/ui/collapsible";
 
 interface ErrorFallbackScreenProps {
 	eyebrow?: string;
@@ -10,7 +9,6 @@ interface ErrorFallbackScreenProps {
 	message: string;
 	showRetry?: boolean;
 	homeLink: ReactElement;
-	stack?: string;
 }
 
 export default function ErrorFallbackScreen({
@@ -19,7 +17,6 @@ export default function ErrorFallbackScreen({
 	message,
 	showRetry = false,
 	homeLink,
-	stack,
 }: ErrorFallbackScreenProps) {
 	return (
 		<div className="min-h-screen bg-background text-foreground">
@@ -48,28 +45,6 @@ export default function ErrorFallbackScreen({
 							Go home
 						</Button>
 					</div>
-
-					{stack ? (
-						<Collapsible className="flex w-full max-w-sm flex-col items-center text-center text-xs text-muted-foreground">
-							<CollapsibleTrigger
-								render={
-									<Button
-										type="button"
-										variant="ghost"
-										size="sm"
-										className="mx-auto h-auto px-2 py-1 text-xs text-muted-foreground"
-									/>
-								}
-							>
-								Technical details
-							</CollapsibleTrigger>
-							<CollapsibleContent className="mt-3 w-full overflow-hidden">
-								<pre className="overflow-x-auto whitespace-pre-wrap rounded-md border border-border bg-card p-4 text-left leading-5">
-									{stack}
-								</pre>
-							</CollapsibleContent>
-						</Collapsible>
-					) : null}
 				</div>
 			</main>
 		</div>
