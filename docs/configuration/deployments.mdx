@@ -3,20 +3,18 @@ title: Deployments
 description: CI, staging, and production deployment shape.
 ---
 
-ThinkEx deploys from GitHub Actions to Cloudflare Workers. Deploy, migration, and secret-management commands are operational actions and should not be run casually from a local checkout.
+ThinkEx deploys from Cloudflare Workers Builds. GitHub Actions only validates pull requests. Deploy, migration, and secret-management commands are operational actions and should not be run casually from a local checkout.
 
 ## Branches and Environments
 
 | Environment | URL | Worker | Trigger |
 | --- | --- | --- | --- |
-| Production | `https://thinkex.app` | `thinkex` | Successful CI run on `main`, or manual workflow dispatch from `main` |
-| Staging | `https://staging.thinkex.app` | `thinkex-staging` | Push to `staging`, or manual workflow dispatch |
+| Production | `https://thinkex.app` | `thinkex` | Push to `main` |
+| Staging | `https://staging.thinkex.app` | `thinkex-staging` | Push to `staging` |
 
 ## CI
 
-The `CI` workflow runs on pull requests, pushes to `main`, and manual dispatch.
-
-On pull requests (and non-`main` pushes), it installs with Vite+ and runs check, test, and a staging-shaped build:
+The `CI` workflow runs on pull requests only. It installs with Vite+ and runs check, test, and a staging-shaped build:
 
 ```bash
 vp run ciCheck && vp run ciTest && vp run ciBuildStaging
@@ -26,25 +24,33 @@ vp run ciCheck && vp run ciTest && vp run ciBuildStaging
 
 The separate `React Doctor` workflow runs on pull requests and pushes to `main`. It scans changed React files on pull requests, posts inline diagnostics, and records the React Doctor score without folding those comments into the main Vite+ verification job.
 
-## Production Deploy
+## Deploy
 
-Production deploy trusts PR `validate` when present and ships the production artifact: build, remote D1 migrations, then Worker deploy. Concurrent production and staging deploys queue instead of cancelling mid-flight. Direct pushes to `main` are still allowed.
+Two Workers Builds configurations watch this repository, one per branch. Each runs a build command, then a deploy command that applies remote D1 migrations before shipping the Worker:
+
+| Branch | Build | Deploy |
+| --- | --- | --- |
+| `main` | `pnpm run build:production` | `pnpm run db:migrate && pnpm run deploy:worker` |
+| `staging` | `pnpm run build:staging` | `pnpm run db:migrate:staging && pnpm run deploy:worker:staging` |
+
+`CLOUDFLARE_ENV` is set per configuration in the Cloudflare dashboard, which is why `deploy:worker` takes no `--env` flag. Running it from a local checkout without that variable targets the `thinkex-dev` Worker, not production.
+
+Build variables and secrets (Cloudflare API token, PostHog production set) live in the Workers Builds settings. The token needs `D1 Edit` in addition to Worker and Container deploy permissions — the token Cloudflare generates automatically does not include D1.
+
+## Container Images
+
+Production and staging pin container images to immutable `registry.cloudflare.com` digests (`wrangler.jsonc`), so ordinary deploys never need Docker and Workers Builds can run without a Docker daemon. The top-level config still points at the Dockerfiles for `wrangler dev`.
+
+The Dockerfiles change rarely, so there is no workflow for this. When one does change, rebuild and repin by hand from a machine with Docker:
 
 ```bash
-vp run build:production
-vp run db:migrate
-vp run deploy:worker
+wrangler containers build ./containers/gotenberg \
+  --tag thinkex-officepdfconverter-production:<new-tag> --push
+
+wrangler containers images list --filter thinkex-officepdfconverter
 ```
 
-## Staging Deploy
-
-The staging workflow follows the same ship shape against staging bindings and routes:
-
-```bash
-vp run build:staging
-vp run db:migrate:staging
-vp run deploy:worker:staging
-```
+Copy the digest from the second command into the `containers` blocks for both `staging` and `production` in `wrangler.jsonc`, then push. Both environments intentionally share one image per container.
 
 <Warning>
   Remote migrations and deploy commands affect shared environments. Run them only when you are intentionally doing release work.
@@ -70,7 +76,7 @@ Create metadata indexes before inserting vectors. Vectors written first are not 
 
 ## Secrets
 
-Runtime and deploy secrets are synced into GitHub Actions secrets from Infisical. Production and staging workflows require Cloudflare credentials, PostHog variables, and the runtime secrets declared by the Worker configuration.
+Runtime and deploy secrets originate in Infisical. Build-time secrets (Cloudflare credentials, PostHog variables) are set in each Workers Builds configuration; runtime secrets declared by the Worker configuration are set on the Worker itself. GitHub only holds what PR CI needs.
 
 Direct workspace uploads additionally require bucket-scoped R2 Object Read & Write credentials in `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY`, `R2_ACCOUNT_ID`, and an independent random `WORKSPACE_UPLOAD_TOKEN_SECRET` for completion claims. Configure browser PUT access from the checked-in policies:
 
