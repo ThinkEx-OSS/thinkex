@@ -147,13 +147,6 @@ export default defineConfig(({ command }) => {
 				cloudflare({ viteEnvironment: { name: "ssr" } }),
 				tailwindcss(),
 				tanstackStart({
-					pages: [{ path: "/blog" }],
-					prerender: {
-						enabled: true,
-						autoStaticPathsDiscovery: false,
-						crawlLinks: true,
-						filter: (page) => page.path === "/blog" || page.path.startsWith("/blog/"),
-					},
 					importProtection: {
 						behavior: "error",
 						client: {
