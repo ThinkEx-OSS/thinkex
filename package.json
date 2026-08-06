@@ -29,8 +29,6 @@
 		"eval:watch": "infisical run --env=dev --path=/app -- vitest --config vitest.evals.config.ts",
 		"deploy:worker": "wrangler deploy",
 		"deploy:worker:staging": "wrangler deploy --containers-rollout=none",
-		"deploy": "vp run build:production && vp run deploy:worker",
-		"deploy:staging": "vp run build:staging && vp run deploy:worker:staging",
 		"db:generate": "drizzle-kit generate",
 		"db:migrate:local": "wrangler d1 migrations apply thinkex --local",
 		"db:migrate": "wrangler d1 migrations apply DB --remote --env production",

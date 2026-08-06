@@ -37,8 +37,8 @@ jobs:
           restore-keys: |
             vite-task-${{ runner.os }}-${{ runner.arch }}-
 
-      # Keep shared `vp run verify` / ciBuild generic for local contributors.
-      # CI additionally compiles the staging-shaped Worker config (PostHog optional).
+      # Builds staging-shaped, not the generic `ciBuild` that `vp run verify` uses,
+      # so PR CI exercises real Wrangler env flattening. PostHog secrets stay optional.
       - name: Verify
         run: vp run ciCheck && vp run ciTest && vp run ciBuildStaging
 
