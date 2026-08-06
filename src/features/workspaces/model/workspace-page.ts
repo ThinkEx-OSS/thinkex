@@ -11,7 +11,10 @@ import {
 	WORKSPACE_ITEM_SORT_STEP,
 } from "#/features/workspaces/defaults";
 import { buildWorkspaceItemCreateBootstrap } from "#/features/workspaces/documents/document-item-content";
-import { getWorkspaceRootItems } from "#/features/workspaces/model/tree";
+import {
+	getWorkspaceRootItems,
+	getWorkspaceSubtreeItemIds,
+} from "#/features/workspaces/model/tree";
 import type { WorkspaceRealtimeEvent } from "#/features/workspaces/realtime/messages";
 
 export function applyWorkspaceEventToPage(
@@ -222,7 +225,7 @@ export function removeWorkspaceItemsFromPage(
 	itemIds: string[],
 	revision = page.revision,
 ): WorkspacePage {
-	const deletedIds = new Set(itemIds);
+	const deletedIds = getWorkspaceSubtreeItemIds(page.items, itemIds);
 
 	return {
 		...page,

@@ -55,9 +55,20 @@ export function removeWorkspaceItemsFromPageCache(
 	workspaceId: string,
 	itemIds: string[],
 ) {
-	queryClient.setQueryData<WorkspacePage>(workspacePageQueryKey(workspaceId), (current) =>
-		current ? removeWorkspaceItemsFromPage(current, itemIds) : current,
-	);
+	let previousItems: WorkspaceItemSummary[] | undefined;
+
+	queryClient.setQueryData<WorkspacePage>(workspacePageQueryKey(workspaceId), (current) => {
+		if (!current) {
+			return current;
+		}
+
+		const next = removeWorkspaceItemsFromPage(current, itemIds);
+		const nextItemIds = new Set(next.items.map((item) => item.id));
+		previousItems = current.items.filter((item) => !nextItemIds.has(item.id));
+		return next;
+	});
+
+	return previousItems;
 }
 
 export function updateWorkspaceItemColorInPageCache(

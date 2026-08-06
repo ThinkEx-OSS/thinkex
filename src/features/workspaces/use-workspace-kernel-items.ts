@@ -191,8 +191,24 @@ export function useDeleteWorkspaceItemsMutation() {
 
 			return deletePromise;
 		},
+		onMutate: async (input) => {
+			await queryClient.cancelQueries({
+				queryKey: workspacePageQueryKey(input.workspaceId),
+			});
+
+			return {
+				previousItems: removeWorkspaceItemsFromPageCache(
+					queryClient,
+					input.workspaceId,
+					input.itemIds,
+				),
+			};
+		},
 		onSuccess: (command) => {
 			applyWorkspaceEventToCache(queryClient, command.event);
+		},
+		onError: (_error, _input, context) => {
+			restoreWorkspaceItemsInPageCache(queryClient, context?.previousItems);
 		},
 	});
 }
