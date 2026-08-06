@@ -30,14 +30,14 @@ export function FeatureGridSection() {
 					visual={<ModelsVisual />}
 				/>
 				<FeatureCard
-					title="Build from your materials"
-					description="Turn sources into answers and drafts."
-					visual={<IntegrationsVisual />}
-				/>
-				<FeatureCard
 					title="Bring your sources and context"
 					description="Work across documents, media, and more."
 					visual={<WorkspaceChatVisual />}
+				/>
+				<FeatureCard
+					title="Build from your materials"
+					description="Turn sources into answers and drafts."
+					visual={<IntegrationsVisual />}
 				/>
 			</div>
 		</section>
