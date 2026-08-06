@@ -74,6 +74,13 @@ function withSecurityHeaders(response: Response, env: Cloudflare.Env, request: R
 	// Mirror the visitor's region to a readable cookie so the client can pick the
 	// right analytics default (opt-in required in the EEA/UK, opt-out elsewhere)
 	// before any JS runs. Not HttpOnly by design — the browser reads it.
+	//
+	// Set unconditionally, including when the value is unchanged. Do not "optimize"
+	// this to only write on change without first checking Workers Cache: our SSR
+	// responses carry no Cache-Control, so if `cache.enabled` is ever turned on in
+	// wrangler.jsonc, this Set-Cookie is the only thing forcing a cache bypass.
+	// Without it, authenticated HTML would be heuristically cached (200 => 2h) and
+	// served across users. A request Cookie alone does not trigger bypass.
 	const consentRequired = isConsentRequiredCountry(request.headers.get("cf-ipcountry"));
 	headers.append(
 		"Set-Cookie",
