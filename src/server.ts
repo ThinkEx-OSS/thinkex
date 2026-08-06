@@ -12,6 +12,8 @@ import {
 } from "#/integrations/posthog/consent-region";
 import { getTelemetryRequestDetails } from "#/integrations/posthog/server-context";
 import { buildContentSecurityPolicy } from "#/lib/http/content-security-policy";
+import { addPublicDiscoveryHeaders } from "#/lib/http/public-discovery";
+import { fetchWithHtmlFallback } from "#/lib/http/tanstack-html-fallback";
 
 export {
 	AIThread,
@@ -53,6 +55,7 @@ function withSecurityHeaders(response: Response, env: Cloudflare.Env, request: R
 	}
 
 	const headers = new Headers(response.headers);
+	addPublicDiscoveryHeaders(headers, request);
 	headers.set(
 		"Content-Security-Policy",
 		buildContentSecurityPolicy({
@@ -114,7 +117,8 @@ export default {
 			const workspaceKernelResponse = await routeWorkspaceKernelRequest(request, env);
 
 			return withSecurityHeaders(
-				workspaceKernelResponse ?? (await handler.fetch(request)),
+				workspaceKernelResponse ??
+					(await fetchWithHtmlFallback(request, (appRequest) => handler.fetch(appRequest))),
 				env,
 				request,
 			);
