@@ -161,15 +161,21 @@ export function getAutumnCustomer(input: { customerId: string; secretKey: string
 
 /** Null when the plan needs no payment, which is why callers must handle both. */
 export function attachAutumnPlan(input: {
+	checkoutSessionParams?: Record<string, unknown>;
 	customerId: string;
 	planId: string;
+	promotionCode?: string;
+	redirectMode?: "always" | "if_required" | "never";
 	secretKey: string;
 	successUrl?: string;
 }) {
 	return autumnRequest<{ payment_url: string | null }>({
 		body: {
+			checkout_session_params: input.checkoutSessionParams,
 			customer_id: input.customerId,
+			discounts: input.promotionCode ? [{ promotion_code: input.promotionCode }] : undefined,
 			plan_id: input.planId,
+			redirect_mode: input.redirectMode,
 			success_url: input.successUrl,
 		},
 		path: "billing.attach",

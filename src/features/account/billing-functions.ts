@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getRequestHeaders } from "@tanstack/react-start/server";
 import { env } from "cloudflare:workers";
+import { z } from "zod";
 
 import { getAutumnCustomerFields } from "#/integrations/autumn/client.server";
 import {
@@ -24,7 +25,16 @@ export interface WorkspaceBillingState {
 	isPro: boolean;
 }
 
-const PRO_PLAN_ID = "pro";
+const PRO_PLAN_IDS = {
+	annual: "pro_annual",
+	monthly: "pro",
+} as const;
+const YC_PROMOTION_CODE = "YCTHINKEX2026";
+
+const proCheckoutInputSchema = z.object({
+	billingPeriod: z.enum(["annual", "monthly"]),
+	deal: z.literal("yc").optional(),
+});
 
 async function getSignedInUserId() {
 	return await withAuth(async (auth) => {
@@ -75,7 +85,10 @@ export const getWorkspaceBillingStateFn = createServerFn({ method: "GET" }).hand
 			// Scheduled plans sit in the same array as active ones and the status
 			// enum is open, so only an explicitly active Pro counts.
 			isPro: customer.subscriptions.some(
-				(subscription) => subscription.plan_id === PRO_PLAN_ID && subscription.status === "active",
+				(subscription) =>
+					Object.values(PRO_PLAN_IDS).includes(
+						subscription.plan_id as (typeof PRO_PLAN_IDS)[keyof typeof PRO_PLAN_IDS],
+					) && subscription.status === "active",
 			),
 		};
 	},
@@ -86,8 +99,9 @@ export const getWorkspaceBillingStateFn = createServerFn({ method: "GET" }).hand
  * caller is a button inside a dialog, and a server redirect would tear the whole
  * page down before Stripe answered.
  */
-export const startProCheckoutFn = createServerFn({ method: "POST" }).handler(
-	async (): Promise<{ url: string | null }> => {
+export const startProCheckoutFn = createServerFn({ method: "POST" })
+	.validator(proCheckoutInputSchema)
+	.handler(async ({ data }): Promise<{ url: string | null }> => {
 		const userId = await getSignedInUserId();
 		const secretKey = resolveAutumnSecretKey(env);
 
@@ -96,16 +110,25 @@ export const startProCheckoutFn = createServerFn({ method: "POST" }).handler(
 		}
 
 		const result = await attachAutumnPlan({
+			checkoutSessionParams: {
+				// Regular checkout accepts any active Stripe promotion code. The YC
+				// checkout already has its code applied below.
+				...(data.deal === "yc" ? {} : { allow_promotion_codes: true }),
+				// The YC year is free, but the annual subscription renews at its
+				// normal price, so Checkout must still collect a payment method.
+				payment_method_collection: "always",
+			},
 			customerId: userId,
-			planId: PRO_PLAN_ID,
+			planId: PRO_PLAN_IDS[data.deal === "yc" ? "annual" : data.billingPeriod],
+			promotionCode: data.deal === "yc" ? YC_PROMOTION_CODE : undefined,
+			redirectMode: "always",
 			secretKey,
 			// Return with the plan dialog open so the updated plan is visible.
 			successUrl: `${getAppOrigin()}/home?upgrade=true`,
 		});
 
 		return { url: result.payment_url };
-	},
-);
+	});
 
 export const openBillingPortalFn = createServerFn({ method: "POST" }).handler(
 	async (): Promise<{ url: string | null }> => {

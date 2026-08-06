@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { checkAutumnBalance } from "#/integrations/autumn/rest";
+import { attachAutumnPlan, checkAutumnBalance } from "#/integrations/autumn/rest";
 
 const CHECK_INPUT = {
 	customerId: "existing_thinkex_user",
@@ -30,5 +30,34 @@ describe("checkAutumnBalance", () => {
 			balance: null,
 		});
 		expect(paths).toEqual(["balances.check", "customers.get_or_create", "balances.check"]);
+	});
+});
+
+describe("attachAutumnPlan", () => {
+	it("passes an auto-applied promotion code into Stripe checkout through Autumn", async () => {
+		let body: Record<string, unknown> | undefined;
+		vi.stubGlobal("fetch", async (_url: string, init?: RequestInit) => {
+			if (typeof init?.body !== "string") {
+				throw new TypeError("Expected a JSON request body");
+			}
+			body = JSON.parse(init.body);
+			return new Response(JSON.stringify({ payment_url: "https://checkout.stripe.com/test" }));
+		});
+
+		await attachAutumnPlan({
+			checkoutSessionParams: { payment_method_collection: "always" },
+			customerId: "yc_user",
+			planId: "pro_annual",
+			promotionCode: "YCTHINKEX2026",
+			redirectMode: "always",
+			secretKey: "am_sk_test",
+		});
+
+		expect(body).toMatchObject({
+			checkout_session_params: { payment_method_collection: "always" },
+			discounts: [{ promotion_code: "YCTHINKEX2026" }],
+			plan_id: "pro_annual",
+			redirect_mode: "always",
+		});
 	});
 });

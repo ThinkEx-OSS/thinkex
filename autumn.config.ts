@@ -72,34 +72,47 @@ export const free = plan({
 	],
 });
 
+const proItems = [
+	item({
+		featureId: standardMessages.id,
+		included: 3000,
+		reset: {
+			interval: "month",
+		},
+	}),
+	item({
+		featureId: premiumMessages.id,
+		included: 400,
+		reset: {
+			interval: "month",
+		},
+	}),
+	item({
+		featureId: fileUploads.id,
+		included: 500,
+		reset: {
+			interval: "month",
+		},
+	}),
+];
+
 export const pro = plan({
 	id: "pro",
 	name: "Pro",
 	price: {
-		amount: 7.99,
+		amount: 8,
 		interval: "month",
 	},
-	items: [
-		item({
-			featureId: standardMessages.id,
-			included: 3000,
-			reset: {
-				interval: "month",
-			},
-		}),
-		item({
-			featureId: premiumMessages.id,
-			included: 400,
-			reset: {
-				interval: "month",
-			},
-		}),
-		item({
-			featureId: fileUploads.id,
-			included: 500,
-			reset: {
-				interval: "month",
-			},
-		}),
-	],
+	items: proItems,
+});
+
+export const proAnnual = pro.variant({
+	id: "pro_annual",
+	name: "Pro Annual",
+	customize: {
+		price: {
+			amount: 84,
+			interval: "year",
+		},
+	},
 });
