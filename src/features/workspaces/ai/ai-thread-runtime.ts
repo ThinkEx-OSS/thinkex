@@ -327,6 +327,7 @@ function getWorkspaceAiGatewayTransportOptions() {
 		caching: "auto" as const,
 		providerTimeouts: {
 			byok: {
+				anthropic: 8000,
 				azure: 8000,
 				bedrock: 8000,
 				openai: 8000,
