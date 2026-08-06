@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { createWorkspaceExport } from "#/features/workspaces/export/workspace-export";
 import { WorkspaceForbiddenError } from "#/features/workspaces/server/permissions";
-import { apiError, getRequestId } from "#/lib/api/http";
+import { apiError, apiFailure, getRequestId } from "#/lib/api/http";
 import { getSessionFromRequest } from "#/lib/auth-queries.server";
 
 async function handleWorkspaceExport(request: Request, workspaceId: string) {
@@ -35,8 +35,14 @@ async function handleWorkspaceExport(request: Request, workspaceId: string) {
 			);
 		}
 
-		console.error("Workspace export failed.", { error, requestId, workspaceId });
-		return apiError(requestId, 500, "EXPORT_FAILED", "Unable to export this workspace.");
+		return apiFailure({
+			cause: error,
+			code: "EXPORT_FAILED",
+			message: "Unable to export this workspace.",
+			request,
+			requestId,
+			status: 500,
+		});
 	}
 }
 

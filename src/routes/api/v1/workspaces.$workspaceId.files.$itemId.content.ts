@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { readWorkspaceKernelFileSource } from "#/features/workspaces/kernel/workspace-kernel-access";
 import { WorkspaceForbiddenError } from "#/features/workspaces/server/permissions";
-import { apiError, getRequestId } from "#/lib/api/http";
+import { apiError, apiFailure, getRequestId } from "#/lib/api/http";
 import { getSessionFromRequest } from "#/lib/auth-queries.server";
 
 async function handleWorkspaceFileContent(request: Request, workspaceId: string, itemId: string) {
@@ -29,7 +29,7 @@ async function handleWorkspaceFileContent(request: Request, workspaceId: string,
 		const object = await env.WORKSPACE_KERNEL_FILES.get(source.objectKey);
 
 		if (!object) {
-			throw new Error("Workspace file object was not found.");
+			return apiError(requestId, 404, "FILE_NOT_FOUND", "Unable to load this workspace file.");
 		}
 
 		return new Response(object.body, {
@@ -51,13 +51,14 @@ async function handleWorkspaceFileContent(request: Request, workspaceId: string,
 			);
 		}
 
-		return apiError(
+		return apiFailure({
+			cause: error,
+			code: "FILE_LOAD_FAILED",
+			message: "Unable to load this workspace file.",
+			request,
 			requestId,
-			404,
-			"FILE_NOT_FOUND",
-			"Unable to load this workspace file.",
-			error instanceof Error ? { message: error.message } : undefined,
-		);
+			status: 500,
+		});
 	}
 }
 

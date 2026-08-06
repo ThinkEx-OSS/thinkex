@@ -6,7 +6,7 @@ import {
 	WorkspaceDocumentNotFoundError,
 } from "#/features/workspaces/export/workspace-document-pdf";
 import { WorkspaceForbiddenError } from "#/features/workspaces/server/permissions";
-import { apiError, getRequestId } from "#/lib/api/http";
+import { apiError, apiFailure, getRequestId } from "#/lib/api/http";
 import { getSessionFromRequest } from "#/lib/auth-queries.server";
 
 async function handleWorkspaceDocumentPdf(request: Request, workspaceId: string, itemId: string) {
@@ -47,13 +47,14 @@ async function handleWorkspaceDocumentPdf(request: Request, workspaceId: string,
 			return apiError(requestId, 404, "NOT_FOUND", "This document no longer exists.");
 		}
 
-		console.error("Workspace document PDF export failed.", {
-			error,
-			itemId,
+		return apiFailure({
+			cause: error,
+			code: "EXPORT_FAILED",
+			message: "Unable to export this document as PDF.",
+			request,
 			requestId,
-			workspaceId,
+			status: 500,
 		});
-		return apiError(requestId, 500, "EXPORT_FAILED", "Unable to export this document as PDF.");
 	}
 }
 
