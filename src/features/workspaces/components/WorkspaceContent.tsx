@@ -72,7 +72,7 @@ export default function WorkspaceContent({
 	onOpenItem,
 }: WorkspaceContentProps) {
 	const workspaceId = workspace.id;
-	const actionDialogs = useWorkspaceItemActionDialogState();
+	const actionDialogs = useWorkspaceItemActionDialogState(items);
 	const itemsById = useMemo(() => new Map(items.map((item) => [item.id, item])), [items]);
 
 	if (isWorkspaceItemView(activeItem)) {

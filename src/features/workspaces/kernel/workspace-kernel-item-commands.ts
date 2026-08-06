@@ -279,7 +279,7 @@ export class WorkspaceKernelItemCommands {
 	}
 
 	tombstoneItems(input: DeleteWorkspaceKernelItemsArgs) {
-		const roots = this.getUniqueRootRows(input.itemIds);
+		const roots = this.getActiveUniqueRootRows(input.itemIds);
 		const rootIds = roots.map((root) => root.id);
 		const deleteIds = this.getDeleteItemIds(roots);
 		const rowsToRemove = deleteIds
@@ -499,6 +499,21 @@ export class WorkspaceKernelItemCommands {
 		return uniqueItemIds
 			.map((itemId) => this.store.assertActiveItem(itemId))
 			.filter((row) => !this.hasSelectedAncestor(row, selectedItemIds));
+	}
+
+	private getActiveUniqueRootRows(itemIds: string[]) {
+		const uniqueItemIds = Array.from(new Set(itemIds));
+
+		if (uniqueItemIds.length === 0) {
+			throw new Error("At least one workspace item is required.");
+		}
+
+		const rows = uniqueItemIds
+			.map((itemId) => this.store.getActiveItemRow(itemId))
+			.filter((row): row is KernelItemRow => Boolean(row));
+		const selectedItemIds = new Set(rows.map((row) => row.id));
+
+		return rows.filter((row) => !this.hasSelectedAncestor(row, selectedItemIds));
 	}
 
 	private hasSelectedAncestor(row: KernelItemRow, selectedItemIds: ReadonlySet<string>) {

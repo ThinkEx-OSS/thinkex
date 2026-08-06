@@ -62,6 +62,7 @@ export default function WorkspaceContextBar({
 	const breadcrumbs = getWorkspaceBreadcrumbItems(activeItem, itemsById);
 	const mobileOverflowBreadcrumbs = breadcrumbs.slice(0, -1);
 	const createParentId = getWorkspaceBrowseParentId(activeItem);
+	const workspaceItems = Array.from(itemsById.values());
 	const {
 		clearDeletingItem,
 		clearMovingItem,
@@ -75,8 +76,7 @@ export default function WorkspaceContextBar({
 		setDeleteAlertOpen,
 		setMoveDialogOpen,
 		setRenamingItem,
-	} = useWorkspaceItemActionDialogState();
-	const workspaceItems = Array.from(itemsById.values());
+	} = useWorkspaceItemActionDialogState(workspaceItems);
 	const searchHotkey = formatAppHotkey(getAppHotkey("workspace.search.open").hotkey);
 	const openWorkspaceSearch = () => setSearchOpen(true);
 	useAppHotkey("workspace.search.open", () => {

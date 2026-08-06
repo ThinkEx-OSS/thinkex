@@ -12,6 +12,24 @@ function getKernelStub(workspaceId: string) {
 }
 
 describe("workspace kernel publication", () => {
+	it("treats repeated item deletion as already done", async () => {
+		const workspaceId = crypto.randomUUID();
+		const itemId = crypto.randomUUID();
+		const stub = getKernelStub(workspaceId);
+
+		await runInDurableObject(stub, async (kernel: WorkspaceKernel) => {
+			await kernel.createItem({ id: itemId, type: "document", name: "Draft" });
+			await kernel.deleteItems({ itemIds: [itemId] });
+
+			await expect(kernel.deleteItems({ itemIds: [itemId] })).resolves.toMatchObject({
+				result: {
+					deletedItemIds: [],
+					itemIds: [],
+				},
+			});
+		});
+	});
+
 	it("discards a file projection when deletion wins during R2 validation", async () => {
 		const workspaceId = crypto.randomUUID();
 		const itemId = crypto.randomUUID();
