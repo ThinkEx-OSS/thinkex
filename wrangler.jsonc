@@ -312,7 +312,7 @@
 				},
 				{
 					"class_name": "WorkspaceFileProcessor",
-					"image": "registry.cloudflare.com/676650ed1ca37ffdeba997fb2a7fa24a/thinkex-liteparsepdfextractor-production@sha256:c48cadd235f934e07d4616414c4718ddeafcd3dcff6342022368e3e7593fc90a",
+					"image": "registry.cloudflare.com/676650ed1ca37ffdeba997fb2a7fa24a/thinkex-liteparsepdfextractor-production@sha256:6f5ce1241aa607fd4b12588656aa587974352fe4a0eff3f0e526dbf78a78da49",
 					"instance_type": "standard-2",
 					"max_instances": 2,
 				},
@@ -443,7 +443,7 @@
 				},
 				{
 					"class_name": "WorkspaceFileProcessor",
-					"image": "registry.cloudflare.com/676650ed1ca37ffdeba997fb2a7fa24a/thinkex-liteparsepdfextractor-production@sha256:c48cadd235f934e07d4616414c4718ddeafcd3dcff6342022368e3e7593fc90a",
+					"image": "registry.cloudflare.com/676650ed1ca37ffdeba997fb2a7fa24a/thinkex-liteparsepdfextractor-production@sha256:6f5ce1241aa607fd4b12588656aa587974352fe4a0eff3f0e526dbf78a78da49",
 					"instance_type": "standard-2",
 					"max_instances": 2,
 					"name": "thinkex-liteparsepdfextractor-production",
