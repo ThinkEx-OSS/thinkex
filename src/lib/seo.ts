@@ -3,7 +3,7 @@ export const seo = {
 	siteName: "ThinkEx",
 	defaultTitle: "ThinkEx",
 	defaultDescription:
-		"Interact with sources, control AI context, and synthesize information in a workspace built for how you actually think.",
+		"ThinkEx is the workspace for working across documents, media, and AI — study and research grounded in your sources.",
 	openGraphImagePath: "/opengraph.png",
 } as const;
 

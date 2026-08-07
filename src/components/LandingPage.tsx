@@ -3,8 +3,8 @@ import { Link } from "@tanstack/react-router";
 import { PublicHeader } from "#/components/PublicHeader";
 import SiteFooter from "#/components/SiteFooter";
 import { Button } from "#/components/ui/button";
-import { CyclingWord } from "#/components/ui/cycling-word";
 import { BottomCtaSection } from "#/components/landing/BottomCtaSection";
+import { ComparisonSection } from "#/components/landing/ComparisonSection";
 import { FeatureGridSection } from "#/components/landing/FeatureGridSection";
 import { LatestBlogSection } from "#/components/landing/LatestBlogSection";
 import { PricingSection } from "#/components/landing/PricingSection";
@@ -24,13 +24,12 @@ export default function LandingPage() {
 				<main>
 					<section>
 						<div className="mx-auto w-full max-w-7xl px-4 pt-12 pb-0 sm:px-6 sm:pt-16 lg:pt-20">
-							<div className="max-w-3xl">
+							<div className="max-w-5xl">
 								<h1 className="text-4xl font-medium tracking-tight text-balance sm:text-6xl lg:text-7xl">
-									The workspace built for how you{" "}
-									<CyclingWord words={["think", "study", "research", "create"]} />
+									Study and research, grounded in your sources.
 								</h1>
-								<p className="mt-5 max-w-2xl text-base leading-7 text-muted-foreground sm:mt-6 sm:text-lg">
-									ThinkEx lets you organize and work across documents, media, and AI in one place.
+								<p className="mt-5 max-w-2xl text-base leading-7 text-muted-foreground sm:mt-6 sm:text-lg lg:text-xl lg:leading-8">
+									The workspace for working across documents, media, and AI.
 								</p>
 								<div className="flex justify-center sm:hidden">
 									<Button
@@ -58,6 +57,7 @@ export default function LandingPage() {
 							</div>
 
 							<FeatureGridSection />
+							<ComparisonSection />
 							<PricingSection />
 							<LatestBlogSection />
 							<BottomCtaSection />
