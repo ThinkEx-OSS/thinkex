@@ -19,8 +19,11 @@ interface WorkspaceExtractionStepBudget {
  * as abandoned and re-queued as a second billable workflow.
  */
 export const workspaceExtractionStepBudgets = {
-	/** Fast pass: parsing is quick, but it writes one R2 object per page. */
-	liteParse: { attempts: 2, retryDelayMs: 15_000, timeoutMs: 8 * minuteMs },
+	/**
+	 * Fast pass: the parse itself is seconds even for a 5,000-page document, and the
+	 * projection is a single write since schema v2 packed pages into one object.
+	 */
+	liteParse: { attempts: 2, retryDelayMs: 15_000, timeoutMs: 3 * minuteMs },
 	/**
 	 * Upload, the provider's own poll ceiling, fetching the result, and writing the
 	 * page projection. Single attempt: a retry cannot resume the job it lost, only

@@ -40,11 +40,9 @@ describe("workspace page projections", () => {
 			pages: { requested: "2-3", returned: [2, 3], total: 3 },
 		});
 		const prefix = reference.manifestObjectKey.slice(0, -"manifest.json".length);
-		expect(storage.readKeys).toEqual([
-			reference.manifestObjectKey,
-			getWorkspacePageObjectKey(prefix, 2),
-			getWorkspacePageObjectKey(prefix, 3),
-		]);
+		// A contiguous selection coalesces into a single ranged read of the packed
+		// pages object rather than one request per page.
+		expect(storage.readKeys).toEqual([reference.manifestObjectKey, `${prefix}pages.md`]);
 	});
 
 	it("preserves missing page numbers as blank pages", async () => {
@@ -162,30 +160,78 @@ describe("workspace page projections", () => {
 		expect(storage.readKeys).toEqual([reference.manifestObjectKey]);
 	});
 
-	it("reads projections published before per-page sizes were added", async () => {
+	// Projections written before schema version 2 store one object per page and their
+	// regeneration is billable, so the read path must keep serving them unmigrated.
+	it("reads legacy per-page projections without migration", async () => {
 		const storage = createObjectStorage();
-		const reference = await writeWorkspacePageProjection({
-			bucket: storage.bucket,
-			itemId: "item-1",
-			pages: [{ pageNumber: 1, markdown: "Page 1" }],
-			provider: "liteparse",
-			providerMode: "fast",
-			runId: "run-1",
-			sourceHash: "etag-1",
-			tier: "fast",
-			workspaceId: "workspace-1",
-		});
-		const { pages: _pages, ...manifestWithoutPages } = reference.manifest;
+		const prefix = "workspace_file_objects/workspace-1/item-1/extractions/run-1/fast/";
+		const manifestObjectKey = `${prefix}manifest.json`;
+		storage.values.set(getWorkspacePageObjectKey(prefix, 1), "First");
+		storage.values.set(getWorkspacePageObjectKey(prefix, 2), "Second");
 		storage.values.set(
-			reference.manifestObjectKey,
-			JSON.stringify({ ...manifestWithoutPages, schemaVersion: 1 }),
+			manifestObjectKey,
+			JSON.stringify({
+				createdAt: new Date().toISOString(),
+				itemId: "item-1",
+				markdownBytes: 11,
+				markdownLength: 11,
+				metadata: {},
+				pageCount: 2,
+				pages: [
+					{ markdownBytes: 5, pageNumber: 1 },
+					{ markdownBytes: 6, pageNumber: 2 },
+				],
+				provider: "liteparse",
+				providerMode: "fast",
+				runId: "run-1",
+				schemaVersion: 1,
+				sourceHash: "etag-1",
+				workspaceId: "workspace-1",
+			}),
 		);
 
 		await expect(
 			readWorkspacePageProjection({
 				bucket: storage.bucket,
 				expectedSourceHash: "etag-1",
-				manifestObjectKey: reference.manifestObjectKey,
+				manifestObjectKey,
+			}),
+		).resolves.toEqual({
+			content: "## Page 1\n\nFirst",
+			emptyPages: [],
+			pages: { requested: "1", returned: [1], total: 2 },
+		});
+		expect(storage.readKeys).toContain(getWorkspacePageObjectKey(prefix, 1));
+	});
+
+	it("reads legacy manifests published before per-page sizes were added", async () => {
+		const storage = createObjectStorage();
+		const prefix = "workspace_file_objects/workspace-1/item-1/extractions/run-1/fast/";
+		const manifestObjectKey = `${prefix}manifest.json`;
+		storage.values.set(getWorkspacePageObjectKey(prefix, 1), "Page 1");
+		storage.values.set(
+			manifestObjectKey,
+			JSON.stringify({
+				createdAt: new Date().toISOString(),
+				itemId: "item-1",
+				markdownBytes: 6,
+				markdownLength: 6,
+				metadata: {},
+				pageCount: 1,
+				provider: "liteparse",
+				providerMode: "fast",
+				runId: "run-1",
+				schemaVersion: 1,
+				sourceHash: "etag-1",
+				workspaceId: "workspace-1",
+			}),
+		);
+
+		await expect(
+			readWorkspacePageProjection({
+				bucket: storage.bucket,
+				expectedSourceHash: "etag-1",
+				manifestObjectKey,
 			}),
 		).resolves.toEqual({
 			content: "## Page 1\n\nPage 1",
@@ -290,12 +336,16 @@ function createObjectStorage() {
 				values.delete(key);
 			}
 		},
-		async get(key: string) {
+		async get(key: string, options?: { range?: { offset: number; length: number } }) {
 			readKeys.push(key);
 			const value = values.get(key);
 			if (value === undefined) {
 				return null;
 			}
+			const fullBytes = new TextEncoder().encode(value);
+			const bytes = options?.range
+				? fullBytes.subarray(options.range.offset, options.range.offset + options.range.length)
+				: fullBytes;
 			currentOpenBodies += 1;
 			highestOpenBodies = Math.max(highestOpenBodies, currentOpenBodies);
 			let consumed = false;
@@ -308,20 +358,25 @@ function createObjectStorage() {
 			return {
 				body: { cancel: async () => consume() },
 				key,
-				size: new TextEncoder().encode(value).byteLength,
+				size: bytes.byteLength,
+				arrayBuffer: async () => {
+					consume();
+					return bytes.slice().buffer;
+				},
 				text: async () => {
 					consume();
-					return value;
+					return new TextDecoder().decode(bytes);
 				},
 				json: async () => {
 					consume();
-					return JSON.parse(value) as unknown;
+					return JSON.parse(new TextDecoder().decode(bytes)) as unknown;
 				},
 			};
 		},
-		async put(key: string, value: string) {
-			values.set(key, value);
-			return { key, size: new TextEncoder().encode(value).byteLength };
+		async put(key: string, value: string | Blob) {
+			const text = typeof value === "string" ? value : await value.text();
+			values.set(key, text);
+			return { key, size: new TextEncoder().encode(text).byteLength };
 		},
 		async list(input: { prefix?: string }) {
 			const objects = Array.from(values.keys())
