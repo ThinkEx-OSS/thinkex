@@ -33,6 +33,39 @@ describe("LiteParse response parsing", () => {
 		expect(() => parseLiteParsePage(payload)).toThrow("LiteParse returned an invalid");
 	});
 
+	// The workflow reads this error's name to decide whether to skip the paid tier, so
+	// mislabelling a refusal here means paying a provider to reach the same verdict on
+	// every reconciler sweep, forever.
+	it("reports a rejected document as unsupported rather than a retryable failure", async () => {
+		vi.mocked(requestWorkspaceFileProcessor).mockResolvedValue(
+			Response.json(
+				{ code: "TOO_MANY_PAGES", error: "PDFs longer than 4999 pages." },
+				{ status: 422 },
+			),
+		);
+		const pages = extractPdfWithLiteParse({} as Cloudflare.Env, {
+			body: new ReadableStream<Uint8Array>(),
+			fileName: "document.pdf",
+			sizeBytes: 1,
+		});
+
+		await expect(pages.next()).rejects.toMatchObject({
+			name: "WorkspaceDocumentUnsupportedError",
+			message: "PDFs longer than 4999 pages.",
+		});
+	});
+
+	it("treats any other processor failure as retryable", async () => {
+		vi.mocked(requestWorkspaceFileProcessor).mockResolvedValue(new Response("", { status: 500 }));
+		const pages = extractPdfWithLiteParse({} as Cloudflare.Env, {
+			body: new ReadableStream<Uint8Array>(),
+			fileName: "document.pdf",
+			sizeBytes: 1,
+		});
+
+		await expect(pages.next()).rejects.toMatchObject({ name: "Error" });
+	});
+
 	it("rejects an oversized NDJSON record and cancels the processor response", async () => {
 		const cancel = vi.fn();
 		const body = new ReadableStream<Uint8Array>({

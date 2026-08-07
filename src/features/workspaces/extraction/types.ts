@@ -47,3 +47,17 @@ export interface MarkdownExtractionProvider {
 	id: WorkspaceFileExtractionProviderId;
 	extract(input: MarkdownExtractionInput): Promise<MarkdownExtractionResult>;
 }
+
+export const workspaceDocumentUnsupportedErrorName = "WorkspaceDocumentUnsupportedError";
+
+/**
+ * The document itself cannot be read — too long, encrypted, or damaged — as opposed to
+ * an extraction that merely failed. Terminal for every tier: the fast pass reaches
+ * this verdict in seconds and for free, and no paid provider will reach a different
+ * one, so paying for a second opinion only buys the same answer.
+ */
+export class WorkspaceDocumentUnsupportedError extends Error {
+	// Spelled out rather than read off the class, which a minifier may rename while the
+	// stage outcome carrying it between steps stays a plain string.
+	override name = workspaceDocumentUnsupportedErrorName;
+}

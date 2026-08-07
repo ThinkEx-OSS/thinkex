@@ -7,7 +7,11 @@ import {
 	getWorkspaceExtractionStepConfig,
 	workspaceExtractionStepBudgets,
 } from "#/features/workspaces/extraction/workspace-extraction-budgets";
-import type { WorkspaceFileExtractionWorkflowParams } from "#/features/workspaces/extraction/types";
+import {
+	WorkspaceDocumentUnsupportedError,
+	workspaceDocumentUnsupportedErrorName,
+	type WorkspaceFileExtractionWorkflowParams,
+} from "#/features/workspaces/extraction/types";
 import type {
 	WorkspaceFileExtractionMode,
 	WorkspaceFileExtractionProviderId,
@@ -65,6 +69,18 @@ export class WorkspaceFileExtractionWorkflow extends WorkflowEntrypoint<
 			| { status: "discarded" };
 
 		try {
+			// A document the free pass has already read and rejected will not become
+			// readable by paying for a slower one. Failing here routes into the same
+			// terminal path as any other error, which matters because the reconciler
+			// re-runs failures on a cooldown — letting it through buys an identical
+			// verdict from a paid provider on every sweep.
+			if (
+				liteParse.outcome === "error" &&
+				liteParse.errorType === workspaceDocumentUnsupportedErrorName
+			) {
+				throw new WorkspaceDocumentUnsupportedError("This document cannot be read.");
+			}
+
 			extraction = await step.do(
 				"extract page markdown with provider",
 				getWorkspaceExtractionStepConfig(workspaceExtractionStepBudgets.extract),
