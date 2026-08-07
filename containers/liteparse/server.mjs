@@ -11,9 +11,15 @@ import { Transform } from "node:stream";
 import { promisify } from "node:util";
 
 const port = 8080;
+// LiteParse defaults to 1000 pages and drops everything past that without reporting
+// it, which publishes a "ready" projection silently missing the tail of the document.
+// Set the ceiling explicitly and reject anything above it. Measured at roughly 0.57 MB
+// resident per page, so 5,000 pages sits near 3 GB on the 8 GiB standard-2 instance.
+const maxPages = 5000;
 const parser = new LiteParse({
 	extractLinks: true,
 	imageMode: "placeholder",
+	maxPages,
 	ocrEnabled: false,
 	outputFormat: "markdown",
 	quiet: true,
@@ -56,6 +62,18 @@ createServer(async (request, response) => {
 		const bytes = await readPdfRequestBytes(request);
 		inputBytes = bytes.byteLength;
 		const result = await withTimeout(parser.parse(bytes), parseTimeoutMs);
+
+		// Hitting the ceiling is indistinguishable from a document that happens to be
+		// exactly that long, so treat both as unsupported. Refusing a 5,000-page file
+		// is recoverable; publishing a truncated one as complete is not.
+		if (result.pages.length >= maxPages) {
+			throw new PdfValidationError(
+				422,
+				"TOO_MANY_PAGES",
+				`PDFs longer than ${maxPages - 1} pages are not supported.`,
+			);
+		}
+
 		pageCount = result.pages.length;
 		status = 200;
 		response.writeHead(status, { "content-type": "application/x-ndjson; charset=utf-8" });
