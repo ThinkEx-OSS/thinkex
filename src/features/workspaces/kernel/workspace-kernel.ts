@@ -69,6 +69,13 @@ import { WorkspaceSearchProjection } from "#/features/workspaces/search/workspac
 import type { WorkspaceSearchInput } from "#/features/workspaces/search/workspace-search-contract";
 
 const workspaceKernelInlineThresholdBytes = 1_500_000;
+// Indexing an item re-embeds all of its chunks, and a document checkpoint commits
+// every 8 seconds of sustained typing, so an editing burst would otherwise pay for the
+// whole document over and over. Collapse it into one run; a search or a restart still
+// schedules promptly, and batch continuation stays immediate.
+const workspaceSearchEditIndexDelaySeconds = 30;
+const workspaceSearchIndexDelaySeconds = 1;
+
 const workspaceExtractionHealingThrottleMs = 60_000;
 const workspacePurgeMaximumAttempts = 5;
 const documentSessionPurgeBatchSize = 6;
@@ -105,7 +112,10 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 		ai: this.env.AI,
 		bucket: this.env.WORKSPACE_KERNEL_FILES,
 		getItems: () => this.store.getPageItems(),
-		requestRun: () => this.ctx.waitUntil(this.scheduleWorkspaceSearchIndexing()),
+		requestRun: () =>
+			this.ctx.waitUntil(
+				this.scheduleWorkspaceSearchIndexing(workspaceSearchEditIndexDelaySeconds),
+			),
 		sql: this.kernelSql,
 		vectorize: this.env.WORKSPACE_SEARCH,
 		workspace: this.workspace,
@@ -407,7 +417,7 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 		if (await this.search.processBatch()) {
 			// The current one-shot schedule is removed after this callback returns,
 			// so its successor must not deduplicate onto the executing row.
-			await this.scheduleWorkspaceSearchIndexing(false);
+			await this.scheduleWorkspaceSearchIndexing(workspaceSearchIndexDelaySeconds, false);
 		}
 	}
 
@@ -523,8 +533,11 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 		return { attempted: documentItemIds.length + 2, failed };
 	}
 
-	private async scheduleWorkspaceSearchIndexing(idempotent = true) {
-		await this.schedule(1, "processWorkspaceSearchIndex", undefined, {
+	private async scheduleWorkspaceSearchIndexing(
+		delaySeconds = workspaceSearchIndexDelaySeconds,
+		idempotent = true,
+	) {
+		await this.schedule(delaySeconds, "processWorkspaceSearchIndex", undefined, {
 			idempotent,
 			retry: {
 				baseDelayMs: 250,
