@@ -22,6 +22,7 @@ import {
 	usePromptInputAttachments,
 } from "#/features/workspaces/components/ai-chat/ai-chat-prompt-input";
 import type { AIInspectorSnapshot } from "#/features/workspaces/ai/ai-inspector";
+import { useWorkspaceAiAllowance } from "#/features/workspaces/ai/use-workspace-ai-allowance";
 import { AiChatAttachmentDropBridge } from "#/features/workspaces/components/ai-chat/AiChatAttachmentDrop";
 import AiChatModelPicker from "#/features/workspaces/components/ai-chat/AiChatModelPicker";
 import { AiChatAllowanceNotice } from "#/features/workspaces/components/ai-chat/AiChatAllowanceNotice";
@@ -124,7 +125,12 @@ export default function AiChatPromptInput({
 	const attachmentsReady =
 		draftFiles.length === 0 || draftFiles.every((file) => file.status === "ready");
 	const canType = status !== "error";
-	const canSend = canSendWhileConnected && status === "ready" && attachmentsReady;
+	// The server gate is still the real enforcement, but letting a known-dead
+	// send through only to have it come back as an error reads as a broken
+	// product rather than a spent allowance. The notice above the composer says
+	// what happened; the button just stops offering to do it.
+	const { isBlocked } = useWorkspaceAiAllowance(modelId);
+	const canSend = canSendWhileConnected && status === "ready" && attachmentsReady && !isBlocked;
 	const { capabilities } = useWorkspaceMutationAccess();
 	const { uploadFiles: uploadWorkspaceFiles } = useWorkspaceFileUpload();
 	const addDraftFiles = useWorkspaceAiComposerDraftStore((state) => state.addFiles);

@@ -1,10 +1,10 @@
-import { Link } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 import { Check, ChevronUp, Waypoints } from "lucide-react";
 import { useState } from "react";
 
 import { Badge } from "#/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "#/components/ui/popover";
-import { showUpgradeDialog } from "#/features/account/upgrade-navigation";
+import { showUpgradeDialogFor } from "#/features/account/upgrade-navigation";
 import {
 	getWorkspaceAiChatModelById,
 	WORKSPACE_AI_CHAT_MODELS,
@@ -14,7 +14,12 @@ import {
 	type WorkspaceAiChatModelLevel,
 } from "#/features/workspaces/ai/models";
 import { useBillingState } from "#/features/account/use-billing-state";
-import { useWorkspaceAiTierBalances } from "#/features/workspaces/ai/use-workspace-ai-allowance";
+import {
+	useWorkspaceAiAllowance,
+	useWorkspaceAiTierBalances,
+} from "#/features/workspaces/ai/use-workspace-ai-allowance";
+import { WORKSPACE_AI_MESSAGE_FEATURE_IDS } from "#/integrations/autumn/workspace-ai-access";
+import { capturePostHogClientEvent } from "#/integrations/posthog/provider";
 import { ProviderLogo } from "#/features/workspaces/components/ai-chat/ProviderLogo";
 import { WorkspaceToolbarTextButton } from "#/features/workspaces/components/WorkspaceToolbar";
 import { cn } from "#/lib/utils";
@@ -38,13 +43,47 @@ export default function AiChatModelPicker({ modelId, onModelChange }: AiChatMode
 	// only ever one set of details visible at a time.
 	const [previewId, setPreviewId] = useState<WorkspaceAiChatModelId | null>(null);
 
-	const selectedModel = getWorkspaceAiChatModelById(modelId);
+	// The trigger names what will actually answer, not what was picked. Leaving it
+	// on the picked model meant the button spent whole billing periods claiming a
+	// model the gate had already swapped out. The stored choice is untouched, so
+	// it comes back on its own when the balance resets.
+	const { fallbackModelId } = useWorkspaceAiAllowance(modelId);
+	const selectedModel = getWorkspaceAiChatModelById(fallbackModelId ?? modelId);
 	const detailModel = getWorkspaceAiChatModelById(previewId ?? modelId);
-	const premiumSpent = !useWorkspaceAiTierBalances().premium.hasBalance;
+	const balances = useWorkspaceAiTierBalances();
+	// Subscribers who are out still get to pick: there is nothing left to sell
+	// them, and pitching Pro to someone who pays for it reads as the product not
+	// knowing who they are.
+	const { isPro } = useBillingState();
+	const navigate = useNavigate();
 
 	// The "Auto" option lives outside the provider groups — it's ThinkEx's own
 	// choice, not a provider's model.
+	//
+	// Reaching for a model whose tier is empty is the highest-intent upgrade
+	// moment there is — someone choosing to upgrade, rather than being
+	// interrupted mid-message. So the click offers the plan that would run it,
+	// rather than selecting a model the gate is going to refuse.
 	const handleSelect = (nextId: WorkspaceAiChatModelId) => {
+		const tier = getWorkspaceAiChatModelById(nextId).billingTier;
+
+		if (!isPro && !balances[tier].hasBalance) {
+			capturePostHogClientEvent("upgrade_prompt_clicked", {
+				feature_id: WORKSPACE_AI_MESSAGE_FEATURE_IDS[tier],
+				source: "ai_model_picker",
+			});
+
+			// The one entry point that stops someone without saying why first, so it
+			// hands the dialog the tier it refused.
+			void navigate({
+				replace: true,
+				search: showUpgradeDialogFor(WORKSPACE_AI_MESSAGE_FEATURE_IDS[tier]),
+				to: ".",
+			});
+			setOpen(false);
+			return;
+		}
+
 		onModelChange?.(nextId);
 		setOpen(false);
 	};
@@ -141,21 +180,13 @@ export default function AiChatModelPicker({ modelId, onModelChange }: AiChatMode
 				</div>
 
 				{/* Right: details for the hovered (or selected) model */}
-				<ModelDetails model={detailModel} premiumSpent={premiumSpent} />
+				<ModelDetails model={detailModel} />
 			</PopoverContent>
 		</Popover>
 	);
 }
 
-function ModelDetails({
-	model,
-	premiumSpent,
-}: {
-	model: WorkspaceAiChatModel;
-	premiumSpent: boolean;
-}) {
-	const { isPro } = useBillingState();
-
+function ModelDetails({ model }: { model: WorkspaceAiChatModel }) {
 	return (
 		<div className="flex min-w-0 flex-col gap-3 p-4">
 			<div className="flex items-center gap-2.5">
@@ -187,27 +218,6 @@ function ModelDetails({
 						{model.billingTier === "premium" ? "Premium" : "Standard"}
 					</Badge>
 				</div>
-				{/* Availability lives here, not on every list row: it's one tier-level
-				    fact, and the detail panel shows one model at a time. This is also
-				    the highest-intent upgrade moment — reaching for a premium model is
-				    choosing to upgrade, rather than being interrupted mid-message. */}
-				{model.billingTier === "premium" && premiumSpent ? (
-					// Subscribers get the fact without the pitch. Offering Pro to someone
-					// who already pays for it reads as the product not knowing who they
-					// are, and the plan panel has nothing more to sell them anyway.
-					isPro ? (
-						<span className="text-xs text-muted-foreground">None left this month</span>
-					) : (
-						<Link
-							replace
-							search={showUpgradeDialog}
-							to="."
-							className="text-xs font-medium text-foreground underline underline-offset-4"
-						>
-							None left this month &mdash; get 400 with Pro
-						</Link>
-					)
-				) : null}
 			</div>
 		</div>
 	);
