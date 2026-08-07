@@ -276,9 +276,13 @@ export async function* iterateWorkspacePageProjection(input: {
 }
 
 /**
- * Serves a page selection from the packed `pages.md` object. Contiguous selected
- * pages coalesce into one ranged read; page offsets are the running sum of the
- * per-page byte counts in the manifest.
+ * Serves a page selection from the packed `pages.md` object, using the running sum of
+ * the manifest's per-page byte counts as the offset index.
+ *
+ * A selection is capped at maxWorkspacePageReadCount pages, so each page is its own
+ * ranged read issued concurrently. Coalescing contiguous runs into single requests
+ * would save a handful of cheap reads and cost a sparse selection everything between
+ * its ends.
  */
 async function readPackedPages(input: {
 	bucket: R2Bucket;
@@ -293,54 +297,31 @@ async function readPackedPages(input: {
 		offset += page.markdownBytes;
 	}
 
-	const markdownByPage = new Map<number, string>();
-	const decoder = new TextDecoder();
-	const sorted = [...input.selectedPageNumbers].sort((left, right) => left - right);
-
-	for (const run of coalesceContiguousRuns(sorted)) {
-		const runSpans = run.map((pageNumber) => {
+	return await Promise.all(
+		input.selectedPageNumbers.map(async (pageNumber) => {
 			const span = spans.get(pageNumber);
 			if (!span) {
 				throw new Error(`Workspace page projection manifest is missing page ${pageNumber}.`);
 			}
-			return span;
-		});
-		const runLength = runSpans.reduce((total, span) => total + span.length, 0);
-
-		if (runLength === 0) {
-			for (const pageNumber of run) {
-				markdownByPage.set(pageNumber, "");
+			if (span.length === 0) {
+				return { markdown: "", pageNumber };
 			}
-			continue;
-		}
 
-		const object = await input.bucket.get(getWorkspacePagesObjectKey(input.prefix), {
-			range: { offset: runSpans[0].offset, length: runLength },
-		});
-		if (!object) {
-			throw new Error("Workspace page projection content was not found.");
-		}
+			const object = await input.bucket.get(getWorkspacePagesObjectKey(input.prefix), {
+				range: span,
+			});
+			if (!object) {
+				throw new Error("Workspace page projection content was not found.");
+			}
 
-		const bytes = new Uint8Array(await object.arrayBuffer());
-		if (bytes.byteLength !== runLength) {
-			throw new Error("Workspace page projection content does not match its manifest.");
-		}
+			const bytes = await object.arrayBuffer();
+			if (bytes.byteLength !== span.length) {
+				throw new Error("Workspace page projection content does not match its manifest.");
+			}
 
-		let runOffset = 0;
-		for (const [index, pageNumber] of run.entries()) {
-			const spanLength = runSpans[index].length;
-			markdownByPage.set(
-				pageNumber,
-				decoder.decode(bytes.subarray(runOffset, runOffset + spanLength)),
-			);
-			runOffset += spanLength;
-		}
-	}
-
-	return input.selectedPageNumbers.map((pageNumber) => ({
-		markdown: markdownByPage.get(pageNumber) ?? "",
-		pageNumber,
-	}));
+			return { markdown: new TextDecoder().decode(bytes), pageNumber };
+		}),
+	);
 }
 
 async function readLegacyPages(input: {
@@ -413,24 +394,6 @@ function sumManifestPageBytes(
 		}
 		return total + bytes;
 	}, 0);
-}
-
-function coalesceContiguousRuns(sortedPageNumbers: readonly number[]) {
-	const runs: number[][] = [];
-	let currentRun: number[] = [];
-	let previous: number | null = null;
-
-	for (const pageNumber of sortedPageNumbers) {
-		if (previous !== null && pageNumber === previous + 1) {
-			currentRun.push(pageNumber);
-		} else {
-			currentRun = [pageNumber];
-			runs.push(currentRun);
-		}
-		previous = pageNumber;
-	}
-
-	return runs;
 }
 
 async function readWorkspacePageProjectionManifest(

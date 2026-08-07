@@ -40,9 +40,12 @@ describe("workspace page projections", () => {
 			pages: { requested: "2-3", returned: [2, 3], total: 3 },
 		});
 		const prefix = reference.manifestObjectKey.slice(0, -"manifest.json".length);
-		// A contiguous selection coalesces into a single ranged read of the packed
-		// pages object rather than one request per page.
-		expect(storage.readKeys).toEqual([reference.manifestObjectKey, `${prefix}pages.md`]);
+		// Ranged reads of the one packed object, not an object per page.
+		expect(storage.readKeys).toEqual([
+			reference.manifestObjectKey,
+			`${prefix}pages.md`,
+			`${prefix}pages.md`,
+		]);
 	});
 
 	it("preserves missing page numbers as blank pages", async () => {
@@ -103,7 +106,47 @@ describe("workspace page projections", () => {
 		).rejects.toMatchObject({ code: "page_selection_too_large" });
 	});
 
-	it("consumes each R2 response body before opening the next page", async () => {
+	// Legacy projections open one object per page with no pre-flight size check, so the
+	// read path must consume each body before opening the next. Packed projections are
+	// bounded by maxPageReadBytes before any read opens, which is why they can be
+	// fetched concurrently instead.
+	it("consumes each legacy page body before opening the next", async () => {
+		const storage = createObjectStorage();
+		const prefix = "workspace_file_objects/workspace-1/item-1/extractions/run-1/fast/";
+		const manifestObjectKey = `${prefix}manifest.json`;
+		for (let pageNumber = 1; pageNumber <= 20; pageNumber += 1) {
+			storage.values.set(getWorkspacePageObjectKey(prefix, pageNumber), "Page");
+		}
+		storage.values.set(
+			manifestObjectKey,
+			JSON.stringify({
+				createdAt: new Date().toISOString(),
+				itemId: "item-1",
+				markdownBytes: 80,
+				markdownLength: 80,
+				metadata: {},
+				pageCount: 20,
+				provider: "liteparse",
+				providerMode: "fast",
+				runId: "run-1",
+				schemaVersion: 1,
+				sourceHash: "etag-1",
+				workspaceId: "workspace-1",
+			}),
+		);
+
+		await readWorkspacePageProjection({
+			bucket: storage.bucket,
+			expectedSourceHash: "etag-1",
+			manifestObjectKey,
+			pages: "1-20",
+		});
+
+		expect(storage.maxOpenBodies()).toBe(1);
+		expect(storage.openBodies()).toBe(0);
+	});
+
+	it("leaves no packed page body open", async () => {
 		const storage = createObjectStorage();
 		const reference = await writeWorkspacePageProjection({
 			bucket: storage.bucket,
@@ -127,7 +170,6 @@ describe("workspace page projections", () => {
 			pages: "1-20",
 		});
 
-		expect(storage.maxOpenBodies()).toBe(1);
 		expect(storage.openBodies()).toBe(0);
 	});
 
