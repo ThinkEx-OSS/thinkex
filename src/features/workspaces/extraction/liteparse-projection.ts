@@ -29,8 +29,12 @@ export async function publishLiteParseProjection(
 		return await step.do(
 			"publish fast LiteParse projection",
 			{
-				retries: { limit: 1, delay: "5 seconds", backoff: "constant" },
-				timeout: "2 minutes",
+				retries: { limit: 1, delay: "15 seconds", backoff: "constant" },
+				// Parsing is fast — measured 2.3s for a 1,527-page file — but this step also
+				// writes one R2 object per page, which costs roughly 45ms per page. At the
+				// container's 5,000-page ceiling that is about four minutes of writes, so a
+				// two-minute budget failed long documents that were working correctly.
+				timeout: "8 minutes",
 			},
 			async () => {
 				const kernel = await getWorkspaceKernelFromEnv(env, params.workspaceId);

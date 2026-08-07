@@ -3,12 +3,16 @@ import type { ReadWorkspaceKernelFileProjectionResult } from "#/features/workspa
 /**
  * How long a projection may sit in `processing` before it is treated as stalled.
  *
- * The enhanced extraction step allows a 10 minute timeout across 3 attempts with
- * exponential backoff, and the projection row is not touched between attempts, so
- * a healthy run can legitimately stay `processing` for a little over half an hour.
- * The threshold sits above that worst case so slow retries are never mislabelled.
+ * The row is written once when extraction starts and not touched again until it
+ * finishes, so this has to clear the slowest healthy run end to end: the LiteParse
+ * step at 8 minutes across 2 attempts (~16.5 minutes with its retry delay) plus the
+ * enhanced step's single 30 minute attempt, so roughly 46 minutes.
+ *
+ * Set this below that worst case and a long document is not merely mislabelled — the
+ * reconciler treats the same threshold as abandonment and queues a second workflow
+ * while the first is still parsing.
  */
-export const workspaceExtractionStallThresholdMs = 45 * 60_000;
+export const workspaceExtractionStallThresholdMs = 60 * 60_000;
 
 const minimumRetryAfterSeconds = 15;
 const maximumRetryAfterSeconds = 120;

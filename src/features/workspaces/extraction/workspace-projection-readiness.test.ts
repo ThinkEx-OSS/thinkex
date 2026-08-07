@@ -66,19 +66,22 @@ describe("resolveWorkspaceProjectionReadiness", () => {
 	it("stalls a processing projection that outlived the retrying extraction budget", () => {
 		const projection = createProjection({
 			status: "processing",
-			updatedAt: new Date(now - 46 * 60_000).toISOString(),
+			updatedAt: new Date(now - 61 * 60_000).toISOString(),
 		});
 
 		expect(resolveWorkspaceProjectionReadiness(projection, now)).toEqual({
 			state: "stalled",
-			elapsedSeconds: 46 * 60,
+			elapsedSeconds: 61 * 60,
 		});
 	});
 
+	// Roughly the slowest healthy run: the LiteParse step across both attempts plus a
+	// full 30 minute enhanced attempt. Calling this stalled would make the reconciler
+	// queue a duplicate workflow against a document that is still parsing.
 	it("keeps a slow but healthy extraction pending rather than stalling it", () => {
 		const projection = createProjection({
 			status: "processing",
-			updatedAt: new Date(now - 31 * 60_000).toISOString(),
+			updatedAt: new Date(now - 47 * 60_000).toISOString(),
 		});
 
 		expect(resolveWorkspaceProjectionReadiness(projection, now)).toMatchObject({

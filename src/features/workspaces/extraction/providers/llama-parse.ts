@@ -18,7 +18,12 @@ import {
 import { createStreamingMultipartFile } from "#/lib/http/streaming-multipart";
 
 const llamaParsePollIntervalMs = 2_000;
-const llamaParseMaxPollMs = 300_000;
+// Parse time scales with page count, so this has to clear the largest document we
+// accept, not the typical one. A 1,162-page agentic parse lands in roughly five
+// minutes; at the container's 5,000-page ceiling this leaves several times that
+// headroom. It exists to turn a wedged job into a clear error, not to cap normal
+// work — Workflows imposes no wall-clock limit on a step.
+const llamaParseMaxPollMs = 25 * 60_000;
 const llamaParseVersion = "latest";
 
 export function createLlamaParseExtractionProvider(env: Env): MarkdownExtractionProvider {
@@ -165,7 +170,9 @@ async function pollLlamaParseJob(env: Env, jobId: string) {
 		await wait(llamaParsePollIntervalMs);
 	}
 
-	throw new Error("LlamaParse job timed out.");
+	throw new Error(
+		`LlamaParse job ${jobId} did not finish within ${llamaParseMaxPollMs / 60_000} minutes.`,
+	);
 }
 
 function getLlamaParseMarkdownPages(value: unknown): MarkdownProjectionPage[] {
