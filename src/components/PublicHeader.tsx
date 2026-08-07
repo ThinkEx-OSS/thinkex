@@ -7,18 +7,21 @@ import { PublicNavLinks } from "#/components/PublicNavLinks";
 import ThinkExLogo from "#/components/ThinkExLogo";
 import { Button } from "#/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "#/components/ui/sheet";
+import { useMarketingHomePath } from "#/components/use-marketing-home-path";
 import { isPlainLeftClick } from "#/lib/plain-link-click";
 import { smoothScrollViewportTop } from "#/lib/smooth-scroll";
 
 export function PublicHeader() {
 	const pathname = useRouterState({ select: (state) => state.location.pathname });
+	const marketingHome = useMarketingHomePath();
 
 	function handleHomeLogoClick(event: MouseEvent<HTMLAnchorElement>) {
 		if (!isPlainLeftClick(event)) {
 			return;
 		}
 
-		if (pathname === "/") {
+		// Already on the page the logo points at, so scroll rather than navigate.
+		if (pathname === marketingHome) {
 			event.preventDefault();
 			smoothScrollViewportTop();
 		}
@@ -28,7 +31,7 @@ export function PublicHeader() {
 		<header className="sticky top-0 z-40 shrink-0 border-b border-border bg-background/95 backdrop-blur dark:bg-black/95">
 			<div className="relative mx-auto flex h-14 w-full max-w-7xl items-center gap-3 px-6">
 				<Link
-					to="/"
+					to={marketingHome}
 					onClick={handleHomeLogoClick}
 					className="flex items-center gap-3 rounded-md text-foreground no-underline outline-none focus-visible:ring-2 focus-visible:ring-ring"
 					aria-label="Back to ThinkEx home"
@@ -69,7 +72,7 @@ export function PublicHeader() {
 							className="min-h-[17rem] gap-0 bg-background px-4 pt-16 pb-5 dark:bg-black"
 						>
 							<Link
-								to="/"
+								to={marketingHome}
 								onClick={handleHomeLogoClick}
 								className="absolute top-0 left-6 flex h-14 items-center gap-3 rounded-md text-foreground no-underline outline-none focus-visible:ring-2 focus-visible:ring-ring"
 							>

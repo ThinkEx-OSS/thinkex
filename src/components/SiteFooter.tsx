@@ -4,6 +4,7 @@ import { CONTACT_EMAIL, communityLinks } from "#/components/community-links";
 import { FEATURES_SECTION_ID, PRICING_SECTION_ID } from "#/components/landing/landing-sections";
 import { PublicSectionLink } from "#/components/PublicSectionLink";
 import ThinkExLogo from "#/components/ThinkExLogo";
+import { useMarketingHomePath } from "#/components/use-marketing-home-path";
 import { useCopyToClipboard } from "#/hooks/use-copy-to-clipboard";
 import { isPostHogEnabled } from "#/integrations/posthog/config";
 import { openConsentPreferences } from "#/integrations/posthog/consent";
@@ -49,6 +50,7 @@ const footerColumns = [
 
 export default function SiteFooter() {
 	const { copied, copy } = useCopyToClipboard({ resetTimeoutMs: 2000 });
+	const marketingHome = useMarketingHomePath();
 
 	return (
 		<footer className="bg-background text-foreground dark:bg-black">
@@ -56,7 +58,7 @@ export default function SiteFooter() {
 				<div className="grid gap-10 lg:grid-cols-[minmax(12rem,1.1fr)_minmax(0,3fr)] lg:gap-16">
 					<div>
 						<Link
-							to="/"
+							to={marketingHome}
 							aria-label="ThinkEx home"
 							className="inline-flex rounded-md text-foreground no-underline outline-none focus-visible:ring-2 focus-visible:ring-ring"
 						>

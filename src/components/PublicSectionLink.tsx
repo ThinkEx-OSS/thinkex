@@ -7,6 +7,7 @@ import {
 	scrollLandingSectionIntoView,
 	type LandingSectionId,
 } from "#/components/landing/landing-sections";
+import { useMarketingHomePath } from "#/components/use-marketing-home-path";
 import { isPlainLeftClick } from "#/lib/plain-link-click";
 
 type PublicSectionLinkProps = {
@@ -16,10 +17,15 @@ type PublicSectionLinkProps = {
 };
 
 export function PublicSectionLink({ children, className, sectionId }: PublicSectionLinkProps) {
+	// The sections live on the landing page, which is served at two paths. Point
+	// at whichever one the visitor can actually reach — `/` bounces a signed-in
+	// visitor to `/home`, so for them these would otherwise leave the site.
+	const marketingHome = useMarketingHomePath();
+
 	function handleClick(event: MouseEvent<HTMLAnchorElement>) {
 		if (
 			!isPlainLeftClick(event) ||
-			window.location.pathname !== "/" ||
+			window.location.pathname !== marketingHome ||
 			getLandingSectionId(window.location.hash) !== sectionId
 		) {
 			return;
@@ -31,7 +37,7 @@ export function PublicSectionLink({ children, className, sectionId }: PublicSect
 
 	return (
 		<Link
-			to="/"
+			to={marketingHome}
 			hash={sectionId}
 			hashScrollIntoView={landingSectionScrollOptions}
 			className={className}
