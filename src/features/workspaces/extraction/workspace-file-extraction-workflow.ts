@@ -240,6 +240,8 @@ export class WorkspaceFileExtractionWorkflow extends WorkflowEntrypoint<
 				durationMs: Date.now() - startedAt,
 				outcome: "success" as const,
 				pageCount: extraction.pageCount,
+				queuedMs: getMetadataNumber(extraction.metadata, "queuedMs"),
+				parseMs: getMetadataNumber(extraction.metadata, "parseMs"),
 				provider: extraction.provider,
 				providerMode: extraction.providerMode,
 				routeReason: extraction.routeReason,
@@ -289,5 +291,10 @@ function getErrorMessage(error: unknown) {
 
 function getExtractionCreditsUsed(metadata: StagedPageExtractionResult["metadata"]) {
 	// Only LlamaParse reports credits; other providers leave the key absent.
-	return typeof metadata.creditsUsed === "number" ? metadata.creditsUsed : null;
+	return getMetadataNumber(metadata, "creditsUsed");
+}
+
+function getMetadataNumber(metadata: StagedPageExtractionResult["metadata"], key: string) {
+	const value = metadata[key];
+	return typeof value === "number" ? value : null;
 }

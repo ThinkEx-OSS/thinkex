@@ -227,6 +227,13 @@ function getLlamaParseMetadata(
 	const metadata = getRecordValue(value, "metadata");
 	const usage = getRecordValue(value, "usage");
 	const job = getRecordValue(value, "job");
+	// Splits a slow enhancement into "LlamaParse was busy" versus "LlamaParse was
+	// slow", which decide different responses: waiting out a queue versus changing
+	// tier or budgets. Verified shape: job_metadata.state_transitions carries
+	// pending_at / running_at / completed_at ISO timestamps.
+	const transitions = getRecordValue(getRecordValue(value, "job_metadata"), "state_transitions");
+	const queuedMs = getStateTransitionMs(transitions, "pending_at", "running_at");
+	const parseMs = getStateTransitionMs(transitions, "running_at", "completed_at");
 	const result: Record<string, string | number | boolean | null> = {
 		fileId: input.fileId,
 		jobId: input.jobId,
@@ -264,7 +271,26 @@ function getLlamaParseMetadata(
 		result.status = status;
 	}
 
+	if (queuedMs !== null) {
+		result.queuedMs = queuedMs;
+	}
+
+	if (parseMs !== null) {
+		result.parseMs = parseMs;
+	}
+
 	return result;
+}
+
+function getStateTransitionMs(transitions: unknown, fromKey: string, toKey: string) {
+	const from = getStringValue(transitions, fromKey);
+	const to = getStringValue(transitions, toKey);
+	if (!from || !to) {
+		return null;
+	}
+
+	const elapsedMs = Date.parse(to) - Date.parse(from);
+	return Number.isFinite(elapsedMs) && elapsedMs >= 0 ? Math.round(elapsedMs) : null;
 }
 
 function wait(ms: number) {

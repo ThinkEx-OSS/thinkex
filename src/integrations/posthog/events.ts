@@ -41,6 +41,30 @@ export interface PostHogEventPropertiesByName {
 		share_method: "link";
 		shared_role: WorkspaceMembershipRole;
 	};
+	workspace_file_read_completed: {
+		workspace_id: string;
+		operation_id: string;
+		item_id: string | null;
+		status: "ready" | "pending" | "failed";
+		/** Extraction phase when the read found the projection still pending. */
+		phase: "queued" | "extracting" | null;
+		failure_code: string | null;
+		/** True when the content served came from the fast pass and may still improve. */
+		provisional: boolean | null;
+		empty_page_count: number | null;
+		returned_page_count: number | null;
+		elapsed_seconds: number | null;
+	};
+	workspace_file_extraction_healing_enqueued: {
+		workspace_id: string;
+		/** Candidates enqueued this sweep; duplicate workflow ids are skipped downstream. */
+		total: number;
+		missing: number;
+		failed: number;
+		stalled: number;
+		provisional: number;
+		unreadable: number;
+	};
 	ai_turn_started: {
 		thread_id: string;
 		workspace_id: string;
@@ -88,6 +112,10 @@ export interface PostHogEventPropertiesByName {
 		credits_used: number | null;
 		duration_ms: number;
 		enhancement_duration_ms: number;
+		/** Time the provider job sat queued before running, when the provider reports it. */
+		enhancement_queued_ms: number | null;
+		/** Time the provider job spent actually parsing, when the provider reports it. */
+		enhancement_parse_ms: number | null;
 		enhancement_error_message: string | null;
 		enhancement_error_type: string | null;
 		enhancement_outcome: "error" | "success";

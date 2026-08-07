@@ -542,6 +542,7 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 		this.lastExtractionHealingRequestAt = now;
 		this.ctx.waitUntil(
 			reconcileWorkspaceFileExtractions({
+				schedule: (task) => this.ctx.waitUntil(task),
 				sql: this.kernelSql,
 				workflow: this.env.WORKSPACE_FILE_EXTRACTION_WORKFLOW,
 				workspaceId: this.name,

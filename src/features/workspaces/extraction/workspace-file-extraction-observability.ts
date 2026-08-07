@@ -25,6 +25,10 @@ export type WorkspaceFileEnhancementOutcome =
 			durationMs: number;
 			outcome: "success";
 			pageCount: number;
+			/** Provider-reported time the job sat queued before running, when known. */
+			queuedMs: number | null;
+			/** Provider-reported time spent actually parsing, when known. */
+			parseMs: number | null;
 			provider: WorkspaceFileExtractionProviderId;
 			providerMode: WorkspaceFileExtractionMode;
 			routeReason: string;
@@ -107,6 +111,10 @@ export function recordWorkspaceFileExtractionOutcome(input: {
 		enhancement_error_message: null,
 		enhancement_outcome: input.enhancement.outcome,
 		enhancement_duration_ms: input.enhancement.durationMs,
+		enhancement_queued_ms:
+			input.enhancement.outcome === "success" ? input.enhancement.queuedMs : null,
+		enhancement_parse_ms:
+			input.enhancement.outcome === "success" ? input.enhancement.parseMs : null,
 		liteparse_duration_ms: input.liteParse.durationMs,
 		liteparse_error_type: input.liteParse.outcome === "error" ? input.liteParse.errorType : null,
 		liteparse_markdown_length:
