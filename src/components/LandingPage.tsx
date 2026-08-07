@@ -20,7 +20,10 @@ export default function LandingPage() {
 		>
 			<PublicHeader />
 
-			<div ref={scrollRootRef} data-scroll-root className="min-h-0 flex-1 overflow-y-auto">
+			{/* `relative` keeps absolutely positioned descendants (e.g. `sr-only` labels) inside this
+			    scroll container: without it they resolve against the initial containing block, escape
+			    the overflow clip, and make the document itself scrollable behind the fixed app shell. */}
+			<div ref={scrollRootRef} data-scroll-root className="relative min-h-0 flex-1 overflow-y-auto">
 				<main>
 					<section>
 						<div className="mx-auto w-full max-w-7xl px-4 pt-12 pb-0 sm:px-6 sm:pt-16 lg:pt-20">
