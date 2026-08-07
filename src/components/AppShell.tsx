@@ -28,8 +28,11 @@ export default function AppShell({
 			<header className="z-40 shrink-0 bg-muted">
 				<div className="relative flex h-14 w-full items-center gap-3 px-4 sm:h-12">
 					<div className="relative z-10 flex min-w-0 shrink-0 items-center gap-3 text-foreground">
+						{/* This shell only wraps `/home`, so `/home` here would link to the
+						    page you are already on. `/welcome` is marketing without the auth
+						    branch that bounces signed-in visitors off `/`. */}
 						<Link
-							to="/home"
+							to="/welcome"
 							className="flex shrink-0 items-center gap-3 rounded-md text-foreground no-underline outline-none focus-visible:ring-2 focus-visible:ring-ring"
 						>
 							<ThinkExLogo size={28} />
