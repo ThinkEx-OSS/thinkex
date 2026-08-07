@@ -3,6 +3,11 @@
 # Keep full port-3000 testing available without making every worktree use it.
 spotlight_testing = true
 
+# @cloudflare/vite-plugin prints a "Debug: .../__debug" line after Vite's own
+# URLs, so terminal auto-detection would pick that as the Open target.
+[[preview_urls]]
+url = "http://localhost:$CONDUCTOR_PORT"
+
 [scripts]
 setup = """
 pnpm install --frozen-lockfile
