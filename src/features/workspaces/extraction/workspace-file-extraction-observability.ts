@@ -14,66 +14,89 @@ import { capturePostHogServerEvent } from "#/integrations/posthog/server";
 import { getTelemetryRuntimeContext } from "#/integrations/posthog/server-context";
 import type { PostHogTelemetryScheduler } from "#/integrations/posthog/scheduler";
 
-interface WorkspaceFileExtractionOutcomeBase {
+/**
+ * What the enhanced pass produced, as a value rather than control flow, so the
+ * workflow can hand both stage outcomes to one telemetry call instead of shaping a
+ * different record at every exit.
+ */
+export type WorkspaceFileEnhancementOutcome =
+	| {
+			creditsUsed: number | null;
+			durationMs: number;
+			outcome: "success";
+			pageCount: number;
+			provider: WorkspaceFileExtractionProviderId;
+			providerMode: WorkspaceFileExtractionMode;
+			routeReason: string;
+	  }
+	| {
+			// Non-null when the provider finished and billed but a later step failed —
+			// reporting null there would understate spend on exactly the runs worth
+			// investigating.
+			creditsUsed: number | null;
+			durationMs: number;
+			error: unknown;
+			outcome: "error";
+	  };
+
+export function recordWorkspaceFileExtractionOutcome(input: {
 	durationMs: number;
+	enhancement: WorkspaceFileEnhancementOutcome;
 	instanceId: string;
 	liteParse: LiteParseStageOutcome;
 	params: WorkspaceFileExtractionWorkflowParams;
 	schedule: PostHogTelemetryScheduler;
-	enhancement:
-		| { durationMs: number; outcome: "success" }
-		| { durationMs: number; error: unknown; outcome: "error" };
-}
-
-type WorkspaceFileExtractionOutcome = WorkspaceFileExtractionOutcomeBase &
-	(
-		| {
-				error: unknown;
-				outcome: "error";
-		  }
-		| {
-				creditsUsed: number | null;
-				outcome: "partial" | "success";
-				pageCount: number;
-				provider: WorkspaceFileExtractionProviderId | "liteparse";
-				providerMode: WorkspaceFileExtractionMode;
-				routeReason: string;
-		  }
-	);
-
-export function recordWorkspaceFileExtractionOutcome(input: WorkspaceFileExtractionOutcome) {
+}) {
 	const requestContext = getTelemetryRuntimeContext();
 
 	if (input.params.requestId) {
 		requestContext.properties.request_id = input.params.requestId;
 	}
 
+	// The run's outcome follows from the two stages: the enhanced pass succeeding is
+	// success, failing with a fast projection still published is partial, and failing
+	// with nothing readable is an error.
+	const outcome =
+		input.enhancement.outcome === "success"
+			? ("success" as const)
+			: input.liteParse.outcome === "success"
+				? ("partial" as const)
+				: ("error" as const);
 	const outcomeFields =
-		input.outcome !== "error"
+		input.enhancement.outcome === "success"
 			? {
 					// provider_mode is the tier we asked for; credits_used is what the cost
 					// optimizer actually billed, so the two disagree on mixed-complexity files.
-					credits_used: input.creditsUsed,
+					credits_used: input.enhancement.creditsUsed,
 					error_type: null,
-					page_count: input.pageCount,
-					provider: input.provider,
-					provider_mode: input.providerMode,
-					route_reason: input.routeReason,
+					page_count: input.enhancement.pageCount,
+					provider: input.enhancement.provider,
+					provider_mode: input.enhancement.providerMode,
+					route_reason: input.enhancement.routeReason,
 				}
-			: {
-					credits_used: null,
-					error_type: input.error instanceof Error ? input.error.name : "UnknownError",
-					page_count: null,
-					provider: null,
-					provider_mode: null,
-					route_reason: null,
-				};
+			: input.liteParse.outcome === "success"
+				? {
+						credits_used: input.enhancement.creditsUsed,
+						error_type: null,
+						page_count: input.liteParse.pageCount,
+						provider: "liteparse",
+						provider_mode: "fast",
+						route_reason: "LiteParse projection retained after enhancement failed.",
+					}
+				: {
+						credits_used: input.enhancement.creditsUsed,
+						error_type: getErrorType(input.enhancement.error),
+						page_count: null,
+						provider: null,
+						provider_mode: null,
+						route_reason: null,
+					};
 	const fields = {
 		actor_user_id: input.params.actorUserId,
 		asset_kind: input.params.assetKind,
 		duration_ms: input.durationMs,
 		item_id: input.params.itemId,
-		outcome: input.outcome,
+		outcome,
 		request_id: input.params.requestId,
 		workflow_id: input.instanceId,
 		workspace_id: input.params.workspaceId,
@@ -91,10 +114,10 @@ export function recordWorkspaceFileExtractionOutcome(input: WorkspaceFileExtract
 		...outcomeFields,
 	};
 
-	if (input.outcome === "error") {
+	if (input.enhancement.outcome === "error" && outcome === "error") {
 		recordOperationalFailure({
 			distinctId: input.params.actorUserId ?? undefined,
-			error: input.error,
+			error: input.enhancement.error,
 			event: "workspace_file_extraction",
 			fields,
 			requestContext,
@@ -104,7 +127,7 @@ export function recordWorkspaceFileExtractionOutcome(input: WorkspaceFileExtract
 		logOperationalEvent({
 			event: "workspace_file_extraction",
 			fields,
-			outcome: input.outcome,
+			outcome,
 			requestContext,
 		});
 	}
