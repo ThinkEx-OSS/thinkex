@@ -32,7 +32,7 @@ export default function LandingPage() {
 									Study and research, grounded in your sources.
 								</h1>
 								<p className="mt-5 max-w-2xl text-base leading-7 text-muted-foreground sm:mt-6 sm:text-lg lg:text-xl lg:leading-8">
-									Your workspace for working across documents, media, and AI.
+									The workspace for easily working across docs, media, and AI.
 								</p>
 								<div className="flex justify-center sm:hidden">
 									<Button
