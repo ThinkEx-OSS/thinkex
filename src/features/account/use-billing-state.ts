@@ -22,6 +22,14 @@ export function useBillingState({ exact = false } = {}) {
 		// The server gate is the real enforcement; this only drives disclosure.
 		staleTime: 60_000,
 		refetchOnMount: exact ? "always" : true,
+		// Not here for accuracy — a stale balance that hands out an extra message
+		// costs a fraction of a cent, and the server gate catches it anyway. It is
+		// here because staleness in the other direction disables the composer: a
+		// session left open across the monthly refill would keep reading last
+		// month's empty balance and lock the user out of an allowance they already
+		// have. Five minutes is the ceiling on that, not a sync interval. Only runs
+		// while the tab is focused, which is the case focus refetching cannot cover.
+		refetchInterval: 5 * 60 * 1000,
 	});
 
 	return {
