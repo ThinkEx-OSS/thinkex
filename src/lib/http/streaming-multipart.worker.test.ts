@@ -34,9 +34,13 @@ describe("createStreamingMultipartFile", () => {
 				pull: (controller) => controller.error(new Error("source stream failed")),
 			}),
 		);
+		// Stand in for the fetch that would be reading the request body. Without a
+		// consumer the pump parks on its first write and never reaches the source error.
+		const drained = multipart.body.pipeTo(new WritableStream()).catch(() => undefined);
 
 		await expect(multipart.awaitResponse(new Promise<never>(() => {}))).rejects.toThrow(
 			"source stream failed",
 		);
+		await drained;
 	});
 });

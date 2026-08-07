@@ -21,7 +21,15 @@ export function createStreamingMultipartFile(input: {
 	return {
 		body: stream.readable,
 		contentType: `multipart/form-data; boundary=${boundary}`,
-		done,
+		// Callers must await their request through this rather than awaiting the body
+		// pump alongside it. An endpoint that answers before draining the request body
+		// — a 4xx, a redirect, a quota rejection — leaves the writer parked on
+		// backpressure that will never clear, so the response, not the pump, decides
+		// when the upload is over. Pump failures still surface: they break the body,
+		// which fails the request.
+		awaitResponse<T>(response: Promise<T>): Promise<T> {
+			return Promise.race([response, done.then(() => response)]);
+		},
 	};
 }
 

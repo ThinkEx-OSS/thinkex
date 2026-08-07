@@ -57,7 +57,7 @@ export async function convertFileStreamWithContainer(input: {
 		sizeBytes: input.sizeBytes,
 	});
 
-	const [response] = await Promise.all([
+	const response = await multipart.awaitResponse(
 		input.container.fetch(
 			new Request(input.url, {
 				body: multipart.body,
@@ -66,8 +66,7 @@ export async function convertFileStreamWithContainer(input: {
 				method: "POST",
 			} as RequestInit & { duplex: "half" }),
 		),
-		multipart.done,
-	]);
+	);
 
 	if (!response.ok) {
 		throw input.error(await getConversionErrorMessage(response));

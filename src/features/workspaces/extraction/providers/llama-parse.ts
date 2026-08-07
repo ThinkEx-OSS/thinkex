@@ -71,7 +71,7 @@ async function uploadLlamaParseFile(env: Env, input: MarkdownExtractionInput) {
 		formFieldName: "file",
 		sizeBytes: input.sizeBytes,
 	});
-	const [responseJson] = await Promise.all([
+	const responseJson = await multipart.awaitResponse(
 		llamaCloudJsonRequest({
 			env,
 			path: "/api/v1/beta/files",
@@ -80,8 +80,7 @@ async function uploadLlamaParseFile(env: Env, input: MarkdownExtractionInput) {
 			headers: { "content-type": multipart.contentType },
 			body: multipart.body,
 		}),
-		multipart.done,
-	]);
+	);
 	const fileId = getStringValue(responseJson, "id");
 
 	if (!fileId) {
