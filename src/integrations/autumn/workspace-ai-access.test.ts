@@ -35,18 +35,21 @@ describe("resolveWorkspaceAiMessageAccess", () => {
 		}
 	});
 
-	// The failure this guards against: auto is the model nobody changes, so if it
-	// blocked the moment standard ran out, the default experience would break
-	// first while a premium balance sat unused.
-	it("routes a standard model to premium when standard is spent", () => {
-		expect(
-			resolveWorkspaceAiMessageAccess({
-				chosenModelId: "auto",
-				chosenTierAllowed: false,
-				fallbackTierAllowed: true,
-				resetsAt: RESETS_AT,
-			}),
-		).toEqual({ allowed: true, modelId: "claude-sonnet" });
+	// The regression this guards against: standard used to promote the turn into a
+	// premium model, so the heaviest free users got the priciest model in the
+	// catalog for their last stretch of the month, billed against the tier that is
+	// supposed to be the upgrade prompt.
+	it("blocks a standard model when standard is spent, even with premium left", () => {
+		for (const chosenModelId of ["auto", "claude-haiku"] as const) {
+			expect(
+				resolveWorkspaceAiMessageAccess({
+					chosenModelId,
+					chosenTierAllowed: false,
+					fallbackTierAllowed: true,
+					resetsAt: RESETS_AT,
+				}),
+			).toEqual({ allowed: false, resetsAt: RESETS_AT });
+		}
 	});
 
 	it("blocks with the reset date once both tiers are spent", () => {
@@ -80,15 +83,12 @@ describe("resolveWorkspaceAiMessageAccess", () => {
 			fallbackTierAllowed: true,
 			resetsAt: null,
 		});
-		const standardSpent = resolveWorkspaceAiMessageAccess({
-			chosenModelId: "gemini",
-			chosenTierAllowed: false,
-			fallbackTierAllowed: true,
-			resetsAt: null,
-		});
 
-		expect(premiumSpent).toEqual({ allowed: true, modelId: "auto" });
-		expect(standardSpent).toEqual({ allowed: true, modelId: "claude-sonnet" });
+		if (!premiumSpent.allowed) {
+			throw new Error("expected a fallback");
+		}
+
+		expect(getWorkspaceAiChatModelById(premiumSpent.modelId).billingTier).toBe("standard");
 	});
 });
 
@@ -99,7 +99,7 @@ describe("resolveWorkspaceAiMessageAccess", () => {
 // quietly becoming the priciest model in the tier it lands on.
 describe("fallback pricing", () => {
 	it("lands on the cheapest model in the tier it falls back to", () => {
-		for (const chosenModelId of ["auto", "claude-sonnet"] as const) {
+		for (const chosenModelId of ["claude-sonnet", "gpt-terra", "gemini-pro"] as const) {
 			const access = resolveWorkspaceAiMessageAccess({
 				chosenModelId,
 				chosenTierAllowed: false,

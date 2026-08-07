@@ -14,13 +14,17 @@ export const WORKSPACE_AI_MESSAGE_FEATURE_IDS = {
 } as const satisfies Record<WorkspaceAiChatModelBillingTier, string>;
 
 /**
- * Where a turn goes when the tier it asked for is empty. Points at catalog slots
- * rather than gateway models, so repointing `auto` moves the fallback with it.
+ * Where a premium turn goes when premium is empty. Points at a catalog slot
+ * rather than a gateway model, so repointing `auto` moves the fallback with it.
+ *
+ * There is deliberately no fallback the other way. Standard running out used to
+ * promote the turn to a premium model, which handed the priciest model in the
+ * catalog to whoever had consumed the most, billed it against the tier that is
+ * the upgrade prompt, and made quality climb right before the wall. Standard
+ * running out *is* the wall — a premium model from there is a deliberate pick,
+ * not something we spend on their behalf.
  */
-const FALLBACK_MODEL_BY_TIER = {
-	standard: "auto",
-	premium: "claude-sonnet",
-} as const satisfies Record<WorkspaceAiChatModelBillingTier, WorkspaceAiChatModelId>;
+const STANDARD_FALLBACK_MODEL_ID = "auto" satisfies WorkspaceAiChatModelId;
 
 /**
  * Returns the model the turn should actually run on, so callers use what they're
@@ -29,12 +33,6 @@ const FALLBACK_MODEL_BY_TIER = {
 export type WorkspaceAiMessageAccess =
 	| { allowed: true; modelId: WorkspaceAiChatModelId }
 	| { allowed: false; resetsAt: number | null };
-
-function getWorkspaceAiFallbackModelId(modelId: WorkspaceAiChatModelId): WorkspaceAiChatModelId {
-	const chosenTier = getWorkspaceAiChatModelById(modelId).billingTier;
-
-	return FALLBACK_MODEL_BY_TIER[chosenTier === "premium" ? "standard" : "premium"];
-}
 
 /**
  * The decision itself, separated from the Autumn round-trips so the whole matrix
@@ -50,11 +48,13 @@ export function resolveWorkspaceAiMessageAccess(input: {
 		return { allowed: true, modelId: input.chosenModelId };
 	}
 
-	// Falling through to the other tier keeps the default model working: if `auto`
-	// blocked the moment standard ran out, the model most people never change
-	// would be the first thing to break.
-	if (input.fallbackTierAllowed) {
-		return { allowed: true, modelId: getWorkspaceAiFallbackModelId(input.chosenModelId) };
+	// Only premium falls through. Keeping `auto` alive past its own tier would
+	// mean spending premium to do it — see STANDARD_FALLBACK_MODEL_ID.
+	if (
+		input.fallbackTierAllowed &&
+		getWorkspaceAiChatModelById(input.chosenModelId).billingTier === "premium"
+	) {
+		return { allowed: true, modelId: STANDARD_FALLBACK_MODEL_ID };
 	}
 
 	return { allowed: false, resetsAt: input.resetsAt };
