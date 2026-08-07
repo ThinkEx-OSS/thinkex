@@ -1,6 +1,10 @@
 import type { WorkflowStep } from "cloudflare:workers";
 
 import { extractPdfWithLiteParse } from "#/features/workspaces/extraction/providers/liteparse";
+import {
+	getWorkspaceExtractionStepConfig,
+	workspaceExtractionStepBudgets,
+} from "#/features/workspaces/extraction/workspace-extraction-budgets";
 import type {
 	LiteParseStageOutcome,
 	WorkspaceFileExtractionWorkflowParams,
@@ -28,14 +32,7 @@ export async function publishLiteParseProjection(
 	try {
 		return await step.do(
 			"publish fast LiteParse projection",
-			{
-				retries: { limit: 1, delay: "15 seconds", backoff: "constant" },
-				// Parsing is fast — measured 2.3s for a 1,527-page file — but this step also
-				// writes one R2 object per page, which costs roughly 45ms per page. At the
-				// container's 5,000-page ceiling that is about four minutes of writes, so a
-				// two-minute budget failed long documents that were working correctly.
-				timeout: "8 minutes",
-			},
+			getWorkspaceExtractionStepConfig(workspaceExtractionStepBudgets.liteParse),
 			async () => {
 				const kernel = await getWorkspaceKernelFromEnv(env, params.workspaceId);
 				const { object, source } = await getWorkspaceFileSourceObject({

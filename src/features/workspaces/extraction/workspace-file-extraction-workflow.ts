@@ -3,6 +3,10 @@ import { WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from "cloud
 import { publishLiteParseProjection } from "#/features/workspaces/extraction/liteparse-projection";
 import { recordWorkspaceFileExtractionOutcome } from "#/features/workspaces/extraction/workspace-file-extraction-observability";
 import { createMarkdownExtractionProvider } from "#/features/workspaces/extraction/providers/index";
+import {
+	getWorkspaceExtractionStepConfig,
+	workspaceExtractionStepBudgets,
+} from "#/features/workspaces/extraction/workspace-extraction-budgets";
 import type { WorkspaceFileExtractionWorkflowParams } from "#/features/workspaces/extraction/types";
 import type {
 	WorkspaceFileExtractionMode,
@@ -63,18 +67,7 @@ export class WorkspaceFileExtractionWorkflow extends WorkflowEntrypoint<
 		try {
 			extraction = await step.do(
 				"extract page markdown with provider",
-				{
-					// No retries: an attempt uploads the file and starts a fresh billable
-					// provider job before it ever waits on one, so a retry cannot resume the
-					// job it lost — it buys another. A 1,527-page document once paid for
-					// three agentic parses here and used none of them. If this step fails the
-					// LiteParse projection stands and the reconciler can re-run the workflow,
-					// which is the cheap way to retry.
-					retries: { limit: 0, delay: "30 seconds", backoff: "exponential" },
-					// Must clear the provider's own poll ceiling, or the step kills a job that
-					// is still making progress. Workflows does not limit step wall clock.
-					timeout: "30 minutes",
-				},
+				getWorkspaceExtractionStepConfig(workspaceExtractionStepBudgets.extract),
 				async (): Promise<StagedPageExtractionResult> => {
 					const kernel = await getWorkspaceKernelFromEnv(this.env, params.workspaceId);
 					const { object, source } = await getWorkspaceFileSourceObject({
@@ -125,14 +118,7 @@ export class WorkspaceFileExtractionWorkflow extends WorkflowEntrypoint<
 
 			result = await step.do(
 				"write extracted projections",
-				{
-					retries: {
-						limit: 3,
-						delay: "10 seconds",
-						backoff: "exponential",
-					},
-					timeout: "5 minutes",
-				},
+				getWorkspaceExtractionStepConfig(workspaceExtractionStepBudgets.publish),
 				async () => {
 					const kernel = await getWorkspaceKernelFromEnv(this.env, params.workspaceId);
 					const metadataJson = {
