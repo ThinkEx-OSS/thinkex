@@ -26,7 +26,7 @@ export const workspaceExtractionStepBudgets = {
 	 * page projection. Single attempt: a retry cannot resume the job it lost, only
 	 * start and pay for another.
 	 */
-	extract: { attempts: 1, retryDelayMs: 30_000, timeoutMs: 40 * minuteMs },
+	extract: { attempts: 1, retryDelayMs: 30_000, timeoutMs: 45 * minuteMs },
 	/** Publishing the finished projection — a single kernel call. */
 	publish: { attempts: 4, retryDelayMs: 10_000, timeoutMs: 2 * minuteMs },
 } as const satisfies Record<string, WorkspaceExtractionStepBudget>;

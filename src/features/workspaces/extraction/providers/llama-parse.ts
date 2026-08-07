@@ -20,11 +20,12 @@ import { createStreamingMultipartFile } from "#/lib/http/streaming-multipart";
 
 const llamaParsePollIntervalMs = 2_000;
 // Parse time scales with page count, so this has to clear the largest document we
-// accept, not the typical one. A 1,162-page agentic parse lands in roughly five
-// minutes; at the container's 5,000-page ceiling this leaves several times that
-// headroom. It exists to turn a wedged job into a clear error, not to cap normal
-// work — Workflows imposes no wall-clock limit on a step.
-const llamaParseMaxPollMs = 25 * 60_000;
+// accept, not the typical one. Measured: 1,162 agentic pages in ~4m48s, about 0.25s
+// per page, so the 5,000-page ceiling projects to roughly 21 minutes — and
+// LlamaParse's own job timeout is 30 minutes of parsing excluding queue time. This
+// exists to turn a wedged job into a clear error, not to cap normal work; Workflows
+// imposes no wall-clock limit on a step.
+const llamaParseMaxPollMs = 35 * 60_000;
 const llamaParseVersion = "latest";
 
 export function createLlamaParseExtractionProvider(env: Env): MarkdownExtractionProvider {
@@ -60,8 +61,28 @@ export function createLlamaParseExtractionProvider(env: Env): MarkdownExtraction
 	};
 }
 
-function supportsLlamaParseCostOptimizer(tier: LlamaParseTier) {
-	return tier === "agentic" || tier === "agentic_plus";
+/** Exported for tests: sending the wrong shape here once broke an entire tier. */
+export function buildLlamaParseJobRequest(input: { fileId: string; tier: LlamaParseTier }) {
+	return {
+		file_id: input.fileId,
+		tier: input.tier,
+		version: llamaParseVersion,
+		output_options: {
+			markdown: {
+				tables: {
+					output_tables_as_markdown: true,
+				},
+			},
+		},
+		// The optimizer downgrades individual simple pages to the cost_effective
+		// tier, so LlamaParse rejects the combination with a 422 when that is
+		// already the requested tier — there is nothing left to downgrade to.
+		// Sending it unconditionally made every cost_effective parse fail outright.
+		processing_options:
+			input.tier === "agentic" || input.tier === "agentic_plus"
+				? { cost_optimizer: { enable: true } }
+				: {},
+	};
 }
 
 function normalizeLlamaParseTier(mode: MarkdownExtractionInput["mode"]): LlamaParseTier {
@@ -115,25 +136,7 @@ async function startLlamaParseJob(
 		headers: {
 			"Content-Type": "application/json",
 		},
-		body: JSON.stringify({
-			file_id: input.fileId,
-			tier: input.tier,
-			version: llamaParseVersion,
-			output_options: {
-				markdown: {
-					tables: {
-						output_tables_as_markdown: true,
-					},
-				},
-			},
-			// The optimizer downgrades individual simple pages to the cost_effective
-			// tier, so LlamaParse rejects the combination with a 422 when that is
-			// already the requested tier — there is nothing left to downgrade to.
-			// Sending it unconditionally made every cost_effective parse fail outright.
-			processing_options: supportsLlamaParseCostOptimizer(input.tier)
-				? { cost_optimizer: { enable: true } }
-				: {},
-		}),
+		body: JSON.stringify(buildLlamaParseJobRequest(input)),
 	});
 	const jobId = getStringValue(responseJson, "id");
 

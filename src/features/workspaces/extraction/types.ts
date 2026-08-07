@@ -15,9 +15,17 @@ export interface WorkspaceFileExtractionWorkflowParams {
 	requestId: string | null;
 }
 
+/**
+ * Marks a workflow run started by the reconciler to upgrade a projection stuck on the
+ * fast tier. The run brands the fast projection it republishes with `healed: true`,
+ * and the reconciler only ever heals unbranded rows — which bounds healing to one
+ * attempt per document structurally, rather than by assumptions about timestamps.
+ */
+export const extractionHealingRequestId = "extraction-healing-v1";
+
 export type LiteParseStageOutcome =
 	| { durationMs: number; outcome: "skipped" }
-	| { durationMs: number; errorType: string; outcome: "error" }
+	| { durationMs: number; errorMessage: string; errorType: string; outcome: "error" }
 	| {
 			durationMs: number;
 			markdownLength: number;

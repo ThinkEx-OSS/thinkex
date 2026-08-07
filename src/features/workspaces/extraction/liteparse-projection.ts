@@ -5,9 +5,10 @@ import {
 	getWorkspaceExtractionStepConfig,
 	workspaceExtractionStepBudgets,
 } from "#/features/workspaces/extraction/workspace-extraction-budgets";
-import type {
-	LiteParseStageOutcome,
-	WorkspaceFileExtractionWorkflowParams,
+import {
+	extractionHealingRequestId,
+	type LiteParseStageOutcome,
+	type WorkspaceFileExtractionWorkflowParams,
 } from "#/features/workspaces/extraction/types";
 import { getWorkspaceFileSourceObject } from "#/features/workspaces/extraction/workspace-file-source";
 import {
@@ -71,6 +72,9 @@ export async function publishLiteParseProjection(
 							markdownLength: projection.manifest.markdownLength,
 							pageCount: projection.manifest.pageCount,
 							provisional: true,
+							// Brand healing runs so the reconciler never picks this row up again:
+							// one upgrade attempt per document, bounded structurally.
+							...(params.requestId === extractionHealingRequestId ? { healed: true } : {}),
 						},
 						actorUserId: params.actorUserId,
 						clientMutationId: `${runId}:projection:liteparse-ready`,
@@ -105,6 +109,7 @@ export async function publishLiteParseProjection(
 		});
 		return {
 			durationMs: Date.now() - startedAt,
+			errorMessage: error instanceof Error ? error.message : String(error),
 			errorType: error instanceof Error ? error.name : "UnknownError",
 			outcome: "error",
 		};

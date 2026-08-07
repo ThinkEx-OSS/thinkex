@@ -13,13 +13,17 @@ import { promisify } from "node:util";
 const port = 8080;
 // LiteParse defaults to 1000 pages and drops everything past that without reporting
 // it, which publishes a "ready" projection silently missing the tail of the document.
-// Set the ceiling explicitly and reject anything above it. Measured at roughly 0.57 MB
-// resident per page, so 5,000 pages sits near 3 GB on the 8 GiB standard-2 instance.
-const maxPages = 5000;
+// Parse one page past the supported ceiling so a document of exactly the ceiling is
+// distinguishable from a truncated longer one. Measured at roughly 0.57 MB resident
+// per page, so a full parse sits near 3 GB on the 8 GiB standard-2 instance — which
+// is why concurrent parses are also capped below.
+const supportedPages = 5000;
+const maxConcurrentParses = 2;
+let activeParses = 0;
 const parser = new LiteParse({
 	extractLinks: true,
 	imageMode: "placeholder",
-	maxPages,
+	maxPages: supportedPages + 1,
 	ocrEnabled: false,
 	outputFormat: "markdown",
 	quiet: true,
@@ -59,18 +63,32 @@ createServer(async (request, response) => {
 			return sendJson(response, status, { error: "Not found." });
 		}
 
-		const bytes = await readPdfRequestBytes(request);
-		inputBytes = bytes.byteLength;
-		const result = await withTimeout(parser.parse(bytes), parseTimeoutMs);
+		// Each parse can hold gigabytes resident, and one over-committed container
+		// dies taking every in-flight request with it. Shed load instead: 503 is
+		// retryable by the caller, an OOM crash is not.
+		if (activeParses >= maxConcurrentParses) {
+			status = 503;
+			return sendJson(response, status, {
+				code: "EXTRACTOR_BUSY",
+				error: "Extractor is at capacity, retry shortly.",
+			});
+		}
 
-		// Hitting the ceiling is indistinguishable from a document that happens to be
-		// exactly that long, so treat both as unsupported. Refusing a 5,000-page file
-		// is recoverable; publishing a truncated one as complete is not.
-		if (result.pages.length >= maxPages) {
+		activeParses += 1;
+		let result;
+		try {
+			const bytes = await readPdfRequestBytes(request);
+			inputBytes = bytes.byteLength;
+			result = await withTimeout(parser.parse(bytes), parseTimeoutMs);
+		} finally {
+			activeParses -= 1;
+		}
+
+		if (result.pages.length > supportedPages) {
 			throw new PdfValidationError(
 				422,
 				"TOO_MANY_PAGES",
-				`PDFs longer than ${maxPages - 1} pages are not supported.`,
+				`PDFs longer than ${supportedPages} pages are not supported.`,
 			);
 		}
 

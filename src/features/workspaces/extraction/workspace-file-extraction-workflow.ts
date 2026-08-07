@@ -148,7 +148,7 @@ export class WorkspaceFileExtractionWorkflow extends WorkflowEntrypoint<
 				liteParse.outcome === "error" &&
 				liteParse.errorType === workspaceDocumentUnsupportedErrorName
 			) {
-				throw new WorkspaceDocumentUnsupportedError("This document cannot be read.");
+				throw new WorkspaceDocumentUnsupportedError(liteParse.errorMessage);
 			}
 
 			const extraction = await step.do(
