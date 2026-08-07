@@ -8,6 +8,7 @@ import type {
 } from "#/integrations/posthog/events";
 import {
 	getTelemetryRequestContext,
+	getTelemetryRuntimeContext,
 	type TelemetryRequestContext,
 	type TelemetryRequestDetails,
 } from "#/integrations/posthog/server-context";
@@ -67,6 +68,18 @@ interface PostHogServerExceptionInput {
 	schedule?: PostHogTelemetryScheduler;
 }
 
+// Only read request scope when a request was supplied: getRequestHeaders() resolves
+// through AsyncLocalStorage and throws in a Durable Object, Workflow, or alarm.
+function resolveTelemetryContext(input: {
+	request?: TelemetryRequestDetails;
+	requestContext?: TelemetryRequestContext;
+}) {
+	return (
+		input.requestContext ??
+		(input.request ? getTelemetryRequestContext(input.request) : getTelemetryRuntimeContext())
+	);
+}
+
 export function capturePostHogServerEvent<TEvent extends PostHogServerEventName>(
 	input: PostHogServerEvent<TEvent>,
 ) {
@@ -81,7 +94,7 @@ export function capturePostHogServerEvent<TEvent extends PostHogServerEventName>
 		return;
 	}
 
-	const requestContext = input.requestContext ?? getTelemetryRequestContext(input.request);
+	const requestContext = resolveTelemetryContext(input);
 	const timestamp =
 		input.timestamp instanceof Date
 			? input.timestamp
@@ -116,7 +129,7 @@ export function capturePostHogServerException(input: PostHogServerExceptionInput
 		return;
 	}
 
-	const requestContext = input.requestContext ?? getTelemetryRequestContext(input.request);
+	const requestContext = resolveTelemetryContext(input);
 
 	schedulePostHogCapture({
 		context: {

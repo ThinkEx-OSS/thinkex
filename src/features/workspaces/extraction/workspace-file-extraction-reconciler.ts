@@ -70,26 +70,20 @@ export async function reconcileWorkspaceFileExtractions(input: {
 			)
 			ORDER BY i.created_at ASC
 		`;
-	// Healing is supposed to be rare and bounded; a workspace that shows up here
-	// every sweep is a loop this event exists to catch.
+	// A workspace reappearing here every sweep is a healing loop.
 	if (candidates.length > 0) {
-		const countByReason = (reason: string) =>
-			candidates.filter((candidate) => candidate.reason === reason).length;
+		const counts = { failed: 0, missing: 0, provisional: 0, stalled: 0, unreadable: 0 };
+		for (const candidate of candidates) {
+			if (candidate.reason in counts) {
+				counts[candidate.reason as keyof typeof counts] += 1;
+			}
+		}
 		capturePostHogServerEvent({
 			distinctId: input.workspaceId,
 			event: "workspace_file_extraction_healing_enqueued",
-			// Legitimate interest: operational pipeline telemetry, no user identity.
 			consentExempt: true,
 			processPerson: false,
-			properties: {
-				failed: countByReason("failed"),
-				missing: countByReason("missing"),
-				provisional: countByReason("provisional"),
-				stalled: countByReason("stalled"),
-				total: candidates.length,
-				unreadable: countByReason("unreadable"),
-				workspace_id: input.workspaceId,
-			},
+			properties: { ...counts, total: candidates.length, workspace_id: input.workspaceId },
 			schedule: input.schedule,
 		});
 	}

@@ -44,16 +44,15 @@ export interface PostHogEventPropertiesByName {
 	workspace_file_read_completed: {
 		workspace_id: string;
 		operation_id: string;
-		item_id: string | null;
 		status: "ready" | "pending" | "failed";
-		/** Extraction phase when the read found the projection still pending. */
-		phase: "queued" | "extracting" | null;
-		failure_code: string | null;
+		item_id?: string;
+		phase?: "queued" | "extracting";
+		failure_code?: string;
 		/** True when the content served came from the fast pass and may still improve. */
-		provisional: boolean | null;
-		empty_page_count: number | null;
-		returned_page_count: number | null;
-		elapsed_seconds: number | null;
+		provisional?: boolean;
+		empty_page_count?: number;
+		returned_page_count?: number;
+		elapsed_seconds?: number;
 	};
 	workspace_file_extraction_healing_enqueued: {
 		workspace_id: string;
