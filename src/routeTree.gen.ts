@@ -19,6 +19,7 @@ import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as TermsRouteImport } from './routes/terms'
+import { Route as WelcomeRouteImport } from './routes/welcome'
 import { Route as ProtectedHomeRouteImport } from './routes/_protected/home'
 import { Route as ProtectedSettingsRouteImport } from './routes/_protected/settings'
 import { Route as BlogIndexRouteImport } from './routes/blog.index'
@@ -85,6 +86,11 @@ const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
 const TermsRoute = TermsRouteImport.update({
   id: '/terms',
   path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WelcomeRoute = WelcomeRouteImport.update({
+  id: '/welcome',
+  path: '/welcome',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProtectedHomeRoute = ProtectedHomeRouteImport.update({
@@ -200,6 +206,7 @@ export interface FileRoutesByFullPath {
   '/signup': typeof SignupRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
+  '/welcome': typeof WelcomeRoute
   '/home': typeof ProtectedHomeRoute
   '/settings': typeof ProtectedSettingsRoute
   '/blog/$slug': typeof BlogSlugRoute
@@ -228,6 +235,7 @@ export interface FileRoutesByTo {
   '/signup': typeof SignupRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
+  '/welcome': typeof WelcomeRoute
   '/home': typeof ProtectedHomeRoute
   '/settings': typeof ProtectedSettingsRoute
   '/blog/$slug': typeof BlogSlugRoute
@@ -259,6 +267,7 @@ export interface FileRoutesById {
   '/signup': typeof SignupRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
+  '/welcome': typeof WelcomeRoute
   '/_protected/home': typeof ProtectedHomeRoute
   '/_protected/settings': typeof ProtectedSettingsRoute
   '/blog/$slug': typeof BlogSlugRoute
@@ -290,6 +299,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/sitemap.xml'
     | '/terms'
+    | '/welcome'
     | '/home'
     | '/settings'
     | '/blog/$slug'
@@ -318,6 +328,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/sitemap.xml'
     | '/terms'
+    | '/welcome'
     | '/home'
     | '/settings'
     | '/blog/$slug'
@@ -348,6 +359,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/sitemap.xml'
     | '/terms'
+    | '/welcome'
     | '/_protected/home'
     | '/_protected/settings'
     | '/blog/$slug'
@@ -379,6 +391,7 @@ export interface RootRouteChildren {
   SignupRoute: typeof SignupRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   TermsRoute: typeof TermsRoute
+  WelcomeRoute: typeof WelcomeRoute
   InviteTokenRoute: typeof InviteTokenRoute
   OauthConsentRoute: typeof OauthConsentRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
@@ -456,6 +469,13 @@ declare module '@tanstack/react-router' {
       path: '/terms'
       fullPath: '/terms'
       preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/welcome': {
+      id: '/welcome'
+      path: '/welcome'
+      fullPath: '/welcome'
+      preLoaderRoute: typeof WelcomeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_protected/home': {
@@ -670,6 +690,7 @@ const rootRouteChildren: RootRouteChildren = {
   SignupRoute: SignupRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   TermsRoute: TermsRoute,
+  WelcomeRoute: WelcomeRoute,
   InviteTokenRoute: InviteTokenRoute,
   OauthConsentRoute: OauthConsentRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,

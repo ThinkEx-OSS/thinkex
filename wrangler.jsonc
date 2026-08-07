@@ -13,6 +13,25 @@
 	},
 	"workers_dev": true,
 	"preview_urls": true,
+	// Off deliberately, and inherited by every environment. Two reasons, both
+	// load-bearing:
+	//
+	//  1. Every HTML response we return carries a Set-Cookie (the consent-region
+	//     cookie in src/server.ts), which is an automatic cache bypass. Turning
+	//     caching on would not cache a single page — it would only add a cache
+	//     tier lookup ahead of every request. Cloudflare names this exact
+	//     anti-pattern in workers/cache/configuration.
+	//  2. The cache key does not include Cookie. Any HTML that did get stored
+	//     would be served across users, and `/` in particular would stop
+	//     redirecting signed-in visitors to /home.
+	//
+	// Static assets are served by the assets layer, which bypasses the Worker and
+	// is cached already, so there is nothing left for this to win. Before ever
+	// flipping it: responses with no Cache-Control are not exempt — a 200 falls
+	// back to RFC 9111 heuristic freshness and is cached for 2 hours.
+	"cache": {
+		"enabled": false,
+	},
 	// Do not send our npm dependency list to Cloudflare on every deploy.
 	// See wrangler 4.110 release notes (added the opt-in default).
 	"dependencies_instrumentation": {
