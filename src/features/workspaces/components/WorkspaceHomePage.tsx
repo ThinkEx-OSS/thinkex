@@ -115,11 +115,13 @@ function WorkspaceHomeNavbarControls({
 					aria-label="Search workspaces"
 					className="h-8 bg-background/70 pr-8 pl-8 text-sm shadow-none"
 				/>
+				{/* Opaque color, not `/70`: the X's strokes cross, and an alpha paint
+				    double-composites at the crossing into a visible darker notch. */}
 				{searchValue ? (
 					<button
 						type="button"
 						aria-label="Clear workspace search"
-						className="absolute top-1/2 right-2 flex size-5 -translate-y-1/2 items-center justify-center rounded-sm text-muted-foreground/70 transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
+						className="absolute top-1/2 right-2 flex size-5 -translate-y-1/2 items-center justify-center rounded-sm text-[color-mix(in_oklch,var(--muted-foreground)_70%,var(--background))] transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
 						onClick={() => onSearchChange("")}
 					>
 						<X className="size-3.5" strokeWidth={1.75} />
@@ -135,7 +137,12 @@ function NoWorkspaceSearchResultsCard({ search }: { search: string }) {
 		<Card className="gap-0 overflow-hidden border-transparent bg-muted/10 py-0 shadow-none ring-0 dark:bg-muted/5">
 			<div className="flex w-full flex-row items-center rounded-xl text-left sm:flex-col sm:items-stretch">
 				<div className="flex size-14 shrink-0 items-center justify-center sm:aspect-[5/2] sm:size-auto sm:w-full">
-					<Search className="size-6 text-muted-foreground/70 sm:size-11" strokeWidth={1.75} />
+					{/* Opaque: the handle meets the lens circle, and an alpha paint
+					    darkens that overlap into a seam. */}
+					<Search
+						className="size-6 text-[color-mix(in_oklch,var(--muted-foreground)_70%,var(--background))] sm:size-11"
+						strokeWidth={1.75}
+					/>
 				</div>
 
 				<CardHeader className="min-w-0 flex-1 gap-1 px-3 py-2.5 sm:gap-2 sm:px-4 sm:py-3">

@@ -24,8 +24,11 @@ import type { AiChatMessage } from "#/features/workspaces/components/ai-chat/typ
 import { useCopyToClipboard } from "#/hooks/use-copy-to-clipboard";
 import { cn } from "#/lib/utils";
 
+// Opaque color rather than `/70`: this class paints Copy (two overlapping
+// rounded rects) and RotateCcw (arc into arrowhead), and an alpha paint applies
+// per-path, so each overlap composites twice and shows as a darker seam.
 const messageToolbarActionClass =
-	"relative flex size-4 items-center justify-center text-muted-foreground/70 transition-[color,scale] duration-150 ease-out outline-none before:absolute before:-inset-2 before:content-[''] hover:text-foreground hover:scale-105 focus-visible:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 active:scale-100";
+	"relative flex size-4 items-center justify-center text-[color-mix(in_oklch,var(--muted-foreground)_70%,var(--background))] transition-[color,scale] duration-150 ease-out outline-none before:absolute before:-inset-2 before:content-[''] hover:text-foreground hover:scale-105 focus-visible:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 active:scale-100";
 const COLLAPSIBLE_USER_MESSAGE_MAX_CHARACTERS = 700;
 const COLLAPSIBLE_USER_MESSAGE_MAX_LINES = 8;
 const collapsedUserMessageClassName =

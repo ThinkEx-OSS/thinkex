@@ -113,7 +113,7 @@ export function WorkspaceChatVisual() {
 				<div className="flex items-center justify-between gap-2 pt-0.5 pr-0.5 pl-0.5">
 					<div className="flex min-w-0 items-center gap-0.5">
 						<span
-							className="flex size-8 shrink-0 items-center justify-center text-muted-foreground/50"
+							className="flex size-8 shrink-0 items-center justify-center text-[color-mix(in_oklch,var(--muted-foreground)_50%,var(--background))]"
 							aria-hidden="true"
 						>
 							<Plus className="size-4" />
