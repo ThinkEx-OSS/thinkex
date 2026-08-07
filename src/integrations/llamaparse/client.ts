@@ -83,3 +83,8 @@ export function getNumberValue(value: unknown, key: string) {
 	const field = getRecordValue(value, key);
 	return typeof field === "number" ? field : null;
 }
+
+export function getBooleanValue(value: unknown, key: string) {
+	const field = getRecordValue(value, key);
+	return typeof field === "boolean" ? field : null;
+}

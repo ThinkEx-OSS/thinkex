@@ -8,6 +8,7 @@ import type {
 	MarkdownExtractionProvider,
 	MarkdownExtractionResult,
 } from "#/features/workspaces/extraction/types";
+import { getLlamaParseDerivedCredits } from "#/features/workspaces/extraction/providers/llama-parse-credits";
 import {
 	getNumberValue,
 	getRecordArrayValue,
@@ -235,11 +236,16 @@ function getLlamaParseMetadata(
 		getNumberValue(metadata, "pageCount") ||
 		getNumberValue(value, "page_count") ||
 		getNumberValue(value, "pageCount");
+	// v2 has never actually populated a billed figure on any of these — they are kept
+	// only so a real one takes precedence if LlamaParse starts reporting it. Until
+	// then the per-page breakdown is the only signal, so derive from that instead of
+	// reporting null and understating spend on exactly the runs worth investigating.
 	const creditsUsed =
 		getNumberValue(usage, "credits") ??
 		getNumberValue(usage, "credits_used") ??
 		getNumberValue(metadata, "credits") ??
-		getNumberValue(metadata, "credits_used");
+		getNumberValue(metadata, "credits_used") ??
+		getLlamaParseDerivedCredits(metadata, input.tier);
 	const status = getStringValue(job, "status") ?? getStringValue(value, "status");
 
 	if (pageCount !== null) {
