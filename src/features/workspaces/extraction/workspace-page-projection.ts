@@ -22,7 +22,7 @@ const pageNumberWidth = 6;
 const maxPageMarkdownBytes = 1024 * 1024;
 const maxPageReadBytes = 2 * 1024 * 1024;
 // Bounds what a projection may hold in total, which also bounds what the writer and
-// the search indexer materialize in memory. Sixteen times the densest document
+// the search indexer materialize in memory. Roughly seven times the densest document
 // measured in production (a 1,527-page textbook at ~2.4 MB).
 const maxProjectionMarkdownBytes = 16 * 1024 * 1024;
 
@@ -240,6 +240,10 @@ export async function* iterateWorkspacePageProjection(input: {
 		}
 
 		const bytes = new Uint8Array(await object.arrayBuffer());
+		if (bytes.byteLength !== manifest.markdownBytes) {
+			throw new Error("Workspace page projection content does not match its manifest.");
+		}
+
 		const decoder = new TextDecoder();
 		let offset = 0;
 		for (const page of manifest.pages) {

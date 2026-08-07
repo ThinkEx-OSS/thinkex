@@ -7,7 +7,7 @@ const workspaceFileProcessorPoolSize = 2;
 // Each of these must stay under the workflow step that wraps it, otherwise the step
 // dies first and the abort never fires — trading a named error for an opaque timeout.
 const processorRequestTimeoutMs = {
-	"/parse/pdf": 7 * 60_000,
+	"/parse/pdf": 4 * 60_000,
 	"/prepare/pdf": 2 * 60_000,
 	"/preview/image": 2 * 60_000,
 } as const;

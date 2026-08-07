@@ -20,10 +20,12 @@ interface WorkspaceExtractionStepBudget {
  */
 export const workspaceExtractionStepBudgets = {
 	/**
-	 * Fast pass: the parse itself is seconds even for a 5,000-page document, and the
-	 * projection is a single write since schema v2 packed pages into one object.
+	 * Fast pass: container cold start (up to 60s), streaming the source in, the
+	 * container's own 90s parse cap, and a single projection write since schema v2
+	 * packed pages into one object. Must stay above the processor request abort so
+	 * the inner timeout fires first and yields a named error.
 	 */
-	liteParse: { attempts: 2, retryDelayMs: 15_000, timeoutMs: 3 * minuteMs },
+	liteParse: { attempts: 2, retryDelayMs: 15_000, timeoutMs: 6 * minuteMs },
 	/**
 	 * Upload, the provider's own poll ceiling, fetching the result, and writing the
 	 * page projection. Single attempt: a retry cannot resume the job it lost, only
