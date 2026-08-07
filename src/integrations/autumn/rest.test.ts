@@ -46,16 +46,16 @@ describe("attachAutumnPlan", () => {
 
 		await attachAutumnPlan({
 			checkoutSessionParams: { payment_method_collection: "always" },
-			customerId: "yc_user",
+			customerId: "discounted_user",
 			planId: "pro_annual",
-			promotionCode: "YCTHINKEX2026",
+			promotionCode: "PROMO2026",
 			redirectMode: "always",
 			secretKey: "am_sk_test",
 		});
 
 		expect(body).toMatchObject({
 			checkout_session_params: { payment_method_collection: "always" },
-			discounts: [{ promotion_code: "YCTHINKEX2026" }],
+			discounts: [{ promotion_code: "PROMO2026" }],
 			plan_id: "pro_annual",
 			redirect_mode: "always",
 		});

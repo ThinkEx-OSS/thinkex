@@ -15,20 +15,19 @@ import type { BillingPeriod } from "#/features/account/pricing";
  */
 interface ProtectedSearch {
 	billing?: BillingPeriod;
-	deal?: "yc";
 	settings?: AccountSettingsTab;
 	upgrade?: true;
 }
 
 export const Route = createFileRoute("/_protected")({
 	validateSearch: (search: Record<string, unknown>): ProtectedSearch => {
-		const billing = search.billing === "monthly" ? "monthly" : "annual";
-		const deal = search.deal === "yc" ? "yc" : undefined;
+		// Annual is only reachable by asking for it explicitly; the UI offers monthly.
+		const billing = search.billing === "annual" ? "annual" : "monthly";
 		const settings = search.settings as AccountSettingsTab | undefined;
 		const upgrade = search.upgrade === true || search.upgrade === "true";
 
 		if (upgrade) {
-			return { billing, deal, upgrade: true };
+			return { billing, upgrade: true };
 		}
 
 		return settings && ACCOUNT_SETTINGS_TABS.includes(settings) ? { settings } : {};
@@ -51,7 +50,7 @@ export const Route = createFileRoute("/_protected")({
 });
 
 function ProtectedLayout() {
-	const { billing, deal, settings, upgrade } = Route.useSearch();
+	const { billing, settings, upgrade } = Route.useSearch();
 	const navigate = useNavigate();
 
 	// replace: true so opening and closing settings doesn't stack history entries
@@ -62,7 +61,6 @@ function ProtectedLayout() {
 			search: (previous: ProtectedSearch) => ({
 				...previous,
 				billing: tab ? undefined : previous.billing,
-				deal: tab ? undefined : previous.deal,
 				settings: tab,
 				upgrade: tab ? undefined : previous.upgrade,
 			}),
@@ -75,7 +73,6 @@ function ProtectedLayout() {
 			search: (previous: ProtectedSearch) => ({
 				...previous,
 				billing: open ? previous.billing : undefined,
-				deal: open ? previous.deal : undefined,
 				upgrade: open ? (true as const) : undefined,
 			}),
 			to: ".",
@@ -94,9 +91,8 @@ function ProtectedLayout() {
 				tab={settings ?? "account"}
 			/>
 			<UpgradeDialog
-				key={`${deal ?? "standard"}:${billing ?? "annual"}:${Boolean(upgrade)}`}
-				deal={deal}
-				initialBillingPeriod={deal === "yc" ? "annual" : billing}
+				key={`${billing ?? "monthly"}:${Boolean(upgrade)}`}
+				billingPeriod={billing}
 				open={Boolean(upgrade)}
 				onOpenChange={setUpgrade}
 			/>

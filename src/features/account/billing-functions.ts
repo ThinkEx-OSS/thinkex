@@ -29,11 +29,8 @@ const PRO_PLAN_IDS = {
 	annual: "pro_annual",
 	monthly: "pro",
 } as const;
-const YC_PROMOTION_CODE = "YCTHINKEX2026";
-
 const proCheckoutInputSchema = z.object({
 	billingPeriod: z.enum(["annual", "monthly"]),
-	deal: z.literal("yc").optional(),
 });
 
 async function getSignedInUserId() {
@@ -111,16 +108,15 @@ export const startProCheckoutFn = createServerFn({ method: "POST" })
 
 		const result = await attachAutumnPlan({
 			checkoutSessionParams: {
-				// Regular checkout accepts any active Stripe promotion code. The YC
-				// checkout already has its code applied below.
-				...(data.deal === "yc" ? {} : { allow_promotion_codes: true }),
-				// The YC year is free, but the annual subscription renews at its
-				// normal price, so Checkout must still collect a payment method.
+				// Checkout accepts any active Stripe promotion code, so discounts can
+				// be run from the Stripe dashboard without a deploy.
+				allow_promotion_codes: true,
+				// A fully discounted first period still has to renew at the normal
+				// price, so Checkout must collect a payment method regardless.
 				payment_method_collection: "always",
 			},
 			customerId: userId,
-			planId: PRO_PLAN_IDS[data.deal === "yc" ? "annual" : data.billingPeriod],
-			promotionCode: data.deal === "yc" ? YC_PROMOTION_CODE : undefined,
+			planId: PRO_PLAN_IDS[data.billingPeriod],
 			redirectMode: "always",
 			secretKey,
 			// Return with the plan dialog open so the updated plan is visible.

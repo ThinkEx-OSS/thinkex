@@ -14,11 +14,9 @@ export function PricingPlanCard({ action, plan }: { action?: ReactNode; plan: Pr
 		>
 			<div className="flex items-start justify-between gap-4">
 				<h3 className="text-2xl font-medium tracking-tight">{plan.name}</h3>
-				<div className="shrink-0 text-right">
-					<div className="text-3xl font-medium tracking-tight">{plan.price}</div>
-					<div className="text-sm text-muted-foreground">
-						{"priceSuffix" in plan ? plan.priceSuffix : "\u00A0"}
-					</div>
+				<div className="shrink-0 text-3xl font-medium tracking-tight">
+					{plan.price}
+					<span className="text-base font-normal text-muted-foreground">{plan.pricePeriod}</span>
 				</div>
 			</div>
 			<ul className="mt-6 grid gap-3 text-sm text-muted-foreground">
