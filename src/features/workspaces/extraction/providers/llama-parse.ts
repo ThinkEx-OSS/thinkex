@@ -8,6 +8,7 @@ import type {
 	MarkdownExtractionProvider,
 	MarkdownExtractionResult,
 } from "#/features/workspaces/extraction/types";
+import { getLlamaParseDerivedCredits } from "#/features/workspaces/extraction/providers/llama-parse-credits";
 import {
 	getNumberValue,
 	getRecordArrayValue,
@@ -18,7 +19,13 @@ import {
 import { createStreamingMultipartFile } from "#/lib/http/streaming-multipart";
 
 const llamaParsePollIntervalMs = 2_000;
-const llamaParseMaxPollMs = 300_000;
+// Parse time scales with page count, so this has to clear the largest document we
+// accept, not the typical one. Measured: 1,162 agentic pages in ~4m48s, about 0.25s
+// per page, so the 5,000-page ceiling projects to roughly 21 minutes — and
+// LlamaParse's own job timeout is 30 minutes of parsing excluding queue time. This
+// exists to turn a wedged job into a clear error, not to cap normal work; Workflows
+// imposes no wall-clock limit on a step.
+const llamaParseMaxPollMs = 35 * 60_000;
 const llamaParseVersion = "latest";
 
 export function createLlamaParseExtractionProvider(env: Env): MarkdownExtractionProvider {
@@ -54,6 +61,30 @@ export function createLlamaParseExtractionProvider(env: Env): MarkdownExtraction
 	};
 }
 
+/** Exported for tests: sending the wrong shape here once broke an entire tier. */
+export function buildLlamaParseJobRequest(input: { fileId: string; tier: LlamaParseTier }) {
+	return {
+		file_id: input.fileId,
+		tier: input.tier,
+		version: llamaParseVersion,
+		output_options: {
+			markdown: {
+				tables: {
+					output_tables_as_markdown: true,
+				},
+			},
+		},
+		// The optimizer downgrades individual simple pages to the cost_effective
+		// tier, so LlamaParse rejects the combination with a 422 when that is
+		// already the requested tier — there is nothing left to downgrade to.
+		// Sending it unconditionally made every cost_effective parse fail outright.
+		processing_options:
+			input.tier === "agentic" || input.tier === "agentic_plus"
+				? { cost_optimizer: { enable: true } }
+				: {},
+	};
+}
+
 function normalizeLlamaParseTier(mode: MarkdownExtractionInput["mode"]): LlamaParseTier {
 	if (mode === "cost_effective" || mode === "agentic_plus") {
 		return mode;
@@ -71,7 +102,7 @@ async function uploadLlamaParseFile(env: Env, input: MarkdownExtractionInput) {
 		formFieldName: "file",
 		sizeBytes: input.sizeBytes,
 	});
-	const [responseJson] = await Promise.all([
+	const responseJson = await multipart.awaitResponse(
 		llamaCloudJsonRequest({
 			env,
 			path: "/api/v1/beta/files",
@@ -80,8 +111,7 @@ async function uploadLlamaParseFile(env: Env, input: MarkdownExtractionInput) {
 			headers: { "content-type": multipart.contentType },
 			body: multipart.body,
 		}),
-		multipart.done,
-	]);
+	);
 	const fileId = getStringValue(responseJson, "id");
 
 	if (!fileId) {
@@ -106,23 +136,7 @@ async function startLlamaParseJob(
 		headers: {
 			"Content-Type": "application/json",
 		},
-		body: JSON.stringify({
-			file_id: input.fileId,
-			tier: input.tier,
-			version: llamaParseVersion,
-			output_options: {
-				markdown: {
-					tables: {
-						output_tables_as_markdown: true,
-					},
-				},
-			},
-			processing_options: {
-				cost_optimizer: {
-					enable: true,
-				},
-			},
-		}),
+		body: JSON.stringify(buildLlamaParseJobRequest(input)),
 	});
 	const jobId = getStringValue(responseJson, "id");
 
@@ -160,7 +174,9 @@ async function pollLlamaParseJob(env: Env, jobId: string) {
 		await wait(llamaParsePollIntervalMs);
 	}
 
-	throw new Error("LlamaParse job timed out.");
+	throw new Error(
+		`LlamaParse job ${jobId} did not finish within ${llamaParseMaxPollMs / 60_000} minutes.`,
+	);
 }
 
 function getLlamaParseMarkdownPages(value: unknown): MarkdownProjectionPage[] {
@@ -211,6 +227,13 @@ function getLlamaParseMetadata(
 	const metadata = getRecordValue(value, "metadata");
 	const usage = getRecordValue(value, "usage");
 	const job = getRecordValue(value, "job");
+	// Splits a slow enhancement into "LlamaParse was busy" versus "LlamaParse was
+	// slow", which decide different responses: waiting out a queue versus changing
+	// tier or budgets. Verified shape: job_metadata.state_transitions carries
+	// pending_at / running_at / completed_at ISO timestamps.
+	const transitions = getRecordValue(getRecordValue(value, "job_metadata"), "state_transitions");
+	const queuedMs = getStateTransitionMs(transitions, "pending_at", "running_at");
+	const parseMs = getStateTransitionMs(transitions, "running_at", "completed_at");
 	const result: Record<string, string | number | boolean | null> = {
 		fileId: input.fileId,
 		jobId: input.jobId,
@@ -223,11 +246,16 @@ function getLlamaParseMetadata(
 		getNumberValue(metadata, "pageCount") ||
 		getNumberValue(value, "page_count") ||
 		getNumberValue(value, "pageCount");
+	// v2 has never actually populated a billed figure on any of these — they are kept
+	// only so a real one takes precedence if LlamaParse starts reporting it. Until
+	// then the per-page breakdown is the only signal, so derive from that instead of
+	// reporting null and understating spend on exactly the runs worth investigating.
 	const creditsUsed =
 		getNumberValue(usage, "credits") ??
 		getNumberValue(usage, "credits_used") ??
 		getNumberValue(metadata, "credits") ??
-		getNumberValue(metadata, "credits_used");
+		getNumberValue(metadata, "credits_used") ??
+		getLlamaParseDerivedCredits(metadata, input.tier);
 	const status = getStringValue(job, "status") ?? getStringValue(value, "status");
 
 	if (pageCount !== null) {
@@ -243,7 +271,26 @@ function getLlamaParseMetadata(
 		result.status = status;
 	}
 
+	if (queuedMs !== null) {
+		result.queuedMs = queuedMs;
+	}
+
+	if (parseMs !== null) {
+		result.parseMs = parseMs;
+	}
+
 	return result;
+}
+
+function getStateTransitionMs(transitions: unknown, fromKey: string, toKey: string) {
+	const from = getStringValue(transitions, fromKey);
+	const to = getStringValue(transitions, toKey);
+	if (!from || !to) {
+		return null;
+	}
+
+	const elapsedMs = Date.parse(to) - Date.parse(from);
+	return Number.isFinite(elapsedMs) && elapsedMs >= 0 ? Math.round(elapsedMs) : null;
 }
 
 function wait(ms: number) {

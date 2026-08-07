@@ -1,6 +1,10 @@
 import type { WorkflowStep } from "cloudflare:workers";
 
 import { extractPdfWithLiteParse } from "#/features/workspaces/extraction/providers/liteparse";
+import {
+	getWorkspaceExtractionStepConfig,
+	workspaceExtractionStepBudgets,
+} from "#/features/workspaces/extraction/workspace-extraction-budgets";
 import type {
 	LiteParseStageOutcome,
 	WorkspaceFileExtractionWorkflowParams,
@@ -28,10 +32,7 @@ export async function publishLiteParseProjection(
 	try {
 		return await step.do(
 			"publish fast LiteParse projection",
-			{
-				retries: { limit: 1, delay: "5 seconds", backoff: "constant" },
-				timeout: "2 minutes",
-			},
+			getWorkspaceExtractionStepConfig(workspaceExtractionStepBudgets.liteParse),
 			async () => {
 				const kernel = await getWorkspaceKernelFromEnv(env, params.workspaceId);
 				const { object, source } = await getWorkspaceFileSourceObject({
@@ -70,6 +71,9 @@ export async function publishLiteParseProjection(
 							markdownLength: projection.manifest.markdownLength,
 							pageCount: projection.manifest.pageCount,
 							provisional: true,
+							// Brand healing runs so the reconciler never picks this row up again:
+							// one upgrade attempt per document, bounded structurally.
+							...(params.healing ? { healed: true } : {}),
 						},
 						actorUserId: params.actorUserId,
 						clientMutationId: `${runId}:projection:liteparse-ready`,
@@ -104,6 +108,7 @@ export async function publishLiteParseProjection(
 		});
 		return {
 			durationMs: Date.now() - startedAt,
+			errorMessage: error instanceof Error ? error.message : String(error),
 			errorType: error instanceof Error ? error.name : "UnknownError",
 			outcome: "error",
 		};

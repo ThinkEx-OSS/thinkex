@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { workspaceExtractionStallThresholdMs } from "#/features/workspaces/extraction/workspace-extraction-budgets";
 import { resolveWorkspaceProjectionReadiness } from "#/features/workspaces/extraction/workspace-projection-readiness";
 import type { ReadWorkspaceKernelFileProjectionResult } from "#/features/workspaces/kernel/workspace-kernel-types";
 
@@ -64,21 +65,26 @@ describe("resolveWorkspaceProjectionReadiness", () => {
 	});
 
 	it("stalls a processing projection that outlived the retrying extraction budget", () => {
+		const elapsedMs = workspaceExtractionStallThresholdMs + 60_000;
 		const projection = createProjection({
 			status: "processing",
-			updatedAt: new Date(now - 46 * 60_000).toISOString(),
+			updatedAt: new Date(now - elapsedMs).toISOString(),
 		});
 
 		expect(resolveWorkspaceProjectionReadiness(projection, now)).toEqual({
 			state: "stalled",
-			elapsedSeconds: 46 * 60,
+			elapsedSeconds: elapsedMs / 1000,
 		});
 	});
 
+	// Derived rather than hardcoded: the threshold is the sum of every step budget, so
+	// a literal here would silently stop testing the boundary the moment a timeout
+	// moves — and calling a healthy run stalled makes the reconciler queue a duplicate
+	// workflow, and a duplicate bill, against a document that is still parsing.
 	it("keeps a slow but healthy extraction pending rather than stalling it", () => {
 		const projection = createProjection({
 			status: "processing",
-			updatedAt: new Date(now - 31 * 60_000).toISOString(),
+			updatedAt: new Date(now - (workspaceExtractionStallThresholdMs - 60_000)).toISOString(),
 		});
 
 		expect(resolveWorkspaceProjectionReadiness(projection, now)).toMatchObject({

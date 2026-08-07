@@ -5,6 +5,7 @@ import {
 	type WorkspaceReadItemsOutput,
 } from "#/features/workspaces/content/workspace-content-contract";
 import { readWorkspaceContent } from "#/features/workspaces/content/workspace-content-reader";
+import { recordWorkspaceFileReadOutcomes } from "#/features/workspaces/content/workspace-read-observability";
 import { createWorkspaceReadReferences } from "#/features/workspaces/content/workspace-read-references";
 import { getDocumentSessionFromEnv } from "#/features/workspaces/document-session-access";
 import type { WorkspaceAccessContext } from "#/features/workspaces/operations/workspace-access-context";
@@ -31,6 +32,13 @@ export async function readWorkspaceItemsOperation(
 			}),
 		kernel,
 		requests: input.requests,
+	});
+
+	recordWorkspaceFileReadOutcomes({
+		operationId: accessContext.operationId,
+		results,
+		userId: accessContext.actor.userId,
+		workspaceId: accessContext.workspaceId,
 	});
 
 	return {

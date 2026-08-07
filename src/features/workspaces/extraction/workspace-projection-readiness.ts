@@ -1,14 +1,5 @@
+import { workspaceExtractionStallThresholdMs } from "#/features/workspaces/extraction/workspace-extraction-budgets";
 import type { ReadWorkspaceKernelFileProjectionResult } from "#/features/workspaces/kernel/workspace-kernel-types";
-
-/**
- * How long a projection may sit in `processing` before it is treated as stalled.
- *
- * The enhanced extraction step allows a 10 minute timeout across 3 attempts with
- * exponential backoff, and the projection row is not touched between attempts, so
- * a healthy run can legitimately stay `processing` for a little over half an hour.
- * The threshold sits above that worst case so slow retries are never mislabelled.
- */
-export const workspaceExtractionStallThresholdMs = 45 * 60_000;
 
 const minimumRetryAfterSeconds = 15;
 const maximumRetryAfterSeconds = 120;

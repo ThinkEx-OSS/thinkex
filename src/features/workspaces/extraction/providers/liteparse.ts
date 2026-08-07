@@ -1,5 +1,6 @@
 import type { MarkdownProjectionPage } from "#/features/workspaces/extraction/page-markdown-projection";
 import { parseLiteParsePage } from "#/features/workspaces/extraction/providers/liteparse-response";
+import { WorkspaceDocumentUnsupportedError } from "#/features/workspaces/extraction/types";
 import { requestWorkspaceFileProcessor } from "#/features/workspaces/files/workspace-file-processor";
 
 const maxNdjsonLineBytes = 8 * 1024 * 1024;
@@ -21,7 +22,12 @@ export async function* extractPdfWithLiteParse(
 	});
 
 	if (!response.ok) {
-		throw new Error(`LiteParse failed with status ${response.status}.`);
+		// The processor answers 422 only when it has read the file and found it
+		// unusable — too long, encrypted, or damaged. Every other status is an
+		// extraction that went wrong and may work next time.
+		throw response.status === 422
+			? new WorkspaceDocumentUnsupportedError(await getLiteParseErrorMessage(response))
+			: new Error(`LiteParse failed with status ${response.status}.`);
 	}
 
 	if (!response.body) {
@@ -37,6 +43,17 @@ export async function* extractPdfWithLiteParse(
 		}
 		yield parseLiteParsePage(payload);
 	}
+}
+
+async function getLiteParseErrorMessage(response: Response) {
+	const body: unknown = await response.json().catch(() => null);
+
+	return typeof body === "object" &&
+		body !== null &&
+		"error" in body &&
+		typeof body.error === "string"
+		? body.error
+		: "This document cannot be read.";
 }
 
 async function* readNdjsonLines(body: ReadableStream<Uint8Array>): AsyncGenerator<string> {

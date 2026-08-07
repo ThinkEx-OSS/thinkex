@@ -1,3 +1,5 @@
+import { awaitUploadResponse } from "#/lib/http/streaming-upload";
+
 export function createStreamingMultipartFile(input: {
 	body: ReadableStream<Uint8Array>;
 	contentType: string;
@@ -21,7 +23,11 @@ export function createStreamingMultipartFile(input: {
 	return {
 		body: stream.readable,
 		contentType: `multipart/form-data; boundary=${boundary}`,
-		done,
+		// Callers must await their request through this rather than awaiting the body
+		// pump alongside it. See awaitUploadResponse for why.
+		awaitResponse<T>(response: Promise<T>): Promise<T> {
+			return awaitUploadResponse(response, done);
+		},
 	};
 }
 

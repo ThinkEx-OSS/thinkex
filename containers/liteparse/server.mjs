@@ -11,9 +11,19 @@ import { Transform } from "node:stream";
 import { promisify } from "node:util";
 
 const port = 8080;
+// LiteParse defaults to 1000 pages and drops everything past that without reporting
+// it, which publishes a "ready" projection silently missing the tail of the document.
+// Parse one page past the supported ceiling so a document of exactly the ceiling is
+// distinguishable from a truncated longer one. Measured at roughly 0.57 MB resident
+// per page, so a full parse sits near 3 GB on the 8 GiB standard-2 instance — which
+// is why concurrent parses are also capped below.
+const supportedPages = 5000;
+const maxConcurrentParses = 2;
+let activeParses = 0;
 const parser = new LiteParse({
 	extractLinks: true,
 	imageMode: "placeholder",
+	maxPages: supportedPages + 1,
 	ocrEnabled: false,
 	outputFormat: "markdown",
 	quiet: true,
@@ -29,6 +39,7 @@ createServer(async (request, response) => {
 	let status = 500;
 	let errorType = null;
 	let errorMessage = null;
+	let holdsParseSlot = false;
 
 	try {
 		if (
@@ -53,9 +64,36 @@ createServer(async (request, response) => {
 			return sendJson(response, status, { error: "Not found." });
 		}
 
+		// Each parse can hold gigabytes resident, and one over-committed container
+		// dies taking every in-flight request with it. Shed load instead: 503 is
+		// retryable by the caller, an OOM crash is not.
+		if (activeParses >= maxConcurrentParses) {
+			status = 503;
+			return sendJson(response, status, {
+				code: "EXTRACTOR_BUSY",
+				error: "Extractor is at capacity, retry shortly.",
+			});
+		}
+
+		// Held until the whole request finishes, including streaming the result out:
+		// the parsed pages stay resident while the response drains, so releasing the
+		// slot any earlier would let admissions outrun actual memory use. A parse that
+		// outlives its timeout still runs to completion in the background holding
+		// memory — that zombie cannot be cancelled, only kept rare by the timeout.
+		activeParses += 1;
+		holdsParseSlot = true;
 		const bytes = await readPdfRequestBytes(request);
 		inputBytes = bytes.byteLength;
 		const result = await withTimeout(parser.parse(bytes), parseTimeoutMs);
+
+		if (result.pages.length > supportedPages) {
+			throw new PdfValidationError(
+				422,
+				"TOO_MANY_PAGES",
+				`PDFs longer than ${supportedPages} pages are not supported.`,
+			);
+		}
+
 		pageCount = result.pages.length;
 		status = 200;
 		response.writeHead(status, { "content-type": "application/x-ndjson; charset=utf-8" });
@@ -78,6 +116,9 @@ createServer(async (request, response) => {
 		}
 		return sendJson(response, status, { error: "PDF parsing failed." });
 	} finally {
+		if (holdsParseSlot) {
+			activeParses -= 1;
+		}
 		console.info(
 			JSON.stringify({
 				duration_ms: Date.now() - startedAt,

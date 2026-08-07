@@ -1,6 +1,7 @@
 import type { WorkspaceFileExtractionWorkflowParams } from "#/features/workspaces/extraction/types";
+import { capturePostHogServerEvent } from "#/integrations/posthog/server";
 import { getWorkspaceFileExtractionWorkflowId } from "#/features/workspaces/extraction/workspace-file-extraction-workflow-id";
-import { workspaceExtractionStallThresholdMs } from "#/features/workspaces/extraction/workspace-projection-readiness";
+import { workspaceExtractionStallThresholdMs } from "#/features/workspaces/extraction/workspace-extraction-budgets";
 import type { WorkspaceKernelSql } from "#/features/workspaces/kernel/workspace-kernel-schema";
 import { workspaceFileAssetKindSchema } from "#/features/workspaces/model/workspace-file";
 
@@ -9,6 +10,7 @@ const failedExtractionCooldownMs = 15 * 60_000;
 const workflowBatchSize = 100;
 
 export async function reconcileWorkspaceFileExtractions(input: {
+	schedule?: (task: Promise<void>) => void;
 	sql: WorkspaceKernelSql;
 	workflow: Workflow<WorkspaceFileExtractionWorkflowParams>;
 	workspaceId: string;
@@ -19,12 +21,20 @@ export async function reconcileWorkspaceFileExtractions(input: {
 		id: string;
 		object_key: string;
 		projection_updated_at: number;
+		reason: string;
 	}>`
 		SELECT
 			json_extract(i.metadata_json, '$.assetKind') AS asset_kind,
 			i.id,
 			i.object_key,
-			COALESCE(p.updated_at, i.created_at) AS projection_updated_at
+			COALESCE(p.updated_at, i.created_at) AS projection_updated_at,
+			CASE
+				WHEN p.item_id IS NULL THEN 'missing'
+				WHEN p.status = 'failed' THEN 'failed'
+				WHEN p.status = 'processing' THEN 'stalled'
+				WHEN p.object_key IS NULL OR p.source_hash IS NULL THEN 'unreadable'
+				ELSE 'provisional'
+			END AS reason
 		FROM kernel_items i
 		LEFT JOIN kernel_item_projections p
 			ON p.item_id = i.id AND p.format = 'pages'
@@ -46,9 +56,44 @@ export async function reconcileWorkspaceFileExtractions(input: {
 					AND (p.object_key IS NULL OR p.source_hash IS NULL)
 					AND p.updated_at <= ${now - workspaceExtractionStallThresholdMs}
 				)
+				-- A provisional row means the fast pass published and the enhanced pass
+				-- failed: readable, but stuck at fast-tier quality with nothing else
+				-- revisiting it. Heal it once — a healing run brands the row it
+				-- republishes, and branded rows are never picked up again, so a
+				-- persistently failing document cannot become a paid retry per sweep.
+				OR (
+					p.status = 'ready'
+					AND json_extract(p.metadata_json, '$.provisional') = 1
+					AND json_extract(p.metadata_json, '$.healed') IS NULL
+					AND p.updated_at <= ${now - workspaceExtractionStallThresholdMs}
+				)
 			)
 			ORDER BY i.created_at ASC
 		`;
+	// Healing is supposed to be rare and bounded; a workspace that shows up here
+	// every sweep is a loop this event exists to catch.
+	if (candidates.length > 0) {
+		const countByReason = (reason: string) =>
+			candidates.filter((candidate) => candidate.reason === reason).length;
+		capturePostHogServerEvent({
+			distinctId: input.workspaceId,
+			event: "workspace_file_extraction_healing_enqueued",
+			// Legitimate interest: operational pipeline telemetry, no user identity.
+			consentExempt: true,
+			processPerson: false,
+			properties: {
+				failed: countByReason("failed"),
+				missing: countByReason("missing"),
+				provisional: countByReason("provisional"),
+				stalled: countByReason("stalled"),
+				total: candidates.length,
+				unreadable: countByReason("unreadable"),
+				workspace_id: input.workspaceId,
+			},
+			schedule: input.schedule,
+		});
+	}
+
 	for (let offset = 0; offset < candidates.length; offset += workflowBatchSize) {
 		const workflows = (
 			await Promise.all(
@@ -62,6 +107,7 @@ export async function reconcileWorkspaceFileExtractions(input: {
 					const params = {
 						actorUserId: null,
 						assetKind: assetKind.data,
+						healing: true,
 						itemId: candidate.id,
 						requestId: extractionHealingVersion,
 						workspaceId: input.workspaceId,

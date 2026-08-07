@@ -1,9 +1,21 @@
 import { WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from "cloudflare:workers";
 
 import { publishLiteParseProjection } from "#/features/workspaces/extraction/liteparse-projection";
-import { recordWorkspaceFileExtractionOutcome } from "#/features/workspaces/extraction/workspace-file-extraction-observability";
+import {
+	recordWorkspaceFileExtractionOutcome,
+	type WorkspaceFileEnhancementOutcome,
+} from "#/features/workspaces/extraction/workspace-file-extraction-observability";
 import { createMarkdownExtractionProvider } from "#/features/workspaces/extraction/providers/index";
-import type { WorkspaceFileExtractionWorkflowParams } from "#/features/workspaces/extraction/types";
+import {
+	getWorkspaceExtractionStepConfig,
+	workspaceExtractionStepBudgets,
+} from "#/features/workspaces/extraction/workspace-extraction-budgets";
+import {
+	WorkspaceDocumentUnsupportedError,
+	workspaceDocumentUnsupportedErrorName,
+	type LiteParseStageOutcome,
+	type WorkspaceFileExtractionWorkflowParams,
+} from "#/features/workspaces/extraction/types";
 import type {
 	WorkspaceFileExtractionMode,
 	WorkspaceFileExtractionProviderId,
@@ -16,6 +28,12 @@ import {
 import { getWorkspaceKernelFromEnv } from "#/features/workspaces/kernel/workspace-kernel-access";
 import { getWorkspaceUploadFamily } from "#/features/workspaces/model/workspace-file";
 
+/**
+ * Extracts an uploaded file into page markdown in two passes: a fast local one so the
+ * document is readable within seconds, then an enhanced provider pass that replaces
+ * it. The run settles into exactly one end state — enhanced ready, fast retained, or
+ * failed — and records one telemetry event describing both passes.
+ */
 export class WorkspaceFileExtractionWorkflow extends WorkflowEntrypoint<
 	Cloudflare.Env,
 	WorkspaceFileExtractionWorkflowParams
@@ -25,7 +43,6 @@ export class WorkspaceFileExtractionWorkflow extends WorkflowEntrypoint<
 		step: WorkflowStep,
 	) {
 		const params = assertWorkflowParams(event.payload);
-		const schedule = (task: Promise<void>) => this.ctx.waitUntil(task);
 
 		const processing = await step.do("mark extraction processing", async () => {
 			const kernel = await getWorkspaceKernelFromEnv(this.env, params.workspaceId);
@@ -45,32 +62,98 @@ export class WorkspaceFileExtractionWorkflow extends WorkflowEntrypoint<
 		if (liteParse.outcome === "discarded") {
 			return { status: "discarded" as const };
 		}
-		const enhancementStartedAt = Date.now();
-		let extraction: StagedPageExtractionResult;
-		// Captured as soon as extraction returns, because the steps after it can still
-		// fail. LlamaParse has already billed by then, and reporting null there would
-		// quietly understate spend on exactly the runs worth investigating.
-		let extractionCreditsUsed: number | null = null;
-		let result:
-			| {
-					pageCount: number;
-					provider: WorkspaceFileExtractionProviderId;
-					providerMode: WorkspaceFileExtractionMode;
-					status: "ready";
-			  }
-			| { status: "discarded" };
+
+		const enhancement = await this.enhance(step, event, params, liteParse);
+		if (enhancement.outcome === "discarded") {
+			return { status: "discarded" as const };
+		}
+
+		// Nothing readable was published: the fast pass did not produce a projection
+		// and the enhanced pass failed, so the item must leave `processing` or readers
+		// would wait on an extraction that is no longer running.
+		if (enhancement.outcome === "error" && liteParse.outcome !== "success") {
+			const failed = await step.do("mark extraction failed", async () => {
+				const kernel = await getWorkspaceKernelFromEnv(this.env, params.workspaceId);
+				return kernel.upsertFileProjection({
+					itemId: params.itemId,
+					format: "pages",
+					status: "failed",
+					errorMessage: getErrorMessage(enhancement.error),
+					actorUserId: params.actorUserId,
+					clientMutationId: `${event.instanceId}:projection:failed`,
+				});
+			});
+			if (failed === "discarded") {
+				return { status: "discarded" as const };
+			}
+		}
+
+		await step.do("record extraction outcome", async () => {
+			recordWorkspaceFileExtractionOutcome({
+				durationMs: Date.now() - event.timestamp.getTime(),
+				enhancement,
+				instanceId: event.instanceId,
+				liteParse,
+				params,
+				schedule: (task) => this.ctx.waitUntil(task),
+			});
+
+			return { recorded: true };
+		});
+
+		if (enhancement.outcome === "success") {
+			return {
+				pageCount: enhancement.pageCount,
+				provider: enhancement.provider,
+				providerMode: enhancement.providerMode,
+				status: "ready" as const,
+			};
+		}
+
+		if (liteParse.outcome === "success") {
+			return {
+				pageCount: liteParse.pageCount,
+				provider: "liteparse" as const,
+				providerMode: "fast" as const,
+				status: "ready" as const,
+			};
+		}
+
+		throw enhancement.error;
+	}
+
+	/**
+	 * The enhanced pass, returned as a value: failure here is an expected outcome the
+	 * run settles on — retained fast projection or a failed item — not an exception
+	 * that abandons the workflow.
+	 */
+	private async enhance(
+		step: WorkflowStep,
+		event: Readonly<WorkflowEvent<WorkspaceFileExtractionWorkflowParams>>,
+		params: WorkspaceFileExtractionWorkflowParams,
+		liteParse: LiteParseStageOutcome,
+	): Promise<WorkspaceFileEnhancementOutcome | { outcome: "discarded" }> {
+		const startedAt = Date.now();
+		// Captured as soon as the provider returns, because the publish step after it
+		// can still fail and the provider has already billed by then.
+		let creditsUsed: number | null = null;
 
 		try {
-			extraction = await step.do(
+			// A document the free pass has already read and rejected will not become
+			// readable by paying for a slower one. Failing without calling the provider
+			// matters because the reconciler re-runs failures on a cooldown — letting
+			// this through would buy an identical verdict from a paid provider on every
+			// sweep.
+			if (
+				liteParse.outcome === "error" &&
+				liteParse.errorType === workspaceDocumentUnsupportedErrorName
+			) {
+				throw new WorkspaceDocumentUnsupportedError(liteParse.errorMessage);
+			}
+
+			const extraction = await step.do(
 				"extract page markdown with provider",
-				{
-					retries: {
-						limit: 2,
-						delay: "30 seconds",
-						backoff: "exponential",
-					},
-					timeout: "10 minutes",
-				},
+				getWorkspaceExtractionStepConfig(workspaceExtractionStepBudgets.extract),
 				async (): Promise<StagedPageExtractionResult> => {
 					const kernel = await getWorkspaceKernelFromEnv(this.env, params.workspaceId);
 					const { object, source } = await getWorkspaceFileSourceObject({
@@ -117,28 +200,15 @@ export class WorkspaceFileExtractionWorkflow extends WorkflowEntrypoint<
 				},
 			);
 
-			extractionCreditsUsed = getExtractionCreditsUsed(extraction.metadata);
+			creditsUsed = getExtractionCreditsUsed(extraction.metadata);
 
-			result = await step.do(
+			const published = await step.do(
 				"write extracted projections",
-				{
-					retries: {
-						limit: 3,
-						delay: "10 seconds",
-						backoff: "exponential",
-					},
-					timeout: "5 minutes",
-				},
+				getWorkspaceExtractionStepConfig(workspaceExtractionStepBudgets.publish),
 				async () => {
 					const kernel = await getWorkspaceKernelFromEnv(this.env, params.workspaceId);
-					const metadataJson = {
-						...extraction.metadata,
-						routeReason: extraction.routeReason,
-						pageCount: extraction.pageCount,
-						markdownLength: extraction.markdownLength,
-					};
 
-					const status = await publishWorkspacePageProjection({
+					return publishWorkspacePageProjection({
 						bucket: this.env.WORKSPACE_KERNEL_FILES,
 						kernel,
 						projection: {
@@ -149,121 +219,41 @@ export class WorkspaceFileExtractionWorkflow extends WorkflowEntrypoint<
 							provider: extraction.provider,
 							providerMode: extraction.providerMode,
 							sourceHash: extraction.sourceHash,
-							metadataJson,
+							metadataJson: {
+								...extraction.metadata,
+								routeReason: extraction.routeReason,
+								pageCount: extraction.pageCount,
+								markdownLength: extraction.markdownLength,
+							},
 							actorUserId: params.actorUserId,
 							clientMutationId: `${event.instanceId}:projection:enhanced-ready`,
 						},
 					});
-					if (status === "discarded") {
-						return { status: "discarded" as const };
-					}
-
-					return {
-						status: "ready" as const,
-						provider: extraction.provider,
-						providerMode: extraction.providerMode,
-						pageCount: extraction.pageCount,
-					};
 				},
 			);
-			if (result.status === "discarded") {
-				return result;
-			}
-		} catch (error) {
-			if (liteParse.outcome === "success") {
-				await step.do("record partial extraction outcome", async () => {
-					recordWorkspaceFileExtractionOutcome({
-						// Null only when extraction itself never completed; a failure in the
-						// steps after it still owes whatever LlamaParse already charged.
-						creditsUsed: extractionCreditsUsed,
-						durationMs: Date.now() - event.timestamp.getTime(),
-						enhancement: {
-							durationMs: Date.now() - enhancementStartedAt,
-							error,
-							outcome: "error",
-						},
-						instanceId: event.instanceId,
-						liteParse,
-						outcome: "partial",
-						pageCount: liteParse.pageCount,
-						params,
-						provider: "liteparse",
-						providerMode: "fast",
-						routeReason: "LiteParse projection retained after enhancement failed.",
-						schedule,
-					});
-
-					return { outcome: "partial" };
-				});
-
-				return {
-					pageCount: liteParse.pageCount,
-					provider: "liteparse",
-					providerMode: "fast",
-					status: "ready",
-				};
+			if (published === "discarded") {
+				return { outcome: "discarded" as const };
 			}
 
-			const failed = await step.do("mark extraction failed", async () => {
-				const kernel = await getWorkspaceKernelFromEnv(this.env, params.workspaceId);
-				return kernel.upsertFileProjection({
-					itemId: params.itemId,
-					format: "pages",
-					status: "failed",
-					errorMessage: getErrorMessage(error),
-					actorUserId: params.actorUserId,
-					clientMutationId: `${event.instanceId}:projection:failed`,
-				});
-			});
-			if (failed === "discarded") {
-				return { status: "discarded" as const };
-			}
-
-			await step.do("record extraction failure", async () => {
-				recordWorkspaceFileExtractionOutcome({
-					durationMs: Date.now() - event.timestamp.getTime(),
-					enhancement: {
-						durationMs: Date.now() - enhancementStartedAt,
-						error,
-						outcome: "error",
-					},
-					error,
-					instanceId: event.instanceId,
-					liteParse,
-					outcome: "error",
-					params,
-					schedule,
-				});
-
-				return { outcome: "error" };
-			});
-
-			throw error;
-		}
-
-		await step.do("record extraction outcome", async () => {
-			recordWorkspaceFileExtractionOutcome({
-				creditsUsed: getExtractionCreditsUsed(extraction.metadata),
-				durationMs: Date.now() - event.timestamp.getTime(),
-				enhancement: {
-					durationMs: Date.now() - enhancementStartedAt,
-					outcome: "success",
-				},
-				instanceId: event.instanceId,
-				liteParse,
-				outcome: "success",
+			return {
+				creditsUsed,
+				durationMs: Date.now() - startedAt,
+				outcome: "success" as const,
 				pageCount: extraction.pageCount,
-				params,
+				queuedMs: getMetadataNumber(extraction.metadata, "queuedMs"),
+				parseMs: getMetadataNumber(extraction.metadata, "parseMs"),
 				provider: extraction.provider,
 				providerMode: extraction.providerMode,
 				routeReason: extraction.routeReason,
-				schedule,
-			});
-
-			return { outcome: "success" };
-		});
-
-		return result;
+			};
+		} catch (error) {
+			return {
+				creditsUsed,
+				durationMs: Date.now() - startedAt,
+				error,
+				outcome: "error" as const,
+			};
+		}
 	}
 }
 
@@ -291,6 +281,7 @@ function assertWorkflowParams(
 		actorUserId: value.actorUserId ?? null,
 		assetKind: value.assetKind,
 		requestId: value.requestId ?? null,
+		healing: value.healing === true,
 	};
 }
 
@@ -300,5 +291,10 @@ function getErrorMessage(error: unknown) {
 
 function getExtractionCreditsUsed(metadata: StagedPageExtractionResult["metadata"]) {
 	// Only LlamaParse reports credits; other providers leave the key absent.
-	return typeof metadata.creditsUsed === "number" ? metadata.creditsUsed : null;
+	return getMetadataNumber(metadata, "creditsUsed");
+}
+
+function getMetadataNumber(metadata: StagedPageExtractionResult["metadata"], key: string) {
+	const value = metadata[key];
+	return typeof value === "number" ? value : null;
 }
