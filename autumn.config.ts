@@ -59,7 +59,8 @@ export const free = plan({
 				interval: "month",
 			},
 		}),
-		// Matches NotebookLM's free 50 sources on purpose. Being stingier than the
+		// Matches Gemini Notebook's (formerly NotebookLM) free 50 sources on
+		// purpose. Being stingier than the
 		// free competitor students already have open in a tab is a worse problem
 		// than eating the extraction cost.
 		item({

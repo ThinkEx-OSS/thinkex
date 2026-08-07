@@ -34,12 +34,12 @@ Instead of uploading sources into a chat, you keep the actual materials in view:
 
 ## How It Is Different
 
-| Compared with           | What they are good at                    | Where ThinkEx differs                                     |
-| ----------------------- | ---------------------------------------- | --------------------------------------------------------- |
-| ChatGPT, Claude, Gemini | Fast AI conversations                    | Chat is part of the workspace, next to sources and docs   |
-| NotebookLM              | Asking questions over uploaded sources   | Sources stay open, arrangeable, editable, and shareable   |
-| Obsidian                | Markdown files and local knowledge bases | PDFs, images, docs, AI chat, and sharing are first-class  |
-| Google Drive, Dropbox   | Storing and sharing files                | Files become source material with docs and AI beside them |
+| Compared with                | What they are good at                    | Where ThinkEx differs                                     |
+| ---------------------------- | ---------------------------------------- | --------------------------------------------------------- |
+| ChatGPT, Claude, Gemini      | Fast AI conversations                    | Chat is part of the workspace, next to sources and docs   |
+| Gemini Notebook (NotebookLM) | Asking questions over uploaded sources   | Sources stay open, arrangeable, editable, and shareable   |
+| Obsidian                     | Markdown files and local knowledge bases | PDFs, images, docs, AI chat, and sharing are first-class  |
+| Google Drive, Dropbox        | Storing and sharing files                | Files become source material with docs and AI beside them |
 
 ## Built On
 
