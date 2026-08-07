@@ -5,10 +5,9 @@ import {
 	getWorkspaceExtractionStepConfig,
 	workspaceExtractionStepBudgets,
 } from "#/features/workspaces/extraction/workspace-extraction-budgets";
-import {
-	extractionHealingRequestId,
-	type LiteParseStageOutcome,
-	type WorkspaceFileExtractionWorkflowParams,
+import type {
+	LiteParseStageOutcome,
+	WorkspaceFileExtractionWorkflowParams,
 } from "#/features/workspaces/extraction/types";
 import { getWorkspaceFileSourceObject } from "#/features/workspaces/extraction/workspace-file-source";
 import {
@@ -74,7 +73,7 @@ export async function publishLiteParseProjection(
 							provisional: true,
 							// Brand healing runs so the reconciler never picks this row up again:
 							// one upgrade attempt per document, bounded structurally.
-							...(params.requestId === extractionHealingRequestId ? { healed: true } : {}),
+							...(params.healing ? { healed: true } : {}),
 						},
 						actorUserId: params.actorUserId,
 						clientMutationId: `${runId}:projection:liteparse-ready`,

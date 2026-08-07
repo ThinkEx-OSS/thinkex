@@ -13,15 +13,15 @@ export interface WorkspaceFileExtractionWorkflowParams {
 	actorUserId: string | null;
 	assetKind: WorkspaceFileAssetKind;
 	requestId: string | null;
+	/**
+	 * True only on runs the reconciler starts to upgrade a projection stuck on the
+	 * fast tier. The run brands the fast projection it republishes with
+	 * `healed: true` and the reconciler only heals unbranded rows, which bounds
+	 * healing to one attempt per document structurally. A dedicated field rather
+	 * than a sentinel request id, so nothing a client influences can brand a row.
+	 */
+	healing?: boolean;
 }
-
-/**
- * Marks a workflow run started by the reconciler to upgrade a projection stuck on the
- * fast tier. The run brands the fast projection it republishes with `healed: true`,
- * and the reconciler only ever heals unbranded rows — which bounds healing to one
- * attempt per document structurally, rather than by assumptions about timestamps.
- */
-export const extractionHealingRequestId = "extraction-healing-v1";
 
 export type LiteParseStageOutcome =
 	| { durationMs: number; outcome: "skipped" }

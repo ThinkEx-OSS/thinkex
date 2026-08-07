@@ -39,6 +39,7 @@ createServer(async (request, response) => {
 	let status = 500;
 	let errorType = null;
 	let errorMessage = null;
+	let holdsParseSlot = false;
 
 	try {
 		if (
@@ -74,15 +75,16 @@ createServer(async (request, response) => {
 			});
 		}
 
+		// Held until the whole request finishes, including streaming the result out:
+		// the parsed pages stay resident while the response drains, so releasing the
+		// slot any earlier would let admissions outrun actual memory use. A parse that
+		// outlives its timeout still runs to completion in the background holding
+		// memory — that zombie cannot be cancelled, only kept rare by the timeout.
 		activeParses += 1;
-		let result;
-		try {
-			const bytes = await readPdfRequestBytes(request);
-			inputBytes = bytes.byteLength;
-			result = await withTimeout(parser.parse(bytes), parseTimeoutMs);
-		} finally {
-			activeParses -= 1;
-		}
+		holdsParseSlot = true;
+		const bytes = await readPdfRequestBytes(request);
+		inputBytes = bytes.byteLength;
+		const result = await withTimeout(parser.parse(bytes), parseTimeoutMs);
 
 		if (result.pages.length > supportedPages) {
 			throw new PdfValidationError(
@@ -114,6 +116,9 @@ createServer(async (request, response) => {
 		}
 		return sendJson(response, status, { error: "PDF parsing failed." });
 	} finally {
+		if (holdsParseSlot) {
+			activeParses -= 1;
+		}
 		console.info(
 			JSON.stringify({
 				duration_ms: Date.now() - startedAt,

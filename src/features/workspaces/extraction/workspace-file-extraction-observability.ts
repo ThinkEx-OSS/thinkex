@@ -30,9 +30,11 @@ export type WorkspaceFileEnhancementOutcome =
 			routeReason: string;
 	  }
 	| {
-			// Non-null when the provider finished and billed but a later step failed —
-			// reporting null there would understate spend on exactly the runs worth
-			// investigating.
+			// Non-null when the provider finished and billed but a later step failed.
+			// Still null in one narrow case: the projection write that shares the
+			// extract step fails after the provider returned, because the billed
+			// metadata cannot escape a failed step. Rare, and preferable to widening
+			// the step contract just to carry it out.
 			creditsUsed: number | null;
 			durationMs: number;
 			error: unknown;

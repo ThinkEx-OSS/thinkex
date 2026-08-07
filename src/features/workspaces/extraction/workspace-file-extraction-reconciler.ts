@@ -1,13 +1,10 @@
-import {
-	extractionHealingRequestId,
-	type WorkspaceFileExtractionWorkflowParams,
-} from "#/features/workspaces/extraction/types";
+import type { WorkspaceFileExtractionWorkflowParams } from "#/features/workspaces/extraction/types";
 import { getWorkspaceFileExtractionWorkflowId } from "#/features/workspaces/extraction/workspace-file-extraction-workflow-id";
 import { workspaceExtractionStallThresholdMs } from "#/features/workspaces/extraction/workspace-extraction-budgets";
 import type { WorkspaceKernelSql } from "#/features/workspaces/kernel/workspace-kernel-schema";
 import { workspaceFileAssetKindSchema } from "#/features/workspaces/model/workspace-file";
 
-const extractionHealingVersion = extractionHealingRequestId;
+const extractionHealingVersion = "extraction-healing-v1";
 const failedExtractionCooldownMs = 15 * 60_000;
 const workflowBatchSize = 100;
 
@@ -76,6 +73,7 @@ export async function reconcileWorkspaceFileExtractions(input: {
 					const params = {
 						actorUserId: null,
 						assetKind: assetKind.data,
+						healing: true,
 						itemId: candidate.id,
 						requestId: extractionHealingVersion,
 						workspaceId: input.workspaceId,

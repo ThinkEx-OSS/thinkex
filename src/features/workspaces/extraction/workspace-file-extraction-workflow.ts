@@ -279,6 +279,7 @@ function assertWorkflowParams(
 		actorUserId: value.actorUserId ?? null,
 		assetKind: value.assetKind,
 		requestId: value.requestId ?? null,
+		healing: value.healing === true,
 	};
 }
 
