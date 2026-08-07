@@ -1,3 +1,4 @@
+import type { BillingPeriod } from "#/features/account/pricing";
 import type { WorkspaceMembershipRole, WorkspaceSummary } from "#/features/workspaces/contracts";
 
 export type WorkspaceInviteType = "email" | "link";
@@ -116,6 +117,27 @@ export interface PostHogEventPropertiesByName {
 		feature_id: string;
 		surface: "ai_message" | "file_upload";
 	};
+	/**
+	 * Reaching for the plan after being stopped. `usage_limit_reached` already
+	 * counts the walls, so this is the middle of the funnel and nothing else:
+	 * without it, a wall nobody acts on looks the same as one people act on and
+	 * then balk at the price, and those two want opposite fixes.
+	 *
+	 * The picker is not covered by `usage_limit_reached` at all — refusing a
+	 * selection never reaches the server — so this is the only signal there.
+	 */
+	upgrade_prompt_clicked: {
+		feature_id: string;
+		source: "ai_allowance_notice" | "ai_model_picker";
+	};
+	/**
+	 * The end of the funnel. Stripe knows the revenue; only this knows which wall
+	 * it came from, via a PostHog funnel back to the click.
+	 */
+	upgrade_checkout_started: {
+		billing_period: BillingPeriod;
+		reason: string | null;
+	};
 	workspace_file_intake_completed: {
 		asset_kind: string | null;
 		conversion: string | null;
@@ -133,7 +155,11 @@ export interface PostHogEventPropertiesByName {
 }
 
 export type PostHogEventName = keyof PostHogEventPropertiesByName;
-export type PostHogClientEventName = "workspace_invite_link_copied" | "auth_started";
+export type PostHogClientEventName =
+	| "workspace_invite_link_copied"
+	| "auth_started"
+	| "upgrade_prompt_clicked"
+	| "upgrade_checkout_started";
 export type PostHogServerEventName = Exclude<PostHogEventName, PostHogClientEventName>;
 
 export function buildWorkspaceCreatedEventProperties(
