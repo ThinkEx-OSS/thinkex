@@ -54,6 +54,10 @@ export function createLlamaParseExtractionProvider(env: Env): MarkdownExtraction
 	};
 }
 
+function supportsLlamaParseCostOptimizer(tier: LlamaParseTier) {
+	return tier === "agentic" || tier === "agentic_plus";
+}
+
 function normalizeLlamaParseTier(mode: MarkdownExtractionInput["mode"]): LlamaParseTier {
 	if (mode === "cost_effective" || mode === "agentic_plus") {
 		return mode;
@@ -116,11 +120,13 @@ async function startLlamaParseJob(
 					},
 				},
 			},
-			processing_options: {
-				cost_optimizer: {
-					enable: true,
-				},
-			},
+			// The optimizer downgrades individual simple pages to the cost_effective
+			// tier, so LlamaParse rejects the combination with a 422 when that is
+			// already the requested tier — there is nothing left to downgrade to.
+			// Sending it unconditionally made every cost_effective parse fail outright.
+			processing_options: supportsLlamaParseCostOptimizer(input.tier)
+				? { cost_optimizer: { enable: true } }
+				: {},
 		}),
 	});
 	const jobId = getStringValue(responseJson, "id");
