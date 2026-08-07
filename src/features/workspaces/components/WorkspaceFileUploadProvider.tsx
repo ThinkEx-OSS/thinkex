@@ -133,12 +133,16 @@ function WorkspaceFileLimitDialog({
 				</AlertDialogHeader>
 				<AlertDialogFooter>
 					<AlertDialogCancel>{isPro ? "Close" : "Maybe later"}</AlertDialogCancel>
+					{/* "Upgrade" rather than "View plans": this fires where someone has
+					    already been stopped, and it should read the same as the other
+					    place that stops them. The settings panel keeps "View plans",
+					    where nobody is blocked and browsing is the point. */}
 					{!isPending && !isPro ? (
 						<AlertDialogAction
 							nativeButton={false}
 							render={<Link replace search={showUpgradeDialog} to="." />}
 						>
-							View plans
+							Upgrade
 						</AlertDialogAction>
 					) : null}
 				</AlertDialogFooter>

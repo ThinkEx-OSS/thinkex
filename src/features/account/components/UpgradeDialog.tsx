@@ -3,12 +3,20 @@ import type { ReactNode } from "react";
 import { toast } from "sonner";
 
 import { Button } from "#/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "#/components/ui/dialog";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogHeader,
+	DialogTitle,
+} from "#/components/ui/dialog";
 import { Spinner } from "#/components/ui/spinner";
 import { openBillingPortalFn, startProCheckoutFn } from "#/features/account/billing-functions";
 import { PricingPlanCard } from "#/features/account/components/PricingPlanCard";
 import { type BillingPeriod, getPricingPlans } from "#/features/account/pricing";
 import { BILLING_STATE_QUERY_KEY, useBillingState } from "#/features/account/use-billing-state";
+import { UPGRADE_REASON_LABELS, type UpgradeReason } from "#/features/account/upgrade-navigation";
+import { capturePostHogClientEvent } from "#/integrations/posthog/provider";
 
 /**
  * billingPeriod is no longer pickable in the UI — it comes from the caller's
@@ -19,10 +27,12 @@ export function UpgradeDialog({
 	billingPeriod = "monthly",
 	onOpenChange,
 	open,
+	reason,
 }: {
 	billingPeriod?: BillingPeriod;
 	onOpenChange: (open: boolean) => void;
 	open: boolean;
+	reason?: UpgradeReason;
 }) {
 	const queryClient = useQueryClient();
 	const { isPending, isPro } = useBillingState({ exact: true });
@@ -47,6 +57,15 @@ export function UpgradeDialog({
 			<DialogContent className="ph-no-capture max-h-[90vh] gap-0 overflow-y-auto p-0 sm:max-w-3xl">
 				<DialogHeader className="border-b border-border px-5 py-5">
 					<DialogTitle>Choose your plan</DialogTitle>
+					{/* Named by whoever opened this, not read back off the balances: the
+					    question is what the user just ran into, and someone out of two
+					    things would otherwise be told about the one they didn't touch.
+					    Absent when they browsed here, which needs no explanation. */}
+					{reason ? (
+						<DialogDescription>
+							You&rsquo;re out of {UPGRADE_REASON_LABELS[reason]} this month.
+						</DialogDescription>
+					) : null}
 				</DialogHeader>
 				<div className="grid gap-5 p-5 sm:grid-cols-2">
 					{pricingPlans.map((plan) => {
@@ -73,6 +92,15 @@ export function UpgradeDialog({
 									disabled={billingAction.isPending}
 									variant={current ? "outline" : "default"}
 									onClick={() => {
+										// Only the new-subscription path: the portal is an existing
+										// customer managing billing, which is not a conversion.
+										if (!current) {
+											capturePostHogClientEvent("upgrade_checkout_started", {
+												billing_period: billingPeriod,
+												reason: reason ?? null,
+											});
+										}
+
 										billingAction.mutate(() =>
 											current
 												? openBillingPortalFn()

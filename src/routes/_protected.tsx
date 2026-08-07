@@ -8,6 +8,7 @@ import {
 import { UpgradeDialog } from "#/features/account/components/UpgradeDialog";
 import { getAuthSessionQueryOptions } from "#/lib/session-query";
 import type { BillingPeriod } from "#/features/account/pricing";
+import { UPGRADE_REASONS, type UpgradeReason } from "#/features/account/upgrade-navigation";
 
 /**
  * Account dialogs are search params rather than routes or hashes: they stay
@@ -16,7 +17,9 @@ import type { BillingPeriod } from "#/features/account/pricing";
 interface ProtectedSearch {
 	billing?: BillingPeriod;
 	settings?: AccountSettingsTab;
-	upgrade?: true;
+	// A reason when something stopped the user, bare `true` when they browsed
+	// here. Both open the dialog; only the reason gets explained inside it.
+	upgrade?: true | UpgradeReason;
 }
 
 export const Route = createFileRoute("/_protected")({
@@ -24,10 +27,14 @@ export const Route = createFileRoute("/_protected")({
 		// Annual is only reachable by asking for it explicitly; the UI offers monthly.
 		const billing = search.billing === "annual" ? "annual" : "monthly";
 		const settings = search.settings as AccountSettingsTab | undefined;
-		const upgrade = search.upgrade === true || search.upgrade === "true";
+		// An unrecognised reason still opens the dialog, just without the line
+		// explaining why: a stale or hand-edited link should not 404 the upgrade.
+		const upgrade =
+			UPGRADE_REASONS.find((reason) => reason === search.upgrade) ??
+			(search.upgrade === true || search.upgrade === "true" ? true : undefined);
 
 		if (upgrade) {
-			return { billing, upgrade: true };
+			return { billing, upgrade };
 		}
 
 		return settings && ACCOUNT_SETTINGS_TABS.includes(settings) ? { settings } : {};
@@ -94,6 +101,7 @@ function ProtectedLayout() {
 				key={`${billing ?? "monthly"}:${Boolean(upgrade)}`}
 				billingPeriod={billing}
 				open={Boolean(upgrade)}
+				reason={typeof upgrade === "string" ? upgrade : undefined}
 				onOpenChange={setUpgrade}
 			/>
 		</>
