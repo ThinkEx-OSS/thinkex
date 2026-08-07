@@ -1,5 +1,7 @@
 import { Container, getRandom } from "@cloudflare/containers";
 
+import { awaitUploadResponse } from "#/lib/http/streaming-upload";
+
 const workspaceFileProcessorPort = 8080;
 const workspaceFileProcessorPoolSize = 2;
 // Each of these must stay under the workflow step that wraps it, otherwise the step
@@ -42,7 +44,8 @@ export async function requestWorkspaceFileProcessor(
 	}
 
 	const body = new FixedLengthStream(input.sizeBytes);
-	const [response] = await Promise.all([
+
+	return await awaitUploadResponse(
 		processor.fetch(
 			new Request(`http://workspace-file-processor${input.path}`, {
 				body: body.readable,
@@ -53,7 +56,5 @@ export async function requestWorkspaceFileProcessor(
 			} as RequestInit & { duplex: "half" }),
 		),
 		input.body.pipeTo(body.writable),
-	]);
-
-	return response;
+	);
 }
