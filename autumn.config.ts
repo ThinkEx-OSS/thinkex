@@ -25,7 +25,6 @@ export const premiumMessages = feature({
 // Extraction is billed per page by LlamaParse, but metered here per upload:
 // nobody knows a PDF's page count before uploading, and a balance that drops by
 // an unpredictable amount per upload is exactly the anxiety we're avoiding.
-// Median upload is 5 pages, p90 is 31, so uploads track cost closely enough.
 //
 // Named "file uploads" rather than "documents" on purpose — Document is already
 // a workspace item type, and two meanings of the word would confuse both users
@@ -50,8 +49,8 @@ export const free = plan({
 				interval: "month",
 			},
 		}),
-		// A taste of premium rather than a wall in front of it. 30 messages is
-		// roughly $0.90 of cost and it is the upgrade prompt.
+		// A taste of premium rather than a wall in front of it, and the upgrade
+		// prompt.
 		item({
 			featureId: premiumMessages.id,
 			included: 30,

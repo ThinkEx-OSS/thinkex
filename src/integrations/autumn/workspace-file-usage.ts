@@ -17,9 +17,7 @@ export interface TrackWorkspaceFileUploadUsageInput {
 /**
  * Metered per upload rather than per page. LlamaParse bills per page, but nobody
  * knows a PDF's page count before uploading, and a balance that drops by an
- * unpredictable amount is the thing that makes people stop uploading. Median
- * upload is 5 pages and p90 is 32 (PostHog `workspace_file_extraction_completed`,
- * n=428 over 180 days), so uploads track cost closely enough.
+ * unpredictable amount is the thing that makes people stop uploading.
  *
  * Counted when extraction is requested, not when bytes land, because extraction
  * is what actually costs money — and every extraction routes through one caller.
