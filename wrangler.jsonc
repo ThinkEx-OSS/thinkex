@@ -25,10 +25,15 @@
 	//     would be served across users, and `/` in particular would stop
 	//     redirecting signed-in visitors to /home.
 	//
-	// Static assets are served by the assets layer, which bypasses the Worker and
-	// is cached already, so there is nothing left for this to win. Before ever
-	// flipping it: responses with no Cache-Control are not exempt — a 200 falls
-	// back to RFC 9111 heuristic freshness and is cached for 2 hours.
+	// Static assets are served by the assets layer, which bypasses the Worker, so
+	// there is nothing left for this to win on them either. Note that "cached" and
+	// "cached in the browser" are separate questions: the assets layer caches at
+	// the edge, but the browser cache is governed by the Cache-Control it sends,
+	// which defaults to `max-age=0, must-revalidate`. public/_headers overrides
+	// that for the content-hashed files under /assets/ — read it before assuming
+	// an asset is free on a repeat visit. Before ever flipping this flag:
+	// responses with no Cache-Control are not exempt — a 200 falls back to RFC
+	// 9111 heuristic freshness and is cached for 2 hours.
 	"cache": {
 		"enabled": false,
 	},
