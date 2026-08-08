@@ -51,7 +51,7 @@
 	--input: var(--tx-neutral-300);
 	--ring: oklch(0.708 0 0);
 	/* Translucent brand blue (Twitter/X-style): tint only, keep text color */
-	--selection: rgb(29 78 216 / 32%);
+	--selection: rgb(37 99 235 / 20%);
 	--chart-1: var(--tx-ui-blue-400);
 	--chart-2: var(--tx-ui-blue-600);
 	--chart-3: var(--tx-ui-emerald-500);
