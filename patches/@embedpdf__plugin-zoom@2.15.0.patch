@@ -1,5 +1,5 @@
 diff --git a/dist/react/index.js b/dist/react/index.js
-index 0b7c4488a543a94690e8f6674cbe70e1420b2d9b..aad0a28deee3f8e2a204d924d4452cf1d93349f6 100755
+index 0000000..1111111 100755
 --- a/dist/react/index.js
 +++ b/dist/react/index.js
 @@ -185,7 +185,7 @@ function setupZoomGestures({

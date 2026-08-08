@@ -12,12 +12,12 @@ overrides:
   # Dedupe KaTeX to one instance so the mhchem/pu extension import patches the
   # same katex that BOTH surfaces render with (TipTap docs and rehype-katex
   # chat), instead of only the app copy. rehype-katex pulls 0.16 otherwise.
-  katex: 0.17.0
+  katex: 0.18.1
   dompurify: 3.4.12
   # drizzle-kit reaches esbuild through the deprecated @esbuild-kit/* packages,
   # which pin 0.18.20 — under the advisory range for GHSA esbuild <= 0.24.2.
   "@esbuild-kit/core-utils>esbuild": ^0.25.12
-  vite: npm:@voidzero-dev/vite-plus-core@0.2.2
+  vite: npm:@voidzero-dev/vite-plus-core@0.2.8
   vitest: 4.1.10
 
 peerDependencyRules:
@@ -27,21 +27,21 @@ peerDependencyRules:
     "@babel/helper-replace-supers>@babel/core": 7.29.0
     "@babel/plugin-proposal-decorators>@babel/core": 7.29.0
     "@babel/plugin-syntax-decorators>@babel/core": 7.29.0
-    "@cloudflare/think>vite": 0.2.2
-    "@cloudflare/vite-plugin>vite": 0.2.2
-    "@rolldown/plugin-babel>vite": 0.2.2
+    "@cloudflare/think>vite": 0.2.8
+    "@cloudflare/vite-plugin>vite": 0.2.8
+    "@rolldown/plugin-babel>vite": 0.2.8
     "@tailwindcss/typography>tailwindcss": 4.3.1
-    "@tailwindcss/vite>vite": 0.2.2
-    "@tanstack/devtools-vite>vite": 0.2.2
-    "@tanstack/react-start>vite": 0.2.2
-    "@tanstack/router-plugin>vite": 0.2.2
-    "@tanstack/start-plugin-core>vite": 0.2.2
-    "@tiptap/extension-mathematics>katex": 0.17.0
-    "@vitejs/plugin-react>vite": 0.2.2
-    "@vitest/mocker>vite": 0.2.2
-    "agents>vite": 0.2.2
-    "vitefu>vite": 0.2.2
-    "vitest>vite": 0.2.2
+    "@tailwindcss/vite>vite": 0.2.8
+    "@tanstack/devtools-vite>vite": 0.2.8
+    "@tanstack/react-start>vite": 0.2.8
+    "@tanstack/router-plugin>vite": 0.2.8
+    "@tanstack/start-plugin-core>vite": 0.2.8
+    "@tiptap/extension-mathematics>katex": 0.18.1
+    "@vitejs/plugin-react>vite": 0.2.8
+    "@vitest/mocker>vite": 0.2.8
+    "agents>vite": 0.2.8
+    "vitefu>vite": 0.2.8
+    "vitest>vite": 0.2.8
     "zod-validation-error>zod": 4.4.3
 
 allowBuilds:
@@ -73,5 +73,5 @@ minimumReleaseAgeExclude:
 
 patchedDependencies:
   "@cloudflare/think@0.15.0": patches/@cloudflare__think@0.15.0.patch
-  "@embedpdf/plugin-zoom@2.14.4": patches/@embedpdf__plugin-zoom@2.14.4.patch
+  "@embedpdf/plugin-zoom@2.15.0": patches/@embedpdf__plugin-zoom@2.15.0.patch
   agents@0.19.0: patches/agents@0.19.0.patch
