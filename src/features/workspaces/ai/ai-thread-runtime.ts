@@ -325,13 +325,17 @@ function getWorkspaceAiLanguageModelForGatewayModel(
 function getWorkspaceAiGatewayTransportOptions() {
 	return {
 		caching: "auto" as const,
+		// Time-to-first-token budget before a BYOK leg is abandoned for the next
+		// provider — and eventually for Vercel's own credits. A flat 8s evicted
+		// healthy requests: 37% of gemini-3.1-pro steps and 29% of sonnet steps
+		// exceed it, because reasoning happens before the first token. Sized per
+		// provider off measured p90/p99 TTFT of the slowest model each one serves.
 		providerTimeouts: {
 			byok: {
-				anthropic: 8000,
-				azure: 8000,
-				bedrock: 8000,
-				openai: 8000,
-				vertex: 8000,
+				anthropic: 20_000,
+				azure: 15_000,
+				openai: 15_000,
+				vertex: 30_000,
 			},
 		},
 	};
@@ -367,12 +371,6 @@ function getWorkspaceAiReasoningOptions(
 	modelId: ReturnType<typeof resolveWorkspaceAiChatModelId>,
 ): WorkspaceAiProviderOptions {
 	switch (modelId) {
-		case "claude-sonnet":
-			return {
-				bedrock: {
-					reasoningConfig: { type: "adaptive", maxReasoningEffort: "low" },
-				},
-			};
 		case "gemini":
 			return {
 				google: {
@@ -426,17 +424,27 @@ export async function generateAIThreadTitle(input: { env: Cloudflare.Env; messag
 					`model:${AI_THREAD_TITLE_GATEWAY_MODEL}`,
 				],
 			},
+			// The 2.5-series title model rejects `thinkingLevel` outright ("Thinking
+			// level is not supported for this model"), which 400s every Google leg
+			// and silently pushes titles onto the fallback. Budget is its knob.
 			google: {
-				thinkingConfig: { thinkingLevel: "low" },
+				thinkingConfig: { thinkingBudget: 0 },
 			},
 			vertex: {
-				thinkingConfig: { thinkingLevel: "low" },
+				thinkingConfig: { thinkingBudget: 0 },
+			},
+			// The fallback nano is a reasoning model; a six-word title needs none of
+			// it, and thinking tokens bill as output. Effort values differ per nano
+			// — 5.4 takes "none", 5 takes "minimal" — and the wrong one 400s the leg.
+			openai: {
+				reasoningEffort: "none",
 			},
 		} as WorkspaceAiProviderOptions,
 		instructions:
 			"Produce a concise chat title for the user message. Two to six words. No quotes, no trailing punctuation.",
 		prompt,
-		temperature: 0.2,
+		// No temperature: the fallback nano rejects the parameter, and a schema
+		// this tight doesn't need it.
 		output: Output.object({
 			schema: AI_THREAD_TITLE_OUTPUT_SCHEMA,
 			name: "chat_title",
@@ -449,6 +457,7 @@ export async function generateAIThreadTitle(input: { env: Cloudflare.Env; messag
 		gatewayModel: AI_THREAD_TITLE_GATEWAY_MODEL,
 		prompt,
 		usage: result.usage,
+		providerMetadata: result.providerMetadata,
 		latencySeconds: (Date.now() - startedAt) / 1000,
 	};
 }
