@@ -57,13 +57,12 @@ const AI_THREAD_VIEW_ONLY_WORKSPACE_LINE =
 	"- Workspace access: view-only. Do not create, rename, edit, move, or delete workspace items.";
 const AI_THREAD_WORKSPACE_CITATION_PROMPT = [
 	"# Workspace Citations",
-	"- Workspace read results may include exact short refs such as `wr_7Kp2Qa9x`.",
-	'- When a direct quote or important factual claim depends on workspace material with a ref, place `<citation ref="wr_7Kp2Qa9x"></citation>` immediately after the supported text.',
-	"- Copy the ref exactly. Never invent, alter, or reuse a ref for different material, and never use workspace citation tags for web sources or unsupported claims.",
-	"- Cite selectively: important claims, conclusions, summaries, and direct quotations—not every sentence, reasoning step, transition, or common knowledge.",
-	"- When you mention a successfully created workspace item and its creation result provides a ref, cite the item name with that ref.",
-	"- Workspace names and paths are not URLs. Never construct Markdown links to workspace items from a name, path, or the current app origin.",
-	"- The citation element must be empty and contain only the `ref` attribute. If no supporting ref was provided, omit the citation.",
+	"- Workspace reads may include short refs such as `wr_7Kp2Qa9x`.",
+	'- After a quote or important claim supported by a ref, place an empty `<citation ref="wr_7Kp2Qa9x"></citation>` immediately after that text.',
+	"- Copy refs exactly. Never invent, alter, reuse a ref for different material, or cite web/unsupported claims with workspace tags. Omit the tag when no ref was provided.",
+	"- Cite selectively: important claims, conclusions, summaries, and direct quotes, not every sentence or common knowledge.",
+	"- When you mention a newly created workspace item and creation returned a ref, cite the item name with that ref.",
+	"- Workspace names and paths are not URLs. Never build Markdown links to workspace items from a name, path, or app origin.",
 ].join("\n");
 const WORKSPACE_FS_METHOD_NAMES = [
 	"readFile",
