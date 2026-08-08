@@ -25,6 +25,7 @@
 		"prepare": "vp config --no-agent && node scripts/copy-widget-libs.mjs",
 		"test": "vp test --run",
 		"test:workers": "vp test --run --project=workers",
+		"probe:gateway": "infisical run --env=dev --path=/app --silent -- node scripts/probe-ai-gateway.ts",
 		"eval": "infisical run --env=dev --path=/app -- vitest --config vitest.evals.config.ts --run",
 		"eval:watch": "infisical run --env=dev --path=/app -- vitest --config vitest.evals.config.ts",
 		"deploy:worker": "wrangler deploy",
