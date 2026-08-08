@@ -33,10 +33,10 @@ export default function AppShell({
 						    branch that bounces signed-in visitors off `/`. */}
 						<Link
 							to="/welcome"
-							className="flex shrink-0 items-center gap-3 rounded-md text-foreground no-underline outline-none focus-visible:ring-2 focus-visible:ring-ring"
+							className="flex shrink-0 items-center gap-2.5 rounded-md text-foreground no-underline outline-none focus-visible:ring-2 focus-visible:ring-ring"
 						>
-							<ThinkExLogo size={28} />
-							<span className="hidden text-xl font-semibold tracking-tight sm:inline sm:text-2xl">
+							<ThinkExLogo size={24} />
+							<span className="hidden text-lg font-semibold tracking-tight sm:inline sm:text-xl">
 								ThinkEx
 							</span>
 						</Link>

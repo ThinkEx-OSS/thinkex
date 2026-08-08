@@ -42,13 +42,13 @@ function WorkspaceHeaderBrandLink({ showWordmark }: { showWordmark: boolean }) {
 			preload="intent"
 			className={cn(
 				"flex shrink-0 items-center rounded-md text-foreground no-underline outline-none focus-visible:ring-2 focus-visible:ring-ring",
-				showWordmark && "gap-3",
+				showWordmark && "gap-2.5",
 			)}
 			aria-label={showWordmark ? undefined : "Back to workspaces"}
 		>
-			<ThinkExLogo size={28} />
+			<ThinkExLogo size={24} />
 			{showWordmark ? (
-				<span className="text-xl font-semibold tracking-tight sm:text-2xl">ThinkEx</span>
+				<span className="text-lg font-semibold tracking-tight sm:text-xl">ThinkEx</span>
 			) : null}
 		</Link>
 	);
