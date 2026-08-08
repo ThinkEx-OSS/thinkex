@@ -36,7 +36,7 @@ exports[`workspace tool surface > system prompt is stable 1`] = `
 # Memory
 - Memory is for durable preferences, goals, and decisions only. Do not store transient requests, secrets, full documents, or workspace state.
 
-Keep the final answer concise unless the user asked for depth."
+Keep the final answer concise unless the user asked for depth or a short answer would mislead."
 `;
 
 exports[`workspace tool surface > workspace_create_items input schema is stable 1`] = `

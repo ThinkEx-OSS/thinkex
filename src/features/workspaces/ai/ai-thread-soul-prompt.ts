@@ -64,5 +64,5 @@ export function getAIThreadSoulPrompt() {
 		.join("\n\n");
 
 	// Recency nudge: models weigh late instructions more heavily.
-	return `${prompt}\n\nKeep the final answer concise unless the user asked for depth.`;
+	return `${prompt}\n\nKeep the final answer concise unless the user asked for depth or a short answer would mislead.`;
 }
