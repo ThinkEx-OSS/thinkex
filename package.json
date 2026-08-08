@@ -122,7 +122,7 @@
 		"papaparse": "^5.5.4",
 		"partyserver": "^0.5.9",
 		"posthog-js": "^1.409.5",
-		"posthog-node": "^5.47.3",
+		"posthog-node": "^5.47.10",
 		"react": "^19.2.8",
 		"react-dom": "^19.2.8",
 		"react-resizable-panels": "^4.12.2",
