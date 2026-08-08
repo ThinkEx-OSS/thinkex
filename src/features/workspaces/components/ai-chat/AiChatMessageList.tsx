@@ -471,6 +471,10 @@ function getChatErrorMessage({
 		return "This chat got too large to finish. Try again or start a new chat.";
 	}
 
+	if (errorState.classification === "rate_limit") {
+		return "The AI provider hit a rate limit. Wait a moment, then try again.";
+	}
+
 	if (errorState.stage === "recovery") {
 		return hasAssistantContent
 			? "The response was interrupted before it finished."

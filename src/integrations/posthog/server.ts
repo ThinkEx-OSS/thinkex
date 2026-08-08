@@ -48,6 +48,12 @@ interface PostHogServerEvent<TEvent extends PostHogServerEventName> {
 	 * The lawful basis is stated per call site.
 	 */
 	consentExempt?: boolean;
+	/**
+	 * Consent was already resolved by the caller and isn't in a readable cookie —
+	 * the AI thread's rides in the chat body, and a Durable Object has no request
+	 * scope to re-check. Asserts consent was given, unlike `consentExempt`.
+	 */
+	consentVerified?: boolean;
 	properties: PostHogEventPropertiesByName[TEvent];
 	requestContext?: TelemetryRequestContext;
 	request?: TelemetryRequestDetails;
@@ -90,7 +96,11 @@ export function capturePostHogServerEvent<TEvent extends PostHogServerEventName>
 	// Product analytics require consent; operational/billing telemetry (flagged
 	// consentExempt) and exception capture are exempt as they carry no
 	// email/name/content and rely on a different lawful basis.
-	if (!input.consentExempt && !hasServerAnalyticsConsent(input.request?.headers)) {
+	if (
+		!input.consentExempt &&
+		!input.consentVerified &&
+		!hasServerAnalyticsConsent(input.request?.headers)
+	) {
 		return;
 	}
 

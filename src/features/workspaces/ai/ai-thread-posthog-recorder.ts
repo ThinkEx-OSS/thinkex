@@ -124,6 +124,7 @@ interface AIThreadPostHogRecorderOptions {
 }
 
 interface AgentPostHogRuntime {
+	consentVerified: true;
 	requestContext: TelemetryRequestContext;
 	schedule?: PostHogTelemetryScheduler;
 }
@@ -136,6 +137,8 @@ export class AIThreadPostHogRecorder {
 	constructor(options: AIThreadPostHogRecorderOptions = {}) {
 		this.schedule = options.schedule;
 		this.serverEventRuntime = {
+			// Every path here sits behind AIThreadTelemetryRecorder's consent check.
+			consentVerified: true,
 			requestContext: getTelemetryRuntimeContext(),
 			schedule: options.schedule,
 		};
@@ -363,7 +366,9 @@ export class AIThreadPostHogRecorder {
 			...this.serverEventRuntime,
 		});
 
-		this.turn = null;
+		// Keep `turn`: a provider can fail the turn after the response settles (a
+		// mid-stream 429), and clearing here made recordTurnError a silent no-op for
+		// exactly those. recordTurnStarted overwrites it, so nothing leaks forward.
 	}
 
 	recordTurnError(

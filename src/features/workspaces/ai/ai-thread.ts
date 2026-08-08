@@ -15,7 +15,7 @@ import type {
 	TurnConfig,
 	TurnContext,
 } from "@cloudflare/think";
-import { defaultContextOverflowClassifier, Think } from "@cloudflare/think";
+import { Think } from "@cloudflare/think";
 import bundledSkills from "agents:skills";
 import { callable } from "agents";
 import { generateText, type LanguageModel, type ToolSet } from "ai";
@@ -39,6 +39,7 @@ import {
 } from "#/features/workspaces/ai/workspace-citations";
 import type { AIInspectorSnapshot } from "#/features/workspaces/ai/ai-inspector";
 import { resolveChatAttachmentModelMessages } from "#/features/workspaces/ai/chat-attachment-model";
+import { classifyAIThreadChatError } from "#/features/workspaces/ai/chat-error-classification";
 import type { AIThreadContext } from "#/features/workspaces/ai/ai-thread-metadata";
 import { AIThreadTelemetryRecorder } from "#/features/workspaces/ai/ai-thread-telemetry-recorder";
 import {
@@ -106,7 +107,7 @@ export function createAIThreadClass(getUserAIStore: () => typeof UserAIStore) {
 		} satisfies Exclude<ChatRecoveryConfig, boolean>;
 		override chatStreamStallTimeoutMs = 90_000;
 		override contextOverflow = { reactive: true } as const;
-		override classifyChatError = defaultContextOverflowClassifier;
+		override classifyChatError = classifyAIThreadChatError;
 		override sendReasoning = false;
 		override modelMessageUrlBase = getAppOrigin();
 		private shouldRefreshSessionPrompt = false;
