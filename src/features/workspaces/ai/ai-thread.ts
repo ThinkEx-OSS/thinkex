@@ -665,6 +665,7 @@ export function createAIThreadClass(getUserAIStore: () => typeof UserAIStore) {
 					prompt,
 					text: result.text,
 					usage: result.usage,
+					providerMetadata: result.providerMetadata,
 					latencySeconds: (Date.now() - startedAt) / 1000,
 					thread,
 				});
@@ -694,6 +695,7 @@ export function createAIThreadClass(getUserAIStore: () => typeof UserAIStore) {
 						prompt: titleResult.prompt,
 						text: titleResult.title,
 						usage: titleResult.usage,
+						providerMetadata: titleResult.providerMetadata,
 						latencySeconds: titleResult.latencySeconds,
 						thread,
 					});

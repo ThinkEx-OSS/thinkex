@@ -63,6 +63,30 @@ function appendAiTraceProperties(
 	}
 }
 
+/**
+ * Who actually answered, per the gateway's own routing record. Callers only know
+ * the model they *asked* for, and the gateway fails over silently — a title
+ * route that 400'd on every Google leg and was served by OpenAI looked like
+ * Gemini for 105 generations. `credential_type` distinguishes our BYOK keys from
+ * Vercel's metered credits.
+ */
+export function getGatewayServedRoute(providerMetadata: unknown) {
+	const routing = (providerMetadata as { gateway?: { routing?: unknown } } | undefined)?.gateway
+		?.routing as
+		| {
+				finalProvider?: string;
+				modelAttempts?: { providerAttempts?: { credentialType?: string; success?: boolean }[] }[];
+		  }
+		| undefined;
+
+	return {
+		provider: routing?.finalProvider,
+		credentialType: routing?.modelAttempts
+			?.flatMap((attempt) => attempt.providerAttempts ?? [])
+			.find((attempt) => attempt.success)?.credentialType,
+	};
+}
+
 export function capturePostHogAiGeneration(
 	options: CaptureAiGenerationOptions & {
 		distinctId: string;
@@ -71,16 +95,24 @@ export function capturePostHogAiGeneration(
 		parentId?: string;
 		spanId?: string;
 		schedule?: PostHogTelemetryScheduler;
+		/** `providerMetadata` off the AI SDK result, for served-route attribution. */
+		providerMetadata?: Record<string, unknown>;
 	},
 ) {
 	const client = getPostHogAiClient();
 	if (!client) {
 		return;
 	}
-	const { schedule, ...captureOptions } = options;
+	const { schedule, providerMetadata, ...captureOptions } = options;
+	const served = getGatewayServedRoute(providerMetadata);
+
+	if (served.provider) {
+		captureOptions.provider = served.provider;
+	}
 
 	const properties: Record<string, unknown> = {
 		...captureOptions.properties,
+		...(served.credentialType ? { credential_type: served.credentialType } : {}),
 	};
 
 	appendAiTraceProperties(properties, {

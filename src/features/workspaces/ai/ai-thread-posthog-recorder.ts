@@ -296,6 +296,7 @@ export class AIThreadPostHogRecorder {
 			input: buildAiTelemetryInputFromStep(ctx),
 			output: buildAiTelemetryOutputFromStep(ctx),
 			usage: extractAiTelemetryTokenUsage(ctx.usage),
+			providerMetadata: ctx.providerMetadata,
 			latency: latencySeconds,
 			timeToFirstToken,
 			stopReason: ctx.finishReason,
@@ -458,6 +459,7 @@ export class AIThreadPostHogRecorder {
 		prompt: string;
 		text: string;
 		usage?: unknown;
+		providerMetadata?: Record<string, unknown>;
 		latencySeconds: number;
 		thread: Pick<AIThreadContext, "id" | "workspaceId" | "userId">;
 		traceContext?: AIThreadPostHogTraceContext | null;
@@ -482,6 +484,7 @@ export class AIThreadPostHogRecorder {
 			input: buildAiTelemetryInputFromPrompt(input.prompt),
 			output: buildAiTelemetryOutputFromText(input.text),
 			usage: extractAiTelemetryTokenUsage(input.usage),
+			providerMetadata: input.providerMetadata,
 			latency: input.latencySeconds,
 			privacyMode: !input.captureContent,
 			properties: {

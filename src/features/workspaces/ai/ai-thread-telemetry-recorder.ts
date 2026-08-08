@@ -158,6 +158,7 @@ export class AIThreadTelemetryRecorder {
 		latencySeconds: number;
 		prompt: string;
 		text: string;
+		providerMetadata?: Record<string, unknown>;
 		thread: Pick<AIThreadContext, "id" | "workspaceId" | "userId">;
 		usage?: unknown;
 	}) {
