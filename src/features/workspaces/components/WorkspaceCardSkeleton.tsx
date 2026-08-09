@@ -1,10 +1,6 @@
 import { Card } from "#/components/ui/card";
 import { Skeleton } from "#/components/ui/skeleton";
-import {
-	WorkspaceCardSkeletonHeader,
-	workspaceSkeletonAccentClass,
-	workspaceSkeletonFieldClass,
-} from "#/features/workspaces/components/workspace-skeleton-chrome";
+import { WorkspaceCardSkeletonHeader } from "#/features/workspaces/components/workspace-skeleton-chrome";
 import { workspaceToolbarButtonSizeClass } from "#/features/workspaces/components/workspace-toolbar-styles";
 import { cn } from "#/lib/utils";
 
@@ -16,14 +12,13 @@ import { cn } from "#/lib/utils";
 export default function WorkspaceCardSkeleton() {
 	return (
 		<Card className="relative gap-0 py-0">
-			<Skeleton className={cn("aspect-[5/2] w-full rounded-none", workspaceSkeletonFieldClass)} />
+			<Skeleton className="aspect-[5/2] w-full rounded-none" />
 
 			{/* Mobile only: from sm up the real settings button is hover-revealed,
 			    so drawing it would promise a control that vanishes on load. */}
 			<Skeleton
 				className={cn(
 					workspaceToolbarButtonSizeClass,
-					workspaceSkeletonAccentClass,
 					"absolute top-2 right-2 rounded-[min(var(--radius-md),10px)] sm:hidden",
 				)}
 			/>

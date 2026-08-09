@@ -99,7 +99,7 @@ function AiChatImageAttachment({
 					</button>
 				) : (
 					<div className="size-full overflow-hidden rounded-xl">
-						<Skeleton aria-hidden="true" className="size-full rounded-none bg-foreground/10" />
+						<Skeleton aria-hidden="true" className="size-full rounded-none" />
 						<span className="sr-only">Preparing {label}</span>
 					</div>
 				)}
