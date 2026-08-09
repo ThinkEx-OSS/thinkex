@@ -4,6 +4,7 @@ import {
 	workspaceColorOptions,
 	workspaceColors,
 } from "#/features/workspaces/model/workspace-colors";
+import { getWorkspaceTheme } from "#/features/workspaces/model/workspace-themes";
 import {
 	filterWorkspaceIconOptions,
 	workspaceIconOptions,
@@ -27,8 +28,13 @@ const workspaceRecencyDateWithYearFormatter = new Intl.DateTimeFormat(undefined,
 export { filterWorkspaceIconOptions, workspaceColorOptions, workspaceColors, workspaceIconOptions };
 
 export function getWorkspaceDisplay(workspace: WorkspaceSummary) {
-	const icon = workspace.icon ?? "compass";
-	const color = workspace.color ?? "sky";
+	// The theme is the only thing a user picks; icon and colour are properties
+	// of it. Workspaces created before themes existed keep whatever icon and
+	// colour they already had — we never rewrite those, we just render theme art
+	// derived from the icon (see getWorkspaceThemeArt).
+	const theme = getWorkspaceTheme(workspace.theme);
+	const icon = theme?.icon ?? workspace.icon ?? "compass";
+	const color = theme?.color ?? workspace.color ?? "sky";
 	const colorDefinition = workspaceColors[color];
 
 	return {

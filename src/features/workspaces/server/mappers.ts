@@ -28,6 +28,7 @@ export function mapWorkspaceRow(
 		description: row.description,
 		icon: parseWorkspaceIcon(row.icon),
 		color: parseWorkspaceColor(row.color),
+		theme: row.theme,
 		createdAt: row.createdAt.toISOString(),
 		updatedAt: row.updatedAt.toISOString(),
 		lastOpenedAt: toIsoString(row.lastOpenedAt ?? null),

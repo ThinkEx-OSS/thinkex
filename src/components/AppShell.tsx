@@ -35,7 +35,9 @@ export default function AppShell({
 							to="/welcome"
 							className="flex shrink-0 items-center gap-2.5 rounded-md text-foreground no-underline outline-none focus-visible:ring-2 focus-visible:ring-ring"
 						>
-							<ThinkExLogo size={24} />
+							{/* The wordmark is hidden below sm, so the mark is carrying the
+							    brand alone there and needs to be bigger to hold its own. */}
+							<ThinkExLogo className="size-8 sm:size-6" />
 							<span className="hidden text-lg font-semibold tracking-tight sm:inline sm:text-xl">
 								ThinkEx
 							</span>

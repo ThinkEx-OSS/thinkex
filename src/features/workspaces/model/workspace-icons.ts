@@ -680,7 +680,7 @@ function getWorkspaceIconSearchTerms(option: WorkspaceIconOption) {
 	);
 }
 
-function getSearchTermScore(term: string, token: string) {
+export function getSearchTermScore(term: string, token: string) {
 	if (term === token) {
 		return 12;
 	}
@@ -696,11 +696,11 @@ function getSearchTermScore(term: string, token: string) {
 	return 0;
 }
 
-function normalizeIconSearch(query: string) {
+export function normalizeIconSearch(query: string) {
 	return normalizeIconSearchTerm(query).split(" ").filter(Boolean);
 }
 
-function normalizeIconSearchTerm(value: string) {
+export function normalizeIconSearchTerm(value: string) {
 	return value.toLowerCase().replace(iconSearchSeparator, " ").trim();
 }
 

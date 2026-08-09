@@ -141,6 +141,30 @@ export const workspaceIconValues = [
 export const workspaceIconSchema = z.enum(workspaceIconValues);
 
 export const workspaceColorValues = [
+	"yellow-soft",
+	"yellow",
+	"yellow-bold",
+	"yellow-deep",
+	"green-soft",
+	"green",
+	"green-bold",
+	"green-deep",
+	"cyan-soft",
+	"cyan",
+	"cyan-bold",
+	"cyan-deep",
+	"blue-soft",
+	"blue",
+	"blue-bold",
+	"blue-deep",
+	"indigo-soft",
+	"indigo",
+	"indigo-bold",
+	"indigo-deep",
+	"stone-soft",
+	"stone",
+	"stone-bold",
+	"stone-deep",
 	"red-soft",
 	"red",
 	"red-bold",
@@ -193,6 +217,7 @@ export const workspaceSummarySchema = z.object({
 	description: z.string().nullable(),
 	icon: workspaceIconSchema.nullable(),
 	color: workspaceColorSchema.nullable(),
+	theme: z.string().nullable(),
 	createdAt: z.string(),
 	updatedAt: z.string(),
 	lastOpenedAt: z.string().nullable(),
@@ -286,6 +311,7 @@ export const updateWorkspaceInputSchema = z.object({
 	name: z.string().trim().min(1).max(120),
 	icon: workspaceIconSchema,
 	color: workspaceColorSchema,
+	theme: z.string().nullable(),
 });
 
 export const deleteWorkspaceInputSchema = z.object({
