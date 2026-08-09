@@ -2,9 +2,10 @@ import { MessageSquare } from "lucide-react";
 
 import { Skeleton } from "#/components/ui/skeleton";
 import AiChatThreadSkeleton from "#/features/workspaces/components/ai-chat/AiChatThreadSkeleton";
-import WorkspaceCardSkeleton from "#/features/workspaces/components/WorkspaceCardSkeleton";
 import WorkspaceChatLayout from "#/features/workspaces/components/WorkspaceChatLayout";
 import WorkspaceHeaderChrome from "#/features/workspaces/components/WorkspaceHeaderChrome";
+import { workspaceItemGridClass } from "#/features/workspaces/components/workspace-item-card-chrome";
+import WorkspaceItemCardSkeleton from "#/features/workspaces/components/WorkspaceItemCardSkeleton";
 import WorkspaceMobileFrame from "#/features/workspaces/components/WorkspaceMobileFrame";
 import {
 	defaultWorkspaceUiSession,
@@ -140,9 +141,10 @@ export function WorkspaceSkeletonContent() {
 	return (
 		<div className="h-full min-h-0 overflow-hidden">
 			<div className="space-y-5 px-4 py-3">
-				<section className="grid grid-cols-[repeat(auto-fill,minmax(13rem,1fr))] gap-5">
+				{/* The real grid's own class, so column width and gap can't drift. */}
+				<section className={workspaceItemGridClass}>
 					{workspaceSkeletonCardKeys.map((key) => (
-						<WorkspaceCardSkeleton key={key} />
+						<WorkspaceItemCardSkeleton key={key} />
 					))}
 				</section>
 			</div>
@@ -153,22 +155,11 @@ export function WorkspaceSkeletonContent() {
 function WorkspaceMobileSkeletonContent() {
 	return (
 		<div className="h-full min-h-0 overflow-hidden">
-			<div className="space-y-3 px-4 py-3">
+			{/* Same component as desktop: the item card is responsive, so its
+			    skeleton is too, and mobile no longer keeps a divergent copy. */}
+			<div className={cn(workspaceItemGridClass, "px-4 py-3")}>
 				{workspaceSkeletonCardKeys.slice(0, 5).map((key) => (
-					<div
-						key={key}
-						className="flex h-24 items-center gap-4 rounded-xl border border-border/70 bg-card/80 p-3"
-					>
-						<Skeleton className="size-14 shrink-0 rounded-lg" />
-						<div className="min-w-0 flex-1 space-y-2">
-							<Skeleton className="h-4 w-2/3 rounded-sm" />
-							<Skeleton className="h-3.5 w-1/2 rounded-sm" />
-						</div>
-						<div className="flex items-center gap-2">
-							<Skeleton className="size-8 rounded-md" />
-							<Skeleton className="size-8 rounded-md" />
-						</div>
-					</div>
+					<WorkspaceItemCardSkeleton key={key} />
 				))}
 			</div>
 		</div>
