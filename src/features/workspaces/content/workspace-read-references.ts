@@ -60,7 +60,7 @@ export function createWorkspaceReadReferences(
  */
 const workspaceReadGuidance = {
 	pending:
-		"Some paths are still extracting. Never sleep, poll, or otherwise stall waiting for them, including inside compute, sandbox_bash, or orchestrate. Either do other work and read those paths again later in this reply, or tell the user they are still processing and to ask again in about retryAfterSeconds. Never read the same pending path more than twice in one reply.",
+		"Some paths are still extracting. Never sleep, poll, or otherwise stall waiting for them, including inside compute, sandbox_bash, or orchestrate. If an original file is attached, use it and do not read that path again in this reply. Otherwise, either do other work and read pending paths again later in this reply, or tell the user they are still processing and to ask again in about retryAfterSeconds. Never read the same pending path more than twice in one reply.",
 	unrecoverable:
 		"Extraction will not finish for some paths. Report the code and any message to the user; do not retry those reads and do not suggest re-uploading the file.",
 	transient:
@@ -128,7 +128,11 @@ export function createWorkspaceReadItemsModelOutput(output: WorkspaceReadItemsOu
 	return {
 		...(guidance.length > 0 ? { guidance } : {}),
 		results: output.results.map((result) => {
-			if (result.status !== "ready") {
+			if (result.status === "pending") {
+				return omitWorkspaceReadItemId(result);
+			}
+
+			if (result.status === "failed") {
 				return result;
 			}
 
@@ -168,7 +172,7 @@ export function createWorkspaceReadItemsModelOutput(output: WorkspaceReadItemsOu
 	};
 }
 
-function omitWorkspaceReadItemId<T extends { readonly itemId: string }>(
+function omitWorkspaceReadItemId<T extends { readonly itemId?: string }>(
 	result: T,
 ): Omit<T, "itemId"> {
 	const { itemId: _itemId, ...modelResult } = result;

@@ -246,7 +246,7 @@ async function readFile(input: {
 		Date.now(),
 	);
 	if (projection.state !== "ready") {
-		return describeUnreadableProjection(projection, input.path);
+		return describeUnreadableProjection(projection, input.path, input.item.id);
 	}
 
 	const encodedCursor = input.request.mode === "continue" ? input.request.cursor : undefined;
@@ -312,10 +312,12 @@ async function readFile(input: {
 function describeUnreadableProjection(
 	projection: Exclude<WorkspaceProjectionReadiness, { state: "ready" }>,
 	path: string,
+	itemId: string,
 ): WorkspaceContentReadResult {
 	if (projection.state === "pending") {
 		return {
 			elapsedSeconds: projection.elapsedSeconds,
+			itemId,
 			path,
 			phase: projection.phase,
 			retryAfterSeconds: projection.retryAfterSeconds,

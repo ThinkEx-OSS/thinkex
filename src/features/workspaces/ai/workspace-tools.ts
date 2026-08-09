@@ -26,7 +26,9 @@ type WorkspaceThreadToolConfig = {
 function createWorkspaceThreadTool(input: WorkspaceThreadToolConfig) {
 	const { definition } = input;
 	const resultAdapter = getWorkspaceToolResultAdapter(definition.name);
-	const freshWorkspaceIds = new Map<string, string>();
+	// Projection also runs for history; only fresh calls may hydrate raw bytes.
+	const freshWorkspaceIds =
+		definition.name === "workspace_read_items" ? new Map<string, string>() : null;
 
 	return defineAIThreadTool({
 		description: definition.description,
@@ -35,12 +37,11 @@ function createWorkspaceThreadTool(input: WorkspaceThreadToolConfig) {
 		outputSchema: definition.outputSchema,
 		...(resultAdapter
 			? {
-					toModelOutput: async ({ input: toolInput, output, toolCallId }) => {
-						const workspaceId = freshWorkspaceIds.get(toolCallId);
-						if (definition.name === "workspace_read_items" && workspaceId) {
+					toModelOutput: async ({ output, toolCallId }) => {
+						const workspaceId = freshWorkspaceIds?.get(toolCallId);
+						if (workspaceId) {
 							const fileOutput = await createPendingPdfModelOutput({
 								env: input.env,
-								toolInput,
 								toolOutput: output,
 								workspaceId,
 							});
@@ -73,9 +74,7 @@ function createWorkspaceThreadTool(input: WorkspaceThreadToolConfig) {
 			if (references.length > 0 && input.onWorkspaceReferences) {
 				input.onWorkspaceReferences(references);
 			}
-			if (definition.name === "workspace_read_items") {
-				freshWorkspaceIds.set(context.invocationId, thread.workspaceId);
-			}
+			freshWorkspaceIds?.set(context.invocationId, thread.workspaceId);
 
 			return output;
 		},
