@@ -13,11 +13,13 @@ export default function WorkspaceCardSkeleton() {
 		<Card className="relative gap-0 py-0">
 			<Skeleton className="aspect-[5/2] w-full rounded-none bg-muted/45" />
 
-			{/* The settings button, which is always mounted on mobile. */}
+			{/* The settings button. Mobile only: from sm up the real one is
+			    hover-revealed, so drawing it here would promise a control that
+			    disappears once the card loads. Radius is the icon-sm button's. */}
 			<Skeleton
 				className={cn(
 					workspaceToolbarButtonSizeClass,
-					"absolute top-2 right-2 rounded-md bg-muted/55 sm:hidden",
+					"absolute top-2 right-2 rounded-[min(var(--radius-md),10px)] bg-muted/55 sm:hidden",
 				)}
 			/>
 
