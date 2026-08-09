@@ -3,7 +3,7 @@ import CreateWorkspaceCard from "#/features/workspaces/components/CreateWorkspac
 import WorkspaceCardSkeleton from "#/features/workspaces/components/WorkspaceCardSkeleton";
 import { WorkspaceGrid } from "#/features/workspaces/components/WorkspaceGrid";
 
-const homeWorkspaceSkeletonCardIds = ["recent", "research", "notes"] as const;
+const homeWorkspaceSkeletonCardKeys = [0, 1, 2];
 
 export function WorkspaceHomePageSkeleton() {
 	return (
@@ -11,8 +11,8 @@ export function WorkspaceHomePageSkeleton() {
 			<div className="pb-8">
 				<WorkspaceGrid>
 					<CreateWorkspaceCard disabled={true} />
-					{homeWorkspaceSkeletonCardIds.map((id) => (
-						<WorkspaceCardSkeleton key={id} />
+					{homeWorkspaceSkeletonCardKeys.map((key) => (
+						<WorkspaceCardSkeleton key={key} />
 					))}
 				</WorkspaceGrid>
 			</div>

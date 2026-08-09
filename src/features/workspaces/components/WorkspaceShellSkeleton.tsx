@@ -19,15 +19,7 @@ import {
 import type { WorkspaceAiChatSurfaceMode } from "#/features/workspaces/state/workspace-ui-store";
 import { cn } from "#/lib/utils";
 
-const workspaceSkeletonCardKeys = [
-	"card-1",
-	"card-2",
-	"card-3",
-	"card-4",
-	"card-5",
-	"card-6",
-	"card-7",
-] as const;
+const workspaceSkeletonCardKeys = [0, 1, 2, 3, 4, 5, 6];
 
 interface WorkspaceShellSkeletonProps {
 	chatSurfaceMode?: WorkspaceAiChatSurfaceMode;
@@ -55,7 +47,7 @@ export default function WorkspaceShellSkeleton({
 	);
 }
 
-export function WorkspaceSkeletonChrome() {
+function WorkspaceSkeletonChrome() {
 	return (
 		<WorkspaceHeaderChrome
 			actions={
@@ -137,11 +129,10 @@ function WorkspaceMobileContextBarSkeleton() {
 	);
 }
 
-export function WorkspaceSkeletonContent() {
+function WorkspaceSkeletonContent() {
 	return (
 		<div className="h-full min-h-0 overflow-hidden">
 			<div className="space-y-5 px-4 py-3">
-				{/* The real grid's own class, so column width and gap can't drift. */}
 				<section className={workspaceItemGridClass}>
 					{workspaceSkeletonCardKeys.map((key) => (
 						<WorkspaceItemCardSkeleton key={key} />
@@ -155,8 +146,6 @@ export function WorkspaceSkeletonContent() {
 function WorkspaceMobileSkeletonContent() {
 	return (
 		<div className="h-full min-h-0 overflow-hidden">
-			{/* Same component as desktop: the item card is responsive, so its
-			    skeleton is too, and mobile no longer keeps a divergent copy. */}
 			<div className={cn(workspaceItemGridClass, "px-4 py-3")}>
 				{workspaceSkeletonCardKeys.slice(0, 5).map((key) => (
 					<WorkspaceItemCardSkeleton key={key} />
@@ -166,7 +155,7 @@ function WorkspaceMobileSkeletonContent() {
 	);
 }
 
-export function WorkspaceSkeletonAiChatPanel() {
+function WorkspaceSkeletonAiChatPanel() {
 	return (
 		<aside className="relative flex h-full min-h-0 flex-col overflow-hidden bg-background">
 			<div className="absolute top-0 right-0 z-10 flex items-center gap-1 rounded-bl-md border border-border/70 bg-background/95 p-1 shadow-sm backdrop-blur">

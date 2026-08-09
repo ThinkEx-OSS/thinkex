@@ -10,11 +10,7 @@ export default function AiChatThreadSkeleton() {
 	);
 }
 
-function AssistantMessageSkeleton({
-	isCompact = false,
-}: {
-	isCompact?: boolean;
-} = {}) {
+function AssistantMessageSkeleton({ isCompact = false }: { isCompact?: boolean }) {
 	return (
 		<div className="max-w-full space-y-2">
 			<Skeleton className="h-3 w-20 rounded-sm" />
