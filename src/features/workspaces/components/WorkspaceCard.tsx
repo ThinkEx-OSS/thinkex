@@ -56,7 +56,7 @@ export default function WorkspaceCard({ workspace, className, search }: Workspac
 						// starts in roughly the right hue and the illustration resolves
 						// onto it instead of popping out of an empty rectangle.
 						className={cn(
-							"aspect-[5/2] w-full object-cover opacity-85 transition-[filter,opacity] duration-200 group-hover/card:opacity-100 group-hover/card:brightness-90",
+							"aspect-[5/2] w-full object-cover opacity-80 transition-[filter,opacity] duration-200 group-hover/card:opacity-100 group-hover/card:brightness-90",
 							color.bg,
 						)}
 					/>
