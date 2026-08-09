@@ -13,6 +13,7 @@ import type {
 	WorkspaceTheme as WorkspaceThemeValue,
 } from "#/features/workspaces/contracts";
 import { workspaceThemeValues } from "#/features/workspaces/contracts";
+import { DEFAULT_WORKSPACE_COLOR, DEFAULT_WORKSPACE_ICON } from "#/features/workspaces/defaults";
 import {
 	getSearchTermScore,
 	normalizeIconSearch,
@@ -748,6 +749,25 @@ const queryExpansions: Record<string, readonly string[]> = {
 	data: ["data science", "statistics", "analytics", "data analysis"],
 };
 
+// Expansions are static, so normalise them once rather than per theme per
+// keystroke — the chained passes the linter flagged were a symptom of doing
+// this work inside the scoring loop.
+const expansionTokens = new Map<string, readonly string[]>(
+	Object.entries(queryExpansions).map(([token, values]) => {
+		const expanded: string[] = [];
+
+		for (const value of values) {
+			for (const part of normalizeIconSearchTerm(value).split(" ")) {
+				if (part) {
+					expanded.push(part);
+				}
+			}
+		}
+
+		return [token, expanded];
+	}),
+);
+
 const themeIcons = new Map(workspaceIconOptions.map((option) => [option.value, option]));
 
 // Weighted so the theme's own name beats a match on borrowed vocabulary:
@@ -808,23 +828,17 @@ export function filterWorkspaceThemeOptions(query: string, group: string | null)
 				// "Statistics" exactly through expansion (12) but only prefixes
 				// "Mathematics" (8), which would put the family above the subject.
 				// Capping expansions below the weakest direct score fixes the order.
-				const expanded = direct
-					? 0
-					: Math.min(
-							3,
-							Math.max(
-								0,
-								...(queryExpansions[token] ?? [])
-									.flatMap((candidate) => normalizeIconSearchTerm(candidate).split(" "))
-									.map((candidate) =>
-										Math.max(
-											...terms.map(
-												({ term, weight }) => getSearchTermScore(term, candidate) * weight,
-											),
-										),
-									),
-							),
-						);
+				let expanded = 0;
+
+				if (!direct) {
+					for (const candidate of expansionTokens.get(token) ?? []) {
+						for (const { term, weight } of terms) {
+							expanded = Math.max(expanded, getSearchTermScore(term, candidate) * weight);
+						}
+					}
+
+					expanded = Math.min(3, expanded);
+				}
 
 				const best = direct || expanded;
 
@@ -857,6 +871,29 @@ const themeByValue = new Map<string, WorkspaceTheme>(
 export const getWorkspaceTheme = (value: string | null | undefined) =>
 	value ? themeByValue.get(value) : undefined;
 
+/**
+ * What icon and colour to render. Deliberately does NOT infer from the icon:
+ * a workspace that predates themes keeps whatever it already had, so upgrading
+ * never silently repaints someone's chosen colour.
+ */
+export function resolveWorkspaceIdentity(workspace: {
+	theme?: string | null;
+	icon?: WorkspaceIcon | null;
+	color?: WorkspaceColor | null;
+}): { icon: WorkspaceIcon; color: WorkspaceColor } {
+	const theme = getWorkspaceTheme(workspace.theme);
+
+	return {
+		icon: theme?.icon ?? workspace.icon ?? DEFAULT_WORKSPACE_ICON,
+		color: theme?.color ?? workspace.color ?? DEFAULT_WORKSPACE_COLOR,
+	};
+}
+
+/**
+ * Which artwork to render. Unlike identity this always resolves to something,
+ * inferring from the icon for pre-theme workspaces and falling back to the
+ * default theme.
+ */
 export function getWorkspaceThemeArt(workspace: {
 	theme?: string | null;
 	icon?: string | null;

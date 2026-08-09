@@ -6,6 +6,7 @@ import {
 	defaultWorkspaceTheme,
 	filterWorkspaceThemeOptions,
 	getWorkspaceThemeArt,
+	resolveWorkspaceIdentity,
 	workspaceThemeOptions,
 } from "#/features/workspaces/model/workspace-themes";
 
@@ -86,5 +87,32 @@ describe("theme resolution", () => {
 		expect(getWorkspaceThemeArt({ theme: null, icon: "compass" })).toBe(
 			getWorkspaceThemeArt({ theme: DEFAULT_WORKSPACE_THEME, icon: null }),
 		);
+	});
+});
+
+describe("identity vs artwork resolution", () => {
+	it("does not repaint a pre-theme workspace's own colour", () => {
+		// The two rules deliberately differ: artwork may be inferred from the
+		// icon, identity may not, or upgrading would silently change colours.
+		const identity = resolveWorkspaceIdentity({
+			theme: null,
+			icon: "flask-conical",
+			color: "rose",
+		});
+
+		expect(identity.color).toBe("rose");
+		expect(identity.icon).toBe("flask-conical");
+	});
+
+	it("lets an explicit theme override stored icon and colour", () => {
+		const identity = resolveWorkspaceIdentity({
+			theme: "chemistry",
+			icon: "compass",
+			color: "rose",
+		});
+		const chemistry = workspaceThemeOptions.find((theme) => theme.value === "chemistry");
+
+		expect(identity.icon).toBe(chemistry?.icon);
+		expect(identity.color).toBe(chemistry?.color);
 	});
 });

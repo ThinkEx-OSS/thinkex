@@ -4,7 +4,7 @@ import {
 	workspaceColorOptions,
 	workspaceColors,
 } from "#/features/workspaces/model/workspace-colors";
-import { getWorkspaceTheme } from "#/features/workspaces/model/workspace-themes";
+import { resolveWorkspaceIdentity } from "#/features/workspaces/model/workspace-themes";
 import {
 	filterWorkspaceIconOptions,
 	workspaceIconOptions,
@@ -29,12 +29,9 @@ export { filterWorkspaceIconOptions, workspaceColorOptions, workspaceColors, wor
 
 export function getWorkspaceDisplay(workspace: WorkspaceSummary) {
 	// The theme is the only thing a user picks; icon and colour are properties
-	// of it. Workspaces created before themes existed keep whatever icon and
-	// colour they already had — we never rewrite those, we just render theme art
-	// derived from the icon (see getWorkspaceThemeArt).
-	const theme = getWorkspaceTheme(workspace.theme);
-	const icon = theme?.icon ?? workspace.icon ?? "compass";
-	const color = theme?.color ?? workspace.color ?? "sky";
+	// of it. Resolution lives in workspace-themes.ts beside the artwork rule so
+	// the two cannot drift apart again.
+	const { icon, color } = resolveWorkspaceIdentity(workspace);
 	const colorDefinition = workspaceColors[color];
 
 	return {
