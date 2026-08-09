@@ -37,6 +37,7 @@ import {
 	defaultWorkspaceTheme,
 	getWorkspaceTheme,
 	getWorkspaceThemeArtByValue,
+	resolveWorkspaceTheme,
 	workspaceThemeGroups,
 	workspaceThemeOptions,
 } from "#/features/workspaces/model/workspace-themes";
@@ -55,12 +56,15 @@ interface WorkspaceSettingsDialogProps {
 
 interface WorkspaceSettingsDraft {
 	name: string;
-	theme: string | null;
+	theme: string;
 }
 
 const getWorkspaceSettingsDraft = (workspace: WorkspaceSummary): WorkspaceSettingsDraft => ({
 	name: workspace.name,
-	theme: workspace.theme ?? null,
+	// Resolved, not the raw column. A workspace created before themes existed
+	// has `theme: null` but still shows icon-derived artwork on its card, and
+	// the picker has to open on that same theme rather than claiming "Default".
+	theme: resolveWorkspaceTheme(workspace).value,
 });
 
 export default function WorkspaceSettingsDialog({
@@ -284,15 +288,15 @@ function WorkspaceThemePicker({
 	onValueChange,
 }: {
 	open: boolean;
-	value: string | null;
+	value: string;
 	onOpenChange: (open: boolean) => void;
-	onValueChange: (value: string | null) => void;
+	onValueChange: (value: string) => void;
 }) {
 	const [query, setQuery] = useState("");
 	const [group, setGroup] = useState<string | null>(null);
 	const selected = workspaceThemeOptions.find((option) => option.value === value);
 	const results = filterWorkspaceThemeOptions(query, group);
-	const previewArt = getWorkspaceThemeArtByValue(value ?? DEFAULT_WORKSPACE_THEME);
+	const previewArt = getWorkspaceThemeArtByValue(value);
 
 	// A 117-item grid does not fit in a popup anchored inside a 32rem dialog —
 	// it ends up wider than its container and re-flips every time filtering
@@ -306,7 +310,7 @@ function WorkspaceThemePicker({
 		onOpenChange(nextOpen);
 	};
 
-	const choose = (next: string | null) => {
+	const choose = (next: string) => {
 		onValueChange(next);
 		handleOpenChange(false);
 	};
@@ -380,11 +384,11 @@ function WorkspaceThemePicker({
 							title="Default"
 							className={cn(
 								"overflow-hidden rounded-md outline-none ring-offset-2 ring-offset-popover transition-shadow focus-visible:ring-3 focus-visible:ring-ring/50",
-								value === null && "ring-2 ring-foreground",
+								value === DEFAULT_WORKSPACE_THEME && "ring-2 ring-foreground",
 							)}
 							aria-label="Default"
-							aria-pressed={value === null}
-							onClick={() => choose(null)}
+							aria-pressed={value === DEFAULT_WORKSPACE_THEME}
+							onClick={() => choose(DEFAULT_WORKSPACE_THEME)}
 						>
 							<img
 								src={getWorkspaceThemeArtByValue(DEFAULT_WORKSPACE_THEME)}

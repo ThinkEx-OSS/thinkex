@@ -892,18 +892,31 @@ export function resolveWorkspaceIdentity(workspace: {
 }
 
 /**
- * Which artwork to render. Unlike identity this always resolves to something,
- * inferring from the icon for pre-theme workspaces and falling back to the
- * default theme.
+ * Which theme a workspace is *on*. Unlike identity this always resolves to a
+ * concrete theme, inferring from the icon for pre-theme workspaces and falling
+ * back to the default. Every surface that answers "what theme is this?" — the
+ * card artwork and the settings picker alike — must go through here, or the
+ * picker says Default while the card shows something else.
  */
+export function resolveWorkspaceTheme(workspace: {
+	theme?: string | null;
+	icon?: string | null;
+}): WorkspaceTheme {
+	const stored = getWorkspaceTheme(workspace.theme);
+
+	if (stored) {
+		return stored;
+	}
+
+	const inherited = workspace.icon ? themeByIcon.get(workspace.icon) : undefined;
+
+	return getWorkspaceTheme(inherited) ?? defaultWorkspaceTheme;
+}
+
+/** Which artwork to render, always resolved. */
 export function getWorkspaceThemeArt(workspace: {
 	theme?: string | null;
 	icon?: string | null;
 }): string | undefined {
-	const value =
-		workspace.theme ??
-		(workspace.icon ? themeByIcon.get(workspace.icon) : undefined) ??
-		DEFAULT_WORKSPACE_THEME;
-
-	return art[`../themes/${value}.webp`];
+	return getWorkspaceThemeArtByValue(resolveWorkspaceTheme(workspace).value);
 }

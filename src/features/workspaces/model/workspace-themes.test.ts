@@ -7,6 +7,7 @@ import {
 	filterWorkspaceThemeOptions,
 	getWorkspaceThemeArt,
 	resolveWorkspaceIdentity,
+	resolveWorkspaceTheme,
 	workspaceThemeOptions,
 } from "#/features/workspaces/model/workspace-themes";
 
@@ -80,6 +81,26 @@ describe("theme resolution", () => {
 
 		expect(derived).toBe(getWorkspaceThemeArt({ theme: "chemistry", icon: null }));
 		expect(derived).not.toBe(getWorkspaceThemeArt({ theme: DEFAULT_WORKSPACE_THEME, icon: null }));
+	});
+
+	it("names the same theme the artwork came from", () => {
+		// Regression: the settings picker read `workspace.theme` directly, so a
+		// workspace that predates themes said "Default" while its card showed the
+		// icon-derived illustration.
+		const workspace = { theme: null, icon: "flask-conical" };
+
+		expect(resolveWorkspaceTheme(workspace).value).toBe("chemistry");
+		expect(getWorkspaceThemeArt(workspace)).toBe(
+			getWorkspaceThemeArt({ theme: resolveWorkspaceTheme(workspace).value, icon: null }),
+		);
+	});
+
+	it("resolves to a concrete theme for every input", () => {
+		expect(resolveWorkspaceTheme({}).value).toBe(DEFAULT_WORKSPACE_THEME);
+		expect(resolveWorkspaceTheme({ theme: "retired-theme" }).value).toBe(DEFAULT_WORKSPACE_THEME);
+		expect(resolveWorkspaceTheme({ theme: null, icon: "unknown-icon" }).value).toBe(
+			DEFAULT_WORKSPACE_THEME,
+		);
 	});
 
 	it("treats the generic fallback icon as no signal", () => {
