@@ -579,9 +579,11 @@ export const workspaceThemeOptions = [
 
 export const DEFAULT_WORKSPACE_THEME = "default" satisfies WorkspaceThemeValue;
 
+assertWorkspaceThemeCatalogueIsComplete();
+
 // The contract enum and this catalogue are generated together; assert rather
-// than trust, the same way the icon registry does.
-{
+// than trust, mirroring assertWorkspaceIconRegistryIsComplete.
+function assertWorkspaceThemeCatalogueIsComplete() {
 	const catalogued = new Set(workspaceThemeOptions.map((theme) => theme.value));
 	const missing = workspaceThemeValues.filter((value) => !catalogued.has(value));
 

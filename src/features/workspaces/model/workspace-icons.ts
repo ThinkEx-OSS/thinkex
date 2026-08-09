@@ -629,24 +629,6 @@ export const workspaceIcons: Record<WorkspaceIcon, LucideIcon> = Object.fromEntr
 
 assertWorkspaceIconRegistryIsComplete();
 
-export function filterWorkspaceIconOptions(query: string) {
-	const tokens = normalizeIconSearch(query);
-
-	if (tokens.length === 0) {
-		return workspaceIconOptions;
-	}
-
-	return workspaceIconOptions
-		.map((option, index) => ({
-			option,
-			index,
-			score: getWorkspaceIconSearchScore(option, tokens),
-		}))
-		.filter((result) => result.score > 0)
-		.sort((left, right) => right.score - left.score || left.index - right.index)
-		.map(({ option }) => option);
-}
-
 function icon(
 	value: WorkspaceIcon,
 	label: string,
@@ -655,29 +637,6 @@ function icon(
 	aliases: readonly string[],
 ): WorkspaceIconOption {
 	return { value, label, Icon, category, aliases };
-}
-
-function getWorkspaceIconSearchScore(option: WorkspaceIconOption, tokens: readonly string[]) {
-	const terms = getWorkspaceIconSearchTerms(option);
-	let score = 0;
-
-	for (const token of tokens) {
-		const tokenScore = Math.max(...terms.map((term) => getSearchTermScore(term, token)));
-
-		if (tokenScore === 0) {
-			return 0;
-		}
-
-		score += tokenScore;
-	}
-
-	return score;
-}
-
-function getWorkspaceIconSearchTerms(option: WorkspaceIconOption) {
-	return [option.label, option.value, option.category, ...option.aliases].map(
-		normalizeIconSearchTerm,
-	);
 }
 
 export function getSearchTermScore(term: string, token: string) {

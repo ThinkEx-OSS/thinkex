@@ -1,15 +1,8 @@
 import type { WorkspaceItemSummary, WorkspaceSummary } from "#/features/workspaces/contracts";
 import { workspaceRoleLabels } from "#/features/workspaces/contracts";
-import {
-	workspaceColorOptions,
-	workspaceColors,
-} from "#/features/workspaces/model/workspace-colors";
+import { workspaceColors } from "#/features/workspaces/model/workspace-colors";
 import { resolveWorkspaceIdentity } from "#/features/workspaces/model/workspace-themes";
-import {
-	filterWorkspaceIconOptions,
-	workspaceIconOptions,
-	workspaceIcons,
-} from "#/features/workspaces/model/workspace-icons";
+import { workspaceIcons } from "#/features/workspaces/model/workspace-icons";
 
 const workspaceRecencyTimeFormatter = new Intl.DateTimeFormat(undefined, {
 	hour: "numeric",
@@ -24,8 +17,6 @@ const workspaceRecencyDateWithYearFormatter = new Intl.DateTimeFormat(undefined,
 	day: "numeric",
 	year: "numeric",
 });
-
-export { filterWorkspaceIconOptions, workspaceColorOptions, workspaceColors, workspaceIconOptions };
 
 export function getWorkspaceDisplay(workspace: WorkspaceSummary) {
 	// The theme is the only thing a user picks; icon and colour are properties
