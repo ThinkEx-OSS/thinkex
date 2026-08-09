@@ -19,6 +19,19 @@ export function getAuthSessionQueryOptions() {
 	});
 }
 
+/**
+ * Public routes use auth only to personalize navigation, so an unavailable
+ * session endpoint must not make the page unavailable. Protected routes use
+ * the query options directly and keep their stricter failure behavior.
+ */
+export async function hasClientAuthSessionForPublicRoute(queryClient: QueryClient) {
+	try {
+		return Boolean(await queryClient.ensureQueryData(getAuthSessionQueryOptions()));
+	} catch {
+		return false;
+	}
+}
+
 export function removeAuthSession(queryClient: QueryClient) {
 	queryClient.setQueryData<AuthSession | null>(authSessionQueryKey, null);
 }

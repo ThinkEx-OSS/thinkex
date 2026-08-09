@@ -2,7 +2,7 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 
 import LandingPage from "#/components/LandingPage";
 import { buildPublicMeta, getAbsoluteUrl } from "#/lib/seo";
-import { getAuthSessionQueryOptions } from "#/lib/session-query";
+import { hasClientAuthSessionForPublicRoute } from "#/lib/session-query";
 
 /** Neither branch of this route may be stored by a shared cache. See below. */
 const UNCACHEABLE = "private, no-store";
@@ -26,12 +26,21 @@ export const Route = createFileRoute("/")({
 		// the server module never enters the browser bundle.
 		const signedIn = import.meta.env.SSR
 			? (await import("#/lib/auth-session-cookie.server")).hasSessionCookie()
-			: Boolean(await context.queryClient.ensureQueryData(getAuthSessionQueryOptions()));
+			: await hasClientAuthSessionForPublicRoute(context.queryClient);
 
 		if (signedIn) {
 			throw redirect({ to: "/home", headers: { "Cache-Control": UNCACHEABLE } });
 		}
 	},
+	head: () => ({
+		meta: buildPublicMeta(),
+		links: [
+			{
+				rel: "canonical",
+				href: getAbsoluteUrl("/"),
+			},
+		],
+	}),
 	/**
 	 * This response depends on a cookie, and Cloudflare's cache key does not
 	 * include cookies. A stored copy would pin whichever branch happened to fill
@@ -42,15 +51,6 @@ export const Route = createFileRoute("/")({
 	 */
 	headers: () => ({
 		"Cache-Control": UNCACHEABLE,
-	}),
-	head: () => ({
-		meta: buildPublicMeta(),
-		links: [
-			{
-				rel: "canonical",
-				href: getAbsoluteUrl("/"),
-			},
-		],
 	}),
 	component: LandingPage,
 });

@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import LandingPage from "#/components/LandingPage";
 import { buildPublicMeta, getAbsoluteUrl } from "#/lib/seo";
-import { getAuthSessionQueryOptions } from "#/lib/session-query";
+import { hasClientAuthSessionForPublicRoute } from "#/lib/session-query";
 
 const UNCACHEABLE = "private, no-store";
 
@@ -22,7 +22,7 @@ export const Route = createFileRoute("/welcome")({
 		// label; `/home` still performs full session validation.
 		return import.meta.env.SSR
 			? (await import("#/lib/auth-session-cookie.server")).hasSessionCookie()
-			: Boolean(await context.queryClient.ensureQueryData(getAuthSessionQueryOptions()));
+			: hasClientAuthSessionForPublicRoute(context.queryClient);
 	},
 	head: () => ({
 		meta: buildPublicMeta(),

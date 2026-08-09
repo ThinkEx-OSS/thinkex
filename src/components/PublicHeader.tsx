@@ -18,6 +18,8 @@ interface PublicHeaderProps {
 export function PublicHeader({ signedIn = false }: PublicHeaderProps) {
 	const pathname = useRouterState({ select: (state) => state.location.pathname });
 	const marketingHome = useMarketingHomePath();
+	const accountHref = signedIn ? "/home" : "/login";
+	const accountLabel = signedIn ? "Home" : "Get started";
 
 	function handleHomeLogoClick(event: MouseEvent<HTMLAnchorElement>) {
 		if (!isPlainLeftClick(event)) {
@@ -53,8 +55,8 @@ export function PublicHeader({ signedIn = false }: PublicHeaderProps) {
 
 				<nav className="ml-auto hidden items-center gap-3 lg:flex" aria-label="Account">
 					<ModeToggle className="size-9" />
-					<Button nativeButton={false} render={<Link to={signedIn ? "/home" : "/login"} />}>
-						{signedIn ? "Home" : "Get started"}
+					<Button nativeButton={false} render={<Link to={accountHref} />}>
+						{accountLabel}
 					</Button>
 				</nav>
 
@@ -87,11 +89,11 @@ export function PublicHeader({ signedIn = false }: PublicHeaderProps) {
 								/>
 								<Button
 									nativeButton={false}
-									render={<Link to={signedIn ? "/home" : "/login"} />}
+									render={<Link to={accountHref} />}
 									size="lg"
 									className="h-12"
 								>
-									{signedIn ? "Home" : "Get started"}
+									{accountLabel}
 								</Button>
 							</div>
 						</SheetContent>
