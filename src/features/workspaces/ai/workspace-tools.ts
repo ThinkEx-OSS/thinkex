@@ -2,6 +2,7 @@ import type { ToolSet } from "ai";
 
 import type { AIThreadContext } from "#/features/workspaces/ai/ai-thread-metadata";
 import { defineAIThreadTool } from "#/features/workspaces/ai/ai-thread-tool";
+import { createPendingPdfModelOutput } from "#/features/workspaces/ai/workspace-read-file-fallback";
 import { getWorkspaceToolResultAdapter } from "#/features/workspaces/ai/workspace-tool-result-adapters";
 import type { WorkspaceReferenceRecord } from "#/features/workspaces/locations/workspace-location";
 import {
@@ -16,6 +17,7 @@ import {
 
 type WorkspaceThreadToolConfig = {
 	definition: (typeof workspaceToolDefinitions)[number];
+	env: Cloudflare.Env;
 	getThreadContext: () => Promise<AIThreadContext | null>;
 	onWorkspaceReferences?: (records: readonly WorkspaceReferenceRecord[]) => void;
 	resolveWorkspaceReferences?: (refs: readonly string[]) => Promise<WorkspaceReferenceRecord[]>;
@@ -24,6 +26,7 @@ type WorkspaceThreadToolConfig = {
 function createWorkspaceThreadTool(input: WorkspaceThreadToolConfig) {
 	const { definition } = input;
 	const resultAdapter = getWorkspaceToolResultAdapter(definition.name);
+	const freshWorkspaceIds = new Map<string, string>();
 
 	return defineAIThreadTool({
 		description: definition.description,
@@ -32,10 +35,25 @@ function createWorkspaceThreadTool(input: WorkspaceThreadToolConfig) {
 		outputSchema: definition.outputSchema,
 		...(resultAdapter
 			? {
-					toModelOutput: ({ output }) => ({
-						type: "json" as const,
-						value: resultAdapter.projectOutput(output),
-					}),
+					toModelOutput: async ({ input: toolInput, output, toolCallId }) => {
+						const workspaceId = freshWorkspaceIds.get(toolCallId);
+						if (definition.name === "workspace_read_items" && workspaceId) {
+							const fileOutput = await createPendingPdfModelOutput({
+								env: input.env,
+								toolInput,
+								toolOutput: output,
+								workspaceId,
+							});
+							if (fileOutput) {
+								return fileOutput;
+							}
+						}
+
+						return {
+							type: "json" as const,
+							value: resultAdapter.projectOutput(output),
+						};
+					},
 				}
 			: {}),
 		execute: async (args, context) => {
@@ -55,6 +73,9 @@ function createWorkspaceThreadTool(input: WorkspaceThreadToolConfig) {
 			if (references.length > 0 && input.onWorkspaceReferences) {
 				input.onWorkspaceReferences(references);
 			}
+			if (definition.name === "workspace_read_items") {
+				freshWorkspaceIds.set(context.invocationId, thread.workspaceId);
+			}
 
 			return output;
 		},
@@ -62,6 +83,7 @@ function createWorkspaceThreadTool(input: WorkspaceThreadToolConfig) {
 }
 
 export function createAIThreadWorkspaceTools(input: {
+	env: Cloudflare.Env;
 	getThreadContext: () => Promise<AIThreadContext | null>;
 	onWorkspaceReferences?: (records: readonly WorkspaceReferenceRecord[]) => void;
 	resolveWorkspaceReferences?: (refs: readonly string[]) => Promise<WorkspaceReferenceRecord[]>;
@@ -71,6 +93,7 @@ export function createAIThreadWorkspaceTools(input: {
 			definition.name,
 			createWorkspaceThreadTool({
 				definition,
+				env: input.env,
 				getThreadContext: input.getThreadContext,
 				onWorkspaceReferences: input.onWorkspaceReferences,
 				resolveWorkspaceReferences: input.resolveWorkspaceReferences,

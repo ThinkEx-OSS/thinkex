@@ -158,6 +158,7 @@ function createAIThreadToolCatalog(input: {
 		defaultTimeZone: input.timeZone,
 	});
 	const workspaceTools = createAIThreadWorkspaceTools({
+		env: input.env,
 		getThreadContext: input.getThreadContext,
 		onWorkspaceReferences: input.onWorkspaceReferences,
 		resolveWorkspaceReferences: input.resolveWorkspaceReferences,
