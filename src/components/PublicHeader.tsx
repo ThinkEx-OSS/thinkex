@@ -11,7 +11,11 @@ import { useMarketingHomePath } from "#/components/use-marketing-home-path";
 import { isPlainLeftClick } from "#/lib/plain-link-click";
 import { smoothScrollViewportTop } from "#/lib/smooth-scroll";
 
-export function PublicHeader() {
+interface PublicHeaderProps {
+	signedIn?: boolean;
+}
+
+export function PublicHeader({ signedIn = false }: PublicHeaderProps) {
 	const pathname = useRouterState({ select: (state) => state.location.pathname });
 	const marketingHome = useMarketingHomePath();
 
@@ -49,11 +53,8 @@ export function PublicHeader() {
 
 				<nav className="ml-auto hidden items-center gap-3 lg:flex" aria-label="Account">
 					<ModeToggle className="size-9" />
-					<Button nativeButton={false} render={<Link to="/login" />} variant="outline">
-						Sign in
-					</Button>
-					<Button nativeButton={false} render={<Link to="/login" />}>
-						Get started
+					<Button nativeButton={false} render={<Link to={signedIn ? "/home" : "/login"} />}>
+						{signedIn ? "Home" : "Get started"}
 					</Button>
 				</nav>
 
@@ -86,20 +87,11 @@ export function PublicHeader() {
 								/>
 								<Button
 									nativeButton={false}
-									render={<Link to="/login" />}
-									variant="outline"
+									render={<Link to={signedIn ? "/home" : "/login"} />}
 									size="lg"
 									className="h-12"
 								>
-									Sign in
-								</Button>
-								<Button
-									nativeButton={false}
-									render={<Link to="/login" />}
-									size="lg"
-									className="h-12"
-								>
-									Get started
+									{signedIn ? "Home" : "Get started"}
 								</Button>
 							</div>
 						</SheetContent>

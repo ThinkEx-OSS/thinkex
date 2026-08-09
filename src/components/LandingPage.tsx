@@ -10,7 +10,11 @@ import { LatestBlogSection } from "#/components/landing/LatestBlogSection";
 import { PricingSection } from "#/components/landing/PricingSection";
 import { useLandingSectionScroll } from "#/components/landing/useLandingSectionScroll";
 
-export default function LandingPage() {
+interface LandingPageProps {
+	signedIn?: boolean;
+}
+
+export default function LandingPage({ signedIn = false }: LandingPageProps) {
 	const scrollRootRef = useLandingSectionScroll();
 
 	return (
@@ -18,7 +22,7 @@ export default function LandingPage() {
 			data-app-shell
 			className="flex h-screen flex-col overflow-hidden bg-background text-foreground dark:bg-black"
 		>
-			<PublicHeader />
+			<PublicHeader signedIn={signedIn} />
 
 			{/* `relative` keeps absolutely positioned descendants (e.g. `sr-only` labels) inside this
 			    scroll container: without it they resolve against the initial containing block, escape
