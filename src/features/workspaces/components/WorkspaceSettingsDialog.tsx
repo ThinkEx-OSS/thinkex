@@ -31,8 +31,8 @@ import {
 	PopoverTrigger,
 } from "#/components/ui/popover";
 import type { WorkspaceSummary } from "#/features/workspaces/contracts";
+import { DEFAULT_WORKSPACE_THEME } from "#/features/workspaces/defaults";
 import {
-	DEFAULT_WORKSPACE_THEME,
 	filterWorkspaceThemeOptions,
 	defaultWorkspaceTheme,
 	getWorkspaceTheme,
@@ -61,9 +61,8 @@ interface WorkspaceSettingsDraft {
 
 const getWorkspaceSettingsDraft = (workspace: WorkspaceSummary): WorkspaceSettingsDraft => ({
 	name: workspace.name,
-	// Resolved, not the raw column. A workspace created before themes existed
-	// has `theme: null` but still shows icon-derived artwork on its card, and
-	// the picker has to open on that same theme rather than claiming "Default".
+	// Resolved through the same call the card's artwork uses, so the picker can
+	// never name a different theme than the one on screen.
 	theme: resolveWorkspaceTheme(workspace).value,
 });
 
@@ -156,9 +155,6 @@ function WorkspaceSettingsDialogContent({
 			workspaceId: workspace.id,
 			name: normalizedName,
 			// Icon and colour are properties of the theme, never picked separately.
-			// Saving always resolves a concrete theme: a null draft would fall back
-			// to the workspace's stored icon, and the icon-derived art would put the
-			// previous illustration back instead of the default the picker showed.
 			icon: savedTheme.icon,
 			color: savedTheme.color,
 			theme: savedTheme.value,

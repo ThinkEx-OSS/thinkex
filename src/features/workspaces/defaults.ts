@@ -3,12 +3,16 @@ import {
 	type WorkspaceColor,
 	type WorkspaceIcon,
 	type WorkspaceItemType,
+	type WorkspaceTheme,
 } from "#/features/workspaces/contracts";
 import { getWorkspaceItemRegistryEntry } from "#/features/workspaces/workspace-item-registry";
 
 export const DEFAULT_WORKSPACE_NAME = "Untitled Workspace";
 export const DEFAULT_WORKSPACE_COLOR = "sky" satisfies WorkspaceColor;
 export const DEFAULT_WORKSPACE_ICON = "compass" satisfies WorkspaceIcon;
+// Lives here rather than in the theme catalogue so the server can write it on
+// insert without pulling in the catalogue's import.meta.glob over 117 images.
+export const DEFAULT_WORKSPACE_THEME = "default" satisfies WorkspaceTheme;
 export const WORKSPACE_ITEM_SORT_STEP = 1024;
 
 export function getDefaultWorkspaceItemName(type: WorkspaceItemType) {

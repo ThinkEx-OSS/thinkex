@@ -13,7 +13,11 @@ import type {
 	WorkspaceTheme as WorkspaceThemeValue,
 } from "#/features/workspaces/contracts";
 import { workspaceThemeValues } from "#/features/workspaces/contracts";
-import { DEFAULT_WORKSPACE_COLOR, DEFAULT_WORKSPACE_ICON } from "#/features/workspaces/defaults";
+import {
+	DEFAULT_WORKSPACE_COLOR,
+	DEFAULT_WORKSPACE_ICON,
+	DEFAULT_WORKSPACE_THEME,
+} from "#/features/workspaces/defaults";
 import {
 	getSearchTermScore,
 	normalizeIconSearch,
@@ -577,8 +581,6 @@ export const workspaceThemeOptions = [
 	},
 ] as const satisfies ReadonlyArray<WorkspaceTheme>;
 
-export const DEFAULT_WORKSPACE_THEME = "default" satisfies WorkspaceThemeValue;
-
 assertWorkspaceThemeCatalogueIsComplete();
 
 // The contract enum and this catalogue are generated together; assert rather
@@ -590,19 +592,6 @@ function assertWorkspaceThemeCatalogueIsComplete() {
 	if (missing.length > 0) {
 		throw new Error(`workspaceThemeOptions is missing: ${missing.join(", ")}`);
 	}
-}
-
-// `compass` is the app's fallback icon for a workspace that never chose one
-// (see getWorkspaceDisplay), so it carries no subject meaning and must not
-// resolve to whichever theme happens to list it. Everything else may.
-const GENERIC_ICON = "compass";
-
-// One icon can back several themes; first listed wins. This is what lets an
-// existing workspace show art immediately from the icon it already has, with no
-// migration and no picker — an explicit theme overrides it once one is set.
-const themeByIcon = new Map<string, string>();
-for (const t of workspaceThemeOptions) {
-	if (t.icon !== GENERIC_ICON && !themeByIcon.has(t.icon)) themeByIcon.set(t.icon, t.value);
 }
 
 export const workspaceThemeGroups = [...new Set(workspaceThemeOptions.map((t) => t.group))].filter(
@@ -892,31 +881,16 @@ export function resolveWorkspaceIdentity(workspace: {
 }
 
 /**
- * Which theme a workspace is *on*. Unlike identity this always resolves to a
- * concrete theme, inferring from the icon for pre-theme workspaces and falling
- * back to the default. Every surface that answers "what theme is this?" — the
- * card artwork and the settings picker alike — must go through here, or the
- * picker says Default while the card shows something else.
+ * Which theme a workspace is on. Reads the column and nothing else: workspaces
+ * that predate themes were backfilled from their icon in 0005, and creation
+ * writes a theme, so there is no state left for a render-time guess to
+ * reconstruct. Every surface that asks "what theme is this?" gets one answer.
  */
-export function resolveWorkspaceTheme(workspace: {
-	theme?: string | null;
-	icon?: string | null;
-}): WorkspaceTheme {
-	const stored = getWorkspaceTheme(workspace.theme);
-
-	if (stored) {
-		return stored;
-	}
-
-	const inherited = workspace.icon ? themeByIcon.get(workspace.icon) : undefined;
-
-	return getWorkspaceTheme(inherited) ?? defaultWorkspaceTheme;
+export function resolveWorkspaceTheme(workspace: { theme?: string | null }): WorkspaceTheme {
+	return getWorkspaceTheme(workspace.theme) ?? defaultWorkspaceTheme;
 }
 
 /** Which artwork to render, always resolved. */
-export function getWorkspaceThemeArt(workspace: {
-	theme?: string | null;
-	icon?: string | null;
-}): string | undefined {
+export function getWorkspaceThemeArt(workspace: { theme?: string | null }): string | undefined {
 	return getWorkspaceThemeArtByValue(resolveWorkspaceTheme(workspace).value);
 }

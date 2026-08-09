@@ -12,6 +12,7 @@ import type {
 import {
 	DEFAULT_WORKSPACE_COLOR,
 	DEFAULT_WORKSPACE_ICON,
+	DEFAULT_WORKSPACE_THEME,
 	DEFAULT_WORKSPACE_NAME,
 } from "#/features/workspaces/defaults";
 import { mapWorkspaceRow } from "#/features/workspaces/server/mappers";
@@ -57,6 +58,9 @@ async function insertWorkspaceForUser(
 					name: input.name?.trim() || DEFAULT_WORKSPACE_NAME,
 					color: input.color ?? DEFAULT_WORKSPACE_COLOR,
 					icon: DEFAULT_WORKSPACE_ICON,
+					// Written explicitly so the column is never null: the picker and
+					// the card both read it directly and neither guesses any more.
+					theme: DEFAULT_WORKSPACE_THEME,
 					ownerId: userId,
 				})
 				.returning(),

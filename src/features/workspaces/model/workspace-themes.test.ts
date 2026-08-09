@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import { workspaceThemeValues } from "#/features/workspaces/contracts";
+import { DEFAULT_WORKSPACE_THEME } from "#/features/workspaces/defaults";
 import {
-	DEFAULT_WORKSPACE_THEME,
 	defaultWorkspaceTheme,
 	filterWorkspaceThemeOptions,
 	getWorkspaceThemeArt,
+	getWorkspaceThemeArtByValue,
 	resolveWorkspaceIdentity,
 	resolveWorkspaceTheme,
 	workspaceThemeOptions,
@@ -67,54 +68,32 @@ describe("theme resolution", () => {
 		expect(workspaceThemeValues).toHaveLength(workspaceThemeOptions.length);
 	});
 
-	it("resolves an explicit default rather than falling back to the icon", () => {
-		// Regression: picking "Default" used to store null, which then derived art
-		// from the workspace's retained icon and put the previous theme back.
+	it("reads the column and never guesses from the icon", () => {
+		// Regression: art used to be inferred from the icon at render time while
+		// the settings picker read the column, so a pre-theme workspace showed
+		// Chemistry on its card and said "Default" in its picker. Migration 0005
+		// wrote that inference into the column, so there is one answer now.
+		expect(resolveWorkspaceTheme({ theme: "chemistry" }).value).toBe("chemistry");
+		expect(getWorkspaceThemeArt({ theme: "chemistry" })).toBe(
+			getWorkspaceThemeArtByValue("chemistry"),
+		);
+	});
+
+	it("resolves a concrete theme for anything the column can hold", () => {
 		expect(defaultWorkspaceTheme.value).toBe(DEFAULT_WORKSPACE_THEME);
-		expect(getWorkspaceThemeArt({ theme: DEFAULT_WORKSPACE_THEME, icon: "flask-conical" })).toBe(
-			getWorkspaceThemeArt({ theme: DEFAULT_WORKSPACE_THEME, icon: null }),
-		);
-	});
-
-	it("derives art from the icon only when no theme was ever chosen", () => {
-		const derived = getWorkspaceThemeArt({ theme: null, icon: "flask-conical" });
-
-		expect(derived).toBe(getWorkspaceThemeArt({ theme: "chemistry", icon: null }));
-		expect(derived).not.toBe(getWorkspaceThemeArt({ theme: DEFAULT_WORKSPACE_THEME, icon: null }));
-	});
-
-	it("names the same theme the artwork came from", () => {
-		// Regression: the settings picker read `workspace.theme` directly, so a
-		// workspace that predates themes said "Default" while its card showed the
-		// icon-derived illustration.
-		const workspace = { theme: null, icon: "flask-conical" };
-
-		expect(resolveWorkspaceTheme(workspace).value).toBe("chemistry");
-		expect(getWorkspaceThemeArt(workspace)).toBe(
-			getWorkspaceThemeArt({ theme: resolveWorkspaceTheme(workspace).value, icon: null }),
-		);
-	});
-
-	it("resolves to a concrete theme for every input", () => {
+		// Null only reaches here for a row written before 0005 on an unmigrated
+		// database; a retired or stale value is already nulled by the mapper.
+		expect(resolveWorkspaceTheme({ theme: null }).value).toBe(DEFAULT_WORKSPACE_THEME);
 		expect(resolveWorkspaceTheme({}).value).toBe(DEFAULT_WORKSPACE_THEME);
 		expect(resolveWorkspaceTheme({ theme: "retired-theme" }).value).toBe(DEFAULT_WORKSPACE_THEME);
-		expect(resolveWorkspaceTheme({ theme: null, icon: "unknown-icon" }).value).toBe(
-			DEFAULT_WORKSPACE_THEME,
-		);
-	});
-
-	it("treats the generic fallback icon as no signal", () => {
-		// `compass` is the app-wide default icon, so it must not imply a subject.
-		expect(getWorkspaceThemeArt({ theme: null, icon: "compass" })).toBe(
-			getWorkspaceThemeArt({ theme: DEFAULT_WORKSPACE_THEME, icon: null }),
-		);
 	});
 });
 
 describe("identity vs artwork resolution", () => {
 	it("does not repaint a pre-theme workspace's own colour", () => {
-		// The two rules deliberately differ: artwork may be inferred from the
-		// icon, identity may not, or upgrading would silently change colours.
+		// 0005 backfilled the theme column but deliberately left icon and colour
+		// alone, so a workspace keeps the colour it chose until someone saves a
+		// theme over it. Identity therefore still prefers the stored values.
 		const identity = resolveWorkspaceIdentity({
 			theme: null,
 			icon: "flask-conical",
