@@ -7,7 +7,12 @@
  * public/_headers already sets for that path.
  */
 
-import type { WorkspaceColor, WorkspaceIcon } from "#/features/workspaces/contracts";
+import type {
+	WorkspaceColor,
+	WorkspaceIcon,
+	WorkspaceTheme as WorkspaceThemeValue,
+} from "#/features/workspaces/contracts";
+import { workspaceThemeValues } from "#/features/workspaces/contracts";
 import {
 	getSearchTermScore,
 	normalizeIconSearch,
@@ -22,7 +27,7 @@ const art = import.meta.glob("../themes/*.webp", {
 }) as Record<string, string>;
 
 export interface WorkspaceTheme {
-	value: string;
+	value: WorkspaceThemeValue;
 	label: string;
 	group: string;
 	/** Derived from the theme, not chosen separately — see getWorkspaceDisplay. */
@@ -571,7 +576,18 @@ export const workspaceThemeOptions = [
 	},
 ] as const satisfies ReadonlyArray<WorkspaceTheme>;
 
-export const DEFAULT_WORKSPACE_THEME = "default";
+export const DEFAULT_WORKSPACE_THEME = "default" satisfies WorkspaceThemeValue;
+
+// The contract enum and this catalogue are generated together; assert rather
+// than trust, the same way the icon registry does.
+{
+	const catalogued = new Set(workspaceThemeOptions.map((theme) => theme.value));
+	const missing = workspaceThemeValues.filter((value) => !catalogued.has(value));
+
+	if (missing.length > 0) {
+		throw new Error(`workspaceThemeOptions is missing: ${missing.join(", ")}`);
+	}
+}
 
 // `compass` is the app's fallback icon for a workspace that never chose one
 // (see getWorkspaceDisplay), so it carries no subject meaning and must not
@@ -739,24 +755,31 @@ const themeIcons = new Map(workspaceIconOptions.map((option) => [option.value, o
 // without weights that alias ties with Chemistry's actual label.
 const TERM_WEIGHTS = { name: 1, group: 0.75, borrowed: 0.5 } as const;
 
-function themeSearchTerms(theme: WorkspaceTheme) {
-	const icon = themeIcons.get(theme.icon);
-	const buckets: ReadonlyArray<readonly [number, string]> = [
-		[TERM_WEIGHTS.name, theme.label],
-		[TERM_WEIGHTS.name, theme.value],
-		[TERM_WEIGHTS.group, theme.group],
-		[TERM_WEIGHTS.borrowed, themeKeywords[theme.value] ?? ""],
-		[TERM_WEIGHTS.borrowed, icon?.label ?? ""],
-		[TERM_WEIGHTS.borrowed, (icon?.aliases ?? []).join(" ")],
-	];
+const themeSearchTerms = new Map<string, ReadonlyArray<{ term: string; weight: number }>>(
+	workspaceThemeOptions.map((theme) => {
+		const icon = themeIcons.get(theme.icon);
+		const buckets: ReadonlyArray<readonly [number, string]> = [
+			[TERM_WEIGHTS.name, theme.label],
+			[TERM_WEIGHTS.name, theme.value],
+			[TERM_WEIGHTS.group, theme.group],
+			[TERM_WEIGHTS.borrowed, themeKeywords[theme.value] ?? ""],
+			[TERM_WEIGHTS.borrowed, icon?.label ?? ""],
+			[TERM_WEIGHTS.borrowed, (icon?.aliases ?? []).join(" ")],
+		];
 
-	return buckets.flatMap(([weight, text]) =>
-		normalizeIconSearchTerm(text)
-			.split(" ")
-			.filter(Boolean)
-			.map((term) => ({ term, weight })),
-	);
-}
+		const terms: Array<{ term: string; weight: number }> = [];
+
+		for (const [weight, text] of buckets) {
+			for (const term of normalizeIconSearchTerm(text).split(" ")) {
+				if (term) {
+					terms.push({ term, weight });
+				}
+			}
+		}
+
+		return [theme.value, terms];
+	}),
+);
 
 export function filterWorkspaceThemeOptions(query: string, group: string | null) {
 	const scoped = workspaceThemeOptions.filter(
@@ -773,7 +796,7 @@ export function filterWorkspaceThemeOptions(query: string, group: string | null)
 	// Mathematics first, because the direct label match scores higher.
 	return scoped
 		.map((theme, index) => {
-			const terms = themeSearchTerms(theme);
+			const terms = themeSearchTerms.get(theme.value) ?? [];
 			let score = 0;
 
 			for (const token of tokens) {
@@ -823,6 +846,10 @@ export const getWorkspaceThemeArtByValue = (value: string) => art[`../themes/${v
 
 // Widened key: values arrive from the database as plain strings, so the literal
 // union the `as const` array infers would reject every lookup.
+export const defaultWorkspaceTheme = workspaceThemeOptions.find(
+	(theme) => theme.value === DEFAULT_WORKSPACE_THEME,
+) as WorkspaceTheme;
+
 const themeByValue = new Map<string, WorkspaceTheme>(
 	workspaceThemeOptions.map((t) => [t.value, t]),
 );

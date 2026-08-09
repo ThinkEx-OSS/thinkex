@@ -6,7 +6,11 @@ import type {
 	WorkspaceMembershipRole,
 	WorkspaceSummary,
 } from "#/features/workspaces/contracts";
-import { workspaceColorSchema, workspaceIconSchema } from "#/features/workspaces/contracts";
+import {
+	workspaceColorSchema,
+	workspaceIconSchema,
+	workspaceThemeSchema,
+} from "#/features/workspaces/contracts";
 import { DEFAULT_WORKSPACE_COLOR, DEFAULT_WORKSPACE_ICON } from "#/features/workspaces/defaults";
 
 type WorkspaceRow = InferSelectModel<typeof workspaces>;
@@ -28,7 +32,7 @@ export function mapWorkspaceRow(
 		description: row.description,
 		icon: parseWorkspaceIcon(row.icon),
 		color: parseWorkspaceColor(row.color),
-		theme: row.theme,
+		theme: parseWorkspaceTheme(row.theme),
 		createdAt: row.createdAt.toISOString(),
 		updatedAt: row.updatedAt.toISOString(),
 		lastOpenedAt: toIsoString(row.lastOpenedAt ?? null),
@@ -50,6 +54,16 @@ function parseWorkspaceIcon(value: string | null) {
 	}
 
 	return workspaceIconSchema.safeParse(value).data ?? DEFAULT_WORKSPACE_ICON;
+}
+
+function parseWorkspaceTheme(value: string | null) {
+	if (value === null) {
+		return null;
+	}
+
+	// Unknown values (stale client, retired theme) degrade to null rather than
+	// reaching the UI, where they would resolve to no artwork at all.
+	return workspaceThemeSchema.safeParse(value).data ?? null;
 }
 
 function parseWorkspaceColor(value: string | null) {

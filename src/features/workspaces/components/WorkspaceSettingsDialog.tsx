@@ -34,6 +34,7 @@ import type { WorkspaceSummary } from "#/features/workspaces/contracts";
 import {
 	DEFAULT_WORKSPACE_THEME,
 	filterWorkspaceThemeOptions,
+	defaultWorkspaceTheme,
 	getWorkspaceTheme,
 	getWorkspaceThemeArtByValue,
 	workspaceThemeGroups,
@@ -130,6 +131,7 @@ function WorkspaceSettingsDialogContent({
 	const deleteWorkspaceMutation = useDeleteWorkspaceMutation();
 	const workspaceDraft = getWorkspaceSettingsDraft(workspace);
 	const chosenTheme = getWorkspaceTheme(draft.theme);
+	const savedTheme = chosenTheme ?? defaultWorkspaceTheme;
 	const normalizedName = draft.name.trim();
 	const canSave =
 		normalizedName.length > 0 &&
@@ -150,10 +152,12 @@ function WorkspaceSettingsDialogContent({
 			workspaceId: workspace.id,
 			name: normalizedName,
 			// Icon and colour are properties of the theme, never picked separately.
-			// With no theme set we preserve whatever the workspace already had.
-			icon: chosenTheme?.icon ?? workspace.icon ?? "compass",
-			color: chosenTheme?.color ?? workspace.color ?? "sky",
-			theme: draft.theme,
+			// Saving always resolves a concrete theme: a null draft would fall back
+			// to the workspace's stored icon, and the icon-derived art would put the
+			// previous illustration back instead of the default the picker showed.
+			icon: savedTheme.icon,
+			color: savedTheme.color,
+			theme: savedTheme.value,
 		});
 	};
 
