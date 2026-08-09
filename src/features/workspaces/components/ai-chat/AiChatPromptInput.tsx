@@ -239,7 +239,8 @@ export default function AiChatPromptInput({
 						) : null}
 					</PromptInputTools>
 
-					<WorkspaceToolbarGroup className="ml-auto">
+					{/* Keep sm at gap-1 to match paperclip↔model picker (group default is sm:gap-0.5). */}
+					<WorkspaceToolbarGroup className="ml-auto sm:gap-1">
 						{dictation.isSupported ? (
 							<WorkspaceToolbarIconButton
 								aria-label={dictation.isActive ? "Stop dictation" : "Start dictation"}
