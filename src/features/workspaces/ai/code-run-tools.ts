@@ -61,8 +61,8 @@ const codeRunOutputSchema = z.object({
 const codeRunInputExamples = [
 	{
 		input: {
-			title: "Calculating the circle area",
-			code: "import math\nmath.pi * 5 ** 2",
+			title: "Solving the production system",
+			code: "import numpy as np\nA = np.array([[0.4, 0.1], [0.1, 0.4]])\nnp.linalg.inv(np.eye(2) - A) @ np.array([1400, 2100])",
 		},
 	},
 	{
@@ -93,7 +93,7 @@ export function createAIThreadCodeRunTools(input: {
 	return {
 		compute: defineAIThreadTool({
 			description:
-				"Execute private Python code for calculations, data analysis, tables, and charts. Uses the Sandbox default Python context, so variables can persist across compute calls in the same chat thread. The chat UI renders returned image results directly; do not paste base64 image data into the final answer.",
+				"Execute private Python for numeric work you cannot do reliably inline — matrix math, statistics, simulations — and for matplotlib charts. Not for arithmetic, date math, string manipulation, or as a scratchpad for reasoning; do that inline. The sandbox filesystem is empty: it holds no workspace items and no uploads, so read documents with `workspace_read_items` and never by filesystem path. If an import fails the library is not installed; do not retry with a different one. Uses the Sandbox default Python context, so variables can persist across compute calls in the same chat thread. When several runs feed each other, call this from `orchestrate` rather than one compute call per step. The chat UI renders returned image results directly; do not paste base64 image data into the final answer.",
 			inputSchema: codeRunInputSchema,
 			inputExamples: codeRunInputExamples,
 			outputSchema: codeRunOutputSchema,
