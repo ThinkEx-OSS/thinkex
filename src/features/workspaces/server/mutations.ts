@@ -148,6 +148,7 @@ export async function updateWorkspaceForCurrentUser(
 					name: input.name,
 					icon: input.icon,
 					color: input.color,
+					theme: input.theme,
 				})
 				.where(and(eq(workspaces.id, input.workspaceId), isNull(workspaces.archivedAt)))
 				.returning(),

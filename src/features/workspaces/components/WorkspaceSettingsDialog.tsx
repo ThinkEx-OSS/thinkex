@@ -9,7 +9,6 @@ import {
 } from "react";
 
 import { Button } from "#/components/ui/button";
-import { ColorSwatchPicker } from "#/components/ui/color-swatch-picker";
 import {
 	Dialog,
 	DialogContent,
@@ -19,13 +18,9 @@ import {
 	DialogTitle,
 	DialogTrigger,
 } from "#/components/ui/dialog";
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuTrigger,
-} from "#/components/ui/dropdown-menu";
 import { Field, FieldGroup, FieldTitle } from "#/components/ui/field";
 import { Input } from "#/components/ui/input";
+import { ToggleGroup, ToggleGroupItem } from "#/components/ui/toggle-group";
 import { Label } from "#/components/ui/label";
 import {
 	Popover,
@@ -35,17 +30,16 @@ import {
 	PopoverTitle,
 	PopoverTrigger,
 } from "#/components/ui/popover";
-import type {
-	WorkspaceColor,
-	WorkspaceIcon,
-	WorkspaceSummary,
-} from "#/features/workspaces/contracts";
+import type { WorkspaceSummary } from "#/features/workspaces/contracts";
 import {
-	filterWorkspaceIconOptions,
-	workspaceColorOptions,
-	workspaceColors,
-	workspaceIconOptions,
-} from "#/features/workspaces/model/display";
+	DEFAULT_WORKSPACE_THEME,
+	filterWorkspaceThemeOptions,
+	defaultWorkspaceTheme,
+	getWorkspaceTheme,
+	getWorkspaceThemeArtByValue,
+	workspaceThemeGroups,
+	workspaceThemeOptions,
+} from "#/features/workspaces/model/workspace-themes";
 import { useDeleteWorkspaceMutation } from "#/features/workspaces/use-delete-workspace";
 import { useUpdateWorkspaceMutation } from "#/features/workspaces/use-update-workspace";
 import type { WorkspaceMemberCapabilities } from "#/features/workspaces/workspace-member-capabilities";
@@ -61,14 +55,12 @@ interface WorkspaceSettingsDialogProps {
 
 interface WorkspaceSettingsDraft {
 	name: string;
-	icon: WorkspaceIcon;
-	color: WorkspaceColor;
+	theme: string | null;
 }
 
 const getWorkspaceSettingsDraft = (workspace: WorkspaceSummary): WorkspaceSettingsDraft => ({
 	name: workspace.name,
-	icon: workspace.icon ?? "compass",
-	color: workspace.color ?? "sky",
+	theme: workspace.theme ?? null,
 });
 
 export default function WorkspaceSettingsDialog({
@@ -134,18 +126,17 @@ function WorkspaceSettingsDialogContent({
 	onOpenChange: (open: boolean) => void;
 }) {
 	const nameInputId = useId();
-	const [iconPickerOpen, setIconPickerOpen] = useState(false);
-	const [colorPickerOpen, setColorPickerOpen] = useState(false);
+	const [themePickerOpen, setThemePickerOpen] = useState(false);
 	const updateWorkspaceMutation = useUpdateWorkspaceMutation();
 	const deleteWorkspaceMutation = useDeleteWorkspaceMutation();
 	const workspaceDraft = getWorkspaceSettingsDraft(workspace);
+	const chosenTheme = getWorkspaceTheme(draft.theme);
+	const savedTheme = chosenTheme ?? defaultWorkspaceTheme;
 	const normalizedName = draft.name.trim();
 	const canSave =
 		normalizedName.length > 0 &&
 		!updateWorkspaceMutation.isPending &&
-		(normalizedName !== workspace.name ||
-			draft.icon !== workspaceDraft.icon ||
-			draft.color !== workspaceDraft.color);
+		(normalizedName !== workspace.name || draft.theme !== workspaceDraft.theme);
 	const updateError =
 		updateWorkspaceMutation.error instanceof Error ? updateWorkspaceMutation.error.message : null;
 	const deleteError =
@@ -160,8 +151,13 @@ function WorkspaceSettingsDialogContent({
 		updateWorkspaceMutation.mutate({
 			workspaceId: workspace.id,
 			name: normalizedName,
-			icon: draft.icon,
-			color: draft.color,
+			// Icon and colour are properties of the theme, never picked separately.
+			// Saving always resolves a concrete theme: a null draft would fall back
+			// to the workspace's stored icon, and the icon-derived art would put the
+			// previous illustration back instead of the default the picker showed.
+			icon: savedTheme.icon,
+			color: savedTheme.color,
+			theme: savedTheme.value,
 		});
 	};
 
@@ -183,7 +179,7 @@ function WorkspaceSettingsDialogContent({
 			<form className="grid gap-6" onSubmit={handleSubmit}>
 				<DialogHeader>
 					<DialogTitle>Workspace settings</DialogTitle>
-					<DialogDescription>Update this workspace's name, icon, and color.</DialogDescription>
+					<DialogDescription>Update this workspace's name and theme.</DialogDescription>
 				</DialogHeader>
 
 				<FieldGroup className="gap-5">
@@ -203,33 +199,18 @@ function WorkspaceSettingsDialogContent({
 						/>
 					</Field>
 
-					<div className="grid gap-3 sm:grid-cols-2">
-						<Field>
-							<FieldTitle>Icon</FieldTitle>
-							<WorkspaceIconDropdown
-								open={iconPickerOpen}
-								value={draft.icon}
-								onOpenChange={setIconPickerOpen}
-								onValueChange={(icon) => {
-									setDraft((current) => ({ ...current, icon }));
-									setIconPickerOpen(false);
-								}}
-							/>
-						</Field>
-
-						<Field>
-							<FieldTitle>Color</FieldTitle>
-							<WorkspaceColorDropdown
-								open={colorPickerOpen}
-								value={draft.color}
-								onOpenChange={setColorPickerOpen}
-								onValueChange={(color) => {
-									setDraft((current) => ({ ...current, color }));
-									setColorPickerOpen(false);
-								}}
-							/>
-						</Field>
-					</div>
+					<Field>
+						<FieldTitle>Theme</FieldTitle>
+						<WorkspaceThemePicker
+							open={themePickerOpen}
+							value={draft.theme}
+							onOpenChange={setThemePickerOpen}
+							onValueChange={(theme) => {
+								setDraft((current) => ({ ...current, theme }));
+								setThemePickerOpen(false);
+							}}
+						/>
+					</Field>
 
 					{updateError || deleteError ? (
 						<p className="text-destructive text-sm">{deleteError ?? updateError}</p>
@@ -296,136 +277,153 @@ function WorkspaceSettingsDialogContent({
 	);
 }
 
-function WorkspaceIconDropdown({
+function WorkspaceThemePicker({
 	open,
 	value,
 	onOpenChange,
 	onValueChange,
 }: {
 	open: boolean;
-	value: WorkspaceIcon;
+	value: string | null;
 	onOpenChange: (open: boolean) => void;
-	onValueChange: (value: WorkspaceIcon) => void;
+	onValueChange: (value: string | null) => void;
 }) {
-	const searchInputId = useId();
 	const [query, setQuery] = useState("");
-	const selectedIcon = workspaceIconOptions.find((option) => option.value === value);
-	const SelectedIcon = selectedIcon?.Icon ?? workspaceIconOptions[0].Icon;
-	const filteredIconOptions = filterWorkspaceIconOptions(query);
+	const [group, setGroup] = useState<string | null>(null);
+	const selected = workspaceThemeOptions.find((option) => option.value === value);
+	const results = filterWorkspaceThemeOptions(query, group);
+	const previewArt = getWorkspaceThemeArtByValue(value ?? DEFAULT_WORKSPACE_THEME);
 
+	// A 117-item grid does not fit in a popup anchored inside a 32rem dialog —
+	// it ends up wider than its container and re-flips every time filtering
+	// changes its height. A dialog is centred, so it cannot flip.
 	const handleOpenChange = (nextOpen: boolean) => {
 		if (!nextOpen) {
 			setQuery("");
+			setGroup(null);
 		}
 
 		onOpenChange(nextOpen);
 	};
 
+	const choose = (next: string | null) => {
+		onValueChange(next);
+		handleOpenChange(false);
+	};
+
 	return (
-		<DropdownMenu open={open} onOpenChange={handleOpenChange}>
-			<DropdownMenuTrigger
+		<Dialog open={open} onOpenChange={handleOpenChange}>
+			<DialogTrigger
 				render={
-					<Button type="button" variant="outline" className="w-full justify-between">
-						<span className="flex min-w-0 items-center gap-2">
-							<SelectedIcon className="size-4" aria-hidden="true" />
-							<span className="truncate">{selectedIcon?.label ?? "Icon"}</span>
+					<Button type="button" variant="outline" className="h-auto w-full justify-between p-2">
+						<span className="flex min-w-0 items-center gap-3">
+							<img
+								src={previewArt}
+								alt=""
+								className="aspect-[5/2] h-10 shrink-0 rounded-sm object-cover"
+							/>
+							<span className="truncate">{selected?.label ?? "Default"}</span>
 						</span>
-						<ChevronDown className="size-4 text-muted-foreground" />
+						<ChevronDown className="size-4 shrink-0 text-muted-foreground" />
 					</Button>
 				}
 			/>
-			<DropdownMenuContent align="start" className="w-80 p-2">
+			<DialogContent nested className="sm:max-w-4xl">
+				<DialogHeader>
+					<DialogTitle>Choose a theme</DialogTitle>
+				</DialogHeader>
+
 				<div className="relative">
 					<Search
 						className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-2.5 size-4 text-muted-foreground"
 						aria-hidden="true"
 					/>
 					<Input
-						id={searchInputId}
 						value={query}
-						aria-label="Search icons"
-						placeholder="Search icons"
+						aria-label="Search themes"
+						placeholder="Search themes"
 						className="h-9 pl-8"
-						onChange={(event) => setQuery(event.target.value)}
-						onKeyDown={(event) => event.stopPropagation()}
+						onChange={(event) => {
+							setQuery(event.target.value);
+							// Searching is global. Clearing the group keeps the chips
+							// honest — a pressed chip alongside cross-group results
+							// would be showing state that is not being applied.
+							if (event.target.value.trim()) {
+								setGroup(null);
+							}
+						}}
 					/>
 				</div>
-				{filteredIconOptions.length > 0 ? (
-					<div className="mt-2 grid max-h-72 grid-cols-7 gap-1.5 overflow-y-auto pr-1">
-						{filteredIconOptions.map(({ value: optionValue, label, Icon, aliases }) => (
-							<button
-								key={optionValue}
-								type="button"
-								className={cn(
-									"flex size-9 items-center justify-center rounded-md outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50",
-									value === optionValue ? "bg-muted text-foreground" : "text-muted-foreground",
-								)}
-								aria-label={`${label}. ${aliases.join(", ")}`}
-								aria-pressed={value === optionValue}
-								onClick={() => onValueChange(optionValue)}
-							>
-								<Icon className="size-5" aria-hidden="true" />
-							</button>
-						))}
-					</div>
-				) : (
-					<p className="px-2 py-6 text-center text-muted-foreground text-sm">No icons found.</p>
-				)}
-			</DropdownMenuContent>
-		</DropdownMenu>
-	);
-}
 
-function WorkspaceColorDropdown({
-	open,
-	value,
-	onOpenChange,
-	onValueChange,
-}: {
-	open: boolean;
-	value: WorkspaceColor;
-	onOpenChange: (open: boolean) => void;
-	onValueChange: (value: WorkspaceColor) => void;
-}) {
-	const selectedColor = workspaceColors[value];
+				<ToggleGroup
+					value={group ? [group] : []}
+					onValueChange={(next) => setGroup((next[0] as string | undefined) ?? null)}
+					variant="outline"
+					size="sm"
+					className="flex-wrap"
+				>
+					{workspaceThemeGroups.map((option) => (
+						<ToggleGroupItem key={option} value={option}>
+							{option}
+						</ToggleGroupItem>
+					))}
+				</ToggleGroup>
 
-	return (
-		<DropdownMenu open={open} onOpenChange={onOpenChange}>
-			<DropdownMenuTrigger
-				render={
-					<Button type="button" variant="outline" className="w-full justify-between">
-						<span className="flex min-w-0 items-center gap-2">
-							<span
-								className={cn(
-									"size-4 rounded-[4px]",
-									selectedColor?.swatchClassName ?? workspaceColors.sky.swatchClassName,
-								)}
-								aria-hidden="true"
+				{/* Fixed height so the dialog does not jump as you filter.
+				    content-start is load-bearing: a grid with a fixed height
+				    stretches its rows to fill by default, which squashes every
+				    row instead of overflowing, so the scrollbar never appears. */}
+				<div className="-m-1 grid h-96 auto-rows-min content-start grid-cols-2 gap-2 overflow-y-auto p-1 sm:grid-cols-4">
+					{!group && !query.trim() ? (
+						<button
+							type="button"
+							title="Default"
+							className={cn(
+								"overflow-hidden rounded-md outline-none ring-offset-2 ring-offset-popover transition-shadow focus-visible:ring-3 focus-visible:ring-ring/50",
+								value === null && "ring-2 ring-foreground",
+							)}
+							aria-label="Default"
+							aria-pressed={value === null}
+							onClick={() => choose(null)}
+						>
+							<img
+								src={getWorkspaceThemeArtByValue(DEFAULT_WORKSPACE_THEME)}
+								alt=""
+								className="aspect-[5/2] w-full object-cover"
 							/>
-							<span className="truncate">{selectedColor?.label ?? "Color"}</span>
-						</span>
-						<ChevronDown className="size-4 text-muted-foreground" />
-					</Button>
-				}
-			/>
-			<DropdownMenuContent
-				align="end"
-				className="max-w-[calc(100vw-2rem)] w-fit overflow-x-auto p-2"
-			>
-				<ColorSwatchPicker
-					aria-label="Workspace color"
-					value={value}
-					options={workspaceColorOptions.map((option) => ({
-						value: option.value,
-						label: option.label,
-						swatchClassName: option.swatchClassName,
-						checkClassName: "checkClassName" in option ? option.checkClassName : undefined,
-					}))}
-					onValueChange={onValueChange}
-					showLabels={false}
-					className="grid-flow-col grid-rows-4 gap-1.5"
-				/>
-			</DropdownMenuContent>
-		</DropdownMenu>
+						</button>
+					) : null}
+
+					{results.map((option) => (
+						<button
+							key={option.value}
+							type="button"
+							title={`${option.label} — ${option.group}`}
+							className={cn(
+								"overflow-hidden rounded-md outline-none ring-offset-2 ring-offset-popover transition-shadow focus-visible:ring-3 focus-visible:ring-ring/50",
+								value === option.value && "ring-2 ring-foreground",
+							)}
+							aria-label={option.label}
+							aria-pressed={value === option.value}
+							onClick={() => choose(option.value)}
+						>
+							<img
+								src={getWorkspaceThemeArtByValue(option.value)}
+								alt=""
+								loading="lazy"
+								decoding="async"
+								className="aspect-[5/2] w-full object-cover"
+							/>
+						</button>
+					))}
+
+					{results.length === 0 ? (
+						<p className="col-span-full py-6 text-center text-muted-foreground text-sm">
+							No themes found.
+						</p>
+					) : null}
+				</div>
+			</DialogContent>
+		</Dialog>
 	);
 }

@@ -226,6 +226,7 @@ export const workspaces = sqliteTable(
 		name: text("name").notNull(),
 		icon: text("icon"),
 		color: text("color"),
+		theme: text("theme"),
 		description: text("description"),
 		ownerId: text("owner_id")
 			.notNull()

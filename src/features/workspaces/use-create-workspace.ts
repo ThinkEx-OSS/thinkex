@@ -48,6 +48,7 @@ export function useCreateWorkspaceMutation() {
 				description: null,
 				icon: DEFAULT_WORKSPACE_ICON,
 				color: DEFAULT_WORKSPACE_COLOR,
+				theme: null,
 				createdAt: now,
 				updatedAt: now,
 				lastOpenedAt: now,

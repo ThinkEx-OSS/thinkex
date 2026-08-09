@@ -1,14 +1,8 @@
 import type { WorkspaceItemSummary, WorkspaceSummary } from "#/features/workspaces/contracts";
 import { workspaceRoleLabels } from "#/features/workspaces/contracts";
-import {
-	workspaceColorOptions,
-	workspaceColors,
-} from "#/features/workspaces/model/workspace-colors";
-import {
-	filterWorkspaceIconOptions,
-	workspaceIconOptions,
-	workspaceIcons,
-} from "#/features/workspaces/model/workspace-icons";
+import { workspaceColors } from "#/features/workspaces/model/workspace-colors";
+import { resolveWorkspaceIdentity } from "#/features/workspaces/model/workspace-themes";
+import { workspaceIcons } from "#/features/workspaces/model/workspace-icons";
 
 const workspaceRecencyTimeFormatter = new Intl.DateTimeFormat(undefined, {
 	hour: "numeric",
@@ -24,11 +18,11 @@ const workspaceRecencyDateWithYearFormatter = new Intl.DateTimeFormat(undefined,
 	year: "numeric",
 });
 
-export { filterWorkspaceIconOptions, workspaceColorOptions, workspaceColors, workspaceIconOptions };
-
 export function getWorkspaceDisplay(workspace: WorkspaceSummary) {
-	const icon = workspace.icon ?? "compass";
-	const color = workspace.color ?? "sky";
+	// The theme is the only thing a user picks; icon and colour are properties
+	// of it. Resolution lives in workspace-themes.ts beside the artwork rule so
+	// the two cannot drift apart again.
+	const { icon, color } = resolveWorkspaceIdentity(workspace);
 	const colorDefinition = workspaceColors[color];
 
 	return {

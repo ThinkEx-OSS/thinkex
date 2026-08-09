@@ -38,6 +38,7 @@ export function useUpdateWorkspaceMutation() {
 					name: input.name,
 					icon: input.icon,
 					color: input.color,
+					theme: input.theme,
 				});
 			}
 

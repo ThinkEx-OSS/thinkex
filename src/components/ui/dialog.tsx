@@ -37,13 +37,25 @@ function DialogContent({
 	className,
 	children,
 	showCloseButton = true,
+	nested = false,
 	...props
 }: DialogPrimitive.Popup.Props & {
 	showCloseButton?: boolean;
+	/**
+	 * Set on a dialog opened from inside another dialog. Base UI skips the
+	 * backdrop when nested (DialogBackdrop: `enabled: forceRender || !nested`),
+	 * which also removes the only click target that dismisses it — so clicking
+	 * the blur does nothing. This forces the backdrop back, transparent so two
+	 * stacked ones do not double-darken, restoring click-outside-to-close.
+	 */
+	nested?: boolean;
 }) {
 	return (
 		<DialogPortal>
-			<DialogOverlay />
+			<DialogOverlay
+				forceRender={nested}
+				className={cn(nested && "bg-transparent supports-backdrop-filter:backdrop-blur-none")}
+			/>
 			<DialogPrimitive.Popup
 				data-slot="dialog-content"
 				className={cn(

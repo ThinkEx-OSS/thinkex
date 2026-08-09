@@ -629,24 +629,6 @@ export const workspaceIcons: Record<WorkspaceIcon, LucideIcon> = Object.fromEntr
 
 assertWorkspaceIconRegistryIsComplete();
 
-export function filterWorkspaceIconOptions(query: string) {
-	const tokens = normalizeIconSearch(query);
-
-	if (tokens.length === 0) {
-		return workspaceIconOptions;
-	}
-
-	return workspaceIconOptions
-		.map((option, index) => ({
-			option,
-			index,
-			score: getWorkspaceIconSearchScore(option, tokens),
-		}))
-		.filter((result) => result.score > 0)
-		.sort((left, right) => right.score - left.score || left.index - right.index)
-		.map(({ option }) => option);
-}
-
 function icon(
 	value: WorkspaceIcon,
 	label: string,
@@ -657,30 +639,7 @@ function icon(
 	return { value, label, Icon, category, aliases };
 }
 
-function getWorkspaceIconSearchScore(option: WorkspaceIconOption, tokens: readonly string[]) {
-	const terms = getWorkspaceIconSearchTerms(option);
-	let score = 0;
-
-	for (const token of tokens) {
-		const tokenScore = Math.max(...terms.map((term) => getSearchTermScore(term, token)));
-
-		if (tokenScore === 0) {
-			return 0;
-		}
-
-		score += tokenScore;
-	}
-
-	return score;
-}
-
-function getWorkspaceIconSearchTerms(option: WorkspaceIconOption) {
-	return [option.label, option.value, option.category, ...option.aliases].map(
-		normalizeIconSearchTerm,
-	);
-}
-
-function getSearchTermScore(term: string, token: string) {
+export function getSearchTermScore(term: string, token: string) {
 	if (term === token) {
 		return 12;
 	}
@@ -696,11 +655,11 @@ function getSearchTermScore(term: string, token: string) {
 	return 0;
 }
 
-function normalizeIconSearch(query: string) {
+export function normalizeIconSearch(query: string) {
 	return normalizeIconSearchTerm(query).split(" ").filter(Boolean);
 }
 
-function normalizeIconSearchTerm(value: string) {
+export function normalizeIconSearchTerm(value: string) {
 	return value.toLowerCase().replace(iconSearchSeparator, " ").trim();
 }
 
