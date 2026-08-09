@@ -1,37 +1,34 @@
-import { Card, CardHeader } from "#/components/ui/card";
+import { Card } from "#/components/ui/card";
 import { Skeleton } from "#/components/ui/skeleton";
+import {
+	WorkspaceCardSkeletonHeader,
+	workspaceSkeletonAccentClass,
+	workspaceSkeletonFieldClass,
+} from "#/features/workspaces/components/workspace-skeleton-chrome";
 import { workspaceToolbarButtonSizeClass } from "#/features/workspaces/components/workspace-toolbar-styles";
 import { cn } from "#/lib/utils";
 
 /**
  * Loading placeholder for WorkspaceCard: the 5:2 theme band over a name and
- * meta row, one layout at every breakpoint. Uses the real Card so the surface,
- * ring and radius come from the same place the card gets them.
+ * meta row, one layout at every breakpoint. Renders through the real Card so
+ * surface, ring and radius come from where the card gets them.
  */
 export default function WorkspaceCardSkeleton() {
 	return (
 		<Card className="relative gap-0 py-0">
-			<Skeleton className="aspect-[5/2] w-full rounded-none bg-muted/45" />
+			<Skeleton className={cn("aspect-[5/2] w-full rounded-none", workspaceSkeletonFieldClass)} />
 
-			{/* The settings button. Mobile only: from sm up the real one is
-			    hover-revealed, so drawing it here would promise a control that
-			    disappears once the card loads. Radius is the icon-sm button's. */}
+			{/* Mobile only: from sm up the real settings button is hover-revealed,
+			    so drawing it would promise a control that vanishes on load. */}
 			<Skeleton
 				className={cn(
 					workspaceToolbarButtonSizeClass,
-					"absolute top-2 right-2 rounded-[min(var(--radius-md),10px)] bg-muted/55 sm:hidden",
+					workspaceSkeletonAccentClass,
+					"absolute top-2 right-2 rounded-[min(var(--radius-md),10px)] sm:hidden",
 				)}
 			/>
 
-			<CardHeader className="min-w-0 flex-1 gap-1 px-3 py-2.5 sm:gap-2 sm:px-4 sm:py-3">
-				{/* Heights track the real type: CardTitle is text-base/leading-normal
-				    and WorkspaceCardMetaRow is text-xs. */}
-				<Skeleton className="h-6 w-3/4 rounded-sm bg-muted/55" />
-				<div className="flex items-center justify-between gap-2">
-					<Skeleton className="h-4 w-1/4 rounded-sm bg-muted/45" />
-					<Skeleton className="h-4 w-1/3 rounded-sm bg-muted/45" />
-				</div>
-			</CardHeader>
+			<WorkspaceCardSkeletonHeader className="min-w-0 flex-1 gap-1 px-3 py-2.5 sm:gap-2 sm:px-4 sm:py-3" />
 		</Card>
 	);
 }
