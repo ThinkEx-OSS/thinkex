@@ -220,20 +220,20 @@ function DocumentEditorSkeleton() {
 		<section className="relative flex h-full min-h-0 flex-col bg-background">
 			<div className="min-h-0 flex-1 overflow-hidden p-4">
 				<div className="max-w-3xl space-y-5">
-					<Skeleton className="h-8 w-2/3 rounded-sm bg-muted/55" />
+					<Skeleton className="h-8 w-2/3 rounded-sm" />
 					<div className="space-y-2.5">
-						<Skeleton className="h-4 w-full rounded-sm bg-muted/45" />
-						<Skeleton className="h-4 w-11/12 rounded-sm bg-muted/45" />
-						<Skeleton className="h-4 w-4/5 rounded-sm bg-muted/45" />
+						<Skeleton className="h-4 w-full rounded-sm" />
+						<Skeleton className="h-4 w-11/12 rounded-sm" />
+						<Skeleton className="h-4 w-4/5 rounded-sm" />
 					</div>
 					<div className="space-y-2.5">
-						<Skeleton className="h-4 w-full rounded-sm bg-muted/45" />
-						<Skeleton className="h-4 w-10/12 rounded-sm bg-muted/45" />
-						<Skeleton className="h-4 w-7/12 rounded-sm bg-muted/45" />
+						<Skeleton className="h-4 w-full rounded-sm" />
+						<Skeleton className="h-4 w-10/12 rounded-sm" />
+						<Skeleton className="h-4 w-7/12 rounded-sm" />
 					</div>
 				</div>
 			</div>
-			<Skeleton className="absolute right-3 bottom-3 h-6 w-16 rounded-full bg-muted/45" />
+			<Skeleton className="absolute right-3 bottom-3 h-6 w-16 rounded-full" />
 		</section>
 	);
 }

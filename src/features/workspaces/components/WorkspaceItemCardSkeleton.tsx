@@ -8,11 +8,7 @@ import {
 	workspaceItemPreviewControlsLayerClass,
 	workspaceItemPreviewStageClass,
 } from "#/features/workspaces/components/workspace-item-card-chrome";
-import {
-	WorkspaceCardSkeletonHeader,
-	workspaceSkeletonAccentClass,
-	workspaceSkeletonFieldClass,
-} from "#/features/workspaces/components/workspace-skeleton-chrome";
+import { WorkspaceCardSkeletonHeader } from "#/features/workspaces/components/workspace-skeleton-chrome";
 import { cn } from "#/lib/utils";
 
 /**
@@ -27,19 +23,15 @@ export default function WorkspaceItemCardSkeleton() {
 			{/* The stage's own bg-muted is dropped: under the field it stacks into a
 			    solid block rather than a placeholder. */}
 			<div className={cn(workspaceItemPreviewStageClass, "bg-transparent")}>
-				<Skeleton className={cn("size-full rounded-none", workspaceSkeletonFieldClass)} />
+				<Skeleton className="size-full rounded-none" />
 			</div>
 
 			{/* Mobile only: from sm up the real controls are hover-revealed, so
 			    drawing them would promise buttons that vanish on load. */}
 			<div className={cn(workspaceItemPreviewControlsLayerClass, "sm:hidden")}>
 				<div className={workspaceItemPreviewControlRowClass}>
-					<Skeleton
-						className={cn(workspaceItemPreviewControlSizeClass, workspaceSkeletonAccentClass)}
-					/>
-					<Skeleton
-						className={cn(workspaceItemPreviewControlSizeClass, workspaceSkeletonAccentClass)}
-					/>
+					<Skeleton className={workspaceItemPreviewControlSizeClass} />
+					<Skeleton className={workspaceItemPreviewControlSizeClass} />
 				</div>
 			</div>
 

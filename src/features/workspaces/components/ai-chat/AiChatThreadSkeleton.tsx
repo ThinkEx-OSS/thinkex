@@ -35,6 +35,7 @@ function AssistantMessageSkeleton({
 function UserMessageSkeleton() {
 	return (
 		<div className="ml-auto max-w-[88%]">
+			{/* Keeps the bubble's own fill: this stands in for a surface, not text. */}
 			<Skeleton className="h-10 rounded-lg bg-secondary" />
 		</div>
 	);
