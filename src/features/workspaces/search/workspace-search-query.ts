@@ -404,10 +404,14 @@ function mapSearchResult(
 	};
 }
 
-function createFtsMatchExpression(query: string) {
+// AND, not OR: the semantic branch is the recall net, so the lexical branch is
+// free to be precise. It also makes the query pick its own engine — literal
+// lookups ("acme invoice 4417") match here, while natural-language questions
+// match no single chunk, return nothing, and are answered by semantic alone.
+export function createFtsMatchExpression(query: string) {
 	const tokens = getSearchQueryTokens(query);
 	return tokens.length > 0
-		? tokens.map((token) => `"${token.replaceAll('"', '""')}"*`).join(" OR ")
+		? tokens.map((token) => `"${token.replaceAll('"', '""')}"*`).join(" AND ")
 		: null;
 }
 
