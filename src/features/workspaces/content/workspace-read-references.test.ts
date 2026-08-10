@@ -101,6 +101,7 @@ describe("workspace read references", () => {
 		const results = [
 			{
 				elapsedSeconds: 4,
+				itemId: "file-a",
 				path: "/A.pdf",
 				phase: "extracting",
 				retryAfterSeconds: 15,
@@ -116,10 +117,12 @@ describe("workspace read references", () => {
 				type: "file",
 			},
 		] satisfies WorkspaceContentReadResult[];
-		const guidance = createWorkspaceReadItemsModelOutput({ references: [], results }).guidance;
+		const modelOutput = createWorkspaceReadItemsModelOutput({ references: [], results });
+		const { guidance } = modelOutput;
 
 		expect(guidance).toHaveLength(1);
 		expect(guidance?.[0]).toContain("Never sleep");
+		expect(JSON.stringify(modelOutput)).not.toContain("file-a");
 	});
 
 	it("separates failures that will never resolve from transient ones", () => {
