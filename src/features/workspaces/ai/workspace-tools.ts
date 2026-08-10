@@ -2,7 +2,10 @@ import type { ToolSet } from "ai";
 
 import type { AIThreadContext } from "#/features/workspaces/ai/ai-thread-metadata";
 import { defineAIThreadTool } from "#/features/workspaces/ai/ai-thread-tool";
-import { createPendingPdfModelOutput } from "#/features/workspaces/ai/workspace-read-file-fallback";
+import {
+	createPendingPdfModelOutput,
+	isPendingPdfFallbackInput,
+} from "#/features/workspaces/ai/workspace-read-file-fallback";
 import { getWorkspaceToolResultAdapter } from "#/features/workspaces/ai/workspace-tool-result-adapters";
 import type { WorkspaceReferenceRecord } from "#/features/workspaces/locations/workspace-location";
 import {
@@ -74,7 +77,9 @@ function createWorkspaceThreadTool(input: WorkspaceThreadToolConfig) {
 			if (references.length > 0 && input.onWorkspaceReferences) {
 				input.onWorkspaceReferences(references);
 			}
-			freshWorkspaceIds?.set(context.invocationId, thread.workspaceId);
+			if (freshWorkspaceIds && isPendingPdfFallbackInput(args)) {
+				freshWorkspaceIds.set(context.invocationId, thread.workspaceId);
+			}
 
 			return output;
 		},

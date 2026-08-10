@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { createPendingPdfModelOutput } from "#/features/workspaces/ai/workspace-read-file-fallback";
+import {
+	createPendingPdfModelOutput,
+	isPendingPdfFallbackInput,
+} from "#/features/workspaces/ai/workspace-read-file-fallback";
 import type { WorkspaceKernelClient } from "#/features/workspaces/kernel/workspace-kernel-access";
 
 describe("pending PDF model output", () => {
@@ -40,6 +43,30 @@ describe("pending PDF model output", () => {
 				workspaceId: "workspace-1",
 			}),
 		).resolves.toBeNull();
+	});
+
+	it("allows the fallback only for one initial read", () => {
+		expect(isPendingPdfFallbackInput({ requests: [{ mode: "start", path: "/Report.pdf" }] })).toBe(
+			true,
+		);
+		expect(
+			isPendingPdfFallbackInput({
+				requests: [{ cursor: "opaque", mode: "continue", path: "/Report.pdf" }],
+			}),
+		).toBe(false);
+		expect(
+			isPendingPdfFallbackInput({
+				requests: [{ mode: "pages", path: "/Report.pdf", range: "2" }],
+			}),
+		).toBe(false);
+		expect(
+			isPendingPdfFallbackInput({
+				requests: [
+					{ mode: "start", path: "/Report.pdf" },
+					{ mode: "start", path: "/Appendix.pdf" },
+				],
+			}),
+		).toBe(false);
 	});
 });
 

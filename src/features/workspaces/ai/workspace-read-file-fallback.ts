@@ -1,12 +1,22 @@
 import type { Tool } from "ai";
 
-import { workspaceReadItemsOutputSchema } from "#/features/workspaces/content/workspace-content-contract";
+import {
+	workspaceReadItemsInputSchema,
+	workspaceReadItemsOutputSchema,
+} from "#/features/workspaces/content/workspace-content-contract";
 import { createWorkspaceReadItemsModelOutput } from "#/features/workspaces/content/workspace-read-references";
 import { getWorkspaceFileSourceObject } from "#/features/workspaces/extraction/workspace-file-source";
 import { getWorkspaceKernelFromEnv } from "#/features/workspaces/kernel/workspace-kernel-access";
 
 const maxPendingPdfBytes = 3.5 * 1024 * 1024;
 type ModelToolOutput = Awaited<ReturnType<NonNullable<Tool["toModelOutput"]>>>;
+
+export function isPendingPdfFallbackInput(input: unknown) {
+	const parsed = workspaceReadItemsInputSchema.safeParse(input);
+	return (
+		parsed.success && parsed.data.requests.length === 1 && parsed.data.requests[0]?.mode === "start"
+	);
+}
 
 export async function createPendingPdfModelOutput(input: {
 	env: Cloudflare.Env;
