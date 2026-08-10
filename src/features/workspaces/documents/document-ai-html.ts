@@ -1,4 +1,5 @@
 import { DOMParser, DOMSerializer, Fragment, type Node as ProseMirrorNode } from "@tiptap/pm/model";
+import { parse as parseJavaScript } from "acorn";
 import { parseHTML } from "linkedom";
 import { nanoid } from "nanoid";
 
@@ -17,6 +18,7 @@ const TEXT_NODE = 3;
 const documentBlockIdPattern = /^b_[A-Za-z0-9_-]{12}$/;
 const documentAiEditRefPattern = /^(b_[A-Za-z0-9_-]{12})\.r_[A-Za-z0-9_-]{10}$/;
 export class DocumentAiHtmlError extends Error {}
+export class WidgetScriptSyntaxError extends DocumentAiHtmlError {}
 
 export interface DocumentAiBlockSnapshot {
 	content: string;
@@ -35,6 +37,7 @@ export function parseDocumentAiHtml(html: string): TiptapDocumentJson {
 
 	rewriteLossyElements(htmlDocument);
 
+	validateWidgetScriptSyntax(htmlDocument.body);
 	validateDocumentAiHtml(htmlDocument.body);
 
 	for (const element of htmlDocument.body.querySelectorAll("[data-edit-ref]")) {
@@ -251,6 +254,62 @@ function validateDocumentAiHtml(root: HTMLElement) {
 			);
 		}
 	}
+}
+
+/**
+ * Parse executable inline scripts exactly where model-authored widgets enter
+ * the document. This runs before create/edit persistence, so a syntax error is
+ * returned to the model by the same tool call instead of becoming a broken
+ * iframe in the browser.
+ *
+ * Widget source is HTML-escaped text in the outer document. Parse that text as
+ * its own fragment first, matching the document the sandbox will construct.
+ * Non-JavaScript data blocks and external scripts are not executed inline and
+ * therefore have no inline JavaScript syntax to validate.
+ */
+function validateWidgetScriptSyntax(root: HTMLElement) {
+	const widgets = Array.from(root.querySelectorAll('div[data-type="widget"]'));
+
+	for (const [widgetIndex, widget] of widgets.entries()) {
+		const widgetDocument = createHtmlDocument();
+		widgetDocument.body.innerHTML = widget.textContent ?? "";
+		const scripts = Array.from(widgetDocument.body.querySelectorAll("script"));
+
+		for (const [scriptIndex, script] of scripts.entries()) {
+			if (script.hasAttribute("src")) {
+				continue;
+			}
+
+			const sourceType = getWidgetScriptSourceType(script.getAttribute("type"));
+			if (!sourceType) {
+				continue;
+			}
+
+			try {
+				parseJavaScript(script.textContent ?? "", {
+					ecmaVersion: "latest",
+					sourceType,
+				});
+			} catch (error) {
+				const message = error instanceof Error ? error.message : "Invalid JavaScript syntax";
+				throw new WidgetScriptSyntaxError(
+					`Widget ${widgetIndex + 1} script ${scriptIndex + 1} has invalid JavaScript: ${message}`,
+					{ cause: error },
+				);
+			}
+		}
+	}
+}
+
+function getWidgetScriptSourceType(typeAttribute: string | null): "module" | "script" | null {
+	const type = (typeAttribute ?? "").trim().toLowerCase().split(";", 1)[0];
+	if (!type) {
+		return "script";
+	}
+	if (type === "module") {
+		return "module";
+	}
+	return /^(?:text|application)\/(?:x-)?(?:java|ecma)script$/.test(type) ? "script" : null;
 }
 
 /** Short refs the assistant cited, for the caller to resolve to locations. */

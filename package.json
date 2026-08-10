@@ -103,6 +103,7 @@
 		"@tiptap/pm": "^3.29.2",
 		"@tiptap/react": "^3.29.2",
 		"@tiptap/starter-kit": "^3.29.2",
+		"acorn": "8.18.0",
 		"agents": "^0.19.0",
 		"ai": "^7.0.57",
 		"aws4fetch": "^1.0.20",

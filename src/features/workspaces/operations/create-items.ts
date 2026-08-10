@@ -6,7 +6,10 @@ import {
 import { createWorkspaceItemsFailureCodes } from "#/features/workspaces/operations/workspace-operation-failure-codes";
 import type { WorkspaceAccessContext } from "#/features/workspaces/operations/workspace-access-context";
 import type { WorkspaceKernelPathResolution } from "#/features/workspaces/kernel/workspace-kernel-types";
-import { parseDocumentAiHtml } from "#/features/workspaces/documents/document-ai-html";
+import {
+	parseDocumentAiHtml,
+	WidgetScriptSyntaxError,
+} from "#/features/workspaces/documents/document-ai-html";
 import { resolveDocumentCitations } from "#/features/workspaces/operations/document-citations";
 import { stringifyTiptapDocumentJson } from "#/features/workspaces/documents/tiptap-document";
 import {
@@ -36,6 +39,7 @@ type CreateWorkspaceItemsFailureCode = (typeof createWorkspaceItemsFailureCodes)
 
 export interface CreateWorkspaceItemsFailure {
 	code: CreateWorkspaceItemsFailureCode;
+	detail?: string;
 	index: number;
 	path: string;
 }
@@ -122,6 +126,7 @@ export async function createWorkspaceItemsOperation(
 		if (initialContent.status === "failed") {
 			failed.push({
 				code: initialContent.code,
+				...(initialContent.detail ? { detail: initialContent.detail } : {}),
 				index,
 				path: path.path,
 			});
@@ -272,7 +277,8 @@ function getCreateWorkspaceItemInitialContent(input: CreateWorkspaceItemOperatio
 			status: "ready";
 	  }
 	| {
-			code: "invalid_initial_content";
+			code: "invalid_initial_content" | "widget_script_syntax_error";
+			detail?: string;
 			status: "failed";
 	  } {
 	if (input.type !== "document" || input.initialContent === undefined) {
@@ -284,9 +290,13 @@ function getCreateWorkspaceItemInitialContent(input: CreateWorkspaceItemOperatio
 			content: stringifyTiptapDocumentJson(parseDocumentAiHtml(input.initialContent)),
 			status: "ready",
 		};
-	} catch {
+	} catch (error) {
 		return {
-			code: "invalid_initial_content",
+			code:
+				error instanceof WidgetScriptSyntaxError
+					? "widget_script_syntax_error"
+					: "invalid_initial_content",
+			...(error instanceof WidgetScriptSyntaxError ? { detail: error.message } : {}),
 			status: "failed",
 		};
 	}

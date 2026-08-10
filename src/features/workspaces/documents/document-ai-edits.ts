@@ -10,6 +10,7 @@ import {
 	serializeTiptapNodeToEditableAiHtml,
 	readTiptapNodeBlockId,
 	withTiptapNodeAiRef,
+	WidgetScriptSyntaxError,
 } from "#/features/workspaces/documents/document-ai-html";
 import type { DocumentEditLineChanges } from "#/features/workspaces/documents/document-edit-receipt";
 import {
@@ -66,6 +67,7 @@ export const documentAiEditFailureCodes = [
 	// one of three identical buttons would otherwise change all three, unnoticed.
 	"edit_not_unique",
 	"invalid_html",
+	"widget_script_syntax_error",
 	"no_change",
 	"edit_ref_not_found",
 	"edit_ref_stale",
@@ -217,8 +219,8 @@ function applyDocumentAiEdit(
 	| { document: ProseMirrorNode; status: "applied" } {
 	if (edit.op === "overwrite") {
 		const parsed = parseEditHtml(edit.html);
-		if (!parsed.children) {
-			return { code: "invalid_html", detail: parsed.detail, status: "failed" };
+		if ("code" in parsed) {
+			return { code: parsed.code, detail: parsed.detail, status: "failed" };
 		}
 
 		const next = createDocument(parsed.children);
@@ -258,8 +260,8 @@ function applyDocumentAiEdit(
 		}
 
 		const parsed = parseEditHtml(html);
-		if (!parsed.children) {
-			return { code: "invalid_html", detail: parsed.detail, status: "failed" };
+		if ("code" in parsed) {
+			return { code: parsed.code, detail: parsed.detail, status: "failed" };
 		}
 		const targetBlockId = readTiptapNodeBlockId(document.child(targetIndex));
 		const firstNode = parsed.children[0];
@@ -321,7 +323,11 @@ function replaceUniqueText(
 	return { ok: true, text: haystack.replace(needle, replace) };
 }
 
-function parseEditHtml(html: string) {
+function parseEditHtml(
+	html: string,
+):
+	| { children: ProseMirrorNode[] }
+	| { code: "invalid_html" | "widget_script_syntax_error"; detail: string } {
 	try {
 		return {
 			children: getDocumentChildren(
@@ -330,7 +336,11 @@ function parseEditHtml(html: string) {
 		};
 	} catch (error) {
 		if (error instanceof DocumentAiHtmlError) {
-			return { detail: error.message };
+			return {
+				code:
+					error instanceof WidgetScriptSyntaxError ? "widget_script_syntax_error" : "invalid_html",
+				detail: error.message,
+			};
 		}
 		throw error;
 	}

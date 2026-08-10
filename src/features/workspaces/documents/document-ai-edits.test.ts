@@ -131,6 +131,36 @@ describe("document AI edits", () => {
 		);
 		expect(getWidgetSource(result.document)).toBe("<button>Go</button>");
 	});
+
+	it("rejects a widget edit with invalid JavaScript and preserves the existing widget", async () => {
+		const source = '<button id="run">Run</button><script>const ready = true;</script>';
+		const document = createDocument(
+			`<div data-type="widget" title="Runner">${source.replaceAll("<", "&lt;")}</div>`,
+		);
+		const editRef = await getEditRef(document, "div");
+		const brokenSource = '<button id="run">Run</button><script>const ready = ;</script>';
+		const result = await applyDocumentAiEdits(document, [
+			{
+				editRef,
+				html: `<div data-type="widget" title="Runner">${brokenSource.replaceAll("<", "&lt;")}</div>`,
+				op: "replace",
+			},
+		]);
+
+		expect(result).toMatchObject({
+			applied: 0,
+			failed: 1,
+			failures: [
+				{
+					code: "widget_script_syntax_error",
+					detail: expect.stringContaining("Unexpected token"),
+					index: 0,
+				},
+			],
+			status: "failed",
+		});
+		expect(getWidgetSource(result.document)).toBe(source);
+	});
 });
 
 function createDocument(html: string) {
