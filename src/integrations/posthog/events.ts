@@ -41,6 +41,9 @@ export interface PostHogEventPropertiesByName {
 		share_method: "link";
 		shared_role: WorkspaceMembershipRole;
 	};
+	workspace_export_too_large: {
+		workspace_id: string;
+	};
 	workspace_file_read_completed: {
 		workspace_id: string;
 		operation_id: string;
@@ -184,6 +187,7 @@ export interface PostHogEventPropertiesByName {
 export type PostHogEventName = keyof PostHogEventPropertiesByName;
 export type PostHogClientEventName =
 	| "workspace_invite_link_copied"
+	| "workspace_export_too_large"
 	| "auth_started"
 	| "upgrade_prompt_clicked"
 	| "upgrade_checkout_started";

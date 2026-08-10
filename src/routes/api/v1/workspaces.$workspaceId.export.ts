@@ -1,6 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { createWorkspaceExport } from "#/features/workspaces/export/workspace-export";
+import {
+	canExportWorkspace,
+	createWorkspaceExport,
+	WorkspaceExportTooLargeError,
+} from "#/features/workspaces/export/workspace-export";
 import { WorkspaceForbiddenError } from "#/features/workspaces/server/permissions";
 import { apiError, apiFailure, getRequestId } from "#/lib/api/http";
 import { getSessionFromRequest } from "#/lib/auth-queries.server";
@@ -13,6 +17,22 @@ async function handleWorkspaceExport(request: Request, workspaceId: string) {
 	}
 
 	try {
+		if (new URL(request.url).searchParams.has("preflight")) {
+			const canExport = await canExportWorkspace({
+				workspaceId,
+				userId: session.user.id,
+			});
+			if (!canExport) {
+				return apiError(
+					requestId,
+					413,
+					"EXPORT_TOO_LARGE",
+					"This workspace is too large to export right now.",
+				);
+			}
+			return new Response(null, { status: 204 });
+		}
+
 		const archive = await createWorkspaceExport({
 			workspaceId,
 			userId: session.user.id,
@@ -26,6 +46,15 @@ async function handleWorkspaceExport(request: Request, workspaceId: string) {
 			},
 		});
 	} catch (error) {
+		if (error instanceof WorkspaceExportTooLargeError) {
+			return apiError(
+				requestId,
+				413,
+				"EXPORT_TOO_LARGE",
+				"This workspace is too large to export right now.",
+			);
+		}
+
 		if (error instanceof WorkspaceForbiddenError) {
 			return apiError(
 				requestId,

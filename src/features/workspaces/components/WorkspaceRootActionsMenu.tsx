@@ -1,6 +1,5 @@
 import { Clock3, Download, Settings, Share2 } from "lucide-react";
 import { type ReactElement, useState } from "react";
-import { toast } from "sonner";
 
 import {
 	DropdownMenu,
@@ -10,6 +9,7 @@ import {
 	DropdownMenuTrigger,
 } from "#/components/ui/dropdown-menu";
 import { workspaceDropdownMenuRenderer } from "#/features/workspaces/components/WorkspaceMenuRenderers";
+import { WorkspaceExportDialog } from "#/features/workspaces/components/WorkspaceExportDialog";
 import WorkspaceSettingsDialog from "#/features/workspaces/components/WorkspaceSettingsDialog";
 import { WorkspaceShareDialog } from "#/features/workspaces/components/WorkspaceShareDialog";
 import { WorkspaceToolbarIconButton } from "#/features/workspaces/components/WorkspaceToolbar";
@@ -34,14 +34,7 @@ export default function WorkspaceRootActionsMenu({
 	const { capabilities } = useWorkspaceMutationAccess();
 	const [settingsOpen, setSettingsOpen] = useState(false);
 	const [shareOpen, setShareOpen] = useState(false);
-	const exportWorkspace = () => {
-		toast.message("Preparing workspace export…");
-		const link = document.createElement("a");
-		link.href = `/api/v1/workspaces/${encodeURIComponent(workspace.id)}/export`;
-		link.target = "_blank";
-		link.rel = "noopener";
-		link.click();
-	};
+	const [exportOpen, setExportOpen] = useState(false);
 
 	return (
 		<>
@@ -59,7 +52,7 @@ export default function WorkspaceRootActionsMenu({
 							getWorkspaceRootMenuActions({
 								canOpenSettings: capabilities.canMutateContent,
 								includeShare: !showShareButton,
-								onExport: exportWorkspace,
+								onExport: () => setExportOpen(true),
 								onOpenSettings: () => setSettingsOpen(true),
 								onOpenShare: () => setShareOpen(true),
 							}),
@@ -81,6 +74,7 @@ export default function WorkspaceRootActionsMenu({
 				workspaceId={workspace.id}
 				workspaceName={workspace.name}
 			/>
+			<WorkspaceExportDialog onOpenChange={setExportOpen} open={exportOpen} workspace={workspace} />
 		</>
 	);
 }
