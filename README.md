@@ -14,6 +14,10 @@
 </p>
 
 <p align="center">
+  <a href="https://www.greptile.com/?utm_source=oss_badge&utm_medium=readme&utm_campaign=greptile_for_open_source"><img alt="Greptile: The War on Bugs" src="https://www.greptile.com/badge.svg"></a>
+</p>
+
+<p align="center">
   <strong>The workspace built for how you study, research, and create.</strong>
 </p>
 
