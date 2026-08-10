@@ -3,6 +3,7 @@ import { Agent, type Connection, type ConnectionContext } from "agents";
 
 import type { WorkspaceItemSummary } from "#/features/workspaces/contracts";
 import { getDocumentSessionForDeletionFromEnv } from "#/features/workspaces/document-session-access";
+import { WorkspaceKernelHistory } from "#/features/workspaces/history/workspace-kernel-history";
 import { reconcileWorkspaceFileExtractions } from "#/features/workspaces/extraction/workspace-file-extraction-reconciler";
 import type { ResourcePurgeResult } from "#/features/workspaces/resource-purge-result";
 import { WorkspaceKernelEventBus } from "#/features/workspaces/kernel/workspace-kernel-events";
@@ -37,21 +38,24 @@ import type {
 	DeleteWorkspaceKernelItemsResult,
 	GetWorkspaceKernelItemPathsArgs,
 	ListWorkspaceKernelItemRelationsArgs,
+	ListWorkspaceHistoryArgs,
 	ListWorkspaceKernelItemsArgs,
 	LinkWorkspaceKernelItemsArgs,
 	MoveWorkspaceKernelItemsArgs,
 	MoveWorkspaceKernelItemsResult,
 	ReadWorkspaceKernelFileSourceArgs,
 	ReadWorkspaceKernelFileProjectionArgs,
-	ReadWorkspaceDocumentCheckpointArgs,
+	ReadWorkspaceItemContentArgs,
+	ReadWorkspaceItemVersionArgs,
+	ReadWorkspaceItemVersionChangeArgs,
 	ResolveWorkspaceKernelPathsArgs,
 	RenameWorkspaceKernelItemArgs,
 	UpdateWorkspaceKernelItemColorArgs,
 	UpsertWorkspaceKernelFileProjectionArgs,
 	WorkspaceKernelPage,
 	WorkspaceKernelMutationOutcome,
-	WorkspaceKernelPublishOutcome,
-	CommitWorkspaceDocumentCheckpointArgs,
+	WorkspaceKernelContentCommitOutcome,
+	CommitWorkspaceItemContentArgs,
 	WorkspaceKernelPathResolution,
 } from "#/features/workspaces/kernel/workspace-kernel-types";
 import { getChatAttachmentWorkspacePrefix } from "#/features/workspaces/ai/chat-attachment-storage";
@@ -142,8 +146,14 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 		},
 	});
 	private readonly relations = new WorkspaceKernelRelations(this.kernelSql);
+	private readonly history = new WorkspaceKernelHistory(
+		this.kernelSql,
+		this.env.WORKSPACE_KERNEL_FILES,
+		() => this.name,
+	);
 	private readonly itemCommands = new WorkspaceKernelItemCommands({
 		events: this.events,
+		history: this.history,
 		relations: this.relations,
 		sql: this.kernelSql,
 		store: this.store,
@@ -267,6 +277,7 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 			actorUserId: input.actorUserId ?? null,
 			clientMutationId: input.clientMutationId ?? null,
 			payload: { itemFacts },
+			provenance: input.provenance,
 		});
 		return { event, result: itemFacts };
 	}
@@ -393,16 +404,28 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 		}
 	}
 
-	async readDocumentCheckpoint(input: ReadWorkspaceDocumentCheckpointArgs) {
-		return await this.itemCommands.readDocumentCheckpoint(input);
+	async readItemContent(input: ReadWorkspaceItemContentArgs) {
+		return await this.itemCommands.readItemContent(input);
 	}
 
-	async commitDocumentCheckpoint(
-		input: CommitWorkspaceDocumentCheckpointArgs,
-	): Promise<WorkspaceKernelPublishOutcome> {
-		return this.runMutation("commit_document_checkpoint", input, 1, () =>
-			this.itemCommands.commitDocumentCheckpoint(input),
+	async commitItemContent(
+		input: CommitWorkspaceItemContentArgs,
+	): Promise<WorkspaceKernelContentCommitOutcome> {
+		return this.runMutation("commit_item_content", input, 1, () =>
+			this.itemCommands.commitItemContent(input),
 		);
+	}
+
+	async listHistory(input: ListWorkspaceHistoryArgs = {}) {
+		return this.history.list(input);
+	}
+
+	async readItemVersionChange(input: ReadWorkspaceItemVersionChangeArgs) {
+		return await this.history.readVersionChange(input);
+	}
+
+	async readItemVersion(input: ReadWorkspaceItemVersionArgs) {
+		return await this.history.readVersion(input);
 	}
 
 	async searchWorkspace(input: WorkspaceSearchInput) {
@@ -496,6 +519,7 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 			deleteR2Prefix(this.env.WORKSPACE_KERNEL_FILES, `workspace_kernel_files/${workspaceId}/`),
 			deleteR2Prefix(this.env.WORKSPACE_KERNEL_FILES, `workspace_file_objects/${workspaceId}/`),
 			deleteR2Prefix(this.env.WORKSPACE_KERNEL_FILES, `workspace_file_uploads/${workspaceId}/`),
+			deleteR2Prefix(this.env.WORKSPACE_KERNEL_FILES, `workspace_history/${workspaceId}/`),
 		]);
 		const r2Failures = r2PurgeResults.filter((result) => result.status === "rejected");
 		if (r2Failures.length > 0) {

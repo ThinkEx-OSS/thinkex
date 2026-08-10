@@ -158,6 +158,7 @@ export async function createWorkspaceItemsOperation(
 			initialRelations: relations.relations,
 			actorUserId: accessContext.actor.userId,
 			clientMutationId: `${accessContext.operationId}:${index}`,
+			provenance: accessContext.provenance,
 		});
 
 		if (outcome.status === "conflict") {

@@ -10,6 +10,10 @@ import type {
 	WorkspaceFileAssetKind,
 	WorkspaceUploadConversion,
 } from "#/features/workspaces/model/workspace-file";
+import type {
+	WorkspaceHistoryEntry,
+	WorkspaceMutationProvenance,
+} from "#/features/workspaces/history/workspace-history-contract";
 import type { WorkspaceCommandResult } from "#/features/workspaces/realtime/messages";
 
 export interface WorkspaceKernelPage {
@@ -26,9 +30,7 @@ export interface CreateWorkspaceKernelRelationArgs {
 	toItemId: string;
 }
 
-export interface LinkWorkspaceKernelItemsArgs {
-	actorUserId?: string | null;
-	clientMutationId?: string | null;
+export interface LinkWorkspaceKernelItemsArgs extends WorkspaceKernelMutationMetadata {
 	relations: CreateWorkspaceKernelRelationArgs[];
 }
 
@@ -103,7 +105,17 @@ export type WorkspaceKernelMutationOutcome<T> =
 			status: "conflict";
 	  };
 
+export type WorkspaceKernelContentCommitOutcome =
+	| { eventId: string | null; status: "applied"; versionId: string | null }
+	| { status: "discarded" };
+
 export type WorkspaceKernelPublishOutcome = "applied" | "discarded";
+
+interface WorkspaceKernelMutationMetadata {
+	actorUserId?: string | null;
+	clientMutationId?: string | null;
+	provenance?: WorkspaceMutationProvenance;
+}
 
 export function requireAppliedWorkspaceKernelMutation<T>(
 	outcome: WorkspaceKernelMutationOutcome<T>,
@@ -117,7 +129,7 @@ export function requireAppliedWorkspaceKernelMutation<T>(
 	return outcome.command;
 }
 
-export interface CreateWorkspaceKernelItemArgs {
+export interface CreateWorkspaceKernelItemArgs extends WorkspaceKernelMutationMetadata {
 	id: string;
 	parentId?: string | null;
 	type: WorkspaceItemType;
@@ -127,45 +139,35 @@ export interface CreateWorkspaceKernelItemArgs {
 	metadataJson?: Record<string, JsonValue>;
 	initialContent?: string;
 	initialRelations?: CreateWorkspaceKernelRelationArgs[];
-	actorUserId?: string | null;
-	clientMutationId?: string | null;
 }
 
-export interface RenameWorkspaceKernelItemArgs {
+export interface RenameWorkspaceKernelItemArgs extends WorkspaceKernelMutationMetadata {
 	itemId: string;
 	name: string;
 	onNameConflict?: WorkspaceKernelNameConflictPolicy;
-	actorUserId?: string | null;
-	clientMutationId?: string | null;
 }
 
-export interface MoveWorkspaceKernelItemsArgs {
+export interface MoveWorkspaceKernelItemsArgs extends WorkspaceKernelMutationMetadata {
 	items: Array<{
 		itemId: string;
 		sortOrder?: number;
 	}>;
 	parentId?: string | null;
 	onNameConflict?: WorkspaceKernelNameConflictPolicy;
-	actorUserId?: string | null;
-	clientMutationId?: string | null;
 }
 
 export type MoveWorkspaceKernelItemsResult = WorkspaceItemSummary[];
 
-export interface UpdateWorkspaceKernelItemColorArgs {
+export interface UpdateWorkspaceKernelItemColorArgs extends WorkspaceKernelMutationMetadata {
 	itemId: string;
 	color: WorkspaceItemColor;
-	actorUserId?: string | null;
-	clientMutationId?: string | null;
 }
 
-export interface DeleteWorkspaceKernelItemsArgs {
+export interface DeleteWorkspaceKernelItemsArgs extends WorkspaceKernelMutationMetadata {
 	itemIds: string[];
-	actorUserId?: string | null;
-	clientMutationId?: string | null;
 }
 
-export interface ReadWorkspaceDocumentCheckpointArgs {
+export interface ReadWorkspaceItemContentArgs {
 	itemId: string;
 }
 
@@ -184,11 +186,9 @@ export type WorkspaceKernelFileProjectionFormat = "pages" | "preview";
 
 export type WorkspaceKernelFileProjectionStatus = "processing" | "ready" | "failed";
 
-interface WorkspaceKernelFileProjectionMutationBase {
+interface WorkspaceKernelFileProjectionMutationBase extends WorkspaceKernelMutationMetadata {
 	itemId: string;
 	format: WorkspaceKernelFileProjectionFormat;
-	actorUserId?: string | null;
-	clientMutationId?: string | null;
 }
 
 export type UpsertWorkspaceKernelFileProjectionArgs =
@@ -249,14 +249,14 @@ export interface ReadWorkspaceKernelFileProjectionResult {
 	updatedAt: string;
 }
 
-export interface CommitWorkspaceDocumentCheckpointArgs {
+export interface CommitWorkspaceItemContentArgs extends WorkspaceKernelMutationMetadata {
 	itemId: string;
 	content: string;
-	actorUserId?: string | null;
-	clientMutationId?: string | null;
+	createVersion?: boolean;
+	versionId?: string;
 }
 
-export interface CreateWorkspaceKernelFileFromUploadArgs {
+export interface CreateWorkspaceKernelFileFromUploadArgs extends WorkspaceKernelMutationMetadata {
 	id: string;
 	parentId?: string | null;
 	fileName: string;
@@ -275,8 +275,22 @@ export interface CreateWorkspaceKernelFileFromUploadArgs {
 		mimeType: string | null;
 		sizeBytes: number;
 	};
-	actorUserId?: string | null;
-	clientMutationId?: string | null;
+}
+
+export interface ListWorkspaceHistoryArgs {
+	beforeRevision?: number;
+	limit?: number;
+}
+
+export type ListWorkspaceHistoryResult = Array<Omit<WorkspaceHistoryEntry, "actorLabel">>;
+
+export interface ReadWorkspaceItemVersionChangeArgs {
+	versionIds: string[];
+}
+
+export interface ReadWorkspaceItemVersionArgs {
+	itemId: string;
+	versionId: string;
 }
 
 export interface DeleteWorkspaceKernelItemsResult {

@@ -24,6 +24,9 @@ describe("applyWorkspaceEventToPage", () => {
 				createdAt: "2026-01-01T00:00:00.000Z",
 				actorUserId: null,
 				clientMutationId: null,
+				origin: "system",
+				groupId: null,
+				threadId: null,
 				type,
 				payload: {
 					itemFacts: [{ itemId: "item-1", pageCount: 12, relationshipCount: 2 }],

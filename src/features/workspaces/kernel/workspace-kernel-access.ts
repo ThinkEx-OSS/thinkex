@@ -16,11 +16,15 @@ import {
 	type CreateWorkspaceKernelFileFromUploadArgs,
 	type CreateWorkspaceKernelItemArgs,
 	type DeleteWorkspaceKernelItemsResult,
+	type DeleteWorkspaceKernelItemsArgs,
 	type GetWorkspaceKernelItemPathsArgs,
 	type ListWorkspaceKernelItemRelationsArgs,
 	type ListWorkspaceKernelItemsArgs,
 	type LinkWorkspaceKernelItemsArgs,
+	type ListWorkspaceHistoryArgs,
+	type ListWorkspaceHistoryResult,
 	type MoveWorkspaceKernelItemsResult,
+	type MoveWorkspaceKernelItemsArgs,
 	type ReadWorkspaceKernelFilePreviewResult,
 	type ReadWorkspaceKernelFileProjectionArgs,
 	type ReadWorkspaceKernelFileProjectionResult,
@@ -28,9 +32,15 @@ import {
 	type ResolveWorkspaceKernelPathsArgs,
 	type WorkspaceKernelFileSource,
 	type WorkspaceKernelItemRelation,
-	type WorkspaceKernelNameConflictPolicy,
 	type WorkspaceKernelMutationOutcome,
 	type WorkspaceKernelPublishOutcome,
+	type WorkspaceKernelContentCommitOutcome,
+	type ReadWorkspaceItemVersionArgs,
+	type ReadWorkspaceItemVersionChangeArgs,
+	type ReadWorkspaceItemContentArgs,
+	type CommitWorkspaceItemContentArgs,
+	type RenameWorkspaceKernelItemArgs,
+	type UpdateWorkspaceKernelItemColorArgs,
 	type WorkspaceKernelItemPath,
 	type WorkspaceKernelPathResolution,
 } from "#/features/workspaces/kernel/workspace-kernel-types";
@@ -76,37 +86,21 @@ export interface WorkspaceKernelClient {
 	createFileFromUpload(
 		input: CreateWorkspaceKernelFileFromUploadArgs,
 	): Promise<WorkspaceCommandResult<WorkspaceItemSummary>>;
-	renameItem(input: {
-		itemId: string;
-		name: string;
-		onNameConflict?: WorkspaceKernelNameConflictPolicy;
-		actorUserId?: string | null;
-		clientMutationId?: string | null;
-	}): Promise<WorkspaceKernelMutationOutcome<WorkspaceItemSummary>>;
-	moveItems(input: {
-		items: Array<{
-			itemId: string;
-			sortOrder?: number;
-		}>;
-		parentId?: string | null;
-		onNameConflict?: WorkspaceKernelNameConflictPolicy;
-		actorUserId?: string | null;
-		clientMutationId?: string | null;
-	}): Promise<WorkspaceKernelMutationOutcome<MoveWorkspaceKernelItemsResult>>;
-	updateItemColor(input: {
-		itemId: string;
-		color: UpdateWorkspaceItemColorInput["color"];
-		actorUserId?: string | null;
-		clientMutationId?: string | null;
-	}): Promise<WorkspaceCommandResult<WorkspaceItemSummary>>;
-	deleteItems(input: {
-		itemIds: string[];
-		actorUserId?: string | null;
-		clientMutationId?: string | null;
-	}): Promise<WorkspaceCommandResult<DeleteWorkspaceKernelItemsResult>>;
-	readDocumentCheckpoint(input: {
-		itemId: string;
-	}): Promise<{ item: WorkspaceItemSummary; content: string }>;
+	renameItem(
+		input: RenameWorkspaceKernelItemArgs,
+	): Promise<WorkspaceKernelMutationOutcome<WorkspaceItemSummary>>;
+	moveItems(
+		input: MoveWorkspaceKernelItemsArgs,
+	): Promise<WorkspaceKernelMutationOutcome<MoveWorkspaceKernelItemsResult>>;
+	updateItemColor(
+		input: UpdateWorkspaceKernelItemColorArgs,
+	): Promise<WorkspaceCommandResult<WorkspaceItemSummary>>;
+	deleteItems(
+		input: DeleteWorkspaceKernelItemsArgs,
+	): Promise<WorkspaceCommandResult<DeleteWorkspaceKernelItemsResult>>;
+	readItemContent(
+		input: ReadWorkspaceItemContentArgs,
+	): Promise<{ item: WorkspaceItemSummary; content: string }>;
 	getFileSource(input: { itemId: string }): Promise<WorkspaceKernelFileSource>;
 	readFilePreview(input: { itemId: string }): Promise<ReadWorkspaceKernelFilePreviewResult | null>;
 	upsertFileProjection(
@@ -115,12 +109,27 @@ export interface WorkspaceKernelClient {
 	readFileProjection(
 		input: ReadWorkspaceKernelFileProjectionArgs,
 	): Promise<ReadWorkspaceKernelFileProjectionResult | null>;
-	commitDocumentCheckpoint(input: {
-		itemId: string;
-		content: string;
-		actorUserId?: string | null;
-		clientMutationId?: string | null;
-	}): Promise<WorkspaceKernelPublishOutcome>;
+	commitItemContent(
+		input: CommitWorkspaceItemContentArgs,
+	): Promise<WorkspaceKernelContentCommitOutcome>;
+	listHistory(input?: ListWorkspaceHistoryArgs): Promise<ListWorkspaceHistoryResult>;
+	readItemVersionChange(
+		input: ReadWorkspaceItemVersionChangeArgs,
+	): Promise<
+		| { beforeContent: string; expectedCurrentHash: string; status: "ready" }
+		| { status: "not_found" | "not_latest" | "review_unavailable" }
+	>;
+	readItemVersion(input: ReadWorkspaceItemVersionArgs): Promise<
+		| {
+				beforeContent: string | null;
+				canRestore: boolean;
+				content: string;
+				itemId: string;
+				itemType: string;
+				status: "ready";
+		  }
+		| { status: "not_found" | "review_unavailable" }
+	>;
 	searchWorkspace(input: WorkspaceSearchInput): Promise<{
 		failed: WorkspaceSearchFailure[];
 		results: WorkspaceSearchResult[];

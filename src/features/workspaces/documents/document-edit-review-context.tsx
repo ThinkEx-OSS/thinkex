@@ -50,7 +50,11 @@ export function DocumentEditReviewProvider({
 			}
 
 			const review = await getDocumentEditReceiptReviewFn({
-				data: { itemId: input.itemId, receiptIds: input.receiptIds, workspaceId },
+				data: {
+					itemId: input.itemId,
+					receiptIds: input.receiptIds,
+					workspaceId,
+				},
 			}).catch(() => null);
 
 			if (!review) {

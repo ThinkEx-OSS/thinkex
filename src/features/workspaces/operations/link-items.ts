@@ -82,6 +82,7 @@ export async function linkWorkspaceItemsOperation(
 		relations: relations.relations,
 		actorUserId: accessContext.actor.userId,
 		clientMutationId: accessContext.operationId,
+		provenance: accessContext.provenance,
 	});
 
 	return {

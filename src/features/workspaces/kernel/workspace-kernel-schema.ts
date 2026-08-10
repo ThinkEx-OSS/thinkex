@@ -79,12 +79,44 @@ export function initializeWorkspaceKernelStorage(sql: WorkspaceKernelSql) {
 			type TEXT NOT NULL,
 			actor_user_id TEXT,
 			client_mutation_id TEXT,
-			payload_json TEXT NOT NULL,
+				origin TEXT NOT NULL DEFAULT 'system',
+				group_id TEXT,
+				thread_id TEXT,
+				payload_json TEXT NOT NULL,
 			created_at INTEGER NOT NULL
 		)
 	`;
-	sql`CREATE INDEX IF NOT EXISTS kernel_events_revision_idx
-		ON kernel_events (revision)`;
+	ensureKernelEventHistoryColumns(sql);
+	sql`DROP INDEX IF EXISTS kernel_events_revision_idx`;
+	sql`
+		CREATE TABLE IF NOT EXISTS workspace_item_versions (
+			id TEXT PRIMARY KEY,
+			item_id TEXT NOT NULL,
+			item_type TEXT NOT NULL,
+			revision INTEGER NOT NULL,
+			event_id TEXT NOT NULL,
+			object_key TEXT NOT NULL,
+			content_hash TEXT NOT NULL,
+				content_type TEXT NOT NULL,
+				previous_object_key TEXT,
+				previous_content_hash TEXT,
+				created_at INTEGER NOT NULL
+		)
+	`;
+	sql`CREATE INDEX IF NOT EXISTS workspace_item_versions_item_revision_idx
+		ON workspace_item_versions (item_id, revision DESC)`;
+	sql`CREATE INDEX IF NOT EXISTS workspace_item_versions_event_idx
+		ON workspace_item_versions (event_id)`;
+}
+
+function ensureKernelEventHistoryColumns(sql: WorkspaceKernelSql) {
+	const columns = new Set(
+		sql<{ name: string }>`PRAGMA table_info(kernel_events)`.map((row) => row.name),
+	);
+	if (!columns.has("origin"))
+		sql`ALTER TABLE kernel_events ADD COLUMN origin TEXT NOT NULL DEFAULT 'system'`;
+	if (!columns.has("group_id")) sql`ALTER TABLE kernel_events ADD COLUMN group_id TEXT`;
+	if (!columns.has("thread_id")) sql`ALTER TABLE kernel_events ADD COLUMN thread_id TEXT`;
 }
 
 function createSiblingNameIndexes(sql: WorkspaceKernelSql) {

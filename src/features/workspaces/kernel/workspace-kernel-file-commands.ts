@@ -176,6 +176,7 @@ export class WorkspaceKernelFileCommands {
 			actorUserId: input.actorUserId ?? null,
 			clientMutationId: input.clientMutationId ?? null,
 			payload: { item, itemFacts },
+			provenance: input.provenance,
 		});
 
 		return { result: item, event };
@@ -285,6 +286,7 @@ export class WorkspaceKernelFileCommands {
 			actorUserId: input.actorUserId ?? null,
 			clientMutationId: input.clientMutationId ?? null,
 			payload: { itemFacts },
+			provenance: input.provenance,
 		});
 		return "applied";
 	}

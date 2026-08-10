@@ -3,6 +3,7 @@ import {
 	workspaceItemFactsSchema,
 	workspaceItemSummarySchema,
 } from "#/features/workspaces/contracts";
+import { workspaceHistoryOrigins } from "#/features/workspaces/history/workspace-history-contract";
 
 const workspacePresenceUserSchema = z.object({
 	id: z.string(),
@@ -18,6 +19,9 @@ const workspaceRealtimeEventBase = {
 	createdAt: z.string(),
 	actorUserId: z.string().nullable(),
 	clientMutationId: z.string().nullable(),
+	origin: z.enum(workspaceHistoryOrigins),
+	groupId: z.string().nullable(),
+	threadId: z.string().nullable(),
 };
 
 const workspaceRealtimeEventSchema = z.discriminatedUnion("type", [
@@ -27,6 +31,7 @@ const workspaceRealtimeEventSchema = z.discriminatedUnion("type", [
 		payload: z.object({
 			item: workspaceItemSummarySchema,
 			itemFacts: z.array(workspaceItemFactsSchema),
+			versionId: z.string().nullable().optional(),
 		}),
 	}),
 	z.object({
@@ -37,12 +42,17 @@ const workspaceRealtimeEventSchema = z.discriminatedUnion("type", [
 			"workspace.item.color.updated",
 			"workspace.item.content.updated",
 		]),
-		payload: z.object({ item: workspaceItemSummarySchema }),
+		payload: z.object({
+			item: workspaceItemSummarySchema,
+			versionId: z.string().nullable().optional(),
+		}),
 	}),
 	z.object({
 		...workspaceRealtimeEventBase,
 		type: z.literal("workspace.items.moved"),
-		payload: z.object({ items: z.array(workspaceItemSummarySchema) }),
+		payload: z.object({
+			items: z.array(workspaceItemSummarySchema),
+		}),
 	}),
 	z.object({
 		...workspaceRealtimeEventBase,
@@ -51,6 +61,7 @@ const workspaceRealtimeEventSchema = z.discriminatedUnion("type", [
 			itemIds: z.array(z.string()),
 			deletedItemIds: z.array(z.string()),
 			itemFacts: z.array(workspaceItemFactsSchema),
+			items: z.array(workspaceItemSummarySchema).optional(),
 		}),
 	}),
 	z.object({

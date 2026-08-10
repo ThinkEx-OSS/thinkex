@@ -12,6 +12,7 @@ import { workspaceDropdownMenuRenderer } from "#/features/workspaces/components/
 import { WorkspaceExportDialog } from "#/features/workspaces/components/WorkspaceExportDialog";
 import WorkspaceSettingsDialog from "#/features/workspaces/components/WorkspaceSettingsDialog";
 import { WorkspaceShareDialog } from "#/features/workspaces/components/WorkspaceShareDialog";
+import { WorkspaceHistoryDialog } from "#/features/workspaces/components/WorkspaceHistoryDialog";
 import { WorkspaceToolbarIconButton } from "#/features/workspaces/components/WorkspaceToolbar";
 import {
 	renderWorkspaceMenuActions,
@@ -35,6 +36,7 @@ export default function WorkspaceRootActionsMenu({
 	const [settingsOpen, setSettingsOpen] = useState(false);
 	const [shareOpen, setShareOpen] = useState(false);
 	const [exportOpen, setExportOpen] = useState(false);
+	const [historyOpen, setHistoryOpen] = useState(false);
 
 	return (
 		<>
@@ -53,6 +55,7 @@ export default function WorkspaceRootActionsMenu({
 								canOpenSettings: capabilities.canMutateContent,
 								includeShare: !showShareButton,
 								onExport: () => setExportOpen(true),
+								onOpenHistory: () => setHistoryOpen(true),
 								onOpenSettings: () => setSettingsOpen(true),
 								onOpenShare: () => setShareOpen(true),
 							}),
@@ -66,6 +69,11 @@ export default function WorkspaceRootActionsMenu({
 				capabilities={capabilities}
 				open={settingsOpen}
 				onOpenChange={setSettingsOpen}
+			/>
+			<WorkspaceHistoryDialog
+				open={historyOpen}
+				onOpenChange={setHistoryOpen}
+				workspaceId={workspace.id}
 			/>
 			<WorkspaceShareDialog
 				membershipRole={workspace.membershipRole}
@@ -82,6 +90,7 @@ export default function WorkspaceRootActionsMenu({
 function getWorkspaceRootMenuActions(input: {
 	canOpenSettings: boolean;
 	includeShare: boolean;
+	onOpenHistory: () => void;
 	onExport: () => void;
 	onOpenSettings: () => void;
 	onOpenShare: () => void;
@@ -101,8 +110,7 @@ function getWorkspaceRootMenuActions(input: {
 			id: "version-history",
 			label: "Version history",
 			leading: <Clock3 className="size-4" />,
-			trailing: "Soon",
-			disabled: true,
+			onSelect: input.onOpenHistory,
 		},
 		{
 			kind: "item",
