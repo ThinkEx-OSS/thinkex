@@ -1,4 +1,13 @@
-import { ChevronDown, Code2, FileText, Globe2, PencilLine, Search, Wrench } from "lucide-react";
+import {
+	BookOpen,
+	ChevronDown,
+	Code2,
+	FileText,
+	Globe2,
+	PencilLine,
+	Search,
+	Wrench,
+} from "lucide-react";
 import { LazyMotion, domAnimation, m, useReducedMotion } from "motion/react";
 import type { ReactNode } from "react";
 
@@ -347,6 +356,8 @@ function ToolActivityIcon({ icon }: { icon: AiToolActivityIconKind }) {
 			return <PencilLine className="size-3.5" aria-hidden="true" />;
 		case "file":
 			return <FileText className="size-3.5" aria-hidden="true" />;
+		case "guidance":
+			return <BookOpen className="size-3.5" aria-hidden="true" />;
 		case "search":
 			return <Search className="size-3.5" aria-hidden="true" />;
 		case "web":

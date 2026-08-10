@@ -1,4 +1,11 @@
-export type AiToolActivityIconKind = "code" | "edit" | "file" | "search" | "web" | "work";
+export type AiToolActivityIconKind =
+	| "code"
+	| "edit"
+	| "file"
+	| "guidance"
+	| "search"
+	| "web"
+	| "work";
 export type AiToolAccess = "read" | "write";
 export type AiToolVisibility = "hidden" | "visible";
 
@@ -29,6 +36,12 @@ function defineAiToolRegistry<const TRegistry extends Record<string, AiToolDefin
 }
 
 export const AI_TOOL_REGISTRY = defineAiToolRegistry({
+	activate_skill: activityTool({ icon: "guidance", title: "Use guidance" }),
+	read_skill_resource: activityTool({
+		icon: "guidance",
+		title: "Read guidance",
+		visibility: "hidden",
+	}),
 	sandbox_bash: readTool({ icon: "code", title: "Sandbox", visibility: "hidden" }, false),
 	orchestrate: readTool({ icon: "work", title: "Work through task" }, false),
 	browser_execute: activityTool({ icon: "web", title: "Browse web" }),

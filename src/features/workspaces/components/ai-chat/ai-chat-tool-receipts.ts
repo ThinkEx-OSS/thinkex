@@ -92,6 +92,8 @@ export function getRunningToolReceipt(input: {
 	const toolInput = asRecord(input.toolInput);
 
 	switch (input.toolName) {
+		case "activate_skill":
+			return receipt.running("Using ", ...skillGuidanceName(toolInput));
 		case "workspace_create_items":
 			return receipt.running(`Creating ${formatCount(getArray(toolInput.items).length, "item")}`);
 		case "workspace_delete_items":
@@ -158,6 +160,8 @@ export function getFinishedToolReceipt(input: {
 	}
 
 	switch (input.toolName) {
+		case "activate_skill":
+			return receipt.completed("Used ", ...skillGuidanceName(asRecord(input.toolInput)));
 		case "workspace_create_items":
 			return summarizeWorkspaceBatch(input.output, {
 				failureVerb: "create",
@@ -214,6 +218,8 @@ function summarizeFailedTool(
 	const failedCount = getArray(outputRecord.failed).length;
 
 	switch (toolName) {
+		case "activate_skill":
+			return receipt.failed("Couldn’t load ", ...skillGuidanceName(asRecord(toolInput)));
 		case "workspace_create_items":
 			return failedCount > 0
 				? receipt.failed(`Couldn’t create ${formatCount(failedCount, "item")}`)
@@ -541,6 +547,14 @@ function summarizeUnknownResult(output: unknown, toolName: string) {
 function formatToolNameFallback(toolName: string) {
 	const words = toolName.split(/[_-]+/).filter(Boolean);
 	return words.length > 0 ? words.join(" ") : toolName;
+}
+
+function skillGuidanceName(toolInput: Record<string, unknown>): ReceiptPart[] {
+	const skill = formatToolNameFallback(getString(toolInput.name) ?? "specialized").replace(
+		/ authoring$/,
+		"",
+	);
+	return [{ name: `${skill} guidance` }];
 }
 
 function capitalize(value: string) {
