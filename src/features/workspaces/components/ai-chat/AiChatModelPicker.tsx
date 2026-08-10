@@ -120,23 +120,13 @@ export default function AiChatModelPicker({ modelId, onModelChange }: AiChatMode
 								<Waypoints className="size-3.5 shrink-0" />
 								Picks for you
 							</div>
-							<button
-								type="button"
-								onClick={() => handleSelect(AUTO_MODEL.id)}
-								onMouseEnter={() => setPreviewId(AUTO_MODEL.id)}
-								onFocus={() => setPreviewId(AUTO_MODEL.id)}
-								className={cn(
-									"flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-sm outline-none transition-colors",
-									AUTO_MODEL.id === (previewId ?? modelId)
-										? "bg-accent text-accent-foreground"
-										: "text-foreground hover:bg-accent/60",
-								)}
-							>
-								<span className="truncate">{AUTO_MODEL.name}</span>
-								{AUTO_MODEL.id === modelId ? (
-									<Check className="ml-auto size-3.5 shrink-0 text-foreground" />
-								) : null}
-							</button>
+							<ModelPickerRow
+								name={AUTO_MODEL.name}
+								isSelected={AUTO_MODEL.id === modelId}
+								isPreviewing={AUTO_MODEL.id === (previewId ?? modelId)}
+								onSelect={() => handleSelect(AUTO_MODEL.id)}
+								onPreview={() => setPreviewId(AUTO_MODEL.id)}
+							/>
 						</div>
 					) : null}
 					{MODEL_GROUPS.map((group) => (
@@ -145,36 +135,17 @@ export default function AiChatModelPicker({ modelId, onModelChange }: AiChatMode
 								<ProviderLogo provider={group.id} className="size-3.5 opacity-65" />
 								{group.label}
 							</div>
-							{group.models.map((model) => {
-								const isSelected = model.id === modelId;
-								const isPreviewing = model.id === (previewId ?? modelId);
-
-								return (
-									<button
-										key={model.id}
-										type="button"
-										onClick={() => handleSelect(model.id)}
-										onMouseEnter={() => setPreviewId(model.id)}
-										onFocus={() => setPreviewId(model.id)}
-										className={cn(
-											"flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-sm outline-none transition-colors",
-											isPreviewing
-												? "bg-accent text-accent-foreground"
-												: "text-foreground hover:bg-accent/60",
-										)}
-									>
-										<span className="truncate">{model.name}</span>
-										{/* Quiet text rather than a badge: the rows are dense, and a
-										    filled pill on every premium row would out-shout the names. */}
-										<span className="ml-auto flex shrink-0 items-center gap-1.5">
-											{model.billingTier === "premium" ? (
-												<span className="text-[0.6875rem] text-muted-foreground">Premium</span>
-											) : null}
-											{isSelected ? <Check className="size-3.5 text-foreground" /> : null}
-										</span>
-									</button>
-								);
-							})}
+							{group.models.map((model) => (
+								<ModelPickerRow
+									key={model.id}
+									name={model.name}
+									isSelected={model.id === modelId}
+									isPreviewing={model.id === (previewId ?? modelId)}
+									showPremium={model.billingTier === "premium"}
+									onSelect={() => handleSelect(model.id)}
+									onPreview={() => setPreviewId(model.id)}
+								/>
+							))}
 						</div>
 					))}
 				</div>
@@ -183,6 +154,49 @@ export default function AiChatModelPicker({ modelId, onModelChange }: AiChatMode
 				<ModelDetails model={detailModel} />
 			</PopoverContent>
 		</Popover>
+	);
+}
+
+function ModelPickerRow({
+	name,
+	isSelected,
+	isPreviewing,
+	showPremium = false,
+	onSelect,
+	onPreview,
+}: {
+	name: string;
+	isSelected: boolean;
+	isPreviewing: boolean;
+	showPremium?: boolean;
+	onSelect: () => void;
+	onPreview: () => void;
+}) {
+	return (
+		<button
+			type="button"
+			aria-pressed={isSelected}
+			onClick={onSelect}
+			onMouseEnter={onPreview}
+			onFocus={onPreview}
+			className={cn(
+				// ponytail: every row keeps a fixed left check gutter so selected and
+				// unselected names share one baseline — the mark sits in that gutter,
+				// never pushes the label, and never fights Premium for the right edge.
+				"flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-sm outline-none transition-colors",
+				isPreviewing ? "bg-accent text-accent-foreground" : "text-foreground hover:bg-accent/60",
+			)}
+		>
+			<span aria-hidden className="flex size-3.5 shrink-0 items-center justify-center">
+				{isSelected ? <Check className="size-3.5 text-foreground" /> : null}
+			</span>
+			<span className="min-w-0 truncate">{name}</span>
+			{/* Quiet text rather than a badge: the rows are dense, and a filled pill
+			    on every premium row would out-shout the names. */}
+			{showPremium ? (
+				<span className="ml-auto shrink-0 text-[0.6875rem] text-muted-foreground">Premium</span>
+			) : null}
+		</button>
 	);
 }
 
