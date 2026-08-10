@@ -131,6 +131,7 @@ const workspaceContentReadResultSchema = z.union([
 			.int()
 			.nonnegative()
 			.describe("How long extraction has been running."),
+		itemId: z.string().min(1).optional(),
 		path: workspacePathSchema,
 		phase: z
 			.enum(["queued", "extracting"])
