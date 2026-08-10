@@ -9,6 +9,7 @@ import { workspaceRelationFailureCodes } from "#/features/workspaces/operations/
 export const createWorkspaceItemsFailureCodes = [
 	"cannot_create_root",
 	"invalid_initial_content",
+	"widget_script_syntax_error",
 	"path_already_exists",
 	"path_not_absolute",
 	"path_not_folder",

@@ -5,6 +5,7 @@ import {
 	ensureTiptapDocumentBlockIds,
 	parseDocumentAiHtml,
 	serializeTiptapDocumentToAiHtml,
+	WidgetScriptSyntaxError,
 } from "#/features/workspaces/documents/document-ai-html";
 
 describe("document AI HTML", () => {
@@ -106,5 +107,30 @@ describe("document AI HTML", () => {
 		expect(() => parseDocumentAiHtml("# Heading\n\nSome **bold** text")).toThrow(
 			DocumentAiHtmlError,
 		);
+	});
+
+	it("rejects invalid inline JavaScript in a widget before persistence", () => {
+		const source = '<button id="run">Run</button><script>const broken = ;</script>';
+		const html = `<div data-type="widget" title="Broken">${source.replaceAll("<", "&lt;")}</div>`;
+
+		expect(() => parseDocumentAiHtml(html)).toThrow(
+			"Widget 1 script 1 has invalid JavaScript: Unexpected token",
+		);
+	});
+
+	it("accepts valid classic and module scripts while ignoring data blocks", () => {
+		const source = `<script>document.body.dataset.ready = "true";</script>
+<script type="module">const value = await Promise.resolve(1);</script>
+<script type="application/json">{"not": javascript}</script>`;
+		const html = `<div data-type="widget">${source.replaceAll("<", "&lt;")}</div>`;
+
+		expect(parseDocumentAiHtml(html)).toMatchObject({ type: "doc" });
+	});
+
+	it("rejects invalid JavaScript when its MIME type has spaced parameters", () => {
+		const source = '<script type="text/javascript ; charset=utf-8">const broken = ;</script>';
+		const html = `<div data-type="widget">${source.replaceAll("<", "&lt;")}</div>`;
+
+		expect(() => parseDocumentAiHtml(html)).toThrow(WidgetScriptSyntaxError);
 	});
 });

@@ -380,7 +380,9 @@ export const workspaceCreateItemsOutputSchema = createWorkspaceItemsResultSchema
 		// files and study items this tool cannot produce.
 		type: z.enum(["document", "folder"]),
 	}),
-	failureSchema: createFailureSchema(createWorkspaceItemsFailureCodes),
+	failureSchema: createFailureSchema(createWorkspaceItemsFailureCodes).extend({
+		detail: z.string().optional().describe("Why this item was refused, when the reason is known."),
+	}),
 }).extend({
 	references: z.array(workspaceReferenceRecordSchema),
 });

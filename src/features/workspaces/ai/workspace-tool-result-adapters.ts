@@ -45,7 +45,14 @@ const workspaceSearchResultAdapter = defineWorkspaceToolResultAdapter({
 const workspaceCreateItemsResultAdapter = defineWorkspaceToolResultAdapter({
 	collectReferences: (output) => output.references,
 	outputSchema: z.object({
-		failed: z.array(z.object({ code: z.string(), index: z.number(), path: z.string() })),
+		failed: z.array(
+			z.object({
+				code: z.string(),
+				detail: z.string().optional(),
+				index: z.number(),
+				path: z.string(),
+			}),
+		),
 		items: z.array(
 			z.object({
 				itemId: z.string(),
