@@ -4,18 +4,12 @@ import { WorkspaceCardSkeletonHeader } from "#/features/workspaces/components/wo
 import { workspaceToolbarButtonSizeClass } from "#/features/workspaces/components/workspace-toolbar-styles";
 import { cn } from "#/lib/utils";
 
-/**
- * Loading placeholder for WorkspaceCard: the 5:2 theme band over a name and
- * meta row, one layout at every breakpoint. Renders through the real Card so
- * surface, ring and radius come from where the card gets them.
- */
 export default function WorkspaceCardSkeleton() {
 	return (
-		<Card className="relative gap-0 py-0">
+		<Card className="relative gap-0 bg-transparent py-0">
 			<Skeleton className="aspect-[5/2] w-full rounded-none" />
 
-			{/* Mobile only: from sm up the real settings button is hover-revealed,
-			    so drawing it would promise a control that vanishes on load. */}
+			{/* Real settings button is hover-only above mobile. */}
 			<Skeleton
 				className={cn(
 					workspaceToolbarButtonSizeClass,

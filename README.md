@@ -97,7 +97,7 @@ Programs and platforms supporting ThinkEx with credits, tools, and infrastructur
 <p align="center">
   <a href="https://capy.ai/"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/supporters/capy-wordmark-dark.svg"><source media="(prefers-color-scheme: light)" srcset="docs/assets/supporters/capy-wordmark-light.svg"><img alt="Capy" src="docs/assets/supporters/capy-wordmark-light.svg" height="42"></picture></a>
   &nbsp;&nbsp;&nbsp;&nbsp;
-  <a href="https://www.greptile.com/"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/supporters/greptile-wordmark-green.svg"><source media="(prefers-color-scheme: light)" srcset="docs/assets/supporters/greptile-wordmark-green.svg"><img alt="Greptile" src="docs/assets/supporters/greptile-wordmark-green.svg" height="42"></picture></a>
+  <a href="https://www.greptile.com/?utm_source=oss_badge&utm_medium=readme&utm_campaign=greptile_for_open_source"><img alt="Greptile: The War on Bugs" src="https://www.greptile.com/badge.svg" width="300"></a>
   &nbsp;&nbsp;&nbsp;&nbsp;
   <a href="https://www.thecontextcompany.com/"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/supporters/the-context-company-wordmark-dark.svg"><source media="(prefers-color-scheme: light)" srcset="docs/assets/supporters/the-context-company-wordmark-light.svg"><img alt="The Context Company" src="docs/assets/supporters/the-context-company-wordmark-light.svg" height="42"></picture></a>
 </p>
