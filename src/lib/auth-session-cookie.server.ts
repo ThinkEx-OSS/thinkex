@@ -1,6 +1,8 @@
 import { getSessionCookie } from "better-auth/cookies";
 import { getRequest } from "@tanstack/react-start/server";
 
+import { getAuthCookiePrefix } from "#/lib/app-origin";
+
 /**
  * Whether the request carries a session cookie. Presence only — this never
  * validates the token against the database.
@@ -16,5 +18,5 @@ import { getRequest } from "@tanstack/react-start/server";
  * with whatever `auth.server.ts` is configured to write.
  */
 export function hasSessionCookie() {
-	return getSessionCookie(getRequest()) !== null;
+	return getSessionCookie(getRequest(), { cookiePrefix: getAuthCookiePrefix() }) !== null;
 }

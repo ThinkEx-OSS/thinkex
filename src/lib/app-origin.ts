@@ -50,6 +50,15 @@ export function getAppOrigin() {
 	throw new Error("BETTER_AUTH_URL is not configured.");
 }
 
+export function getAuthCookiePrefix() {
+	if (isProduction) {
+		return "better-auth";
+	}
+
+	const port = new URL(getAppOrigin()).port;
+	return port ? `thinkex-dev-${port}` : "thinkex-dev";
+}
+
 function getOptionalEnvString(name: string) {
 	const value = Reflect.get(workerEnv as object, name);
 	return typeof value === "string" ? value.trim() || undefined : undefined;

@@ -14,7 +14,7 @@ import {
 import * as schema from "#/db/schema";
 import { createDbContext } from "#/db/server";
 import { capturePostHogServerEvent } from "#/integrations/posthog/server";
-import { getAuthBaseURL, getTrustedAppOrigins } from "#/lib/app-origin";
+import { getAuthBaseURL, getAuthCookiePrefix, getTrustedAppOrigins } from "#/lib/app-origin";
 
 const isProduction = import.meta.env.PROD;
 
@@ -207,6 +207,7 @@ function createAuth(database: Db, env: AuthRuntimeEnv) {
 			storage: "database",
 		},
 		advanced: {
+			cookiePrefix: getAuthCookiePrefix(),
 			ipAddress: {
 				ipAddressHeaders: ["cf-connecting-ip"],
 			},
