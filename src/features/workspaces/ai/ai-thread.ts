@@ -286,9 +286,15 @@ export function createAIThreadClass(getUserAIStore: () => typeof UserAIStore) {
 				thread,
 				getBodyString(ctx.body, "timeZone"),
 			);
+			const activeToolNames = [
+				...turnToolConfig.activeTools,
+				...["activate_skill", "read_skill_resource", "run_skill_script"].filter(
+					(name) => ctx.tools[name] !== undefined,
+				),
+			];
 			const activeTools = filterToolSetByNames(
 				{ ...ctx.tools, ...turnToolConfig.tools },
-				turnToolConfig.activeTools,
+				activeToolNames,
 			);
 
 			await this.telemetry.recordTurnStarted({
@@ -315,6 +321,7 @@ export function createAIThreadClass(getUserAIStore: () => typeof UserAIStore) {
 				}),
 				instructions,
 				...turnToolConfig,
+				activeTools: activeToolNames,
 			};
 		}
 
