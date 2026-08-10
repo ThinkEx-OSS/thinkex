@@ -44,4 +44,38 @@ describe("workspace tool result adapters", () => {
 			items: [],
 		});
 	});
+
+	it("projects historical create failures without exposing internal references", () => {
+		const output = {
+			failed: [{ code: "path_not_canonical", index: 0, path: "/Old" }],
+			items: [{ itemId: "itm_internal", path: "/Old", type: "document" }],
+			references: [
+				{
+					location: { itemId: "itm_internal", kind: "item", version: 1 },
+					ref: "wr_7Kp2Qa9x",
+				},
+			],
+		};
+
+		expect(getWorkspaceToolResultAdapter("workspace_create_items")?.projectOutput(output)).toEqual({
+			failed: output.failed,
+			items: [{ path: "/Old", reference: "wr_7Kp2Qa9x", type: "document" }],
+		});
+	});
+
+	it("keeps edit receipts limited to the model-facing fields", () => {
+		const output = {
+			applied: 1,
+			failed: [],
+			itemId: "itm_internal",
+			lineChanges: { added: 1, removed: 0 },
+			path: "/Widget",
+		};
+
+		expect(getWorkspaceToolResultAdapter("workspace_edit_item")?.projectOutput(output)).toEqual({
+			applied: 1,
+			failed: [],
+			path: "/Widget",
+		});
+	});
 });

@@ -302,7 +302,7 @@ function validateWidgetScriptSyntax(root: HTMLElement) {
 }
 
 function getWidgetScriptSourceType(typeAttribute: string | null): "module" | "script" | null {
-	const type = (typeAttribute ?? "").trim().toLowerCase().split(";", 1)[0];
+	const type = (typeAttribute ?? "").split(";", 1)[0]?.trim().toLowerCase();
 	if (!type) {
 		return "script";
 	}

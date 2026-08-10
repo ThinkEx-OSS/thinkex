@@ -3,11 +3,10 @@ import { z } from "zod";
 
 import { workspaceReadItemsOutputSchema } from "#/features/workspaces/content/workspace-content-contract";
 import { createWorkspaceReadItemsModelOutput } from "#/features/workspaces/content/workspace-read-references";
-import type { WorkspaceReferenceRecord } from "#/features/workspaces/locations/workspace-location";
 import {
-	workspaceCreateItemsOutputSchema,
-	workspaceEditItemOutputSchema,
-} from "#/features/workspaces/operations/workspace-tool-schemas";
+	workspaceReferenceRecordSchema,
+	type WorkspaceReferenceRecord,
+} from "#/features/workspaces/locations/workspace-location";
 import { workspaceSearchOutputSchema } from "#/features/workspaces/search/workspace-search-contract";
 import { createWorkspaceSearchModelOutput } from "#/features/workspaces/search/workspace-search-references";
 
@@ -45,7 +44,24 @@ const workspaceSearchResultAdapter = defineWorkspaceToolResultAdapter({
 
 const workspaceCreateItemsResultAdapter = defineWorkspaceToolResultAdapter({
 	collectReferences: (output) => output.references,
-	outputSchema: workspaceCreateItemsOutputSchema,
+	outputSchema: z.object({
+		failed: z.array(
+			z.object({
+				code: z.string(),
+				detail: z.string().optional(),
+				index: z.number(),
+				path: z.string(),
+			}),
+		),
+		items: z.array(
+			z.object({
+				itemId: z.string(),
+				path: z.string(),
+				type: z.enum(["document", "folder"]),
+			}),
+		),
+		references: z.array(workspaceReferenceRecordSchema),
+	}),
 	projectOutput: (output) => {
 		const refsByItemId = new Map(
 			output.references.flatMap((record) =>
@@ -67,7 +83,13 @@ const workspaceCreateItemsResultAdapter = defineWorkspaceToolResultAdapter({
 // The operation output also carries the durable item id used by the app's
 // review controls. Keep the model-facing receipt limited to actionable counts.
 const workspaceEditItemResultAdapter = defineWorkspaceToolResultAdapter({
-	outputSchema: workspaceEditItemOutputSchema,
+	outputSchema: z.object({
+		applied: z.number(),
+		failed: z.array(
+			z.object({ code: z.string(), detail: z.string().optional(), index: z.number() }),
+		),
+		path: z.string(),
+	}),
 	projectOutput: (output) => output,
 });
 

@@ -5,6 +5,7 @@ import {
 	ensureTiptapDocumentBlockIds,
 	parseDocumentAiHtml,
 	serializeTiptapDocumentToAiHtml,
+	WidgetScriptSyntaxError,
 } from "#/features/workspaces/documents/document-ai-html";
 
 describe("document AI HTML", () => {
@@ -124,5 +125,12 @@ describe("document AI HTML", () => {
 		const html = `<div data-type="widget">${source.replaceAll("<", "&lt;")}</div>`;
 
 		expect(parseDocumentAiHtml(html)).toMatchObject({ type: "doc" });
+	});
+
+	it("rejects invalid JavaScript when its MIME type has spaced parameters", () => {
+		const source = '<script type="text/javascript ; charset=utf-8">const broken = ;</script>';
+		const html = `<div data-type="widget">${source.replaceAll("<", "&lt;")}</div>`;
+
+		expect(() => parseDocumentAiHtml(html)).toThrow(WidgetScriptSyntaxError);
 	});
 });
