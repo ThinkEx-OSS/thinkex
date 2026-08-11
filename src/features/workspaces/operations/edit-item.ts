@@ -83,6 +83,8 @@ export async function editWorkspaceItemOperation(
 			),
 		),
 		operationId: accessContext.operationId,
+		actorUserId: accessContext.actor.userId,
+		provenance: accessContext.provenance,
 	});
 
 	return {

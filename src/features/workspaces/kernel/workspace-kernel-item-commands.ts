@@ -7,6 +7,7 @@ import {
 	persistDocumentItemContentUpdate,
 } from "#/features/workspaces/documents/document-item-content";
 import type { WorkspaceKernelEventBus } from "#/features/workspaces/kernel/workspace-kernel-events";
+import type { WorkspaceKernelHistory } from "#/features/workspaces/history/workspace-kernel-history";
 import {
 	getInitialWorkspaceKernelContent,
 	getWorkspaceKernelContentMimeType,
@@ -24,12 +25,12 @@ import type {
 	DeleteWorkspaceKernelItemsArgs,
 	MoveWorkspaceKernelItemsArgs,
 	MoveWorkspaceKernelItemsResult,
-	ReadWorkspaceDocumentCheckpointArgs,
+	ReadWorkspaceItemContentArgs,
 	RenameWorkspaceKernelItemArgs,
 	UpdateWorkspaceKernelItemColorArgs,
-	CommitWorkspaceDocumentCheckpointArgs,
+	CommitWorkspaceItemContentArgs,
 	WorkspaceKernelMutationOutcome,
-	WorkspaceKernelPublishOutcome,
+	WorkspaceKernelContentCommitOutcome,
 } from "#/features/workspaces/kernel/workspace-kernel-types";
 import {
 	resolveWorkspaceItemColorForCreate,
@@ -40,6 +41,7 @@ import { recordOperationalFailure } from "#/integrations/observability/operation
 
 export class WorkspaceKernelItemCommands {
 	private readonly events: WorkspaceKernelEventBus;
+	private readonly history: WorkspaceKernelHistory;
 	private readonly relations: WorkspaceKernelRelations;
 	private readonly sql: WorkspaceKernelSql;
 	private readonly store: WorkspaceKernelStore;
@@ -48,6 +50,7 @@ export class WorkspaceKernelItemCommands {
 
 	constructor(input: {
 		events: WorkspaceKernelEventBus;
+		history: WorkspaceKernelHistory;
 		relations: WorkspaceKernelRelations;
 		sql: WorkspaceKernelSql;
 		store: WorkspaceKernelStore;
@@ -55,6 +58,7 @@ export class WorkspaceKernelItemCommands {
 		workspaceId: () => string;
 	}) {
 		this.events = input.events;
+		this.history = input.history;
 		this.relations = input.relations;
 		this.sql = input.sql;
 		this.store = input.store;
@@ -113,6 +117,15 @@ export class WorkspaceKernelItemCommands {
 			metadataJson: input.metadataJson ?? {},
 			initialContent: input.initialContent,
 		});
+		const contentType = getWorkspaceKernelContentMimeType(type);
+		const preparedContent =
+			type === "folder"
+				? null
+				: await this.history.prepareContent(
+						id,
+						initialContent ?? getInitialWorkspaceKernelContent(type),
+						contentType,
+					);
 
 		await this.createWorkspaceFile({
 			type,
@@ -159,12 +172,29 @@ export class WorkspaceKernelItemCommands {
 		const itemFacts = this.store.getItemFacts(
 			factItemIds.map((itemId) => this.store.requireItem(itemId)),
 		);
-		const event = this.events.commit({
-			type: "workspace.item.created",
-			actorUserId: input.actorUserId ?? null,
-			clientMutationId: input.clientMutationId ?? null,
-			payload: { item, itemFacts },
-		});
+		const versionId = preparedContent ? (input.clientMutationId ?? crypto.randomUUID()) : null;
+		const event = this.events.commit(
+			{
+				type: "workspace.item.created",
+				actorUserId: input.actorUserId ?? null,
+				clientMutationId: input.clientMutationId ?? null,
+				payload: { item, itemFacts, versionId },
+				provenance: input.provenance,
+			},
+			preparedContent && versionId
+				? {
+						onPersist: (persistedEvent) =>
+							this.history.insertVersion({
+								content: preparedContent,
+								event: persistedEvent,
+								itemId: id,
+								itemType: type,
+								previous: null,
+								versionId,
+							}),
+					}
+				: {},
+		);
 
 		return { command: { result: item, event }, status: "applied" };
 	}
@@ -203,6 +233,7 @@ export class WorkspaceKernelItemCommands {
 				itemId: input.itemId,
 				actorUserId: input.actorUserId,
 				clientMutationId: input.clientMutationId,
+				provenance: input.provenance,
 			}),
 			status: "applied",
 		};
@@ -249,6 +280,7 @@ export class WorkspaceKernelItemCommands {
 			actorUserId: input.actorUserId ?? null,
 			clientMutationId: input.clientMutationId ?? null,
 			payload: { items: movedItems },
+			provenance: input.provenance,
 		});
 
 		return { command: { result: movedItems, event }, status: "applied" };
@@ -275,6 +307,7 @@ export class WorkspaceKernelItemCommands {
 			itemId: input.itemId,
 			actorUserId: input.actorUserId,
 			clientMutationId: input.clientMutationId,
+			provenance: input.provenance,
 		});
 	}
 
@@ -285,6 +318,7 @@ export class WorkspaceKernelItemCommands {
 		const rowsToRemove = deleteIds
 			.map((id) => this.store.getItemRowIncludingDeleted(id))
 			.filter((row): row is KernelItemRow => Boolean(row));
+		const deletedItems = rowsToRemove.map((row) => mapKernelItemRow(row, this.workspaceId()));
 		const relatedItemIds = this.relations.listRelatedItemIds(deleteIds);
 
 		this.store.softDeleteItems(deleteIds, Date.now());
@@ -297,7 +331,8 @@ export class WorkspaceKernelItemCommands {
 			type: "workspace.item.deleted",
 			actorUserId: input.actorUserId ?? null,
 			clientMutationId: input.clientMutationId ?? null,
-			payload: { itemIds: rootIds, deletedItemIds: deleteIds, itemFacts },
+			payload: { itemIds: rootIds, deletedItemIds: deleteIds, itemFacts, items: deletedItems },
+			provenance: input.provenance,
 		});
 
 		return {
@@ -328,10 +363,10 @@ export class WorkspaceKernelItemCommands {
 		}
 	}
 
-	async readDocumentCheckpoint(input: ReadWorkspaceDocumentCheckpointArgs) {
+	async readItemContent(input: ReadWorkspaceItemContentArgs) {
 		const item = this.store.assertActiveItem(input.itemId);
-		if (item.type !== "document") {
-			throw new Error("Only document items have document checkpoints.");
+		if (item.type === "folder" || item.type === "file") {
+			throw new Error("This workspace item does not store editable inline content.");
 		}
 		const itemSummary = mapKernelItemRow(item, this.workspaceId());
 		return {
@@ -340,47 +375,109 @@ export class WorkspaceKernelItemCommands {
 		};
 	}
 
-	async commitDocumentCheckpoint(
-		input: CommitWorkspaceDocumentCheckpointArgs,
-	): Promise<WorkspaceKernelPublishOutcome> {
+	async commitItemContent(
+		input: CommitWorkspaceItemContentArgs,
+	): Promise<WorkspaceKernelContentCommitOutcome> {
 		const item = this.store.getActiveItemRow(input.itemId);
 		if (!item) {
-			return "discarded";
+			return { status: "discarded" };
 		}
 		const type = workspaceItemTypeSchema.parse(item.type);
 
-		if (type !== "document") {
-			throw new Error("Only document checkpoints can update workspace text content.");
+		if (type === "folder" || type === "file") {
+			throw new Error("This workspace item does not store editable inline content.");
+		}
+		const contentType = getWorkspaceKernelContentMimeType(type);
+		const previousContent = await this.workspace.readFile(item.shell_path);
+		if (previousContent === null) {
+			throw new Error("Workspace item content is missing.");
+		}
+		const contentChanged = input.content !== previousContent;
+		if (!contentChanged && !input.createVersion) {
+			return { eventId: null, status: "applied", versionId: null };
+		}
+		const versionPlan = input.createVersion
+			? await this.history.planVersion({
+					content: input.content,
+					contentChanged,
+					itemId: input.itemId,
+				})
+			: { shouldCreate: false as const };
+		// Human versions summarize an editing window, not only the last shell
+		// autosave. Their before-side is therefore the previous visible version.
+		// Required AI and restore versions still use the exact live body they
+		// replaced so their receipt can be reviewed and reversed precisely.
+		const previousVisibleVersion =
+			input.provenance?.origin === "human"
+				? this.history.getLatestVersionContent(input.itemId)
+				: null;
+		const [preparedContent, previous] = versionPlan.shouldCreate
+			? await Promise.all([
+					this.history.prepareContent(
+						input.itemId,
+						input.content,
+						contentType,
+						versionPlan.contentHash,
+					),
+					previousVisibleVersion ??
+						this.history.prepareContent(input.itemId, previousContent, contentType),
+				])
+			: [null, null];
+		if (!contentChanged && !versionPlan.shouldCreate) {
+			return { eventId: null, status: "applied", versionId: null };
 		}
 
-		await this.workspace.writeFile(
-			item.shell_path,
-			input.content,
-			getWorkspaceKernelContentMimeType(type),
-		);
+		if (contentChanged) {
+			await this.workspace.writeFile(item.shell_path, input.content, contentType);
+		}
 
 		const currentItem = this.store.getActiveItemRow(input.itemId);
 		if (!currentItem) {
-			await this.workspace.rm(item.shell_path, { force: true });
-			return "discarded";
+			if (contentChanged) await this.workspace.rm(item.shell_path, { force: true });
+			return { status: "discarded" };
 		}
-		const updatedAt = Math.max(Date.now(), currentItem.updated_at + 1);
+		if (contentChanged) {
+			const updatedAt = Math.max(Date.now(), currentItem.updated_at + 1);
+			if (type === "document") {
+				persistDocumentItemContentUpdate({
+					content: input.content,
+					itemId: input.itemId,
+					metadataJson: currentItem.metadata_json,
+					sql: this.sql,
+					updatedAt,
+				});
+			} else {
+				this.sql`UPDATE kernel_items SET updated_at = ${updatedAt} WHERE id = ${input.itemId}`;
+			}
+		}
 
-		persistDocumentItemContentUpdate({
-			content: input.content,
-			itemId: input.itemId,
-			metadataJson: currentItem.metadata_json,
-			sql: this.sql,
-			updatedAt,
-		});
-
-		this.commitItemEvent({
-			type: "workspace.item.content.updated",
-			itemId: input.itemId,
-			actorUserId: input.actorUserId,
-			clientMutationId: input.clientMutationId,
-		});
-		return "applied";
+		const versionId = versionPlan.shouldCreate
+			? (input.versionId ?? input.clientMutationId ?? crypto.randomUUID())
+			: null;
+		const command = this.commitItemEvent(
+			{
+				type: "workspace.item.content.updated",
+				itemId: input.itemId,
+				actorUserId: input.actorUserId,
+				clientMutationId: input.clientMutationId,
+				provenance: input.provenance,
+				versionId,
+			},
+			versionPlan.shouldCreate && versionId && preparedContent && previous
+				? {
+						onPersist: (event) =>
+							this.history.insertVersion({
+								content: preparedContent,
+								event,
+								itemId: input.itemId,
+								itemType: type,
+								previous,
+								versionId,
+							}),
+					}
+				: { persist: false },
+		);
+		return { eventId: command.event.id, status: "applied", versionId };
 	}
 
 	private async createWorkspaceFile(input: {
@@ -400,22 +497,31 @@ export class WorkspaceKernelItemCommands {
 		);
 	}
 
-	private commitItemEvent(input: {
-		type:
-			| "workspace.item.renamed"
-			| "workspace.item.color.updated"
-			| "workspace.item.content.updated";
-		itemId: string;
-		actorUserId?: string | null;
-		clientMutationId?: string | null;
-	}) {
+	private commitItemEvent(
+		input: {
+			type:
+				| "workspace.item.renamed"
+				| "workspace.item.color.updated"
+				| "workspace.item.content.updated";
+			itemId: string;
+			actorUserId?: string | null;
+			clientMutationId?: string | null;
+			provenance?: CreateWorkspaceKernelItemArgs["provenance"];
+			versionId?: string | null;
+		},
+		options?: Parameters<WorkspaceKernelEventBus["commit"]>[1],
+	) {
 		const item = this.store.requireItem(input.itemId);
-		const event = this.events.commit({
-			type: input.type,
-			actorUserId: input.actorUserId ?? null,
-			clientMutationId: input.clientMutationId ?? null,
-			payload: { item },
-		});
+		const event = this.events.commit(
+			{
+				type: input.type,
+				actorUserId: input.actorUserId ?? null,
+				clientMutationId: input.clientMutationId ?? null,
+				payload: { item, versionId: input.versionId },
+				provenance: input.provenance,
+			},
+			options,
+		);
 
 		return { result: item, event };
 	}

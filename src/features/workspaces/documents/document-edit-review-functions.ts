@@ -42,11 +42,15 @@ export const getDocumentEditReceiptReviewFn = createServerFn({ method: "GET" })
 export const undoDocumentEditReceiptFn = createServerFn({ method: "POST" })
 	.validator(documentEditReceiptInputSchema)
 	.handler(async ({ data }): Promise<DocumentEditReceiptUndoResult> => {
-		await withWorkspaceDb(({ db, userId }) =>
-			assertCanMutateWorkspace(db, { userId, workspaceId: data.workspaceId }),
-		);
+		const userId = await withWorkspaceDb(async ({ db, userId }) => {
+			await assertCanMutateWorkspace(db, { userId, workspaceId: data.workspaceId });
+			return userId;
+		});
 		const session = await getDocumentEditSession(data);
-		return await session.undoDocumentEditReceipt({ receiptIds: data.receiptIds });
+		return await session.undoDocumentEditReceipt({
+			actorUserId: userId,
+			receiptIds: data.receiptIds,
+		});
 	});
 
 async function getDocumentEditSession(input: {
@@ -64,5 +68,8 @@ interface DocumentEditSession {
 	getDocumentEditReceiptReview(input: {
 		receiptIds: string[];
 	}): Promise<DocumentEditReceiptReviewRpcResult>;
-	undoDocumentEditReceipt(input: { receiptIds: string[] }): Promise<DocumentEditReceiptUndoResult>;
+	undoDocumentEditReceipt(input: {
+		actorUserId: string;
+		receiptIds: string[];
+	}): Promise<DocumentEditReceiptUndoResult>;
 }

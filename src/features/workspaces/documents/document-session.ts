@@ -35,9 +35,9 @@ import {
 import type {
 	DocumentEditLineChanges,
 	DocumentEditReceiptReviewRpcResult,
-	DocumentEditReceiptStatus,
 	DocumentEditReceiptUndoResult,
 } from "#/features/workspaces/documents/document-edit-receipt";
+import type { WorkspaceMutationProvenance } from "#/features/workspaces/history/workspace-history-contract";
 import {
 	coerceTiptapDocumentJson,
 	parseTiptapDocumentJson,
@@ -55,17 +55,17 @@ import {
 import { sha256Base64Url, sha256Base64UrlText } from "#/lib/binary";
 
 const persistedYDocUpdateKey = "document-session:yjs-update";
-const latestDocumentEditReceiptKey = "document-session:ai-edit-receipt:latest";
-const documentEditReceiptIndexKey = "document-session:ai-edit-receipt:index";
+const pendingContributorIdsKey = "document-session:pending-contributors";
 const documentEditReceiptKeyPrefix = "document-session:ai-edit-receipt:";
-const maximumRetainedDocumentEditReceipts = 8;
-const maximumDocumentEditReceiptSnapshotBytes = 1_500_000;
 const checkpointDelayMs = 1_500;
 const checkpointMaxWaitMs = 8_000;
+const idleVersionDelayMs = 2 * 60 * 1_000;
 
 export interface DocumentSessionApplyEditsInput {
+	actorUserId: string;
 	edits: DocumentAiEdit[];
 	operationId: string;
+	provenance?: WorkspaceMutationProvenance;
 }
 
 export interface DocumentSessionApplyEditsResult {
@@ -87,26 +87,11 @@ export interface DocumentSessionApplyEditsResult {
 }
 
 interface StoredDocumentEditReceipt {
-	afterHash: string;
-	beforeDocument?: TiptapDocumentJson;
 	id: string;
 	inputHash: string;
-	previousReceiptId: string | null;
 	result: DocumentSessionApplyEditsResult;
 	status: "applied" | "reverted";
 }
-
-type ResolvedDocumentEditReceiptGroup =
-	| {
-			beforeDocument: TiptapDocumentJson;
-			lastReceiptId: string;
-			previousReceiptId: string | null;
-			receipts: StoredDocumentEditReceipt[];
-			status: "ready";
-	  }
-	| {
-			status: Exclude<DocumentEditReceiptStatus, "ready">;
-	  };
 
 export class DocumentSession extends YServer {
 	static override options = {
@@ -160,7 +145,7 @@ export class DocumentSession extends YServer {
 
 		const room = getDocumentSessionRoomNameParts(this.name);
 		const kernel = await this.getWorkspaceKernel(room.workspaceId);
-		const { content } = await kernel.readDocumentCheckpoint({ itemId: room.itemId });
+		const { content } = await kernel.readItemContent({ itemId: room.itemId });
 		if (this.deleted) {
 			return;
 		}
@@ -185,7 +170,36 @@ export class DocumentSession extends YServer {
 		if (this.deleted) {
 			return;
 		}
-		await this.checkpointToKernel();
+		const activeContributorIds = Array.from(
+			new Set(
+				Array.from(this.getConnections<DocumentSessionConnectionState>()).flatMap((connection) =>
+					connection.state?.userId ? [connection.state.userId] : [],
+				),
+			),
+		);
+		const pendingContributorIds = Array.from(
+			new Set([
+				...((await this.ctx.storage.get<string[]>(pendingContributorIdsKey)) ?? []),
+				...activeContributorIds,
+			]),
+		);
+		await this.ctx.storage.put(pendingContributorIdsKey, pendingContributorIds);
+		await this.checkpointToKernel({
+			actorUserId: pendingContributorIds.length === 1 ? pendingContributorIds[0] : null,
+			provenance: { origin: "human" },
+		});
+		await this.ctx.storage.setAlarm(Date.now() + idleVersionDelayMs);
+	}
+
+	override async onAlarm() {
+		if (this.deleted) return;
+		const contributors = (await this.ctx.storage.get<string[]>(pendingContributorIdsKey)) ?? [];
+		await this.checkpointToKernel({
+			actorUserId: contributors.length === 1 ? contributors[0] : null,
+			clearPendingContributors: true,
+			createVersion: true,
+			provenance: { origin: "human" },
+		});
 	}
 
 	async readDocumentSnapshot() {
@@ -210,10 +224,6 @@ export class DocumentSession extends YServer {
 				: rejectedDocumentEditResult("operation_id_conflict", input.edits.length);
 		}
 
-		const latestReceiptId = await this.ctx.storage.get<string>(latestDocumentEditReceiptKey);
-		const latestReceipt = latestReceiptId
-			? await this.getDocumentEditReceipt(latestReceiptId)
-			: undefined;
 		const referencedDocument = await this.getReferencedDocumentSnapshot();
 		const currentDocument = coerceTiptapDocumentJson(referencedDocument.document.toJSON());
 		const editResult = await applyDocumentAiEdits(currentDocument, input.edits);
@@ -228,12 +238,6 @@ export class DocumentSession extends YServer {
 		}
 
 		const beforeDocumentText = stringifyTiptapDocumentJson(currentDocument);
-		const afterDocumentText = stringifyTiptapDocumentJson(editResult.document);
-		const [beforeHash, afterHash] = await Promise.all([
-			sha256Base64UrlText(beforeDocumentText),
-			sha256Base64UrlText(afterDocumentText),
-		]);
-
 		if (stringifyTiptapDocumentJson(this.getCurrentTiptapDocument()) !== beforeDocumentText) {
 			return rejectedDocumentEditResult("content_changed", input.edits.length);
 		}
@@ -246,47 +250,28 @@ export class DocumentSession extends YServer {
 			status: editResult.status,
 		};
 		const receipt: StoredDocumentEditReceipt = {
-			afterHash,
-			...(fitsDocumentEditReceiptSnapshot(beforeDocumentText)
-				? { beforeDocument: currentDocument }
-				: {}),
 			id: input.operationId,
 			inputHash,
-			previousReceiptId:
-				latestReceipt?.status === "applied" && latestReceipt.afterHash === beforeHash
-					? latestReceipt.id
-					: null,
 			result,
 			status: "applied",
 		};
 
-		// Only the newest edit can still be undone, so older receipts are dead
-		// weight — and each one holds a whole copy of the document. Keep enough for
-		// a turn that edited this document several times, and drop the rest.
-		const recentReceiptIds = [
-			...((await this.ctx.storage.get<string[]>(documentEditReceiptIndexKey)) ?? []),
-			receipt.id,
-		];
-		const expiredReceiptIds = recentReceiptIds.splice(
-			0,
-			Math.max(0, recentReceiptIds.length - maximumRetainedDocumentEditReceipts),
-		);
-
 		this.reconcileCurrentDocument(editResult.document);
 		const persistedUpdate = Y.encodeStateAsUpdate(this.document);
-		await this.ctx.storage.transaction(async (transaction) => {
-			await Promise.all([
-				transaction.put(persistedYDocUpdateKey, persistedUpdate),
-				transaction.put(getDocumentEditReceiptKey(receipt.id), receipt),
-				transaction.put(latestDocumentEditReceiptKey, receipt.id),
-				transaction.put(documentEditReceiptIndexKey, recentReceiptIds),
-				...(expiredReceiptIds.length > 0
-					? [transaction.delete(expiredReceiptIds.map(getDocumentEditReceiptKey))]
-					: []),
-			]);
+		await this.ctx.storage.put({
+			[persistedYDocUpdateKey]: persistedUpdate,
+			[getDocumentEditReceiptKey(receipt.id)]: receipt,
 		});
 		this.assertActive();
-		if (!(await this.checkpointToKernel(input.operationId))) {
+		if (
+			!(await this.checkpointToKernel({
+				actorUserId: input.actorUserId,
+				clientMutationId: input.operationId,
+				provenance: input.provenance,
+				versionId: input.operationId,
+				createVersion: true,
+			}))
+		) {
 			return rejectedDocumentEditResult("path_not_found", input.edits.length);
 		}
 		this.assertActive();
@@ -297,51 +282,69 @@ export class DocumentSession extends YServer {
 	async getDocumentEditReceiptReview(input: {
 		receiptIds: string[];
 	}): Promise<DocumentEditReceiptReviewRpcResult> {
-		const group = await this.resolveDocumentEditReceiptGroup(input.receiptIds);
+		return await this.readVersionChange({ versionIds: input.receiptIds });
+	}
 
-		if (group.status !== "ready") {
-			return { status: group.status };
-		}
-
-		return {
-			beforeContent: stringifyTiptapDocumentJson(group.beforeDocument),
-			status: "ready",
-		};
+	async restoreDocumentVersion(input: {
+		actorUserId: string;
+		versionId: string;
+	}): Promise<DocumentEditReceiptUndoResult> {
+		const room = getDocumentSessionRoomNameParts(this.name);
+		const kernel = await this.getWorkspaceKernel(room.workspaceId);
+		const target = await kernel.readItemVersion({
+			itemId: room.itemId,
+			versionId: input.versionId,
+		});
+		if (target.status !== "ready") return target;
+		this.reconcileCurrentDocument(parseTiptapDocumentJson(target.content));
+		await this.persistYDoc();
+		if (
+			!(await this.checkpointToKernel({
+				actorUserId: input.actorUserId,
+				clientMutationId: `restore:${input.versionId}:${crypto.randomUUID()}`,
+				createVersion: true,
+				provenance: { origin: "restore" },
+			}))
+		)
+			return { status: "not_found" };
+		return { status: "undone" };
 	}
 
 	async undoDocumentEditReceipt(input: {
+		actorUserId: string;
 		receiptIds: string[];
 	}): Promise<DocumentEditReceiptUndoResult> {
-		const group = await this.resolveDocumentEditReceiptGroup(input.receiptIds);
-
-		if (group.status !== "ready") {
-			return { status: group.status };
-		}
-
-		this.reconcileCurrentDocument(group.beforeDocument);
+		const receipts = await Promise.all(
+			input.receiptIds.map((receiptId) => this.getDocumentEditReceipt(receiptId)),
+		);
+		if (receipts.some((receipt) => receipt?.status === "reverted")) return { status: "reverted" };
+		if (receipts.some((receipt) => !receipt)) return { status: "not_found" };
+		const target = await this.readVersionChange({ versionIds: input.receiptIds });
+		if (target.status !== "ready") return target;
+		const targetDocument = parseTiptapDocumentJson(target.beforeContent);
+		this.reconcileCurrentDocument(targetDocument);
 		const persistedUpdate = Y.encodeStateAsUpdate(this.document);
-
-		await this.ctx.storage.transaction(async (transaction) => {
-			await Promise.all([
-				transaction.put(persistedYDocUpdateKey, persistedUpdate),
-				...group.receipts.map((receipt) =>
-					transaction.put(getDocumentEditReceiptKey(receipt.id), {
-						...receipt,
-						status: "reverted",
-					} satisfies StoredDocumentEditReceipt),
-				),
-			]);
-
-			if (group.previousReceiptId) {
-				await transaction.put(latestDocumentEditReceiptKey, group.previousReceiptId);
-			} else {
-				await transaction.delete(latestDocumentEditReceiptKey);
-			}
-		});
-
-		if (!(await this.checkpointToKernel(`undo:${group.lastReceiptId}`))) {
+		await this.ctx.storage.put(persistedYDocUpdateKey, persistedUpdate);
+		const lastReceiptId = input.receiptIds.at(-1);
+		if (
+			!lastReceiptId ||
+			!(await this.checkpointToKernel({
+				actorUserId: input.actorUserId,
+				clientMutationId: `undo:${lastReceiptId}`,
+				createVersion: true,
+				provenance: { origin: "restore" },
+			}))
+		) {
 			return { status: "not_found" };
 		}
+		await Promise.all(
+			(receipts as StoredDocumentEditReceipt[]).map((receipt) =>
+				this.ctx.storage.put(getDocumentEditReceiptKey(receipt.id), {
+					...receipt,
+					status: "reverted",
+				}),
+			),
+		);
 
 		return { status: "undone" };
 	}
@@ -398,23 +401,39 @@ export class DocumentSession extends YServer {
 			connection.close(1008, "Document deleted");
 		}
 		this.document.destroy();
+		await this.ctx.storage.deleteAlarm();
 		await this.ctx.storage.deleteAll();
 	}
 
-	private async checkpointToKernel(clientMutationId: string | null = null) {
+	private async checkpointToKernel(
+		input: {
+			actorUserId?: string | null;
+			clearPendingContributors?: boolean;
+			clientMutationId?: string | null;
+			createVersion?: boolean;
+			provenance?: WorkspaceMutationProvenance;
+			versionId?: string;
+		} = {},
+	) {
 		const room = getDocumentSessionRoomNameParts(this.name);
 		const document = this.getCurrentTiptapDocument();
 		const kernel = await this.getWorkspaceKernel(room.workspaceId);
 
-		const outcome = await kernel.commitDocumentCheckpoint({
+		const outcome = await kernel.commitItemContent({
 			itemId: room.itemId,
 			content: stringifyTiptapDocumentJson(document),
-			actorUserId: null,
-			clientMutationId,
+			actorUserId: input.actorUserId ?? null,
+			clientMutationId: input.clientMutationId ?? null,
+			createVersion: input.createVersion,
+			provenance: input.provenance,
+			versionId: input.versionId,
 		});
-		if (outcome === "discarded") {
+		if (outcome.status === "discarded") {
 			await this.purgeForDeletion();
 			return false;
+		}
+		if ((outcome.versionId || outcome.eventId === null) && input.clearPendingContributors) {
+			await this.ctx.storage.delete(pendingContributorIdsKey);
 		}
 
 		return true;
@@ -426,59 +445,17 @@ export class DocumentSession extends YServer {
 		);
 	}
 
-	private async resolveDocumentEditReceiptGroup(
-		receiptIds: string[],
-	): Promise<ResolvedDocumentEditReceiptGroup> {
-		if (receiptIds.length === 0 || new Set(receiptIds).size !== receiptIds.length) {
-			return { status: "not_found" };
-		}
-
-		const receipts = await Promise.all(
-			receiptIds.map((receiptId) => this.getDocumentEditReceipt(receiptId)),
-		);
-		const storedReceipts = receipts.filter(
-			(receipt): receipt is StoredDocumentEditReceipt => receipt !== undefined,
-		);
-		if (storedReceipts.length !== receiptIds.length) {
-			return { status: "not_found" };
-		}
-		if (storedReceipts.some((receipt) => receipt.status === "reverted")) {
-			return { status: "reverted" };
-		}
-		for (let index = 1; index < storedReceipts.length; index += 1) {
-			if (storedReceipts[index]?.previousReceiptId !== storedReceipts[index - 1]?.id) {
-				return { status: "not_latest" };
-			}
-		}
-
-		const firstReceipt = storedReceipts[0];
-		const lastReceipt = storedReceipts.at(-1);
-		if (!firstReceipt || !lastReceipt) {
-			return { status: "not_found" };
-		}
-
-		const latestReceiptId = await this.ctx.storage.get<string>(latestDocumentEditReceiptKey);
-		if (latestReceiptId !== lastReceipt.id) {
-			return { status: "not_latest" };
-		}
-		if (!firstReceipt.beforeDocument) {
-			return { status: "review_unavailable" };
-		}
-
-		this.assertActive();
-		const currentDocumentText = stringifyTiptapDocumentJson(this.getCurrentTiptapDocument());
-		const currentHash = await sha256Base64UrlText(currentDocumentText);
-
-		return currentHash === lastReceipt.afterHash &&
-			stringifyTiptapDocumentJson(this.getCurrentTiptapDocument()) === currentDocumentText
-			? {
-					beforeDocument: firstReceipt.beforeDocument,
-					lastReceiptId: lastReceipt.id,
-					previousReceiptId: firstReceipt.previousReceiptId,
-					receipts: storedReceipts,
-					status: "ready",
-				}
-			: { status: "content_changed" };
+	private async readVersionChange(input: { versionIds: string[] }) {
+		const room = getDocumentSessionRoomNameParts(this.name);
+		const kernel = await this.getWorkspaceKernel(room.workspaceId);
+		const target = await kernel.readItemVersionChange(input);
+		if (target.status !== "ready") return target;
+		const currentText = stringifyTiptapDocumentJson(this.getCurrentTiptapDocument());
+		const currentHash = await sha256Base64UrlText(currentText);
+		return (target.expectedCurrentHash === null || currentHash === target.expectedCurrentHash) &&
+			stringifyTiptapDocumentJson(this.getCurrentTiptapDocument()) === currentText
+			? { beforeContent: target.beforeContent, status: "ready" as const }
+			: { status: "content_changed" as const };
 	}
 
 	private getCurrentTiptapDocument() {
@@ -546,12 +523,6 @@ function getDocumentSessionRoomNameParts(roomName: string): DocumentSessionRoute
 
 function getDocumentEditReceiptKey(receiptId: string) {
 	return `${documentEditReceiptKeyPrefix}${receiptId}`;
-}
-
-function fitsDocumentEditReceiptSnapshot(documentText: string) {
-	return (
-		new TextEncoder().encode(documentText).byteLength <= maximumDocumentEditReceiptSnapshotBytes
-	);
 }
 
 function rejectedDocumentEditResult(

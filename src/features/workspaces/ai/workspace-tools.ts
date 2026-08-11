@@ -69,6 +69,7 @@ function createWorkspaceThreadTool(input: WorkspaceThreadToolConfig) {
 					thread,
 					getWorkspaceToolScopes(definition.access),
 					context.invocationId,
+					context.codemodeExecutionId,
 					input.resolveWorkspaceReferences,
 				),
 			);
@@ -120,10 +121,16 @@ function createThreadWorkspaceAccessContext(
 	thread: AIThreadContext,
 	scopes: readonly WorkspaceAccessScope[],
 	operationId: string,
+	groupId: string | undefined,
 	resolveWorkspaceReferences?: (refs: readonly string[]) => Promise<WorkspaceReferenceRecord[]>,
 ): WorkspaceAccessContext {
 	return createWorkspaceAccessContext({
 		operationId,
+		provenance: {
+			groupId,
+			origin: "ai",
+			threadId: thread.id,
+		},
 		...(resolveWorkspaceReferences ? { resolveWorkspaceReferences } : {}),
 		scopes,
 		userId: thread.userId,

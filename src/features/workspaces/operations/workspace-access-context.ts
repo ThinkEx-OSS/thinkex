@@ -1,4 +1,5 @@
 import type { WorkspaceReferenceRecord } from "#/features/workspaces/locations/workspace-location";
+import type { WorkspaceMutationProvenance } from "#/features/workspaces/history/workspace-history-contract";
 import {
 	assertAccessScope,
 	createAccessActor,
@@ -11,6 +12,7 @@ export type WorkspaceAccessScope = (typeof workspaceAccessScopes)[number];
 
 export interface WorkspaceAccessContext extends ScopedAccessContext<WorkspaceAccessScope> {
 	operationId: string;
+	provenance?: WorkspaceMutationProvenance;
 	/**
 	 * Resolves the short refs a read handed the assistant, so a document can cite
 	 * with the same `wr_` ref it cites with in chat. Absent outside a chat turn.
@@ -22,6 +24,7 @@ export interface WorkspaceAccessContext extends ScopedAccessContext<WorkspaceAcc
 export function createWorkspaceAccessContext(input: {
 	scopes: readonly WorkspaceAccessScope[];
 	operationId: string;
+	provenance?: WorkspaceMutationProvenance;
 	resolveWorkspaceReferences?: (refs: readonly string[]) => Promise<WorkspaceReferenceRecord[]>;
 	userId: string;
 	workspaceId: string;
@@ -29,6 +32,7 @@ export function createWorkspaceAccessContext(input: {
 	return {
 		actor: createAccessActor(input),
 		operationId: input.operationId,
+		...(input.provenance ? { provenance: input.provenance } : {}),
 		...(input.resolveWorkspaceReferences
 			? { resolveWorkspaceReferences: input.resolveWorkspaceReferences }
 			: {}),

@@ -91,7 +91,7 @@ async function prepareWorkspaceExport(input: { workspaceId: string; userId: stri
 	// bytes are sent, an error can only abort the download and leave a partial archive.
 	for (const item of page.items) {
 		if (item.type === "document") {
-			const { content } = await kernel.readDocumentCheckpoint({ itemId: item.id });
+			const { content } = await kernel.readItemContent({ itemId: item.id });
 			estimatedBytes += textEncoder.encode(content).byteLength;
 			documents.set(item.id, parseTiptapDocumentJson(content));
 			continue;

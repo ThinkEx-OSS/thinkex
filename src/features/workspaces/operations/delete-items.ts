@@ -74,6 +74,7 @@ export async function deleteWorkspaceItemsOperation(
 		itemIds: resolvedItems.map((resolved) => resolved.item.id),
 		actorUserId: accessContext.actor.userId,
 		clientMutationId: accessContext.operationId,
+		provenance: accessContext.provenance,
 	});
 	const resolvedItemsById = new Map<string, (typeof resolvedItems)[number]>();
 

@@ -36,7 +36,10 @@ export function DocumentEditUndoButton({
 	const [isConfirming, setIsConfirming] = useState(false);
 	const { hideReview } = useDocumentEditReview();
 	const undoMutation = useMutation({
-		mutationFn: () => undoDocumentEditReceiptFn({ data: { itemId, receiptIds, workspaceId } }),
+		mutationFn: () =>
+			undoDocumentEditReceiptFn({
+				data: { itemId, receiptIds, workspaceId },
+			}),
 		onSuccess: (result) => {
 			// Every outcome ends the review: it either just undid the changes, or
 			// told us they no longer describe the document. Leaving the marks up

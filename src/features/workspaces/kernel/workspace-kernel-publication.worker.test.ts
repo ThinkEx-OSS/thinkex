@@ -102,7 +102,7 @@ describe("workspace kernel publication", () => {
 			const delayedWrite = delayFirstCall(workspace, "writeFile");
 			Reflect.set(itemCommands, "workspace", delayedWrite.proxy);
 
-			const checkpoint = kernel.commitDocumentCheckpoint({
+			const checkpoint = kernel.commitItemContent({
 				content: '{"type":"doc","content":[]}',
 				itemId,
 			});
@@ -110,8 +110,112 @@ describe("workspace kernel publication", () => {
 			await kernel.deleteItems({ itemIds: [itemId] });
 			delayedWrite.resume();
 
-			await expect(checkpoint).resolves.toBe("discarded");
+			await expect(checkpoint).resolves.toEqual({ status: "discarded" });
 			await expect(workspace.readFile(shellPath)).resolves.toBeNull();
+		});
+	});
+
+	it("keeps exact before and after bodies for a required content version", async () => {
+		const workspaceId = crypto.randomUUID();
+		const itemId = crypto.randomUUID();
+		const versionId = crypto.randomUUID();
+		const before = '{"type":"doc","content":[]}';
+		const after = '{"type":"doc","content":[{"type":"paragraph"}]}';
+		const stub = getKernelStub(workspaceId);
+
+		await runInDurableObject(stub, async (kernel: WorkspaceKernel) => {
+			await kernel.createItem({
+				id: itemId,
+				initialContent: before,
+				name: "Draft",
+				type: "document",
+			});
+			await expect(
+				kernel.commitItemContent({
+					content: after,
+					createVersion: true,
+					itemId,
+					versionId,
+				}),
+			).resolves.toMatchObject({ status: "applied", versionId });
+
+			await expect(
+				kernel.readItemVersionChange({ versionIds: [versionId] }),
+			).resolves.toMatchObject({ beforeContent: before, status: "ready" });
+			await expect(kernel.readItemVersion({ itemId, versionId })).resolves.toMatchObject({
+				beforeContent: before,
+				content: after,
+				status: "ready",
+			});
+		});
+	});
+
+	it("promotes an already-saved document into an idle version", async () => {
+		const workspaceId = crypto.randomUUID();
+		const itemId = crypto.randomUUID();
+		const versionId = crypto.randomUUID();
+		const before = '{"type":"doc","content":[]}';
+		const after = '{"type":"doc","content":[{"type":"paragraph"}]}';
+		const stub = getKernelStub(workspaceId);
+
+		await runInDurableObject(stub, async (kernel: WorkspaceKernel) => {
+			await kernel.createItem({
+				id: itemId,
+				initialContent: before,
+				name: "Draft",
+				type: "document",
+			});
+			await expect(
+				kernel.commitItemContent({
+					content: after,
+					itemId,
+					provenance: { origin: "human" },
+				}),
+			).resolves.toMatchObject({ status: "applied", versionId: null });
+			await expect(
+				kernel.commitItemContent({
+					content: after,
+					createVersion: true,
+					itemId,
+					provenance: { origin: "human" },
+					versionId,
+				}),
+			).resolves.toMatchObject({ status: "applied", versionId });
+			await expect(kernel.readItemVersion({ itemId, versionId })).resolves.toMatchObject({
+				beforeContent: before,
+				content: after,
+				status: "ready",
+			});
+			await expect(
+				kernel.readItemVersionChange({ versionIds: [versionId] }),
+			).resolves.toMatchObject({ beforeContent: before, status: "ready" });
+		});
+	});
+
+	it("retains document versions after the item is deleted", async () => {
+		const workspaceId = crypto.randomUUID();
+		const itemId = crypto.randomUUID();
+		const versionId = crypto.randomUUID();
+		const before = '{"type":"doc","content":[]}';
+		const after = '{"type":"doc","content":[{"type":"paragraph"}]}';
+		const stub = getKernelStub(workspaceId);
+
+		await runInDurableObject(stub, async (kernel: WorkspaceKernel) => {
+			await kernel.createItem({
+				id: itemId,
+				initialContent: before,
+				name: "Draft",
+				type: "document",
+			});
+			await kernel.commitItemContent({ content: after, createVersion: true, itemId, versionId });
+			await kernel.deleteItems({ itemIds: [itemId] });
+
+			await expect(kernel.readItemVersion({ itemId, versionId })).resolves.toMatchObject({
+				beforeContent: before,
+				canRestore: false,
+				content: after,
+				status: "ready",
+			});
 		});
 	});
 });
