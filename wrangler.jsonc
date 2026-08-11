@@ -458,11 +458,10 @@
 					},
 				],
 			},
-			// Replace after creating a cache-disabled production Hyperdrive config.
 			"hyperdrive": [
 				{
 					"binding": "HYPERDRIVE",
-					"id": "SET_PRODUCTION_HYPERDRIVE_ID",
+					"id": "61126d47b4b645eb9dd2bc59501a8b63",
 				},
 			],
 		},
