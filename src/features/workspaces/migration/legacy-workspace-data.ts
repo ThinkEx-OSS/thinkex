@@ -1,5 +1,5 @@
 import { Workspace as ShellWorkspace } from "@cloudflare/shell";
-import { count, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { z } from "zod";
 
 import {
@@ -141,34 +141,50 @@ export async function migrateLegacyWorkspaceData(input: {
 			name: () => input.workspaceId,
 		});
 
-		await dbContext.db.transaction(async (transaction) => {
-			const [workspace] = await transaction
-				.select({ id: workspaces.id })
-				.from(workspaces)
-				.where(eq(workspaces.id, input.workspaceId))
-				.limit(1);
-			if (!workspace) throw new Error("Import the legacy D1 workspace directory first.");
+		const [workspace] = await dbContext.db
+			.select({ id: workspaces.id })
+			.from(workspaces)
+			.where(eq(workspaces.id, input.workspaceId))
+			.limit(1);
+		if (!workspace) throw new Error("Import the legacy D1 workspace directory first.");
 
-			const [destination] = await transaction
-				.select({ value: count() })
-				.from(workspaceItems)
-				.where(eq(workspaceItems.workspaceId, input.workspaceId));
-			if ((destination?.value ?? 0) > 0) {
-				throw new Error("Workspace already has Postgres items without a migration marker.");
-			}
+		const expectedItemIds = new Set(destinationItemIds.values());
+		const existingItems = await dbContext.db
+			.select({ id: workspaceItems.id })
+			.from(workspaceItems)
+			.where(eq(workspaceItems.workspaceId, input.workspaceId));
+		if (existingItems.some((item) => !expectedItemIds.has(item.id))) {
+			throw new Error("Workspace has Postgres items that were not created by the legacy import.");
+		}
 
-			const siblingNames = new Map<string | null, string[]>();
-			for (const item of orderParentsBeforeChildren(items)) {
+		const orderedItems = orderParentsBeforeChildren(items);
+		const resolvedNames = new Map<string, string>();
+		const siblingNames = new Map<string | null, string[]>();
+		for (const item of orderedItems) {
+			const existingNames = siblingNames.get(item.parent_id) ?? [];
+			const name = getAvailableWorkspaceItemName({
+				type: workspaceItemTypeSchema.parse(item.type),
+				requestedName: item.name,
+				existingNames,
+			});
+			existingNames.push(name);
+			siblingNames.set(item.parent_id, existingNames);
+			resolvedNames.set(item.id, name);
+		}
+
+		for (const item of orderedItems) {
+			const itemId = getDestinationItemId(destinationItemIds, item.id);
+			const result = await dbContext.db.transaction(async (transaction) => {
+				const [existingItem] = await transaction
+					.select({ id: workspaceItems.id })
+					.from(workspaceItems)
+					.where(eq(workspaceItems.id, itemId))
+					.limit(1);
+				if (existingItem) return null;
+
 				const type = workspaceItemTypeSchema.parse(item.type);
-				const itemId = getDestinationItemId(destinationItemIds, item.id);
-				const existingNames = siblingNames.get(item.parent_id) ?? [];
-				const name = getAvailableWorkspaceItemName({
-					type,
-					requestedName: item.name,
-					existingNames,
-				});
-				existingNames.push(name);
-				siblingNames.set(item.parent_id, existingNames);
+				const name = resolvedNames.get(item.id);
+				if (!name) throw new Error(`Legacy item ${item.id} did not have a resolved name.`);
 				await transaction.insert(workspaceItems).values({
 					id: itemId,
 					workspaceId: input.workspaceId,
@@ -184,8 +200,10 @@ export async function migrateLegacyWorkspaceData(input: {
 					createdAt: new Date(item.created_at),
 					updatedAt: new Date(item.updated_at),
 				});
-				report.items += 1;
 
+				let documents = 0;
+				let files = 0;
+				let pages = 0;
 				if (type === "document") {
 					const content = await shell.readFile(item.shell_path);
 					if (content === null) {
@@ -195,46 +213,60 @@ export async function migrateLegacyWorkspaceData(input: {
 						itemId,
 						content: remapDocumentItemIds(content, destinationItemIds),
 					});
-					report.documents += 1;
+					documents = 1;
 				}
+				if (type === "file") {
+					await importFileAsset({
+						bucket: input.env.WORKSPACE_KERNEL_FILES,
+						destinationItemId: itemId,
+						env: input.env,
+						item,
+						projections,
+						transaction,
+						workspaceId: input.workspaceId,
+					});
+					files = 1;
+				}
+				for (const projection of projections.filter(
+					(candidate) => candidate.item_id === item.id && candidate.format === "pages",
+				)) {
+					pages += await importExtraction({
+						bucket: input.env.WORKSPACE_KERNEL_FILES,
+						destinationItemId: itemId,
+						projection,
+						transaction,
+						workspaceId: input.workspaceId,
+					});
+				}
+				return { documents, files, pages };
+			});
+			if (result) {
+				report.items += 1;
+				report.documents += result.documents;
+				report.files += result.files;
+				report.pages += result.pages;
 			}
+		}
 
-			for (const item of items.filter((candidate) => candidate.type === "file")) {
-				await importFileAsset({
-					bucket: input.env.WORKSPACE_KERNEL_FILES,
-					destinationItemId: getDestinationItemId(destinationItemIds, item.id),
-					env: input.env,
-					item,
-					projections,
-					transaction,
-					workspaceId: input.workspaceId,
-				});
-				report.files += 1;
-			}
-
+		await dbContext.db.transaction(async (transaction) => {
 			for (const relation of relations) {
-				await transaction.insert(workspaceItemRelations).values({
-					id: getLegacyDestinationId(input.workspaceId, relation.id),
-					workspaceId: input.workspaceId,
-					fromItemId: getDestinationItemId(destinationItemIds, relation.from_item_id),
-					toItemId: getDestinationItemId(destinationItemIds, relation.to_item_id),
-					kind: parseRelationKind(relation.kind),
-					note: relation.note,
-					createdAt: new Date(relation.created_at),
-				});
+				await transaction
+					.insert(workspaceItemRelations)
+					.values({
+						id: getLegacyDestinationId(input.workspaceId, relation.id),
+						workspaceId: input.workspaceId,
+						fromItemId: getDestinationItemId(destinationItemIds, relation.from_item_id),
+						toItemId: getDestinationItemId(destinationItemIds, relation.to_item_id),
+						kind: parseRelationKind(relation.kind),
+						note: relation.note,
+						createdAt: new Date(relation.created_at),
+					})
+					.onConflictDoNothing();
 				report.relations += 1;
 			}
+		});
 
-			for (const projection of projections.filter((candidate) => candidate.format === "pages")) {
-				report.pages += await importExtraction({
-					bucket: input.env.WORKSPACE_KERNEL_FILES,
-					destinationItemId: getDestinationItemId(destinationItemIds, projection.item_id),
-					projection,
-					transaction,
-					workspaceId: input.workspaceId,
-				});
-			}
-
+		await dbContext.db.transaction(async (transaction) => {
 			await transaction
 				.update(workspaces)
 				.set({ revision })
