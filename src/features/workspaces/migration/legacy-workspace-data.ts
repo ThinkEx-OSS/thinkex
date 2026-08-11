@@ -328,17 +328,27 @@ async function importExtraction(input: {
 	transaction: Transaction;
 	workspaceId: string;
 }) {
-	const status = parseExtractionStatus(input.projection.status);
+	let status: "failed" | "processing" | "ready" = parseExtractionStatus(input.projection.status);
+	let errorMessage = input.projection.error_message;
 	const metadata = parseJsonRecord(input.projection.metadata_json);
 	let pages = 0;
 	let markdownLength = 0;
 	let tier: "enhanced" | "fast" | null = null;
+	const readyProjection =
+		input.projection.object_key && input.projection.source_hash
+			? {
+					expectedSourceHash: input.projection.source_hash,
+					manifestObjectKey: input.projection.object_key,
+				}
+			: null;
 
-	if (status === "ready") {
-		if (!input.projection.object_key || !input.projection.source_hash) {
-			throw new Error(`Ready extraction ${input.projection.item_id} is incomplete.`);
-		}
-		tier = parseExtractionTier(input.projection.object_key);
+	if (status === "ready" && !readyProjection) {
+		status = "failed";
+		errorMessage = "Legacy extraction was incomplete and must be regenerated.";
+	}
+
+	if (status === "ready" && readyProjection) {
+		tier = parseExtractionTier(readyProjection.manifestObjectKey);
 		let batch: Array<{
 			itemId: string;
 			pageNumber: number;
@@ -347,8 +357,7 @@ async function importExtraction(input: {
 		}> = [];
 		for await (const page of iterateLegacyProjectionPages({
 			bucket: input.bucket,
-			expectedSourceHash: input.projection.source_hash,
-			manifestObjectKey: input.projection.object_key,
+			...readyProjection,
 		})) {
 			batch.push({
 				itemId: input.projection.item_id,
@@ -373,7 +382,7 @@ async function importExtraction(input: {
 		provider: input.projection.provider,
 		providerMode: input.projection.provider_mode,
 		tier,
-		errorMessage: input.projection.error_message,
+		errorMessage,
 		sourceHash: input.projection.source_hash,
 		metadata: status === "ready" ? { ...metadata, markdownLength, pageCount: pages } : metadata,
 		updatedAt: new Date(input.projection.updated_at),
