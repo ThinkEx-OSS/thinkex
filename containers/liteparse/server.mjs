@@ -32,7 +32,11 @@ const parseTimeoutMs = 90_000;
 const maxInputBytes = 100 * 1024 * 1024;
 const execFileAsync = promisify(execFile);
 
-createServer(async (request, response) => {
+createServer((request, response) => {
+	void handleRequest(request, response);
+}).listen(port);
+
+async function handleRequest(request, response) {
 	const startedAt = Date.now();
 	let inputBytes = 0;
 	let pageCount = 0;
@@ -134,7 +138,7 @@ createServer(async (request, response) => {
 			}),
 		);
 	}
-}).listen(port);
+}
 
 async function validatePdfFile(filePath) {
 	try {
