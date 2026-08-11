@@ -353,6 +353,7 @@
 			],
 			"vars": {
 				"FIRECRAWL_API_URL": "https://api.firecrawl.dev",
+				"REQUIRE_LEGACY_DATA_MIGRATION": "true",
 				"R2_BUCKET_NAME": "thinkex-workspace-kernel-files",
 				"SANDBOX_TRANSPORT": "rpc",
 			},
@@ -371,6 +372,7 @@
 					"R2_ACCESS_KEY_ID",
 					"R2_SECRET_ACCESS_KEY",
 					"WORKSPACE_UPLOAD_TOKEN_SECRET",
+					"POSTGRES_MIGRATION_TOKEN",
 				],
 			},
 			"ai": {

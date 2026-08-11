@@ -2,6 +2,7 @@ import { Agent, type Connection, type ConnectionContext } from "agents";
 import { getChatAttachmentWorkspacePrefix } from "#/features/workspaces/ai/chat-attachment-storage";
 import { getDocumentSessionForDeletionFromEnv } from "#/features/workspaces/document-session-access";
 import { getWorkspaceFileItemObjectPrefix } from "#/features/workspaces/files/workspace-file-object-keys";
+import { migrateLegacyWorkspaceData } from "#/features/workspaces/migration/legacy-workspace-data";
 import {
 	getWorkspaceKernelPresenceUsers,
 	getWorkspaceKernelUserFromHeaders,
@@ -26,6 +27,15 @@ export { setWorkspaceKernelUserHeaders };
  * live room for presence, revision notifications, and retryable remote cleanup.
  */
 export class WorkspaceKernel extends Agent<Cloudflare.Env> {
+	async migrateLegacyDataToPostgres() {
+		return await migrateLegacyWorkspaceData({
+			env: this.env,
+			storage: this.ctx.storage,
+			workspaceId: this.name,
+			sql: (strings, ...values) => this.sql(strings, ...values),
+		});
+	}
+
 	onConnect(connection: Connection<WorkspaceConnectionState>, context: ConnectionContext) {
 		const user = getWorkspaceKernelUserFromHeaders(context.request);
 

@@ -3,6 +3,11 @@ import handler from "@tanstack/react-start/server-entry";
 import { routeUserAIRequest } from "#/features/workspaces/ai/auth";
 import { routeDocumentSessionRequest } from "#/features/workspaces/documents/document-session-auth";
 import { routeWorkspaceKernelRequest } from "#/features/workspaces/kernel/workspace-kernel-auth";
+import {
+	isPostgresCutoverReady,
+	isPostgresMigrationMaintenance,
+	routeLegacyWorkspaceMigration,
+} from "#/features/workspaces/migration/legacy-workspace-migration-route";
 import { routeMcpRequest } from "#/features/mcp/mcp-route";
 import { recordOperationalFailure } from "#/integrations/observability/operational-events";
 import { posthogHost, posthogHostOrigin, posthogProjectToken } from "#/integrations/posthog/config";
@@ -103,6 +108,22 @@ function withSecurityHeaders(response: Response, env: Cloudflare.Env, request: R
 export default {
 	async fetch(request, env, ctx) {
 		try {
+			const migrationResponse = await routeLegacyWorkspaceMigration(request, env);
+
+			if (migrationResponse) {
+				return migrationResponse;
+			}
+
+			if (await isPostgresMigrationMaintenance(env)) {
+				return new Response("ThinkEx is briefly offline for a data migration.", {
+					status: 503,
+					headers: { "Retry-After": "300" },
+				});
+			}
+			if (!(await isPostgresCutoverReady(env))) {
+				return new Response("ThinkEx data migration has not completed.", { status: 503 });
+			}
+
 			const mcpResponse = await routeMcpRequest(request, env, ctx);
 
 			if (mcpResponse) {

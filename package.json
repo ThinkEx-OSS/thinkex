@@ -35,6 +35,7 @@
 		"db:migrate:local": "drizzle-kit migrate",
 		"db:migrate": "drizzle-kit migrate",
 		"db:migrate:staging": "drizzle-kit migrate",
+		"db:import:legacy": "node scripts/import-legacy-d1.mjs",
 		"db:check": "drizzle-kit check",
 		"cf-typegen": "wrangler types",
 		"wrangler": "wrangler"

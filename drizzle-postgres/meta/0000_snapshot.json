@@ -1,5 +1,5 @@
 {
-	"id": "3a7df110-53da-4477-a9b9-bae5f39bd52a",
+	"id": "70194200-6db0-4767-89bf-19e147715d62",
 	"prevId": "00000000-0000-0000-0000-000000000000",
 	"version": "7",
 	"dialect": "postgresql",
@@ -156,6 +156,31 @@
 					"type": "timestamp with time zone",
 					"primaryKey": false,
 					"notNull": false
+				}
+			},
+			"indexes": {},
+			"foreignKeys": {},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		},
+		"public.legacy_data_migrations": {
+			"name": "legacy_data_migrations",
+			"schema": "",
+			"columns": {
+				"scope": {
+					"name": "scope",
+					"type": "text",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"completed_at": {
+					"name": "completed_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true
 				}
 			},
 			"indexes": {},

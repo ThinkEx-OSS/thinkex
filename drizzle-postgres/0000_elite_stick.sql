@@ -22,6 +22,11 @@ CREATE TABLE "jwks" (
 	"expires_at" timestamp with time zone
 );
 --> statement-breakpoint
+CREATE TABLE "legacy_data_migrations" (
+	"scope" text PRIMARY KEY NOT NULL,
+	"completed_at" timestamp with time zone NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "oauth_access_token" (
 	"id" text PRIMARY KEY NOT NULL,
 	"token" text NOT NULL,
