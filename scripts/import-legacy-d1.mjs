@@ -84,11 +84,9 @@ if (foreignKeyViolations.length > 0) {
 }
 const source = new Map(tableSpecs.map((spec) => [spec.name, readSourceRows(sqlite, spec)]));
 const workspaceIds = (source.get("workspaces") ?? []).map((row) => String(row.id));
-const client = new pg.Client({ connectionString: databaseUrl });
 
-await client.connect();
 try {
-	await importD1Rows(client, source);
+	await withPostgresClient((client) => importD1Rows(client, source));
 	if (!options.d1Only) {
 		const summary = {
 			workspaces: 0,
@@ -109,10 +107,19 @@ try {
 		}
 		console.log(JSON.stringify({ workspaceMigration: summary }));
 	}
-	await verifyImport(client, source, workspaceIds, options.d1Only);
+	await withPostgresClient((client) => verifyImport(client, source, workspaceIds, options.d1Only));
 } finally {
-	await client.end();
 	sqlite.close();
+}
+
+async function withPostgresClient(run) {
+	const client = new pg.Client({ connectionString: databaseUrl });
+	await client.connect();
+	try {
+		return await run(client);
+	} finally {
+		await client.end();
+	}
 }
 
 async function migrateWorkspace(appUrl, migrationToken, workspaceId) {
