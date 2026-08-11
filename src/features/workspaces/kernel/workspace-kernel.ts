@@ -65,17 +65,8 @@ import {
 	recordOperationalOutcome,
 } from "#/integrations/observability/operational-events";
 import { deleteR2Prefix } from "#/lib/r2";
-import { WorkspaceSearchProjection } from "#/features/workspaces/search/workspace-search-projection";
-import type { WorkspaceSearchInput } from "#/features/workspaces/search/workspace-search-contract";
 
 const workspaceKernelInlineThresholdBytes = 1_500_000;
-// Indexing an item re-embeds all of its chunks, and a document checkpoint commits
-// every 8 seconds of sustained typing, so an editing burst would otherwise pay for the
-// whole document over and over. Collapse it into one run; a search or a restart still
-// schedules promptly, and batch continuation stays immediate.
-const workspaceSearchEditIndexDelaySeconds = 30;
-const workspaceSearchIndexDelaySeconds = 1;
-
 const workspaceExtractionHealingThrottleMs = 60_000;
 const workspacePurgeMaximumAttempts = 5;
 const documentSessionPurgeBatchSize = 6;
@@ -108,38 +99,11 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 		sql: this.kernelSql,
 		workspaceId: () => this.name,
 	});
-	private readonly search = new WorkspaceSearchProjection({
-		ai: this.env.AI,
-		bucket: this.env.WORKSPACE_KERNEL_FILES,
-		getItems: () => this.store.getPageItems(),
-		requestRun: () =>
-			this.ctx.waitUntil(
-				this.scheduleWorkspaceSearchIndexing(workspaceSearchEditIndexDelaySeconds),
-			),
-		sql: this.kernelSql,
-		vectorize: this.env.WORKSPACE_SEARCH,
-		workspace: this.workspace,
-		workspaceId: () => this.name,
-	});
 	private readonly events = new WorkspaceKernelEventBus({
 		sql: this.kernelSql,
 		workspaceId: () => this.name,
 		getNextRevision: () => this.store.getNextRevision(),
 		broadcast: (message) => this.broadcastRealtimeMessage(message),
-		onCommit: (event) => {
-			try {
-				this.search.observe(event);
-			} catch (error) {
-				recordOperationalFailure({
-					error,
-					event: "workspace_search_projection",
-					fields: {
-						event_type: event.type,
-						workspace_id: this.name,
-					},
-				});
-			}
-		},
 	});
 	private readonly relations = new WorkspaceKernelRelations(this.kernelSql);
 	private readonly itemCommands = new WorkspaceKernelItemCommands({
@@ -164,14 +128,10 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 		// instance, so a canceled one rolls the schema back under a live object.
 		void ctx.blockConcurrencyWhile(async () => {
 			initializeWorkspaceKernelStorage(this.kernelSql);
-			this.search.initialize();
 		});
 	}
 
 	async onStart() {
-		if (this.search.hasPending()) {
-			await this.scheduleWorkspaceSearchIndexing();
-		}
 		this.requestWorkspaceFileExtractionHealing();
 	}
 
@@ -405,22 +365,6 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 		);
 	}
 
-	async searchWorkspace(input: WorkspaceSearchInput) {
-		this.requestWorkspaceFileExtractionHealing();
-		if (this.search.hasPending()) {
-			this.ctx.waitUntil(this.scheduleWorkspaceSearchIndexing());
-		}
-		return await this.search.search(input);
-	}
-
-	async processWorkspaceSearchIndex() {
-		if (await this.search.processBatch()) {
-			// The current one-shot schedule is removed after this callback returns,
-			// so its successor must not deduplicate onto the executing row.
-			await this.scheduleWorkspaceSearchIndexing(workspaceSearchIndexDelaySeconds, false);
-		}
-	}
-
 	private async runMutation<T>(
 		operation: string,
 		input: { actorUserId?: string | null; clientMutationId?: string | null },
@@ -456,17 +400,6 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 		const workspaceId = this.name;
 		const documentItemIds = this.store.getAllDocumentItemIds();
 		let failed = 0;
-
-		try {
-			await this.search.purgeVectors();
-		} catch (error) {
-			failed += 1;
-			recordOperationalFailure({
-				error,
-				event: "workspace_search_purge",
-				fields: { workspace_id: workspaceId },
-			});
-		}
 
 		for (const itemId of documentItemIds) {
 			try {
@@ -531,20 +464,6 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 			}
 		}
 		return { attempted: documentItemIds.length + 2, failed };
-	}
-
-	private async scheduleWorkspaceSearchIndexing(
-		delaySeconds = workspaceSearchIndexDelaySeconds,
-		idempotent = true,
-	) {
-		await this.schedule(delaySeconds, "processWorkspaceSearchIndex", undefined, {
-			idempotent,
-			retry: {
-				baseDelayMs: 250,
-				maxAttempts: 5,
-				maxDelayMs: 3_000,
-			},
-		});
 	}
 
 	private requestWorkspaceFileExtractionHealing() {

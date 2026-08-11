@@ -56,24 +56,6 @@ Copy the digest from the second command into the `containers` blocks for both `s
   Remote migrations and deploy commands affect shared environments. Run them only when you are intentionally doing release work.
 </Warning>
 
-## Workspace Search Vector Indexes
-
-Workspace search uses 1,024-dimension BGE-M3 embeddings with cosine distance. Vectorize indexes and their metadata indexes are persistent infrastructure, so create them before deploying the Worker:
-
-```bash
-wrangler vectorize create thinkex-workspace-search-staging --dimensions 1024 --metric cosine
-wrangler vectorize create-metadata-index thinkex-workspace-search-staging --propertyName itemId --type string
-wrangler vectorize create-metadata-index thinkex-workspace-search-staging --propertyName parentId --type string
-wrangler vectorize create-metadata-index thinkex-workspace-search-staging --propertyName type --type string
-
-wrangler vectorize create thinkex-workspace-search --dimensions 1024 --metric cosine
-wrangler vectorize create-metadata-index thinkex-workspace-search --propertyName itemId --type string
-wrangler vectorize create-metadata-index thinkex-workspace-search --propertyName parentId --type string
-wrangler vectorize create-metadata-index thinkex-workspace-search --propertyName type --type string
-```
-
-Create metadata indexes before inserting vectors. Vectors written first are not retroactively indexed for metadata filtering.
-
 ## Secrets
 
 Runtime and deploy secrets originate in Infisical. Build-time secrets (Cloudflare credentials, PostHog variables) are set in each Workers Builds configuration; runtime secrets declared by the Worker configuration are set on the Worker itself. GitHub only holds what PR CI needs.

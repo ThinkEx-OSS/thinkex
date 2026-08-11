@@ -126,8 +126,6 @@ export function getRunningToolReceipt(input: {
 				? receipt.running("Renaming ", ...name(oldName), " → ", ...name(newName))
 				: receipt.running("Renaming ", ...name(oldName));
 		}
-		case "workspace_search":
-			return receipt.running("Searching the workspace for ", ...name(getString(toolInput.query)));
 		case "web_links":
 			return receipt.running("Finding links on ", { name: formatUrl(getString(toolInput.url)) });
 		case "web_markdown":
@@ -186,8 +184,6 @@ export function getFinishedToolReceipt(input: {
 			return summarizeWorkspaceEdit(input.output, input.toolInput);
 		case "workspace_read_items":
 			return summarizeWorkspaceRead(input.output);
-		case "workspace_search":
-			return summarizeWorkspaceSearch(input.output, input.toolInput);
 		case "web_search":
 			return summarizeWebSearch(input.output, input.toolInput);
 		case "web_markdown":
@@ -245,8 +241,6 @@ function summarizeFailedTool(
 			return failedCount > 0
 				? receipt.failed(`Couldn’t read ${formatCount(failedCount, "item")}`)
 				: receipt.failed("Couldn’t read workspace");
-		case "workspace_search":
-			return receipt.failed("Couldn’t search the workspace");
 		case "compute":
 			return receipt.failed("Couldn’t compute");
 		default:
@@ -398,15 +392,6 @@ function formatPageRange(range: string | undefined) {
 	if (!range) return undefined;
 	const trimmed = range.trim();
 	return trimmed ? trimmed.replace(/\s*-\s*/g, "–") : undefined;
-}
-
-function summarizeWorkspaceSearch(output: unknown, toolInput: unknown): AiChatToolReceipt {
-	const results = getArray(asRecord(output).results);
-	const subject = getString(asRecord(toolInput).query);
-	const base: ReceiptPart[] = [`Found ${formatCount(results.length, "result")}`];
-	return subject
-		? receipt.completed(...base, " for ", ...name(subject))
-		: receipt.completed(...base);
 }
 
 function summarizeWebSearch(output: unknown, toolInput: unknown): AiChatToolReceipt {

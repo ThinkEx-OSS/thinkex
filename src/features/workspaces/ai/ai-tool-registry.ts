@@ -66,7 +66,6 @@ export const AI_TOOL_REGISTRY = defineAiToolRegistry({
 	}),
 	workspace_list_items: readTool({ icon: "file", title: "List workspace", visibility: "hidden" }),
 	workspace_read_items: readTool({ icon: "file", title: "Read workspace" }),
-	workspace_search: readTool({ icon: "search", title: "Search workspace" }),
 	workspace_rename_item: writeTool({ icon: "edit", title: "Rename item" }),
 	workspace_move_items: writeTool({ icon: "edit", title: "Move items" }),
 	workspace_create_items: writeTool({ icon: "edit", title: "Create items" }),

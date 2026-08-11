@@ -3,7 +3,7 @@
 	// Default config is used for local development. Deploys should target an
 	// explicit Wrangler environment. This name deliberately differs from the
 	// production worker name so a bare `wrangler deploy` cannot overwrite
-	// production with this block's staging R2 and Vectorize bindings.
+	// production with this block's staging R2 bindings.
 	"name": "thinkex-dev",
 	"compatibility_date": "2026-03-24",
 	"compatibility_flags": ["nodejs_compat"],
@@ -60,14 +60,6 @@
 		"binding": "AI",
 		"remote": true,
 	},
-	// Provisioning: docs/configuration/deployments.mdx#workspace-search-vector-indexes
-	"vectorize": [
-		{
-			"binding": "WORKSPACE_SEARCH",
-			"index_name": "thinkex-workspace-search-staging",
-			"remote": true,
-		},
-	],
 	"images": {
 		"binding": "IMAGES",
 	},
@@ -260,13 +252,6 @@
 				"binding": "AI",
 				"remote": true,
 			},
-			"vectorize": [
-				{
-					"binding": "WORKSPACE_SEARCH",
-					"index_name": "thinkex-workspace-search-staging",
-					"remote": true,
-				},
-			],
 			"images": {
 				"binding": "IMAGES",
 			},
@@ -391,13 +376,6 @@
 				"binding": "AI",
 				"remote": true,
 			},
-			"vectorize": [
-				{
-					"binding": "WORKSPACE_SEARCH",
-					"index_name": "thinkex-workspace-search",
-					"remote": true,
-				},
-			],
 			"images": {
 				"binding": "IMAGES",
 			},
