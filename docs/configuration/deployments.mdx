@@ -60,6 +60,16 @@ The first production deploy must be a supervised maintenance release, not the no
 
 The importer is retryable: the D1 transaction and each workspace write their own completion marker. Do not manually create the final `cutover` marker.
 
+### After the rollback window
+
+Do not mix this cleanup into the cutover release. Once production reads and writes have been verified and the agreed rollback window has passed:
+
+1. Take one final backup, then remove the migration endpoint, importer, `migrateLegacyDataToPostgres`, maintenance gate, `POSTGRES_MIGRATION_TOKEN`, `REQUIRE_LEGACY_DATA_MIGRATION`, and the `legacy_data_migrations` table.
+2. Remove the legacy D1 binding and its migrations. Retire the legacy workspace Durable Object data only after the backup and representative document, file, relation, and extraction checks are complete.
+3. Keep R2 source and preview objects: Postgres references them in place. Legacy extraction projection objects may be deleted only after Postgres page counts and sampled content have been verified.
+4. In a separate architecture cleanup, rename the application-facing `WorkspaceKernelClient` persistence seam without renaming the deployed `WorkspaceKernel` class, and consolidate the repeated transaction/revision/notification pattern.
+5. Keep document-session revocation as a simple document-id fan-out. Add active-session tracking only if telemetry shows membership changes becoming slow in very large workspaces.
+
 ## Container Images
 
 Production and staging pin container images to immutable `registry.cloudflare.com` digests (`wrangler.jsonc`), so ordinary deploys never need Docker and Workers Builds can run without a Docker daemon. The top-level config still points at the Dockerfiles for `wrangler dev`.
