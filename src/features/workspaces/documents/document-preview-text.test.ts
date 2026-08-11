@@ -22,9 +22,8 @@ describe("document preview text", () => {
 		);
 	});
 
-	// Search indexes the markdown projection, so keeping widgets out of it is
-	// what keeps their source out of the full-text index.
-	it("keeps widget source out of the markdown search projection", () => {
+	// Keep widget source markup out of the document's readable Markdown projection.
+	it("keeps widget source out of the markdown projection", () => {
 		const markdown = serializeTiptapDocumentToMarkdown(
 			parseDocumentAiHtml(
 				`<p>Waves intro</p><div data-type="widget" title="Sine explorer">${widgetSource.replaceAll("<", "&lt;")}</div>`,

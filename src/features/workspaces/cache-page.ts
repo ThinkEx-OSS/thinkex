@@ -4,18 +4,14 @@ import type {
 	CreateWorkspaceItemInput,
 	MoveWorkspaceItemsInput,
 	UpdateWorkspaceItemColorInput,
-	WorkspaceItemSummary,
 	WorkspacePage,
 } from "#/features/workspaces/contracts";
 import {
-	applyWorkspaceEventToPage,
 	createWorkspaceItemInPage,
 	moveWorkspaceItemsInPage,
 	removeWorkspaceItemsFromPage,
 	updateWorkspaceItemColorInPage,
-	upsertWorkspaceItemsInPage,
 } from "#/features/workspaces/model/workspace-page";
-import type { WorkspaceRealtimeEvent } from "#/features/workspaces/realtime/messages";
 
 export function createWorkspaceItemInPageCache(
 	queryClient: QueryClient,
@@ -30,24 +26,9 @@ export function moveWorkspaceItemsInPageCache(
 	queryClient: QueryClient,
 	input: MoveWorkspaceItemsInput,
 ) {
-	let previousItems: WorkspaceItemSummary[] | undefined;
-
-	queryClient.setQueryData<WorkspacePage>(workspacePageQueryKey(input.workspaceId), (current) => {
-		if (!current) {
-			return current;
-		}
-
-		const moveResult = moveWorkspaceItemsInPage(current, input);
-
-		if (!moveResult) {
-			return current;
-		}
-
-		previousItems = moveResult.previousItems;
-		return moveResult.page;
-	});
-
-	return previousItems;
+	queryClient.setQueryData<WorkspacePage>(workspacePageQueryKey(input.workspaceId), (current) =>
+		current ? (moveWorkspaceItemsInPage(current, input) ?? current) : current,
+	);
 }
 
 export function removeWorkspaceItemsFromPageCache(
@@ -55,20 +36,9 @@ export function removeWorkspaceItemsFromPageCache(
 	workspaceId: string,
 	itemIds: string[],
 ) {
-	let previousItems: WorkspaceItemSummary[] | undefined;
-
-	queryClient.setQueryData<WorkspacePage>(workspacePageQueryKey(workspaceId), (current) => {
-		if (!current) {
-			return current;
-		}
-
-		const next = removeWorkspaceItemsFromPage(current, itemIds);
-		const nextItemIds = new Set(next.items.map((item) => item.id));
-		previousItems = current.items.filter((item) => !nextItemIds.has(item.id));
-		return next;
-	});
-
-	return previousItems;
+	queryClient.setQueryData<WorkspacePage>(workspacePageQueryKey(workspaceId), (current) =>
+		current ? removeWorkspaceItemsFromPage(current, itemIds) : current,
+	);
 }
 
 export function updateWorkspaceItemColorInPageCache(
@@ -97,33 +67,4 @@ export function getWorkspaceItemColorInPageCache(
 	const page = queryClient.getQueryData<WorkspacePage>(workspacePageQueryKey(input.workspaceId));
 
 	return page?.items.find((item) => item.id === input.itemId)?.color ?? null;
-}
-
-export function restoreWorkspaceItemsInPageCache(
-	queryClient: QueryClient,
-	items: readonly WorkspaceItemSummary[] | undefined,
-) {
-	if (!items || items.length === 0) {
-		return;
-	}
-
-	queryClient.setQueryData<WorkspacePage>(
-		workspacePageQueryKey(items[0].workspaceId),
-		(current) => {
-			if (!current) {
-				return current;
-			}
-
-			return upsertWorkspaceItemsInPage(current, items);
-		},
-	);
-}
-
-export function applyWorkspaceEventToCache(
-	queryClient: QueryClient,
-	event: WorkspaceRealtimeEvent,
-) {
-	queryClient.setQueryData<WorkspacePage>(workspacePageQueryKey(event.workspaceId), (current) =>
-		current ? applyWorkspaceEventToPage(current, event) : current,
-	);
 }

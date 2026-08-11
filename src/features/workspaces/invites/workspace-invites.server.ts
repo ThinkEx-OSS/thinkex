@@ -96,36 +96,36 @@ export async function acceptWorkspaceInvite(db: Db, input: { token: string; user
 	// v1: the token is a secret link — any signed-in user may accept; no invitee email check.
 	const invite = await getPendingWorkspaceInviteByToken(db, input.token);
 
-	const acceptMembership = db
-		.insert(workspaceMembers)
-		.values({
-			id: crypto.randomUUID(),
-			workspaceId: invite.workspaceId,
-			userId: input.userId,
-			role: invite.role,
-		})
-		.onConflictDoUpdate({
-			target: [workspaceMembers.workspaceId, workspaceMembers.userId],
-			set: {
-				role: getAcceptedMembershipRoleSql(invite.role),
-			},
-		})
-		.returning({
-			role: workspaceMembers.role,
-		});
+	const membershipRows = await db.transaction(async (transaction) => {
+		if (invite.type === "email") {
+			const [claimedInvite] = await transaction
+				.update(workspaceInvites)
+				.set({ status: "accepted" })
+				.where(and(eq(workspaceInvites.id, invite.id), eq(workspaceInvites.status, "pending")))
+				.returning({ id: workspaceInvites.id });
+			if (!claimedInvite) throw new WorkspaceInviteError("Invite not found.");
+		}
 
-	const membershipRows =
-		invite.type === "email"
-			? (
-					await db.batch([
-						acceptMembership,
-						db
-							.update(workspaceInvites)
-							.set({ status: "accepted" })
-							.where(eq(workspaceInvites.id, invite.id)),
-					])
-				)[0]
-			: await acceptMembership;
+		const rows = await transaction
+			.insert(workspaceMembers)
+			.values({
+				id: crypto.randomUUID(),
+				workspaceId: invite.workspaceId,
+				userId: input.userId,
+				role: invite.role,
+			})
+			.onConflictDoUpdate({
+				target: [workspaceMembers.workspaceId, workspaceMembers.userId],
+				set: {
+					role: getAcceptedMembershipRoleSql(invite.role),
+				},
+			})
+			.returning({
+				role: workspaceMembers.role,
+			});
+
+		return rows;
+	});
 
 	const membership = membershipRows[0];
 

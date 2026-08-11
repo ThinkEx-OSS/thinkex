@@ -23,17 +23,8 @@ import {
 	documentAiHtmlSchema,
 } from "#/features/workspaces/documents/document-ai-edits";
 import { workspaceFileAssetKindSchema } from "#/features/workspaces/model/workspace-file";
-import {
-	workspaceSearchInputSchema,
-	workspaceSearchOutputSchema,
-} from "#/features/workspaces/search/workspace-search-contract";
 
-export {
-	workspaceReadItemsInputSchema,
-	workspaceReadItemsOutputSchema,
-	workspaceSearchInputSchema,
-	workspaceSearchOutputSchema,
-};
+export { workspaceReadItemsInputSchema, workspaceReadItemsOutputSchema };
 
 /**
  * Math, chemistry, and money for the HTML surfaces. Documents and widgets are
@@ -253,19 +244,6 @@ export const workspaceReadItemsInputExamples = createInputExamples<
 				path: "/Demo Folder/Demo Document",
 			},
 		],
-	},
-);
-
-export const workspaceSearchInputExamples = createInputExamples<
-	z.input<typeof workspaceSearchInputSchema>
->(
-	{
-		query: "What does the market report say about adoption?",
-		path: "/Research",
-		types: ["document", "file"],
-	},
-	{
-		query: "photosynthesis experiment results",
 	},
 );
 

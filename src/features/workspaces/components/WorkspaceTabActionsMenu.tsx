@@ -1,4 +1,4 @@
-import { Columns2, Copy, FilePlus2, PanelRightClose, X } from "lucide-react";
+import { Copy, FilePlus2, PanelRightClose, X } from "lucide-react";
 import { workspaceContextMenuRenderer } from "#/features/workspaces/components/WorkspaceMenuRenderers";
 import type { WorkspaceMenuRenderer } from "#/features/workspaces/components/workspace-menu-actions";
 import { renderWorkspaceMenuActions } from "#/features/workspaces/components/workspace-menu-actions";
@@ -48,14 +48,6 @@ function getWorkspaceTabMenuActions({
 			label: "Duplicate tab",
 			leading: <Copy className="size-4" />,
 			onSelect: () => onDuplicateTab(tab),
-		},
-		{
-			kind: "item" as const,
-			id: "split-with-current-tab",
-			label: "Split with current tab",
-			trailing: "Soon",
-			leading: <Columns2 className="size-4" />,
-			disabled: true,
 		},
 		{ kind: "separator" as const, id: "close-separator" },
 		{

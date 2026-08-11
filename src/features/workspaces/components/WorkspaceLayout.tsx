@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
-import { applyWorkspaceEventToCache, workspacePageQueryKey } from "#/features/workspaces/cache";
+import { workspacePageQueryKey } from "#/features/workspaces/cache";
 import AiChatPanel from "#/features/workspaces/components/AiChatPanel";
 import WorkspaceChatLayout from "#/features/workspaces/components/WorkspaceChatLayout";
 import WorkspaceContextBar from "#/features/workspaces/components/WorkspaceContextBar";
@@ -44,7 +44,6 @@ import {
 	useWorkspaceUiSession,
 	useWorkspaceUiStore,
 } from "#/features/workspaces/state/workspace-ui-store";
-import { shouldIgnoreWorkspaceClientMutationEcho } from "#/features/workspaces/use-workspace-client-mutation-echo";
 import {
 	useCreateWorkspaceItemMutation,
 	useMoveWorkspaceItemsMutation,
@@ -85,13 +84,7 @@ export function WorkspaceShell({
 	const realtime = useWorkspaceRealtime({
 		workspaceId: workspace.id,
 		lastSeenRevision: revision,
-		onEvent: (event) => {
-			if (shouldIgnoreWorkspaceClientMutationEcho(event)) {
-				return;
-			}
-			applyWorkspaceEventToCache(queryClient, event);
-		},
-		onDesync: () => {
+		onWorkspaceChanged: () => {
 			void queryClient.invalidateQueries({
 				queryKey: workspacePageQueryKey(workspace.id),
 			});

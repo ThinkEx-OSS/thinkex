@@ -1,1 +1,0 @@
-ALTER TABLE `workspaces` ADD `theme` text;

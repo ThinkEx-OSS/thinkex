@@ -1,5 +1,5 @@
 import { workspaceExtractionStallThresholdMs } from "#/features/workspaces/extraction/workspace-extraction-budgets";
-import type { ReadWorkspaceKernelFileProjectionResult } from "#/features/workspaces/kernel/workspace-kernel-types";
+import type { ReadWorkspaceFileExtractionResult } from "#/features/workspaces/kernel/workspace-kernel-types";
 
 const minimumRetryAfterSeconds = 15;
 const maximumRetryAfterSeconds = 120;
@@ -16,7 +16,7 @@ export type WorkspaceProjectionReadiness =
 	| { state: "unreadable" }
 	| {
 			state: "ready";
-			manifestObjectKey: string;
+			pageCount: number;
 			sourceHash: string;
 			provisional: boolean;
 	  };
@@ -35,7 +35,7 @@ export type WorkspaceProjectionReadiness =
  * @returns How the projection should be treated by a content read.
  */
 export function resolveWorkspaceProjectionReadiness(
-	projection: ReadWorkspaceKernelFileProjectionResult | null,
+	projection: ReadWorkspaceFileExtractionResult | null,
 	now: number,
 ): WorkspaceProjectionReadiness {
 	if (!projection) {
@@ -70,13 +70,14 @@ export function resolveWorkspaceProjectionReadiness(
 		return { state: "failed", message: projection.errorMessage };
 	}
 
-	if (!projection.objectKey || !projection.sourceHash) {
+	const pageCount = projection.metadataJson.pageCount;
+	if (!projection.sourceHash || !Number.isInteger(pageCount) || Number(pageCount) < 1) {
 		return { state: "unreadable" };
 	}
 
 	return {
 		state: "ready",
-		manifestObjectKey: projection.objectKey,
+		pageCount: Number(pageCount),
 		sourceHash: projection.sourceHash,
 		provisional: projection.metadataJson.provisional === true,
 	};

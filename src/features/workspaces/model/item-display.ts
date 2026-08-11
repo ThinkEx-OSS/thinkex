@@ -1,4 +1,4 @@
-import { Mic, Upload } from "lucide-react";
+import { Upload } from "lucide-react";
 
 import { getWorkspaceObjectRegistryEntry } from "#/features/workspaces/model/object-registry";
 import type { WorkspaceItem } from "#/features/workspaces/model/types";
@@ -21,15 +21,11 @@ export function getWorkspaceItemDisplay(item: WorkspaceItem) {
 }
 
 const workspaceItemPrimaryCreateActionOrder = ["document", "folder"] as const;
-const workspaceItemLearnCreateActionOrder = ["flashcard", "quiz"] as const;
 
 export const workspaceItemPrimaryCreateActions =
 	workspaceItemPrimaryCreateActionOrder.map(createWorkspaceItemAction);
 
-export const workspaceItemLearnCreateActions =
-	workspaceItemLearnCreateActionOrder.map(createWorkspaceItemAction);
-
-function createWorkspaceItemAction(type: "document" | "folder" | "flashcard" | "quiz") {
+function createWorkspaceItemAction(type: "document" | "folder") {
 	const display = getWorkspaceObjectRegistryEntry(type);
 	return {
 		type,
@@ -47,13 +43,5 @@ export const workspaceItemAcquisitionActions = [
 		Icon: Upload,
 		iconClassName: workspaceColors[getWorkspaceObjectRegistryEntry("file").color].iconClassName,
 		disabled: false,
-	},
-	{
-		id: "record-audio",
-		label: "Record",
-		description: "Soon",
-		Icon: Mic,
-		iconClassName: workspaceColors.orange.iconClassName,
-		disabled: true,
 	},
 ] as const;

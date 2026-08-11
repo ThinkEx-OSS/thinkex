@@ -9,11 +9,11 @@ export function getDocumentSessionFromEnv(
 	return getServerByName(env.DocumentSession, getDocumentSessionRoomName(input));
 }
 
-export function getDocumentSessionForDeletionFromEnv(
+export function getDocumentSessionStubFromEnv(
 	env: Cloudflare.Env,
 	input: { itemId: string; workspaceId: string },
 ) {
-	// Deletion must not initialize Yjs: onLoad may try to hydrate from the
-	// kernel after the item has already been marked deleted.
+	// Lifecycle control must not initialize Yjs. In particular, deletion could
+	// otherwise hydrate from a workspace item after that item has been removed.
 	return env.DocumentSession.getByName(getDocumentSessionRoomName(input));
 }

@@ -7,8 +7,6 @@ import {
 	workspaceReferenceRecordSchema,
 	type WorkspaceReferenceRecord,
 } from "#/features/workspaces/locations/workspace-location";
-import { workspaceSearchOutputSchema } from "#/features/workspaces/search/workspace-search-contract";
-import { createWorkspaceSearchModelOutput } from "#/features/workspaces/search/workspace-search-references";
 
 function defineWorkspaceToolResultAdapter<TSchema extends z.ZodTypeAny>(input: {
 	collectReferences?: (output: z.output<TSchema>) => readonly WorkspaceReferenceRecord[];
@@ -34,12 +32,6 @@ const workspaceReadItemsResultAdapter = defineWorkspaceToolResultAdapter({
 	collectReferences: (output) => output.references,
 	outputSchema: workspaceReadItemsOutputSchema,
 	projectOutput: createWorkspaceReadItemsModelOutput,
-});
-
-const workspaceSearchResultAdapter = defineWorkspaceToolResultAdapter({
-	collectReferences: (output) => output.references,
-	outputSchema: workspaceSearchOutputSchema,
-	projectOutput: createWorkspaceSearchModelOutput,
 });
 
 const workspaceCreateItemsResultAdapter = defineWorkspaceToolResultAdapter({
@@ -97,7 +89,6 @@ const workspaceToolResultAdapters = {
 	workspace_create_items: workspaceCreateItemsResultAdapter,
 	workspace_edit_item: workspaceEditItemResultAdapter,
 	workspace_read_items: workspaceReadItemsResultAdapter,
-	workspace_search: workspaceSearchResultAdapter,
 } as const;
 
 export function getWorkspaceToolResultAdapter(name: string) {

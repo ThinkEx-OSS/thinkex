@@ -24,7 +24,6 @@ describe("workspace direct upload sessions", () => {
 		sign.mockImplementation(async (request: Request) => request);
 		const env = createEnv();
 		const session = await createWorkspaceDirectUploadSession(env, {
-			clientMutationId: "mutation-1",
 			contentType: "application/pdf",
 			fileName: "report.pdf",
 			fileSize: 42,
@@ -44,7 +43,6 @@ describe("workspace direct upload sessions", () => {
 		await expect(
 			verifyWorkspaceDirectUploadToken(env, session.completionToken),
 		).resolves.toMatchObject({
-			clientMutationId: "mutation-1",
 			fileName: "report.pdf",
 			fileSize: 42,
 			target: "source",
@@ -56,7 +54,6 @@ describe("workspace direct upload sessions", () => {
 	it("keeps conversion inputs under the temporary upload prefix", async () => {
 		sign.mockImplementation(async (request: Request) => request);
 		const session = await createWorkspaceDirectUploadSession(createEnv(), {
-			clientMutationId: "mutation-2",
 			contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 			fileName: "report.docx",
 			fileSize: 42,
@@ -79,7 +76,6 @@ describe("workspace direct upload sessions", () => {
 		sign.mockImplementation(async (request: Request) => request);
 		const env = createEnv();
 		const session = await createWorkspaceDirectUploadSession(env, {
-			clientMutationId: "mutation-1",
 			contentType: "application/pdf",
 			fileName: "report.pdf",
 			fileSize: 42,
@@ -95,7 +91,6 @@ describe("workspace direct upload sessions", () => {
 		);
 		await expect(
 			createWorkspaceDirectUploadSession(env, {
-				clientMutationId: "mutation-1",
 				contentType: "application/pdf",
 				fileName: "report.pdf",
 				fileSize: 42,
@@ -113,7 +108,6 @@ describe("workspace direct upload sessions", () => {
 		sign.mockImplementation(async (request: Request) => request);
 		const env = createEnv();
 		const session = await createWorkspaceDirectUploadSession(env, {
-			clientMutationId: "mutation-1",
 			contentType: "image/png",
 			fileName: "image.png",
 			fileSize: 10,
@@ -149,7 +143,6 @@ describe("workspace direct upload sessions", () => {
 			} as unknown as R2Bucket,
 		} as Cloudflare.Env;
 		const claims = {
-			clientMutationId: "mutation-1",
 			contentType: "application/pdf",
 			expiresAt: Math.floor(Date.now() / 1_000) + 60,
 			fileName: "report.pdf",

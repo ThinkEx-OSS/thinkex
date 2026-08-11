@@ -33,28 +33,29 @@ export async function routeWorkspaceKernelRequest(request: Request, env: Env) {
 		}
 
 		const dbContext = await createDbContext();
+		let canRead: boolean;
 
 		try {
-			const canRead = await canReadWorkspace(dbContext.db, {
+			canRead = await canReadWorkspace(dbContext.db, {
 				workspaceId,
 				userId: session.user.id,
 			});
-
-			if (!canRead) {
-				return new Response("Forbidden", { status: 403 });
-			}
-
-			const user = {
-				id: session.user.id,
-				name: session.user.name,
-				image: session.user.image ?? null,
-			};
-			const kernel = await getAgentByName(env[workspaceKernelAgentName], workspaceId);
-
-			return kernel.fetch(setWorkspaceKernelUserHeaders(request, user));
 		} finally {
 			await dbContext.dispose();
 		}
+
+		if (!canRead) {
+			return new Response("Forbidden", { status: 403 });
+		}
+
+		const user = {
+			id: session.user.id,
+			name: session.user.name,
+			image: session.user.image ?? null,
+		};
+		const kernel = await getAgentByName(env[workspaceKernelAgentName], workspaceId);
+
+		return kernel.fetch(setWorkspaceKernelUserHeaders(request, user));
 	} catch (error) {
 		if (error instanceof WorkspaceAuthError) {
 			return new Response("Unauthorized", { status: 401 });

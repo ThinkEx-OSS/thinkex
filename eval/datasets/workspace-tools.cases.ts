@@ -24,14 +24,6 @@ export const workspaceToolCases: WorkspaceToolCase[] = [
 		forbiddenTools: ["workspace_delete_items"],
 	},
 	{
-		name: "search before answering a content question",
-		input: {
-			prompt: "What did we decide about pricing? Look through the workspace before answering.",
-		},
-		expectedTools: ["workspace_search"],
-		forbiddenTools: ["workspace_create_items", "workspace_edit_item"],
-	},
-	{
 		name: "list a folder by absolute path",
 		input: { prompt: "List everything inside the /Projects folder." },
 		expectedTools: ["workspace_list_items"],
@@ -66,12 +58,7 @@ export const workspaceToolCases: WorkspaceToolCase[] = [
 		input: {
 			prompt: "In one sentence, what is the difference between a folder and a document here?",
 		},
-		forbiddenTools: [
-			"workspace_create_items",
-			"workspace_edit_item",
-			"workspace_delete_items",
-			"workspace_search",
-		],
+		forbiddenTools: ["workspace_create_items", "workspace_edit_item", "workspace_delete_items"],
 		qualityRubric:
 			"The answer correctly explains that a folder contains items while a document holds content, in roughly one sentence.",
 	},

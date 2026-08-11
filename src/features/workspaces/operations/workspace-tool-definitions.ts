@@ -8,7 +8,6 @@ import { listWorkspaceItemsOperation } from "#/features/workspaces/operations/li
 import { moveWorkspaceItemsOperation } from "#/features/workspaces/operations/move-items";
 import { readWorkspaceItemsOperation } from "#/features/workspaces/operations/read-items";
 import { renameWorkspaceItemOperation } from "#/features/workspaces/operations/rename-item";
-import { searchWorkspaceOperation } from "#/features/workspaces/operations/search-workspace";
 import {
 	workspaceCreateItemsInputExamples,
 	workspaceCreateItemsInputSchema,
@@ -32,9 +31,6 @@ import {
 	workspaceReadItemsInputExamples,
 	workspaceReadItemsInputSchema,
 	workspaceReadItemsOutputSchema,
-	workspaceSearchInputExamples,
-	workspaceSearchInputSchema,
-	workspaceSearchOutputSchema,
 	workspaceRenameItemInputExamples,
 	workspaceRenameItemInputSchema,
 	workspaceRenameItemOutputSchema,
@@ -157,24 +153,6 @@ export const workspaceToolDefinitions = [
 		effects: { destructive: false, idempotent: true },
 		execute: async ({ requests }, context) => {
 			return await readWorkspaceItemsOperation(context, { requests });
-		},
-	}),
-	defineWorkspaceTool({
-		name: "workspace_search",
-		access: "read",
-		description:
-			"Search current ThinkEx workspace documents and extracted files by meaning and exact text. Optionally scope to an absolute item or folder path and filter content types.",
-		inputSchema: workspaceSearchInputSchema,
-		inputExamples: workspaceSearchInputExamples,
-		outputSchema: workspaceSearchOutputSchema,
-		summarizeResult: (result) =>
-			summarizeWorkspaceCollectionResult({
-				failed: result.failed,
-				items: result.results,
-			}),
-		effects: { destructive: false, idempotent: true },
-		execute: async (args, context) => {
-			return await searchWorkspaceOperation(context, args);
 		},
 	}),
 	defineWorkspaceTool({

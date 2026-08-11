@@ -138,7 +138,6 @@ export async function moveWorkspaceItemsOperation(
 			parentId: destination.parentId,
 			onNameConflict: "error",
 			actorUserId: accessContext.actor.userId,
-			clientMutationId: accessContext.operationId,
 		});
 
 		if (outcome.status === "conflict") {

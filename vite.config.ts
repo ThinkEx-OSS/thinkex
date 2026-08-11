@@ -49,7 +49,7 @@ export default defineConfig(({ command }) => {
 				".wrangler/**",
 				"dist/**",
 				"docs/**",
-				"drizzle/meta/**",
+				"drizzle-postgres/meta/**",
 				"src/routeTree.gen.ts",
 				"worker-configuration.d.ts",
 			],
@@ -92,7 +92,7 @@ export default defineConfig(({ command }) => {
 				".wrangler/**",
 				"dist/**",
 				"docs/**",
-				"drizzle/meta/**",
+				"drizzle-postgres/meta/**",
 				"pnpm-lock.yaml",
 				"src/routeTree.gen.ts",
 				"worker-configuration.d.ts",
@@ -150,7 +150,7 @@ export default defineConfig(({ command }) => {
 					importProtection: {
 						behavior: "error",
 						client: {
-							specifiers: ["cloudflare:workers", "drizzle-orm/d1"],
+							specifiers: ["cloudflare:workers", "drizzle-orm/node-postgres", "pg"],
 							files: ["src/db/**", "src/lib/auth.server.ts"],
 						},
 					},

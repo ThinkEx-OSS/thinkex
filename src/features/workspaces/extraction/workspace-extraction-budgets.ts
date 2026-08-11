@@ -32,8 +32,6 @@ export const workspaceExtractionStepBudgets = {
 	 * start and pay for another.
 	 */
 	extract: { attempts: 1, retryDelayMs: 30_000, timeoutMs: 45 * minuteMs },
-	/** Publishing the finished projection — a single kernel call. */
-	publish: { attempts: 4, retryDelayMs: 10_000, timeoutMs: 2 * minuteMs },
 } as const satisfies Record<string, WorkspaceExtractionStepBudget>;
 
 function getWorstCaseMs(budget: WorkspaceExtractionStepBudget) {
@@ -46,9 +44,8 @@ function getWorstCaseMs(budget: WorkspaceExtractionStepBudget) {
  * The row is written once when extraction starts and not touched again until it
  * finishes, so this has to clear every step's budget back to back, with headroom.
  *
- * Both the read path and the reconciler use it, so setting it too low does not merely
- * mislabel a slow document — it queues a duplicate workflow, and a duplicate bill,
- * against one that is still parsing.
+ * The read path uses it to distinguish slow work from a workflow that no longer has
+ * a chance to complete.
  */
 export const workspaceExtractionStallThresholdMs =
 	Math.ceil(

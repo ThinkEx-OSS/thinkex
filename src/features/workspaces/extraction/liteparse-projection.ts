@@ -10,10 +10,7 @@ import type {
 	WorkspaceFileExtractionWorkflowParams,
 } from "#/features/workspaces/extraction/types";
 import { getWorkspaceFileSourceObject } from "#/features/workspaces/extraction/workspace-file-source";
-import {
-	publishWorkspacePageProjection,
-	writeWorkspacePageProjection,
-} from "#/features/workspaces/extraction/workspace-page-projection";
+import { publishWorkspacePageProjection } from "#/features/workspaces/extraction/workspace-page-projection";
 import { getWorkspaceKernelFromEnv } from "#/features/workspaces/kernel/workspace-kernel-access";
 import { recordOperationalFailure } from "#/integrations/observability/operational-events";
 
@@ -40,8 +37,8 @@ export async function publishLiteParseProjection(
 					itemId: params.itemId,
 					kernel,
 				});
-				const projection = await writeWorkspacePageProjection({
-					bucket: env.WORKSPACE_KERNEL_FILES,
+				const projection = await publishWorkspacePageProjection({
+					kernel,
 					itemId: params.itemId,
 					pages: extractPdfWithLiteParse(env, {
 						body: object.body,
@@ -50,36 +47,12 @@ export async function publishLiteParseProjection(
 					}),
 					provider: "liteparse",
 					providerMode: "fast",
-					runId,
 					sourceHash: object.etag,
 					tier: "fast",
-					workspaceId: params.workspaceId,
+					metadata: { provisional: true },
+					actorUserId: params.actorUserId,
 				});
-
-				const status = await publishWorkspacePageProjection({
-					bucket: env.WORKSPACE_KERNEL_FILES,
-					kernel,
-					projection: {
-						itemId: params.itemId,
-						format: "pages",
-						status: "ready",
-						objectKey: projection.manifestObjectKey,
-						provider: "liteparse",
-						providerMode: "fast",
-						sourceHash: object.etag,
-						metadataJson: {
-							markdownLength: projection.manifest.markdownLength,
-							pageCount: projection.manifest.pageCount,
-							provisional: true,
-							// Brand healing runs so the reconciler never picks this row up again:
-							// one upgrade attempt per document, bounded structurally.
-							...(params.healing ? { healed: true } : {}),
-						},
-						actorUserId: params.actorUserId,
-						clientMutationId: `${runId}:projection:liteparse-ready`,
-					},
-				});
-				if (status === "discarded") {
+				if (projection.status === "discarded") {
 					return {
 						durationMs: Date.now() - startedAt,
 						outcome: "discarded" as const,
@@ -88,9 +61,9 @@ export async function publishLiteParseProjection(
 
 				return {
 					durationMs: Date.now() - startedAt,
-					markdownLength: projection.manifest.markdownLength,
+					markdownLength: projection.markdownLength,
 					outcome: "success" as const,
-					pageCount: projection.manifest.pageCount,
+					pageCount: projection.pageCount,
 				};
 			},
 		);

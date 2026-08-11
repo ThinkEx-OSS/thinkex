@@ -11,17 +11,24 @@ url = "http://localhost:$CONDUCTOR_PORT"
 [scripts]
 setup = """
 pnpm install --frozen-lockfile
-CI=true pnpm db:migrate:local
+if [ -n "$CONDUCTOR_IS_LOCAL" ]; then
+  pnpm db:setup:local
+  LOCAL_DATABASE_URL="postgresql://thinkex_local_${CONDUCTOR_PORT}:thinkex_local_${CONDUCTOR_PORT}@localhost:5432/thinkex_${CONDUCTOR_PORT}"
+  CI=true DATABASE_URL="$LOCAL_DATABASE_URL" pnpm db:migrate:local
+fi
 """
 run_mode = "concurrent"
 
 [scripts.run.dev]
 available_in = ["local"]
 command = """
-CI=true pnpm db:migrate:local &&
+pnpm db:setup:local &&
+LOCAL_DATABASE_URL="postgresql://thinkex_local_${CONDUCTOR_PORT}:thinkex_local_${CONDUCTOR_PORT}@localhost:5432/thinkex_${CONDUCTOR_PORT}" &&
+CI=true DATABASE_URL="$LOCAL_DATABASE_URL" pnpm db:migrate:local &&
 env INFISICAL_DISABLE_UPDATE_CHECK=true \
   infisical run --env=dev --path=/app --watch -- \
   env BETTER_AUTH_URL="http://localhost:$CONDUCTOR_PORT" \
+  CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE="$LOCAL_DATABASE_URL" \
   pnpm exec vp dev --host 0.0.0.0 --port "$CONDUCTOR_PORT"
 """
 default = true

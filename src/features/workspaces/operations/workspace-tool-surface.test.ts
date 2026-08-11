@@ -11,7 +11,6 @@ import {
 	workspaceMoveItemsInputSchema,
 	workspaceReadItemsInputSchema,
 	workspaceRenameItemInputSchema,
-	workspaceSearchInputSchema,
 } from "#/features/workspaces/operations/workspace-tool-schemas";
 
 // Free, deterministic regression net for the model-facing surface: the assembled
@@ -26,7 +25,6 @@ import {
 const TOOL_INPUT_SCHEMAS = {
 	workspace_list_items: workspaceListItemsInputSchema,
 	workspace_read_items: workspaceReadItemsInputSchema,
-	workspace_search: workspaceSearchInputSchema,
 	workspace_create_items: workspaceCreateItemsInputSchema,
 	workspace_edit_item: workspaceEditItemInputSchema,
 	workspace_delete_items: workspaceDeleteItemsInputSchema,

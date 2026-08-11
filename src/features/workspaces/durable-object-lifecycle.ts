@@ -1,7 +1,7 @@
 import { getAgentByName } from "agents";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
-import { workspaces } from "#/db/schema";
+import { workspaceItems, workspaces } from "#/db/schema";
 import { createDbContext } from "#/db/server";
 import { userAIAgentName, workspaceKernelAgentName } from "#/features/workspaces/agent-routes";
 import type { ResourcePurgeResult } from "#/features/workspaces/resource-purge-result";
@@ -16,7 +16,7 @@ interface UserAIStoreLifecycleAgent {
 }
 
 interface WorkspaceKernelLifecycleAgent {
-	purgeForDeletion(): Promise<ResourcePurgeResult>;
+	purgeForDeletion(input?: { documentItemIds?: string[] }): Promise<ResourcePurgeResult>;
 }
 
 async function listOwnedWorkspaceIds(userId: string) {
@@ -60,21 +60,42 @@ export async function transferLinkedAccountResources(input: {
 	await store.mergeLinkedAnonymousUser({ anonymousUserId: input.anonymousUserId });
 }
 
-export async function purgeWorkspaceResources(workspaceId: string) {
+export async function purgeWorkspaceResources(workspaceId: string, documentItemIds: string[] = []) {
 	const startedAt = Date.now();
-	const result = await purgeWorkspaceResourcesResult(workspaceId);
+	const result = await purgeWorkspaceResourcesResult(workspaceId, documentItemIds);
 	recordPurgeOutcome("workspace", workspaceId, result, Date.now() - startedAt);
 }
 
-async function purgeWorkspaceResourcesResult(workspaceId: string): Promise<ResourcePurgeResult> {
+async function purgeWorkspaceResourcesResult(
+	workspaceId: string,
+	documentItemIds: string[] = [],
+): Promise<ResourcePurgeResult> {
 	const { env } = await import("cloudflare:workers");
 
 	try {
+		const itemIds =
+			documentItemIds.length > 0
+				? documentItemIds
+				: await listWorkspaceDocumentItemIds(workspaceId);
 		const kernel = await getWorkspaceKernelLifecycleAgent(env, workspaceId);
-		return await kernel.purgeForDeletion();
+		return await kernel.purgeForDeletion({ documentItemIds: itemIds });
 	} catch (error) {
 		recordPurgeAgentFailure("workspace", workspaceId, error);
 		return { attempted: 1, failed: 1 };
+	}
+}
+
+async function listWorkspaceDocumentItemIds(workspaceId: string) {
+	const dbContext = await createDbContext();
+
+	try {
+		const rows = await dbContext.db
+			.select({ id: workspaceItems.id })
+			.from(workspaceItems)
+			.where(and(eq(workspaceItems.workspaceId, workspaceId), eq(workspaceItems.type, "document")));
+		return rows.map((row) => row.id);
+	} finally {
+		await dbContext.dispose();
 	}
 }
 
@@ -95,7 +116,7 @@ export async function purgeUserAccountResources(userId: string) {
 	const ownedWorkspaceIds = await listOwnedWorkspaceIds(userId);
 	const results = await Promise.all([
 		purgeUserAIStore(userId),
-		...ownedWorkspaceIds.map(purgeWorkspaceResourcesResult),
+		...ownedWorkspaceIds.map((workspaceId) => purgeWorkspaceResourcesResult(workspaceId)),
 	]);
 	const result = results.reduce(
 		(total, current) => ({

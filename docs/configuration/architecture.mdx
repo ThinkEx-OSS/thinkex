@@ -3,15 +3,16 @@ title: Architecture
 description: Current ThinkEx runtime shape.
 ---
 
-ThinkEx is a full-stack TypeScript app hosted as a Cloudflare Worker. The frontend is React, TanStack Start, Tailwind CSS, Tiptap, EmbedPDF/PDFium, Yjs, and AI SDK. The backend runs on Cloudflare Workers with Durable Objects, D1, R2, Vectorize, Workflows, Containers, Workers AI, Images, Browser Run, and Email.
+ThinkEx is a full-stack TypeScript app hosted as a Cloudflare Worker. The frontend is React, TanStack Start, Tailwind CSS, Tiptap, EmbedPDF/PDFium, Yjs, and AI SDK. The backend runs on Cloudflare Workers with Durable Objects, PlanetScale Postgres through Hyperdrive, R2, Workflows, Containers, Workers AI, Images, Browser Run, and Email.
 
 ## Runtime Ownership
 
 | Data or behavior | Source of truth |
 | --- | --- |
-| Auth, users, workspace directory, membership, invites | D1 through Drizzle |
-| Workspace items, shell files, events, revisions, presence | `WorkspaceKernel` Durable Object |
-| Large workspace file bytes | R2 `WORKSPACE_KERNEL_FILES` |
+| Auth, users, workspace directory, membership, invites | PlanetScale Postgres through Drizzle and cache-disabled Hyperdrive |
+| Workspace item tree, relationships, current document checkpoints, extracted text, revisions | PlanetScale Postgres through Drizzle and cache-disabled Hyperdrive |
+| Workspace presence, realtime fanout, cleanup coordination | `WorkspaceKernel` Durable Object |
+| Original and preview workspace file bytes | R2 `WORKSPACE_KERNEL_FILES` |
 | User AI thread directory | `UserAIStore` Durable Object |
 | AI conversation runtime | `AIThread` Agent / Durable Object |
 | Collaborative document sessions | `DocumentSession` Durable Object |
@@ -23,7 +24,8 @@ ThinkEx is a full-stack TypeScript app hosted as a Cloudflare Worker. The fronte
 | Area | Path |
 | --- | --- |
 | Workspace contracts and commands | `src/features/workspaces/contracts.ts`, `src/features/workspaces/operations/` |
-| Workspace kernel | `src/features/workspaces/kernel/` |
+| Workspace persistence | `src/features/workspaces/persistence/` |
+| Workspace realtime room | `src/features/workspaces/kernel/`, `src/features/workspaces/realtime/` |
 | AI threads and tools | `src/features/workspaces/ai/` |
 | File upload and extraction | `src/features/workspaces/upload/`, `src/features/workspaces/extraction/` |
 | Document collaboration | `src/features/workspaces/documents/` |

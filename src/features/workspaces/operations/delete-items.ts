@@ -73,7 +73,6 @@ export async function deleteWorkspaceItemsOperation(
 	const command = await kernel.deleteItems({
 		itemIds: resolvedItems.map((resolved) => resolved.item.id),
 		actorUserId: accessContext.actor.userId,
-		clientMutationId: accessContext.operationId,
 	});
 	const resolvedItemsById = new Map<string, (typeof resolvedItems)[number]>();
 

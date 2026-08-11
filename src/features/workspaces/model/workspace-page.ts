@@ -15,58 +15,6 @@ import {
 	getWorkspaceRootItems,
 	getWorkspaceSubtreeItemIds,
 } from "#/features/workspaces/model/tree";
-import type { WorkspaceRealtimeEvent } from "#/features/workspaces/realtime/messages";
-
-export function applyWorkspaceEventToPage(
-	page: WorkspacePage,
-	event: WorkspaceRealtimeEvent,
-): WorkspacePage {
-	if (event.revision <= page.revision) {
-		return page;
-	}
-
-	switch (event.type) {
-		case "workspace.item.created":
-			return upsertWorkspaceItemFactsInPage(
-				upsertWorkspaceItemInPage(page, event.payload.item, event.revision),
-				event.payload.itemFacts,
-				event.revision,
-			);
-		case "workspace.item.renamed":
-		case "workspace.item.moved":
-		case "workspace.item.color.updated":
-		case "workspace.item.content.updated":
-			return upsertWorkspaceItemInPage(page, event.payload.item, event.revision);
-		case "workspace.items.moved":
-			return upsertWorkspaceItemsInPage(page, event.payload.items, event.revision);
-		case "workspace.item.deleted":
-			return upsertWorkspaceItemFactsInPage(
-				removeWorkspaceItemsFromPage(page, event.payload.deletedItemIds, event.revision),
-				event.payload.itemFacts,
-				event.revision,
-			);
-		case "workspace.relations.updated":
-		case "workspace.item.projection.updated":
-			return upsertWorkspaceItemFactsInPage(page, event.payload.itemFacts, event.revision);
-	}
-}
-
-function upsertWorkspaceItemFactsInPage(
-	page: WorkspacePage,
-	itemFacts: WorkspacePage["itemFacts"],
-	revision: number,
-): WorkspacePage {
-	const nextFactsByItemId = new Map(itemFacts.map((facts) => [facts.itemId, facts]));
-	const currentItemIds = new Set(page.itemFacts.map((facts) => facts.itemId));
-	return {
-		...page,
-		itemFacts: [
-			...page.itemFacts.map((facts) => nextFactsByItemId.get(facts.itemId) ?? facts),
-			...itemFacts.filter((facts) => !currentItemIds.has(facts.itemId)),
-		],
-		revision: Math.max(page.revision, revision),
-	};
-}
 
 export function createWorkspaceItemInPage(
 	page: WorkspacePage,
@@ -144,24 +92,21 @@ function moveWorkspaceItemInPage(
 export function moveWorkspaceItemsInPage(
 	page: WorkspacePage,
 	input: MoveWorkspaceItemsInput,
-): {
-	page: WorkspacePage;
-	previousItems: WorkspaceItemSummary[];
-} | null {
+): WorkspacePage | null {
 	const movesByItemId = new Map(input.items.map((item) => [item.itemId, item]));
-	const previousItems = getWorkspaceRootItems(
+	const items = getWorkspaceRootItems(
 		page.items,
 		input.items.map((item) => item.itemId),
 	);
 
-	if (previousItems.length === 0) {
+	if (items.length === 0) {
 		return null;
 	}
 
 	let nextPage = page;
 	const parentId = input.parentId ?? null;
 
-	for (const item of previousItems) {
+	for (const item of items) {
 		const movedPage = moveWorkspaceItemInPage(nextPage, {
 			itemId: item.id,
 			parentId,
@@ -173,7 +118,7 @@ export function moveWorkspaceItemsInPage(
 		}
 	}
 
-	return { page: nextPage, previousItems };
+	return nextPage;
 }
 
 export function updateWorkspaceItemColorInPage(
@@ -198,20 +143,10 @@ export function upsertWorkspaceItemInPage(
 	item: WorkspaceItemSummary,
 	revision = page.revision,
 ): WorkspacePage {
-	return upsertWorkspaceItemsInPage(page, [item], revision);
-}
-
-export function upsertWorkspaceItemsInPage(
-	page: WorkspacePage,
-	nextItems: readonly WorkspaceItemSummary[],
-	revision = page.revision,
-): WorkspacePage {
-	const nextItemsById = new Map(nextItems.map((item) => [item.id, item]));
-	const currentItemIds = new Set(page.items.map((item) => item.id));
-	const items = [
-		...page.items.map((candidate) => nextItemsById.get(candidate.id) ?? candidate),
-		...nextItems.filter((item) => !currentItemIds.has(item.id)),
-	];
+	const exists = page.items.some((candidate) => candidate.id === item.id);
+	const items = exists
+		? page.items.map((candidate) => (candidate.id === item.id ? item : candidate))
+		: [...page.items, item];
 
 	return {
 		...page,

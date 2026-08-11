@@ -47,7 +47,7 @@ Contributors without Infisical should copy `.dev.vars.example` to `.dev.vars`, s
 pnpm serve:dev
 ```
 
-The app runs at [http://localhost:3000](http://localhost:3000). See [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md) for local secrets, guest sign-in, Cloudflare credential caveats, and local D1 setup.
+The app runs at [http://localhost:3000](http://localhost:3000). See [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md) for local secrets, guest sign-in, and Cloudflare credential caveats, plus the [local development guide](docs/configuration/local-development.mdx) for isolated Postgres setup.
 
 ## Useful Commands
 

@@ -576,39 +576,3 @@ exports[`workspace tool surface > workspace_rename_item input schema is stable 1
   "type": "object",
 }
 `;
-
-exports[`workspace tool surface > workspace_search input schema is stable 1`] = `
-{
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "additionalProperties": false,
-  "properties": {
-    "path": {
-      "description": "Optional absolute workspace path. A folder searches recursively; an item searches only that item. Defaults to /.",
-      "minLength": 1,
-      "type": "string",
-    },
-    "query": {
-      "description": "Text or natural-language question to search for in the workspace.",
-      "maxLength": 1000,
-      "minLength": 2,
-      "type": "string",
-    },
-    "types": {
-      "description": "Optional content types to include. Defaults to documents and files.",
-      "items": {
-        "enum": [
-          "document",
-          "file",
-        ],
-        "type": "string",
-      },
-      "minItems": 1,
-      "type": "array",
-    },
-  },
-  "required": [
-    "query",
-  ],
-  "type": "object",
-}
-`;

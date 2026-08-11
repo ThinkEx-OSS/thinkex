@@ -3,7 +3,7 @@
 	// Default config is used for local development. Deploys should target an
 	// explicit Wrangler environment. This name deliberately differs from the
 	// production worker name so a bare `wrangler deploy` cannot overwrite
-	// production with this block's staging R2 and Vectorize bindings.
+	// production with this block's staging R2 bindings.
 	"name": "thinkex-dev",
 	"compatibility_date": "2026-03-24",
 	"compatibility_flags": ["nodejs_compat"],
@@ -60,14 +60,6 @@
 		"binding": "AI",
 		"remote": true,
 	},
-	// Provisioning: docs/configuration/deployments.mdx#workspace-search-vector-indexes
-	"vectorize": [
-		{
-			"binding": "WORKSPACE_SEARCH",
-			"index_name": "thinkex-workspace-search-staging",
-			"remote": true,
-		},
-	],
 	"images": {
 		"binding": "IMAGES",
 	},
@@ -213,12 +205,14 @@
 			"deleted_classes": ["ImageFileConverter"],
 		},
 	],
-	"d1_databases": [
+	// Replace this placeholder with the ID returned by:
+	// `wrangler hyperdrive create thinkex-dev --caching-disabled --connection-string=...`
+	// Caching stays disabled because auth, membership, and invite reads require
+	// read-after-write consistency.
+	"hyperdrive": [
 		{
-			"binding": "DB",
-			"database_name": "thinkex",
-			"database_id": "e5ff462d-fab3-4ab2-9259-fd107c2df809",
-			"migrations_dir": "drizzle",
+			"binding": "HYPERDRIVE",
+			"id": "SET_DEV_HYPERDRIVE_ID",
 		},
 	],
 	"env": {
@@ -260,13 +254,6 @@
 				"binding": "AI",
 				"remote": true,
 			},
-			"vectorize": [
-				{
-					"binding": "WORKSPACE_SEARCH",
-					"index_name": "thinkex-workspace-search-staging",
-					"remote": true,
-				},
-			],
 			"images": {
 				"binding": "IMAGES",
 			},
@@ -345,12 +332,11 @@
 					},
 				],
 			},
-			"d1_databases": [
+			// Replace after creating a cache-disabled staging Hyperdrive config.
+			"hyperdrive": [
 				{
-					"binding": "DB",
-					"database_name": "thinkex-staging",
-					"database_id": "babf13a7-a12d-4946-83da-29370106d728",
-					"migrations_dir": "drizzle",
+					"binding": "HYPERDRIVE",
+					"id": "SET_STAGING_HYPERDRIVE_ID",
 				},
 			],
 		},
@@ -367,6 +353,7 @@
 			],
 			"vars": {
 				"FIRECRAWL_API_URL": "https://api.firecrawl.dev",
+				"REQUIRE_LEGACY_DATA_MIGRATION": "true",
 				"R2_BUCKET_NAME": "thinkex-workspace-kernel-files",
 				"SANDBOX_TRANSPORT": "rpc",
 			},
@@ -385,19 +372,13 @@
 					"R2_ACCESS_KEY_ID",
 					"R2_SECRET_ACCESS_KEY",
 					"WORKSPACE_UPLOAD_TOKEN_SECRET",
+					"POSTGRES_MIGRATION_TOKEN",
 				],
 			},
 			"ai": {
 				"binding": "AI",
 				"remote": true,
 			},
-			"vectorize": [
-				{
-					"binding": "WORKSPACE_SEARCH",
-					"index_name": "thinkex-workspace-search",
-					"remote": true,
-				},
-			],
 			"images": {
 				"binding": "IMAGES",
 			},
@@ -477,12 +458,10 @@
 					},
 				],
 			},
-			"d1_databases": [
+			"hyperdrive": [
 				{
-					"binding": "DB",
-					"database_name": "thinkex",
-					"database_id": "e5ff462d-fab3-4ab2-9259-fd107c2df809",
-					"migrations_dir": "drizzle",
+					"binding": "HYPERDRIVE",
+					"id": "61126d47b4b645eb9dd2bc59501a8b63",
 				},
 			],
 		},

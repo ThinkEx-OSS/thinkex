@@ -64,13 +64,20 @@ This disables remote-only features such as deployed AI chat, browser rendering, 
 
 ## Database
 
-Apply local D1 migrations before first auth or database use:
+Local development requires PostgreSQL. Conductor creates an isolated database from its assigned port and applies migrations automatically. Outside Conductor, prepare the port-3000 database and apply migrations with:
 
 ```bash
-pnpm db:migrate:local
+CONDUCTOR_PORT=3000 pnpm db:setup:local
+DATABASE_URL=postgresql://thinkex_local_3000:thinkex_local_3000@localhost:5432/thinkex_3000 pnpm db:migrate:local
 ```
 
-The local D1 state persists under `.wrangler/`.
+Pass the same direct URL to Wrangler's local Hyperdrive binding when starting the app:
+
+```bash
+CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE=postgresql://thinkex_local_3000:thinkex_local_3000@localhost:5432/thinkex_3000 pnpm dev
+```
+
+Local Wrangler connects directly to PostgreSQL; it does not emulate Hyperdrive pooling or caching.
 
 ## Docker
 

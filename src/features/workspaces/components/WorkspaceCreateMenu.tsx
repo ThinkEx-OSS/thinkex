@@ -24,7 +24,6 @@ import {
 import type { WorkspaceItemType } from "#/features/workspaces/contracts";
 import {
 	workspaceItemAcquisitionActions,
-	workspaceItemLearnCreateActions,
 	workspaceItemPrimaryCreateActions,
 } from "#/features/workspaces/model/item-display";
 
@@ -116,14 +115,5 @@ function getWorkspaceCreateMenuActions({
 				onSelect: id === "upload-file" ? () => onUploadFile(parentId) : undefined,
 			}),
 		),
-		...workspaceItemLearnCreateActions.map(({ type, label, Icon, iconClassName }) => ({
-			kind: "item" as const,
-			id: type,
-			label,
-			trailing: "Soon",
-			disabled: true,
-			leading: <Icon className={`size-4 ${iconClassName}`} />,
-			onSelect: () => onCreateItem({ type, parentId }),
-		})),
 	];
 }

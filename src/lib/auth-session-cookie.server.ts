@@ -8,7 +8,7 @@ import { getAuthCookiePrefix } from "#/lib/app-origin";
  * validates the token against the database.
  *
  * It exists so the marketing root can decide where to send a visitor without
- * putting a D1 session lookup in front of every anonymous page view. Nothing
+ * putting a database session lookup in front of every anonymous page view. Nothing
  * security-relevant may depend on it: everything it routes to sits behind
  * `_protected`, which does the real check, so the worst case for a stale or
  * forged cookie is a bounce to `/login`.

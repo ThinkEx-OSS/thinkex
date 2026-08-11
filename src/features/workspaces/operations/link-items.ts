@@ -81,7 +81,6 @@ export async function linkWorkspaceItemsOperation(
 	await kernel.linkItems({
 		relations: relations.relations,
 		actorUserId: accessContext.actor.userId,
-		clientMutationId: accessContext.operationId,
 	});
 
 	return {
