@@ -348,7 +348,11 @@ async function importExtraction(input: {
 	}
 
 	if (status === "ready" && readyProjection) {
-		tier = parseExtractionTier(readyProjection.manifestObjectKey);
+		tier = resolveExtractionTier({
+			manifestObjectKey: readyProjection.manifestObjectKey,
+			metadata,
+			providerMode: input.projection.provider_mode,
+		});
 		let batch: Array<{
 			itemId: string;
 			pageNumber: number;
@@ -509,10 +513,19 @@ function parseExtractionStatus(value: string) {
 	throw new Error(`Unsupported legacy extraction status: ${value}`);
 }
 
-function parseExtractionTier(objectKey: string) {
+function resolveExtractionTier(input: {
+	manifestObjectKey: string;
+	metadata: Record<string, JsonValue>;
+	providerMode: string | null;
+}) {
+	// Newer projections encode the tier in their R2 key. Early projections did
+	// not always do so, but the fast pass has always identified itself as either
+	// provisional or provider mode `fast`; every other published projection is
+	// the final enhanced pass.
+	const objectKey = input.manifestObjectKey;
 	const match = objectKey.match(/\/(fast|enhanced)\/manifest\.json$/);
-	if (!match) throw new Error("Legacy extraction tier could not be determined.");
-	return match[1] as "enhanced" | "fast";
+	if (match) return match[1] as "enhanced" | "fast";
+	return input.metadata.provisional === true || input.providerMode === "fast" ? "fast" : "enhanced";
 }
 
 function getManifestPrefix(objectKey: string) {
