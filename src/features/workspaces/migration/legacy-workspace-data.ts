@@ -20,6 +20,7 @@ import {
 	createWorkspaceFilePreview,
 	WORKSPACE_FILE_PREVIEW_CONTENT_TYPE,
 } from "#/features/workspaces/files/workspace-file-preview";
+import { getWorkspaceFilePreviewObjectKey } from "#/features/workspaces/files/workspace-file-object-keys";
 import { workspaceFileAssetKindSchema } from "#/features/workspaces/model/workspace-file";
 import { putFixedLengthR2Object } from "#/lib/r2";
 
@@ -194,6 +195,7 @@ export async function migrateLegacyWorkspaceData(input: {
 					item,
 					projections,
 					transaction,
+					workspaceId: input.workspaceId,
 				});
 				report.files += 1;
 			}
@@ -279,24 +281,32 @@ async function importFileAsset(input: {
 	item: LegacyItemRow;
 	projections: LegacyProjectionRow[];
 	transaction: Transaction;
+	workspaceId: string;
 }) {
 	const metadata = parseJsonRecord(input.item.metadata_json);
 	const assetKind = workspaceFileAssetKindSchema.parse(metadata.assetKind);
 	const preview = input.projections.find(
 		(projection) => projection.item_id === input.item.id && projection.format === "preview",
 	);
-	if (!input.item.object_key || preview?.status !== "ready" || !preview.object_key) {
-		throw new Error(`Legacy file ${input.item.id} is missing its source or preview.`);
+	if (!input.item.object_key) {
+		throw new Error(`Legacy file ${input.item.id} is missing its source key.`);
 	}
+	const readyPreviewKey = preview?.status === "ready" ? preview.object_key : null;
+	const previewObjectKey =
+		readyPreviewKey ??
+		getWorkspaceFilePreviewObjectKey({
+			workspaceId: input.workspaceId,
+			itemId: input.destinationItemId,
+		});
 	const [sourceObject, previewObject] = await Promise.all([
 		input.bucket.head(input.item.object_key),
-		input.bucket.head(preview.object_key),
+		readyPreviewKey ? input.bucket.head(readyPreviewKey) : null,
 	]);
-	if (!sourceObject || !previewObject) {
-		throw new Error(`Legacy file ${input.item.id} references missing R2 objects.`);
+	if (!sourceObject) {
+		throw new Error(`Legacy file ${input.item.id} references a missing source object.`);
 	}
-	let previewSizeBytes = previewObject.size;
-	if (preview.source_hash && preview.source_hash !== sourceObject.etag) {
+	let previewSizeBytes = previewObject?.size ?? 0;
+	if (!previewObject || preview?.source_hash !== sourceObject.etag) {
 		const source = await input.bucket.get(input.item.object_key);
 		if (!source) {
 			throw new Error(`Legacy file ${input.item.id} source disappeared during preview repair.`);
@@ -309,7 +319,7 @@ async function importFileAsset(input: {
 		});
 		const storedPreview = await putFixedLengthR2Object(
 			input.bucket,
-			preview.object_key,
+			previewObjectKey,
 			generatedPreview,
 			{ httpMetadata: { contentType: WORKSPACE_FILE_PREVIEW_CONTENT_TYPE } },
 		);
@@ -326,7 +336,7 @@ async function importFileAsset(input: {
 		originalName: getString(metadata.originalName) ?? input.item.name,
 		mimeType: getString(metadata.mimeType) ?? "application/octet-stream",
 		sizeBytes: sourceObject.size,
-		previewObjectKey: preview.object_key,
+		previewObjectKey,
 		previewSizeBytes,
 	});
 }
