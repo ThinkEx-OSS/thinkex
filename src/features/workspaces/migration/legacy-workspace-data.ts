@@ -15,7 +15,10 @@ import {
 import { createDbContext } from "#/db/server";
 import type { JsonValue } from "#/features/workspaces/contracts";
 import { workspaceItemTypeSchema } from "#/features/workspaces/contracts";
-import { getWorkspaceItemNameKey } from "#/features/workspaces/defaults";
+import {
+	getAvailableWorkspaceItemName,
+	getWorkspaceItemNameKey,
+} from "#/features/workspaces/defaults";
 import {
 	createWorkspaceFilePreview,
 	WORKSPACE_FILE_PREVIEW_CONTENT_TYPE,
@@ -154,9 +157,18 @@ export async function migrateLegacyWorkspaceData(input: {
 				throw new Error("Workspace already has Postgres items without a migration marker.");
 			}
 
+			const siblingNames = new Map<string | null, string[]>();
 			for (const item of orderParentsBeforeChildren(items)) {
 				const type = workspaceItemTypeSchema.parse(item.type);
 				const itemId = getDestinationItemId(destinationItemIds, item.id);
+				const existingNames = siblingNames.get(item.parent_id) ?? [];
+				const name = getAvailableWorkspaceItemName({
+					type,
+					requestedName: item.name,
+					existingNames,
+				});
+				existingNames.push(name);
+				siblingNames.set(item.parent_id, existingNames);
 				await transaction.insert(workspaceItems).values({
 					id: itemId,
 					workspaceId: input.workspaceId,
@@ -164,8 +176,8 @@ export async function migrateLegacyWorkspaceData(input: {
 						? getDestinationItemId(destinationItemIds, item.parent_id)
 						: null,
 					type,
-					name: item.name,
-					nameKey: getWorkspaceItemNameKey(item.name),
+					name,
+					nameKey: getWorkspaceItemNameKey(name),
 					color: item.color,
 					metadata: parseJsonRecord(item.metadata_json),
 					sortOrder: item.sort_order,
