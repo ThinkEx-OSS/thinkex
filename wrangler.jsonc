@@ -205,12 +205,14 @@
 			"deleted_classes": ["ImageFileConverter"],
 		},
 	],
-	"d1_databases": [
+	// Replace this placeholder with the ID returned by:
+	// `wrangler hyperdrive create thinkex-dev --caching-disabled --connection-string=...`
+	// Caching stays disabled because auth, membership, and invite reads require
+	// read-after-write consistency.
+	"hyperdrive": [
 		{
-			"binding": "DB",
-			"database_name": "thinkex",
-			"database_id": "e5ff462d-fab3-4ab2-9259-fd107c2df809",
-			"migrations_dir": "drizzle",
+			"binding": "HYPERDRIVE",
+			"id": "SET_DEV_HYPERDRIVE_ID",
 		},
 	],
 	"env": {
@@ -330,12 +332,11 @@
 					},
 				],
 			},
-			"d1_databases": [
+			// Replace after creating a cache-disabled staging Hyperdrive config.
+			"hyperdrive": [
 				{
-					"binding": "DB",
-					"database_name": "thinkex-staging",
-					"database_id": "babf13a7-a12d-4946-83da-29370106d728",
-					"migrations_dir": "drizzle",
+					"binding": "HYPERDRIVE",
+					"id": "SET_STAGING_HYPERDRIVE_ID",
 				},
 			],
 		},
@@ -455,12 +456,11 @@
 					},
 				],
 			},
-			"d1_databases": [
+			// Replace after creating a cache-disabled production Hyperdrive config.
+			"hyperdrive": [
 				{
-					"binding": "DB",
-					"database_name": "thinkex",
-					"database_id": "e5ff462d-fab3-4ab2-9259-fd107c2df809",
-					"migrations_dir": "drizzle",
+					"binding": "HYPERDRIVE",
+					"id": "SET_PRODUCTION_HYPERDRIVE_ID",
 				},
 			],
 		},

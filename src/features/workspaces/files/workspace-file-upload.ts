@@ -9,7 +9,6 @@ import {
 	type CompleteWorkspaceDirectUploadInput,
 	type WorkspaceDirectUploadSession,
 } from "#/features/workspaces/upload/workspace-file-upload-protocol";
-import { prepareWorkspaceClientMutationInput } from "#/features/workspaces/use-workspace-client-mutation-echo";
 import { capturePostHogClientException } from "#/integrations/posthog/provider";
 import { apiErrorSchema } from "#/lib/api/contracts";
 import { getErrorMessage } from "#/lib/error-message";
@@ -18,7 +17,6 @@ interface WorkspaceFileUploadJob {
 	workspaceId: string;
 	parentId: string | null;
 	file: File;
-	clientMutationId: string;
 	onProgress: (loadedBytes: number) => void;
 	signal: AbortSignal;
 }
@@ -155,7 +153,6 @@ async function uploadWorkspaceFile(
 		`${endpoint}?action=initiate`,
 		{
 			body: JSON.stringify({
-				clientMutationId: job.clientMutationId,
 				contentType,
 				fileName: job.file.name,
 				fileSize: job.file.size,
@@ -219,15 +216,13 @@ async function uploadAcceptedFiles(input: {
 	onSuccess: (command: WorkspaceCommandResult<WorkspaceItemSummary>) => void;
 	signal: AbortSignal;
 }): Promise<WorkspaceFileUploadOutcome[]> {
-	const jobs = input.files.map((file) =>
-		prepareWorkspaceClientMutationInput({
-			file,
-			onProgress: (loadedBytes: number) => input.onProgress(file, loadedBytes),
-			parentId: input.parentId,
-			signal: input.signal,
-			workspaceId: input.workspaceId,
-		}),
-	);
+	const jobs = input.files.map((file) => ({
+		file,
+		onProgress: (loadedBytes: number) => input.onProgress(file, loadedBytes),
+		parentId: input.parentId,
+		signal: input.signal,
+		workspaceId: input.workspaceId,
+	}));
 	let nextJobIndex = 0;
 
 	const runWorker = async () => {

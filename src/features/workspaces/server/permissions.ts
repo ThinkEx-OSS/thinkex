@@ -9,6 +9,7 @@ import { getWorkspaceMemberCapabilities } from "#/features/workspaces/workspace-
 import { getSessionFromHeaders } from "#/lib/auth-queries.server";
 
 type Db = Awaited<ReturnType<typeof createDbContext>>["db"];
+type WorkspacePermissionDb = Pick<Db, "select">;
 type WorkspaceRole = WorkspaceMembershipRole;
 
 export class WorkspaceAuthError extends Error {
@@ -37,7 +38,7 @@ export async function getCurrentUserId() {
 }
 
 export async function getWorkspaceMemberRole(
-	db: Db,
+	db: WorkspacePermissionDb,
 	input: { workspaceId: string; userId: string },
 ): Promise<WorkspaceMembershipRole | null> {
 	const [membership] = await db
@@ -56,13 +57,16 @@ export async function getWorkspaceMemberRole(
 	return membership?.role ?? null;
 }
 
-export async function canReadWorkspace(db: Db, input: { workspaceId: string; userId: string }) {
+export async function canReadWorkspace(
+	db: WorkspacePermissionDb,
+	input: { workspaceId: string; userId: string },
+) {
 	const role = await getWorkspaceMemberRole(db, input);
 	return role !== null;
 }
 
 export async function assertCanReadWorkspace(
-	db: Db,
+	db: WorkspacePermissionDb,
 	input: { workspaceId: string; userId: string },
 ) {
 	if (!(await canReadWorkspace(db, input))) {
@@ -71,7 +75,7 @@ export async function assertCanReadWorkspace(
 }
 
 export async function assertCanMutateWorkspace(
-	db: Db,
+	db: WorkspacePermissionDb,
 	input: { workspaceId: string; userId: string },
 ) {
 	const role = await getWorkspaceMemberRole(db, input);
@@ -82,7 +86,7 @@ export async function assertCanMutateWorkspace(
 }
 
 export async function assertCanDeleteWorkspace(
-	db: Db,
+	db: WorkspacePermissionDb,
 	input: { workspaceId: string; userId: string },
 ) {
 	const role = await getWorkspaceMemberRole(db, input);
@@ -93,7 +97,7 @@ export async function assertCanDeleteWorkspace(
 }
 
 export async function assertCanGrantWorkspaceRole(
-	db: Db,
+	db: WorkspacePermissionDb,
 	input: { workspaceId: string; userId: string; role: WorkspaceRole },
 ) {
 	const memberRole = await getWorkspaceMemberRole(db, input);

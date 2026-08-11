@@ -1,9 +1,10 @@
 import { defineConfig } from "drizzle-kit";
 
-// Migrations are generated here and applied to D1 via
-// `wrangler d1 migrations apply` (see package.json db:migrate scripts).
+const databaseUrl = process.env.DATABASE_URL?.trim();
+
 export default defineConfig({
-	out: "./drizzle",
+	out: "./drizzle-postgres",
 	schema: "./src/db/schema.ts",
-	dialect: "sqlite",
+	dialect: "postgresql",
+	...(databaseUrl ? { dbCredentials: { url: databaseUrl } } : {}),
 });

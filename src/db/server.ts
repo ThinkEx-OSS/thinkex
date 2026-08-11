@@ -1,24 +1,29 @@
 import { env } from "cloudflare:workers";
-import { drizzle } from "drizzle-orm/d1";
+import { drizzle } from "drizzle-orm/node-postgres";
+import { Client } from "pg";
 
 import * as schema from "./schema";
 
-function getD1Database() {
-	const database = env.DB;
+type DatabaseBindings = Pick<Cloudflare.Env, "HYPERDRIVE">;
 
-	if (!database) {
+function getPostgresConnectionString(bindings: DatabaseBindings) {
+	const connectionString = bindings.HYPERDRIVE?.connectionString;
+
+	if (!connectionString) {
 		throw new Error(
-			"No D1 database is configured. Cloudflare Worker deployments use the DB binding.",
+			"No Postgres database is configured. Cloudflare Worker deployments use the HYPERDRIVE binding.",
 		);
 	}
 
-	return database;
+	return connectionString;
 }
 
-export async function createDbContext() {
+export async function createDbContext(bindings: DatabaseBindings = env) {
+	const client = new Client({ connectionString: getPostgresConnectionString(bindings) });
+	await client.connect();
+
 	return {
-		db: drizzle(getD1Database(), { schema }),
-		// D1 is connectionless — disposal is a no-op kept for call-site compatibility.
-		dispose: async () => {},
+		db: drizzle(client, { schema }),
+		dispose: async () => client.end(),
 	};
 }

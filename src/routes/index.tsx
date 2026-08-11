@@ -19,7 +19,7 @@ export const Route = createFileRoute("/")({
 	 */
 	beforeLoad: async ({ context }) => {
 		// Server: a cookie read is enough and costs nothing. Validating here would
-		// put a D1 round trip ahead of every anonymous landing page view, which is
+		// put a database round trip ahead of every anonymous landing page view, which is
 		// the page we rank on. Client: the cookie is HttpOnly and unreadable, but
 		// the session query is already resolved and cached, so it costs nothing
 		// either. `import.meta.env.SSR` is statically false in the client build, so

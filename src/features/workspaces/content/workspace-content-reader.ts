@@ -242,7 +242,7 @@ async function readFile(input: {
 	}
 
 	const projection = resolveWorkspaceProjectionReadiness(
-		await input.kernel.readFileProjection({ itemId: input.item.id, format: "pages" }),
+		await input.kernel.readFileExtraction({ itemId: input.item.id }),
 		Date.now(),
 	);
 	if (projection.state !== "ready") {
@@ -260,9 +260,9 @@ async function readFile(input: {
 	let pageRead: Awaited<ReturnType<typeof readWorkspacePageProjection>>;
 	try {
 		pageRead = await readWorkspacePageProjection({
-			bucket: input.bucket,
-			expectedSourceHash: projection.sourceHash,
-			manifestObjectKey: projection.manifestObjectKey,
+			itemId: input.item.id,
+			kernel: input.kernel,
+			pageCount: projection.pageCount,
 			pages:
 				cursor?.kind === "file"
 					? String(cursor.nextPage)

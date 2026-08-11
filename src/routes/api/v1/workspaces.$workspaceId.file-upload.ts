@@ -43,7 +43,6 @@ import { getSessionFromRequest } from "#/lib/auth-queries.server";
 import { recordOperationalFailure } from "#/integrations/observability/operational-events";
 
 const uploadIntentSchema = z.object({
-	clientMutationId: z.string().min(1),
 	contentType: z.string().min(1),
 	fileName: z.string().min(1),
 	fileSize: z.number().int().positive(),
@@ -217,7 +216,6 @@ async function finalizeWorkspaceFileUpload(
 
 			command = await createWorkspaceFileFromUpload({
 				assetKind: upload.descriptor.assetKind,
-				clientMutationId: claims.clientMutationId,
 				contentType: upload.contentType,
 				fileName: upload.fileName,
 				fileSize: upload.fileSize,
@@ -305,7 +303,6 @@ async function createWorkspaceDocumentFromUpload(input: {
 		await kernel.createItem({
 			id: input.claims.itemId,
 			actorUserId: input.claims.userId,
-			clientMutationId: input.claims.clientMutationId,
 			initialContent: documentContent.initialContent,
 			metadataJson: documentContent.metadataJson,
 			name: documentContent.name,

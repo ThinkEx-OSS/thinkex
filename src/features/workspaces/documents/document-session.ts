@@ -286,7 +286,7 @@ export class DocumentSession extends YServer {
 			]);
 		});
 		this.assertActive();
-		if (!(await this.checkpointToKernel(input.operationId))) {
+		if (!(await this.checkpointToKernel())) {
 			return rejectedDocumentEditResult("path_not_found", input.edits.length);
 		}
 		this.assertActive();
@@ -339,7 +339,7 @@ export class DocumentSession extends YServer {
 			}
 		});
 
-		if (!(await this.checkpointToKernel(`undo:${group.lastReceiptId}`))) {
+		if (!(await this.checkpointToKernel())) {
 			return { status: "not_found" };
 		}
 
@@ -401,7 +401,7 @@ export class DocumentSession extends YServer {
 		await this.ctx.storage.deleteAll();
 	}
 
-	private async checkpointToKernel(clientMutationId: string | null = null) {
+	private async checkpointToKernel() {
 		const room = getDocumentSessionRoomNameParts(this.name);
 		const document = this.getCurrentTiptapDocument();
 		const kernel = await this.getWorkspaceKernel(room.workspaceId);
@@ -410,7 +410,6 @@ export class DocumentSession extends YServer {
 			itemId: room.itemId,
 			content: stringifyTiptapDocumentJson(document),
 			actorUserId: null,
-			clientMutationId,
 		});
 		if (outcome === "discarded") {
 			await this.purgeForDeletion();

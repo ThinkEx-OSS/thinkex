@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { env } from "cloudflare:workers";
 import { z } from "zod";
 
 import {
@@ -10,6 +11,7 @@ import {
 	removeWorkspaceMember,
 	updateWorkspaceMemberRole,
 } from "#/features/workspaces/members/workspace-members.server";
+import { disconnectWorkspaceRoomMember } from "#/features/workspaces/realtime/workspace-room-notifier";
 import { withWorkspaceDb } from "#/features/workspaces/server/workspace-db";
 
 const workspaceMemberTargetSchema = z.object({
@@ -36,25 +38,28 @@ export const listWorkspaceMembersFn = createServerFn({ method: "GET" })
 
 export const updateWorkspaceMemberRoleFn = createServerFn({ method: "POST" })
 	.validator(updateWorkspaceMemberRoleInputSchema)
-	.handler(async ({ data }) =>
-		withWorkspaceDb(({ db, userId }) =>
+	.handler(async ({ data }) => {
+		await withWorkspaceDb(({ db, userId }) =>
 			updateWorkspaceMemberRole(db, {
 				workspaceId: data.workspaceId,
 				actorUserId: userId,
 				targetUserId: data.userId,
 				role: data.role,
 			}),
-		),
-	);
+		);
+		await disconnectWorkspaceRoomMember(env, data);
+	});
 
 export const removeWorkspaceMemberFn = createServerFn({ method: "POST" })
 	.validator(workspaceMemberTargetSchema)
-	.handler(async ({ data }) =>
-		withWorkspaceDb(({ db, userId }) =>
+	.handler(async ({ data }) => {
+		await withWorkspaceDb(({ db, userId }) =>
 			removeWorkspaceMember(db, {
 				workspaceId: data.workspaceId,
 				actorUserId: userId,
 				targetUserId: data.userId,
 			}),
-		),
-	);
+		);
+
+		await disconnectWorkspaceRoomMember(env, data);
+	});

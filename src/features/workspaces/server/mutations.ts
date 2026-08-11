@@ -1,6 +1,6 @@
 import { and, eq, isNull } from "drizzle-orm";
 
-import { workspaceMembers, workspaces } from "#/db/schema";
+import { workspaceItems, workspaceMembers, workspaces } from "#/db/schema";
 import { createDbContext } from "#/db/server";
 import { purgeWorkspaceResources } from "#/features/workspaces/durable-object-lifecycle";
 import type {
@@ -50,8 +50,8 @@ async function insertWorkspaceForUser(
 	const openedAt = new Date();
 
 	try {
-		const [insertedWorkspaces] = await dbContext.db.batch([
-			dbContext.db
+		const row = await dbContext.db.transaction(async (transaction) => {
+			const [insertedWorkspace] = await transaction
 				.insert(workspaces)
 				.values({
 					id: workspaceId,
@@ -63,21 +63,22 @@ async function insertWorkspaceForUser(
 					theme: DEFAULT_WORKSPACE_THEME,
 					ownerId: userId,
 				})
-				.returning(),
-			dbContext.db.insert(workspaceMembers).values({
+				.returning();
+
+			if (!insertedWorkspace) {
+				throw new Error("Workspace was not created.");
+			}
+
+			await transaction.insert(workspaceMembers).values({
 				id: crypto.randomUUID(),
 				workspaceId,
 				userId,
 				role: "owner",
 				lastOpenedAt: openedAt,
-			}),
-		]);
+			});
 
-		const row = insertedWorkspaces[0];
-
-		if (!row) {
-			throw new Error("Workspace was not created.");
-		}
+			return insertedWorkspace;
+		});
 
 		return mapWorkspaceRow(
 			{
@@ -94,7 +95,8 @@ async function insertWorkspaceForUser(
 export async function recordWorkspaceOpenedForCurrentUser(
 	workspaceId: string,
 ): Promise<WorkspaceSummary | null> {
-	const [userId, dbContext] = await Promise.all([getCurrentUserId(), createDbContext()]);
+	const userId = await getCurrentUserId();
+	const dbContext = await createDbContext();
 	const openedAt = new Date();
 
 	try {
@@ -137,7 +139,8 @@ export async function recordWorkspaceOpenedForCurrentUser(
 export async function updateWorkspaceForCurrentUser(
 	input: UpdateWorkspaceInput,
 ): Promise<WorkspaceSummary> {
-	const [userId, dbContext] = await Promise.all([getCurrentUserId(), createDbContext()]);
+	const userId = await getCurrentUserId();
+	const dbContext = await createDbContext();
 
 	try {
 		await assertCanMutateWorkspace(dbContext.db, {
@@ -145,8 +148,8 @@ export async function updateWorkspaceForCurrentUser(
 			userId,
 		});
 
-		const [updatedWorkspaces, memberships] = await dbContext.db.batch([
-			dbContext.db
+		const { membership, updatedWorkspace } = await dbContext.db.transaction(async (transaction) => {
+			const [updatedWorkspace] = await transaction
 				.update(workspaces)
 				.set({
 					name: input.name,
@@ -155,8 +158,13 @@ export async function updateWorkspaceForCurrentUser(
 					theme: input.theme,
 				})
 				.where(and(eq(workspaces.id, input.workspaceId), isNull(workspaces.archivedAt)))
-				.returning(),
-			dbContext.db
+				.returning();
+
+			if (!updatedWorkspace) {
+				throw new Error("Workspace was not updated.");
+			}
+
+			const [membership] = await transaction
 				.select({
 					lastOpenedAt: workspaceMembers.lastOpenedAt,
 					role: workspaceMembers.role,
@@ -168,20 +176,14 @@ export async function updateWorkspaceForCurrentUser(
 						eq(workspaceMembers.userId, userId),
 					),
 				)
-				.limit(1),
-		]);
+				.limit(1);
 
-		const updatedWorkspace = updatedWorkspaces[0];
+			if (!membership) {
+				throw new Error("Workspace membership was not found.");
+			}
 
-		if (!updatedWorkspace) {
-			throw new Error("Workspace was not updated.");
-		}
-
-		const membership = memberships[0];
-
-		if (!membership) {
-			throw new Error("Workspace membership was not found.");
-		}
+			return { membership, updatedWorkspace };
+		});
 
 		const workspace = {
 			...updatedWorkspace,
@@ -196,7 +198,10 @@ export async function updateWorkspaceForCurrentUser(
 }
 
 export async function deleteWorkspaceForCurrentUser(input: DeleteWorkspaceInput) {
-	const [userId, dbContext] = await Promise.all([getCurrentUserId(), createDbContext()]);
+	const userId = await getCurrentUserId();
+	const dbContext = await createDbContext();
+	let deletedWorkspace: { id: string } | undefined;
+	let documentItemIds: string[] = [];
 
 	try {
 		await assertCanDeleteWorkspace(dbContext.db, {
@@ -204,31 +209,43 @@ export async function deleteWorkspaceForCurrentUser(input: DeleteWorkspaceInput)
 			userId,
 		});
 
-		const [workspace] = await dbContext.db
-			.select()
-			.from(workspaces)
-			.where(and(eq(workspaces.id, input.workspaceId), isNull(workspaces.archivedAt)))
-			.limit(1);
+		const deletion = await dbContext.db.transaction(async (transaction) => {
+			const [workspace] = await transaction
+				.select()
+				.from(workspaces)
+				.where(and(eq(workspaces.id, input.workspaceId), isNull(workspaces.archivedAt)))
+				.limit(1)
+				.for("update");
+			if (!workspace) return null;
+			if (workspace.name !== input.confirmationName.trim()) {
+				throw new Error("Workspace name confirmation does not match.");
+			}
 
-		if (!workspace) {
-			return null;
-		}
-
-		if (workspace.name !== input.confirmationName.trim()) {
-			throw new Error("Workspace name confirmation does not match.");
-		}
-
-		const [deletedWorkspace] = await dbContext.db
-			.delete(workspaces)
-			.where(eq(workspaces.id, input.workspaceId))
-			.returning({ id: workspaces.id });
-
-		if (deletedWorkspace) {
-			await purgeWorkspaceResources(input.workspaceId);
-		}
-
-		return deletedWorkspace ?? null;
+			const documents = await transaction
+				.select({ id: workspaceItems.id })
+				.from(workspaceItems)
+				.where(
+					and(
+						eq(workspaceItems.workspaceId, input.workspaceId),
+						eq(workspaceItems.type, "document"),
+					),
+				);
+			const [deleted] = await transaction
+				.delete(workspaces)
+				.where(eq(workspaces.id, input.workspaceId))
+				.returning({ id: workspaces.id });
+			return { deleted, documentItemIds: documents.map((item) => item.id) };
+		});
+		if (!deletion) return null;
+		deletedWorkspace = deletion.deleted;
+		documentItemIds = deletion.documentItemIds;
 	} finally {
 		await dbContext.dispose();
 	}
+
+	if (deletedWorkspace) {
+		await purgeWorkspaceResources(input.workspaceId, documentItemIds);
+	}
+
+	return deletedWorkspace ?? null;
 }

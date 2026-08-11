@@ -12,6 +12,7 @@ interface ClearLocalAuthSessionInput {
 }
 
 export async function clearLocalAuthSession(input: ClearLocalAuthSessionInput) {
+	input.queryClient.clear();
 	removeAuthSession(input.queryClient);
 	await input.router.invalidate();
 	await input.navigate({ to: "/", replace: input.replace });

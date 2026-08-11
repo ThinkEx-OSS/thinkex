@@ -13,7 +13,6 @@ const uploadUrlLifetimeSeconds = 30 * 60;
 const uploadTokenVersion = 2;
 const encoder = new TextEncoder();
 const uploadClaimsSchema = z.object({
-	clientMutationId: z.string().min(1),
 	contentType: z.string().min(1),
 	expiresAt: z.number().int().positive(),
 	fileName: z.string().min(1),

@@ -79,17 +79,17 @@ async function transferAnonymousUserData(
 		return;
 	}
 
-	await database.batch([
-		database.run(sql`
+	await database.transaction(async (transaction) => {
+		await transaction.execute(sql`
 			update ${schema.workspaceMembers}
-			set role = 'owner', updated_at = unixepoch()
+			set role = 'owner', updated_at = now()
 			where user_id = ${input.newUserId}
 				and workspace_id in (
 					select id from ${schema.workspaces}
 					where owner_id = ${input.anonymousUserId}
 				)
-		`),
-		database.run(sql`
+		`);
+		await transaction.execute(sql`
 			update workspace_members as linked_member
 			set
 				role = case
@@ -142,7 +142,7 @@ async function transferAnonymousUserData(
 							and anonymous_member.user_id = ${input.anonymousUserId}
 					)
 				end,
-				updated_at = unixepoch()
+				updated_at = now()
 			where linked_member.user_id = ${input.newUserId}
 				and exists (
 					select 1
@@ -150,8 +150,8 @@ async function transferAnonymousUserData(
 					where anonymous_member.workspace_id = linked_member.workspace_id
 						and anonymous_member.user_id = ${input.anonymousUserId}
 				)
-		`),
-		database.run(sql`
+		`);
+		await transaction.execute(sql`
 			delete from ${schema.workspaceMembers}
 			where user_id = ${input.anonymousUserId}
 				and exists (
@@ -160,23 +160,23 @@ async function transferAnonymousUserData(
 					where existing_member.workspace_id = ${schema.workspaceMembers.workspaceId}
 						and existing_member.user_id = ${input.newUserId}
 				)
-		`),
-		database.run(sql`
+		`);
+		await transaction.execute(sql`
 			update ${schema.workspaceMembers}
-			set user_id = ${input.newUserId}, updated_at = unixepoch()
+			set user_id = ${input.newUserId}, updated_at = now()
 			where user_id = ${input.anonymousUserId}
-		`),
-		database.run(sql`
+		`);
+		await transaction.execute(sql`
 			update ${schema.workspaces}
-			set owner_id = ${input.newUserId}, updated_at = unixepoch()
+			set owner_id = ${input.newUserId}, updated_at = now()
 			where owner_id = ${input.anonymousUserId}
-		`),
-		database.run(sql`
+		`);
+		await transaction.execute(sql`
 			update ${schema.workspaceInvites}
-			set created_by_user_id = ${input.newUserId}, updated_at = unixepoch()
+			set created_by_user_id = ${input.newUserId}, updated_at = now()
 			where created_by_user_id = ${input.anonymousUserId}
-		`),
-	]);
+		`);
+	});
 }
 
 function createAuth(database: Db, env: AuthRuntimeEnv) {
@@ -187,7 +187,7 @@ function createAuth(database: Db, env: AuthRuntimeEnv) {
 
 	return betterAuth({
 		database: drizzleAdapter(database, {
-			provider: "sqlite",
+			provider: "pg",
 			schema,
 		}),
 		secret: getAuthSecret(env),

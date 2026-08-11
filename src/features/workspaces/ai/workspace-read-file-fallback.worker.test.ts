@@ -1,10 +1,18 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
 	createPendingPdfModelOutput,
 	isPendingPdfFallbackInput,
 } from "#/features/workspaces/ai/workspace-read-file-fallback";
 import type { WorkspaceKernelClient } from "#/features/workspaces/kernel/workspace-kernel-access";
+
+const { kernelsByEnv } = vi.hoisted(() => ({
+	kernelsByEnv: new WeakMap<object, WorkspaceKernelClient>(),
+}));
+
+vi.mock("#/features/workspaces/kernel/workspace-kernel-access", () => ({
+	getWorkspaceKernelFromEnv: async (env: Cloudflare.Env) => kernelsByEnv.get(env as object),
+}));
 
 describe("pending PDF model output", () => {
 	it("attaches only a small pending PDF", async () => {
@@ -97,13 +105,14 @@ function createEnv(bytes: Uint8Array): Cloudflare.Env {
 		}),
 	} as unknown as WorkspaceKernelClient;
 
-	return {
+	const env = {
 		WORKSPACE_KERNEL_FILES: {
 			get: async () => ({
 				arrayBuffer: async () => bytes.buffer,
 				size: bytes.byteLength,
 			}),
 		},
-		WorkspaceKernel: { getByName: () => kernel },
 	} as unknown as Cloudflare.Env;
+	kernelsByEnv.set(env as object, kernel);
+	return env;
 }

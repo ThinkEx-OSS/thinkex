@@ -1,12 +1,12 @@
 import { z } from "zod";
 
-const workspaceItemTypes = ["folder", "document", "file", "flashcard", "quiz"] as const;
+const workspaceItemTypes = ["folder", "document", "file"] as const;
 export const workspaceItemTypeSchema = z.enum(workspaceItemTypes);
 export type WorkspaceItemType = z.infer<typeof workspaceItemTypeSchema>;
 
 interface WorkspaceItemRegistryEntry {
 	color: "amber" | "emerald" | "rose" | "sky" | "violet";
-	contentKind: "document" | "empty" | "flashcard" | "quiz";
+	contentKind: "document" | "empty";
 	defaultName: string;
 	extension: "json" | "txt" | null;
 	label: string;
@@ -41,24 +41,6 @@ const workspaceItemRegistry = {
 		label: "File",
 		menuLabel: "Upload file",
 		mimeType: "text/plain",
-	},
-	flashcard: {
-		color: "violet",
-		contentKind: "flashcard",
-		defaultName: "New flashcards",
-		extension: "json",
-		label: "Flashcard deck",
-		menuLabel: "Flashcards",
-		mimeType: "application/json",
-	},
-	quiz: {
-		color: "emerald",
-		contentKind: "quiz",
-		defaultName: "New quiz",
-		extension: "json",
-		label: "Quiz",
-		menuLabel: "Quiz",
-		mimeType: "application/json",
 	},
 } as const satisfies Record<WorkspaceItemType, WorkspaceItemRegistryEntry>;
 

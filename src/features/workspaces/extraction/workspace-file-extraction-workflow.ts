@@ -21,10 +21,7 @@ import type {
 	WorkspaceFileExtractionProviderId,
 } from "#/features/workspaces/model/workspace-file/types";
 import { getWorkspaceFileSourceObject } from "#/features/workspaces/extraction/workspace-file-source";
-import {
-	publishWorkspacePageProjection,
-	writeWorkspacePageProjection,
-} from "#/features/workspaces/extraction/workspace-page-projection";
+import { publishWorkspacePageProjection } from "#/features/workspaces/extraction/workspace-page-projection";
 import { getWorkspaceKernelFromEnv } from "#/features/workspaces/kernel/workspace-kernel-access";
 import { getWorkspaceUploadFamily } from "#/features/workspaces/model/workspace-file";
 
@@ -46,12 +43,10 @@ export class WorkspaceFileExtractionWorkflow extends WorkflowEntrypoint<
 
 		const processing = await step.do("mark extraction processing", async () => {
 			const kernel = await getWorkspaceKernelFromEnv(this.env, params.workspaceId);
-			return kernel.upsertFileProjection({
+			return kernel.updateFileExtraction({
 				itemId: params.itemId,
-				format: "pages",
 				status: "processing",
 				actorUserId: params.actorUserId,
-				clientMutationId: `${event.instanceId}:projection:processing`,
 			});
 		});
 		if (processing === "discarded") {
@@ -63,7 +58,7 @@ export class WorkspaceFileExtractionWorkflow extends WorkflowEntrypoint<
 			return { status: "discarded" as const };
 		}
 
-		const enhancement = await this.enhance(step, event, params, liteParse);
+		const enhancement = await this.enhance(step, params, liteParse);
 		if (enhancement.outcome === "discarded") {
 			return { status: "discarded" as const };
 		}
@@ -74,13 +69,11 @@ export class WorkspaceFileExtractionWorkflow extends WorkflowEntrypoint<
 		if (enhancement.outcome === "error" && liteParse.outcome !== "success") {
 			const failed = await step.do("mark extraction failed", async () => {
 				const kernel = await getWorkspaceKernelFromEnv(this.env, params.workspaceId);
-				return kernel.upsertFileProjection({
+				return kernel.updateFileExtraction({
 					itemId: params.itemId,
-					format: "pages",
 					status: "failed",
 					errorMessage: getErrorMessage(enhancement.error),
 					actorUserId: params.actorUserId,
-					clientMutationId: `${event.instanceId}:projection:failed`,
 				});
 			});
 			if (failed === "discarded") {
@@ -129,7 +122,6 @@ export class WorkspaceFileExtractionWorkflow extends WorkflowEntrypoint<
 	 */
 	private async enhance(
 		step: WorkflowStep,
-		event: Readonly<WorkflowEvent<WorkspaceFileExtractionWorkflowParams>>,
 		params: WorkspaceFileExtractionWorkflowParams,
 		liteParse: LiteParseStageOutcome,
 	): Promise<WorkspaceFileEnhancementOutcome | { outcome: "discarded" }> {
@@ -140,10 +132,7 @@ export class WorkspaceFileExtractionWorkflow extends WorkflowEntrypoint<
 
 		try {
 			// A document the free pass has already read and rejected will not become
-			// readable by paying for a slower one. Failing without calling the provider
-			// matters because the reconciler re-runs failures on a cooldown — letting
-			// this through would buy an identical verdict from a paid provider on every
-			// sweep.
+			// readable by paying for a slower one.
 			if (
 				liteParse.outcome === "error" &&
 				liteParse.errorType === workspaceDocumentUnsupportedErrorName
@@ -154,7 +143,7 @@ export class WorkspaceFileExtractionWorkflow extends WorkflowEntrypoint<
 			const extraction = await step.do(
 				"extract page markdown with provider",
 				getWorkspaceExtractionStepConfig(workspaceExtractionStepBudgets.extract),
-				async (): Promise<StagedPageExtractionResult> => {
+				async (): Promise<PublishedPageExtractionResult> => {
 					const kernel = await getWorkspaceKernelFromEnv(this.env, params.workspaceId);
 					const { object, source } = await getWorkspaceFileSourceObject({
 						env: this.env,
@@ -173,65 +162,35 @@ export class WorkspaceFileExtractionWorkflow extends WorkflowEntrypoint<
 						sourceHash: object.etag,
 						mode: route.mode,
 					});
+					creditsUsed = getExtractionCreditsUsed(extraction.metadata);
 
-					const projection = await writeWorkspacePageProjection({
-						bucket: this.env.WORKSPACE_KERNEL_FILES,
+					const projection = await publishWorkspacePageProjection({
+						kernel,
 						itemId: params.itemId,
-						metadata: extraction.metadata,
 						pages: extraction.pages,
 						provider: extraction.provider,
 						providerMode: extraction.providerMode,
-						runId: event.instanceId,
 						sourceHash: object.etag,
 						tier: "enhanced",
-						workspaceId: params.workspaceId,
+						metadata: {
+							...extraction.metadata,
+							routeReason: route.reason,
+						},
+						actorUserId: params.actorUserId,
 					});
 
 					return {
-						manifestObjectKey: projection.manifestObjectKey,
-						markdownLength: projection.manifest.markdownLength,
+						status: projection.status,
 						provider: extraction.provider,
 						providerMode: extraction.providerMode,
 						metadata: extraction.metadata,
-						pageCount: projection.manifest.pageCount,
+						pageCount: projection.pageCount,
 						routeReason: route.reason,
-						sourceHash: object.etag,
 					};
 				},
 			);
 
-			creditsUsed = getExtractionCreditsUsed(extraction.metadata);
-
-			const published = await step.do(
-				"write extracted projections",
-				getWorkspaceExtractionStepConfig(workspaceExtractionStepBudgets.publish),
-				async () => {
-					const kernel = await getWorkspaceKernelFromEnv(this.env, params.workspaceId);
-
-					return publishWorkspacePageProjection({
-						bucket: this.env.WORKSPACE_KERNEL_FILES,
-						kernel,
-						projection: {
-							itemId: params.itemId,
-							format: "pages",
-							status: "ready",
-							objectKey: extraction.manifestObjectKey,
-							provider: extraction.provider,
-							providerMode: extraction.providerMode,
-							sourceHash: extraction.sourceHash,
-							metadataJson: {
-								...extraction.metadata,
-								routeReason: extraction.routeReason,
-								pageCount: extraction.pageCount,
-								markdownLength: extraction.markdownLength,
-							},
-							actorUserId: params.actorUserId,
-							clientMutationId: `${event.instanceId}:projection:enhanced-ready`,
-						},
-					});
-				},
-			);
-			if (published === "discarded") {
+			if (extraction.status === "discarded") {
 				return { outcome: "discarded" as const };
 			}
 
@@ -257,15 +216,13 @@ export class WorkspaceFileExtractionWorkflow extends WorkflowEntrypoint<
 	}
 }
 
-interface StagedPageExtractionResult {
-	manifestObjectKey: string;
-	markdownLength: number;
+interface PublishedPageExtractionResult {
+	status: "applied" | "discarded";
 	provider: WorkspaceFileExtractionProviderId;
 	providerMode: WorkspaceFileExtractionMode;
 	metadata: Record<string, string | number | boolean | null>;
 	pageCount: number;
 	routeReason: string;
-	sourceHash: string;
 }
 
 function assertWorkflowParams(
@@ -281,7 +238,6 @@ function assertWorkflowParams(
 		actorUserId: value.actorUserId ?? null,
 		assetKind: value.assetKind,
 		requestId: value.requestId ?? null,
-		healing: value.healing === true,
 	};
 }
 
@@ -289,12 +245,12 @@ function getErrorMessage(error: unknown) {
 	return error instanceof Error ? error.message : String(error);
 }
 
-function getExtractionCreditsUsed(metadata: StagedPageExtractionResult["metadata"]) {
+function getExtractionCreditsUsed(metadata: PublishedPageExtractionResult["metadata"]) {
 	// Only LlamaParse reports credits; other providers leave the key absent.
 	return getMetadataNumber(metadata, "creditsUsed");
 }
 
-function getMetadataNumber(metadata: StagedPageExtractionResult["metadata"], key: string) {
+function getMetadataNumber(metadata: PublishedPageExtractionResult["metadata"], key: string) {
 	const value = metadata[key];
 	return typeof value === "number" ? value : null;
 }

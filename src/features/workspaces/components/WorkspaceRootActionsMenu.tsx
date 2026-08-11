@@ -1,4 +1,4 @@
-import { Clock3, Download, Settings, Share2 } from "lucide-react";
+import { Download, Settings, Share2 } from "lucide-react";
 import { type ReactElement, useState } from "react";
 
 import {
@@ -96,14 +96,6 @@ function getWorkspaceRootMenuActions(input: {
 
 	return [
 		...(input.includeShare ? [shareAction] : []),
-		{
-			kind: "item",
-			id: "version-history",
-			label: "Version history",
-			leading: <Clock3 className="size-4" />,
-			trailing: "Soon",
-			disabled: true,
-		},
 		{
 			kind: "item",
 			id: "export",

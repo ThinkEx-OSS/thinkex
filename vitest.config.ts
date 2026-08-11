@@ -4,6 +4,12 @@ import { cloudflareTest } from "@cloudflare/vitest-pool-workers";
 import agents from "agents/vite";
 import { defineConfig } from "vite-plus/test/config";
 
+// Miniflare validates every declared binding before starting a worker test.
+// These tests do not query Postgres, so a syntactically valid, non-routable
+// local URL is sufficient; real app tests supply the isolated Conductor URL.
+process.env.CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE ??=
+	"postgresql://test:test@127.0.0.1:1/thinkex_test";
+
 export default defineConfig({
 	test: {
 		projects: [
@@ -20,6 +26,9 @@ export default defineConfig({
 				resolve: {
 					tsconfigPaths: true,
 					alias: {
+						// Durable Object tests do not exercise the separate global relational
+						// plane. Keep node-postgres out of their workerd-only module graph.
+						"#/db/server": fileURLToPath(new URL("./test/stubs/db-server.ts", import.meta.url)),
 						// Worker tests drive Durable Objects and server modules directly,
 						// with no TanStack request in scope. The real module would drag the
 						// Start server handler and its build-time virtual entries in with it.

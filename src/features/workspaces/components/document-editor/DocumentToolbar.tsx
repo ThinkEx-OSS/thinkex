@@ -1,5 +1,5 @@
 import type { Editor } from "@tiptap/react";
-import { Check, Download, FileText, Redo2, Shapes, Undo2 } from "lucide-react";
+import { Check, Download, Redo2, Shapes, Undo2 } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { toast } from "sonner";
 
@@ -439,13 +439,6 @@ function DocumentExportMenuGroup({ onExportPdf }: { onExportPdf: () => void }) {
 					<Download />
 				</span>
 				PDF
-			</DropdownMenuItem>
-			<DropdownMenuItem className="[&_svg:not([class*='size-'])]:size-4" disabled>
-				<span className="inline-flex size-4 items-center justify-center text-muted-foreground">
-					<FileText />
-				</span>
-				Google Docs
-				<span className="ml-auto text-xs text-muted-foreground">Soon</span>
 			</DropdownMenuItem>
 		</DropdownMenuGroup>
 	);

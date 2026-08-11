@@ -1,7 +1,6 @@
 import type {
 	JsonValue,
 	WorkspaceItemColor,
-	WorkspaceItemFacts,
 	WorkspaceItemSummary,
 	WorkspaceRelationKind,
 	WorkspaceItemType,
@@ -12,13 +11,6 @@ import type {
 } from "#/features/workspaces/model/workspace-file";
 import type { WorkspaceCommandResult } from "#/features/workspaces/realtime/messages";
 
-export interface WorkspaceKernelPage {
-	workspaceId: string;
-	items: WorkspaceItemSummary[];
-	itemFacts: WorkspaceItemFacts[];
-	revision: number;
-}
-
 export interface CreateWorkspaceKernelRelationArgs {
 	fromItemId: string;
 	kind: WorkspaceRelationKind;
@@ -28,7 +20,6 @@ export interface CreateWorkspaceKernelRelationArgs {
 
 export interface LinkWorkspaceKernelItemsArgs {
 	actorUserId?: string | null;
-	clientMutationId?: string | null;
 	relations: CreateWorkspaceKernelRelationArgs[];
 }
 
@@ -128,7 +119,6 @@ export interface CreateWorkspaceKernelItemArgs {
 	initialContent?: string;
 	initialRelations?: CreateWorkspaceKernelRelationArgs[];
 	actorUserId?: string | null;
-	clientMutationId?: string | null;
 }
 
 export interface RenameWorkspaceKernelItemArgs {
@@ -136,7 +126,6 @@ export interface RenameWorkspaceKernelItemArgs {
 	name: string;
 	onNameConflict?: WorkspaceKernelNameConflictPolicy;
 	actorUserId?: string | null;
-	clientMutationId?: string | null;
 }
 
 export interface MoveWorkspaceKernelItemsArgs {
@@ -147,7 +136,6 @@ export interface MoveWorkspaceKernelItemsArgs {
 	parentId?: string | null;
 	onNameConflict?: WorkspaceKernelNameConflictPolicy;
 	actorUserId?: string | null;
-	clientMutationId?: string | null;
 }
 
 export type MoveWorkspaceKernelItemsResult = WorkspaceItemSummary[];
@@ -156,13 +144,11 @@ export interface UpdateWorkspaceKernelItemColorArgs {
 	itemId: string;
 	color: WorkspaceItemColor;
 	actorUserId?: string | null;
-	clientMutationId?: string | null;
 }
 
 export interface DeleteWorkspaceKernelItemsArgs {
 	itemIds: string[];
 	actorUserId?: string | null;
-	clientMutationId?: string | null;
 }
 
 export interface ReadWorkspaceDocumentCheckpointArgs {
@@ -171,6 +157,7 @@ export interface ReadWorkspaceDocumentCheckpointArgs {
 
 export interface ReadWorkspaceKernelFileSourceArgs {
 	itemId: string;
+	userId?: string;
 }
 
 export interface WorkspaceKernelFileSource {
@@ -180,49 +167,26 @@ export interface WorkspaceKernelFileSource {
 	sizeBytes: number;
 }
 
-export type WorkspaceKernelFileProjectionFormat = "pages" | "preview";
+export type WorkspaceFileExtractionStatus = "processing" | "ready" | "failed";
 
-export type WorkspaceKernelFileProjectionStatus = "processing" | "ready" | "failed";
-
-interface WorkspaceKernelFileProjectionMutationBase {
+interface WorkspaceFileExtractionMutationBase {
 	itemId: string;
-	format: WorkspaceKernelFileProjectionFormat;
 	actorUserId?: string | null;
-	clientMutationId?: string | null;
 }
 
-export type UpsertWorkspaceKernelFileProjectionArgs =
-	| (WorkspaceKernelFileProjectionMutationBase & {
+export type UpdateWorkspaceFileExtractionArgs =
+	| (WorkspaceFileExtractionMutationBase & {
 			status: "processing";
 			errorMessage?: never;
-			metadataJson?: never;
-			objectKey?: never;
-			provider?: never;
-			providerMode?: never;
-			sourceHash?: never;
 	  })
-	| (WorkspaceKernelFileProjectionMutationBase & {
+	| (WorkspaceFileExtractionMutationBase & {
 			status: "failed";
 			errorMessage: string;
-			metadataJson?: never;
-			objectKey?: never;
-			provider?: never;
-			providerMode?: never;
-			sourceHash?: never;
-	  })
-	| (WorkspaceKernelFileProjectionMutationBase & {
-			status: "ready";
-			errorMessage?: never;
-			metadataJson?: Record<string, JsonValue>;
-			objectKey: string;
-			provider?: string | null;
-			providerMode?: string | null;
-			sourceHash: string;
 	  });
 
 export interface ReadWorkspaceKernelFilePreviewResult {
 	itemId: string;
-	status: WorkspaceKernelFileProjectionStatus;
+	status: WorkspaceFileExtractionStatus;
 	objectKey: string | null;
 	contentType: string;
 	sizeBytes: number | null;
@@ -231,29 +195,19 @@ export interface ReadWorkspaceKernelFilePreviewResult {
 	updatedAt: string;
 }
 
-export interface ReadWorkspaceKernelFileProjectionArgs {
+export interface ReadWorkspaceFileExtractionArgs {
 	itemId: string;
-	format: WorkspaceKernelFileProjectionFormat;
 }
 
-export interface ReadWorkspaceKernelFileProjectionResult {
+export interface ReadWorkspaceFileExtractionResult {
 	itemId: string;
-	format: WorkspaceKernelFileProjectionFormat;
-	status: WorkspaceKernelFileProjectionStatus;
-	objectKey: string | null;
+	status: WorkspaceFileExtractionStatus;
 	provider: string | null;
 	providerMode: string | null;
 	errorMessage: string | null;
 	sourceHash: string | null;
 	metadataJson: Record<string, JsonValue>;
 	updatedAt: string;
-}
-
-export interface CommitWorkspaceDocumentCheckpointArgs {
-	itemId: string;
-	content: string;
-	actorUserId?: string | null;
-	clientMutationId?: string | null;
 }
 
 export interface CreateWorkspaceKernelFileFromUploadArgs {
@@ -276,7 +230,6 @@ export interface CreateWorkspaceKernelFileFromUploadArgs {
 		sizeBytes: number;
 	};
 	actorUserId?: string | null;
-	clientMutationId?: string | null;
 }
 
 export interface DeleteWorkspaceKernelItemsResult {

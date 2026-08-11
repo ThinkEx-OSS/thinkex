@@ -1,41 +1,55 @@
 import { relations, sql } from "drizzle-orm";
-import { check, index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import {
+	bigint,
+	boolean,
+	check,
+	foreignKey,
+	index,
+	integer,
+	jsonb,
+	pgTable,
+	primaryKey,
+	text,
+	timestamp,
+	unique,
+	uniqueIndex,
+} from "drizzle-orm/pg-core";
 
 const WORKSPACE_ROLES = ["owner", "admin", "editor", "viewer"] as const;
 const WORKSPACE_INVITE_TYPES = ["email", "link"] as const;
 const WORKSPACE_INVITE_STATUSES = ["pending", "accepted", "revoked", "expired"] as const;
+const WORKSPACE_ITEM_TYPES = ["folder", "document", "file"] as const;
+const WORKSPACE_RELATION_KINDS = ["derived_from", "references"] as const;
+const WORKSPACE_EXTRACTION_STATUSES = ["processing", "ready", "failed"] as const;
+const WORKSPACE_EXTRACTION_TIERS = ["fast", "enhanced"] as const;
 
 function sqlEnumValues(values: readonly string[]) {
 	return sql.raw(values.map((value) => `'${value.replaceAll("'", "''")}'`).join(", "));
 }
 
-export const user = sqliteTable("user", {
+export const user = pgTable("user", {
 	id: text("id").primaryKey(),
 	name: text("name").notNull(),
 	email: text("email").notNull().unique(),
-	emailVerified: integer("email_verified", { mode: "boolean" }).default(false).notNull(),
+	emailVerified: boolean("email_verified").default(false).notNull(),
 	image: text("image"),
-	isAnonymous: integer("is_anonymous", { mode: "boolean" }).default(false),
-	createdAt: integer("created_at", { mode: "timestamp" })
-		.$defaultFn(() => /* @__PURE__ */ new Date())
-		.notNull(),
-	updatedAt: integer("updated_at", { mode: "timestamp" })
-		.$defaultFn(() => /* @__PURE__ */ new Date())
+	isAnonymous: boolean("is_anonymous").default(false),
+	createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true })
+		.defaultNow()
 		.$onUpdate(() => /* @__PURE__ */ new Date())
 		.notNull(),
 });
 
-export const session = sqliteTable(
+export const session = pgTable(
 	"session",
 	{
 		id: text("id").primaryKey(),
-		expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
+		expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
 		token: text("token").notNull().unique(),
-		createdAt: integer("created_at", { mode: "timestamp" })
-			.$defaultFn(() => /* @__PURE__ */ new Date())
-			.notNull(),
-		updatedAt: integer("updated_at", { mode: "timestamp" })
-			.$defaultFn(() => /* @__PURE__ */ new Date())
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+		updatedAt: timestamp("updated_at", { withTimezone: true })
+			.defaultNow()
 			.$onUpdate(() => /* @__PURE__ */ new Date())
 			.notNull(),
 		ipAddress: text("ip_address"),
@@ -47,7 +61,7 @@ export const session = sqliteTable(
 	(table) => [index("session_userId_idx").on(table.userId)],
 );
 
-export const account = sqliteTable(
+export const account = pgTable(
 	"account",
 	{
 		id: text("id").primaryKey(),
@@ -59,96 +73,88 @@ export const account = sqliteTable(
 		accessToken: text("access_token"),
 		refreshToken: text("refresh_token"),
 		idToken: text("id_token"),
-		accessTokenExpiresAt: integer("access_token_expires_at", {
-			mode: "timestamp",
-		}),
-		refreshTokenExpiresAt: integer("refresh_token_expires_at", {
-			mode: "timestamp",
-		}),
+		accessTokenExpiresAt: timestamp("access_token_expires_at", { withTimezone: true }),
+		refreshTokenExpiresAt: timestamp("refresh_token_expires_at", { withTimezone: true }),
 		scope: text("scope"),
 		password: text("password"),
-		createdAt: integer("created_at", { mode: "timestamp" })
-			.$defaultFn(() => /* @__PURE__ */ new Date())
-			.notNull(),
-		updatedAt: integer("updated_at", { mode: "timestamp" })
-			.$defaultFn(() => /* @__PURE__ */ new Date())
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+		updatedAt: timestamp("updated_at", { withTimezone: true })
+			.defaultNow()
 			.$onUpdate(() => /* @__PURE__ */ new Date())
 			.notNull(),
 	},
 	(table) => [index("account_userId_idx").on(table.userId)],
 );
 
-export const verification = sqliteTable(
+export const verification = pgTable(
 	"verification",
 	{
 		id: text("id").primaryKey(),
 		identifier: text("identifier").notNull(),
 		value: text("value").notNull(),
-		expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
-		createdAt: integer("created_at", { mode: "timestamp" })
-			.$defaultFn(() => /* @__PURE__ */ new Date())
-			.notNull(),
-		updatedAt: integer("updated_at", { mode: "timestamp" })
-			.$defaultFn(() => /* @__PURE__ */ new Date())
+		expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+		updatedAt: timestamp("updated_at", { withTimezone: true })
+			.defaultNow()
 			.$onUpdate(() => /* @__PURE__ */ new Date())
 			.notNull(),
 	},
 	(table) => [index("verification_identifier_idx").on(table.identifier)],
 );
 
-export const rateLimit = sqliteTable("rate_limit", {
+export const rateLimit = pgTable("rate_limit", {
 	id: text("id").primaryKey(),
 	key: text("key").notNull().unique(),
 	count: integer("count").notNull(),
-	lastRequest: integer("last_request").notNull(),
+	lastRequest: bigint("last_request", { mode: "number" }).notNull(),
 });
 
-export const jwks = sqliteTable("jwks", {
+export const jwks = pgTable("jwks", {
 	id: text("id").primaryKey(),
 	publicKey: text("public_key").notNull(),
 	privateKey: text("private_key").notNull(),
-	createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
-	expiresAt: integer("expires_at", { mode: "timestamp" }),
+	createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+	expiresAt: timestamp("expires_at", { withTimezone: true }),
 });
 
-export const oauthClient = sqliteTable(
+export const oauthClient = pgTable(
 	"oauth_client",
 	{
 		id: text("id").primaryKey(),
 		clientId: text("client_id").notNull().unique(),
 		clientSecret: text("client_secret"),
-		disabled: integer("disabled", { mode: "boolean" }).default(false),
-		skipConsent: integer("skip_consent", { mode: "boolean" }),
-		enableEndSession: integer("enable_end_session", { mode: "boolean" }),
+		disabled: boolean("disabled").default(false),
+		skipConsent: boolean("skip_consent"),
+		enableEndSession: boolean("enable_end_session"),
 		subjectType: text("subject_type"),
-		scopes: text("scopes", { mode: "json" }).$type<string[]>(),
+		scopes: jsonb("scopes").$type<string[]>(),
 		userId: text("user_id").references(() => user.id, { onDelete: "cascade" }),
-		createdAt: integer("created_at", { mode: "timestamp" }),
-		updatedAt: integer("updated_at", { mode: "timestamp" }),
+		createdAt: timestamp("created_at", { withTimezone: true }),
+		updatedAt: timestamp("updated_at", { withTimezone: true }),
 		name: text("name"),
 		uri: text("uri"),
 		icon: text("icon"),
-		contacts: text("contacts", { mode: "json" }).$type<string[]>(),
+		contacts: jsonb("contacts").$type<string[]>(),
 		tos: text("tos"),
 		policy: text("policy"),
 		softwareId: text("software_id"),
 		softwareVersion: text("software_version"),
 		softwareStatement: text("software_statement"),
-		redirectUris: text("redirect_uris", { mode: "json" }).$type<string[]>().notNull(),
-		postLogoutRedirectUris: text("post_logout_redirect_uris", { mode: "json" }).$type<string[]>(),
+		redirectUris: jsonb("redirect_uris").$type<string[]>().notNull(),
+		postLogoutRedirectUris: jsonb("post_logout_redirect_uris").$type<string[]>(),
 		tokenEndpointAuthMethod: text("token_endpoint_auth_method"),
-		grantTypes: text("grant_types", { mode: "json" }).$type<string[]>(),
-		responseTypes: text("response_types", { mode: "json" }).$type<string[]>(),
-		public: integer("public", { mode: "boolean" }),
+		grantTypes: jsonb("grant_types").$type<string[]>(),
+		responseTypes: jsonb("response_types").$type<string[]>(),
+		public: boolean("public"),
 		type: text("type"),
-		requirePKCE: integer("require_pkce", { mode: "boolean" }),
+		requirePKCE: boolean("require_pkce"),
 		referenceId: text("reference_id"),
-		metadata: text("metadata", { mode: "json" }).$type<Record<string, unknown>>(),
+		metadata: jsonb("metadata").$type<Record<string, unknown>>(),
 	},
 	(table) => [index("oauth_client_user_id_idx").on(table.userId)],
 );
 
-export const oauthRefreshToken = sqliteTable(
+export const oauthRefreshToken = pgTable(
 	"oauth_refresh_token",
 	{
 		id: text("id").primaryKey(),
@@ -161,11 +167,11 @@ export const oauthRefreshToken = sqliteTable(
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
 		referenceId: text("reference_id"),
-		expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
-		createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
-		revoked: integer("revoked", { mode: "timestamp" }),
-		authTime: integer("auth_time", { mode: "timestamp" }),
-		scopes: text("scopes", { mode: "json" }).$type<string[]>().notNull(),
+		expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+		createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+		revoked: timestamp("revoked", { withTimezone: true }),
+		authTime: timestamp("auth_time", { withTimezone: true }),
+		scopes: jsonb("scopes").$type<string[]>().notNull(),
 	},
 	(table) => [
 		index("oauth_refresh_token_client_id_idx").on(table.clientId),
@@ -174,7 +180,7 @@ export const oauthRefreshToken = sqliteTable(
 	],
 );
 
-export const oauthAccessToken = sqliteTable(
+export const oauthAccessToken = pgTable(
 	"oauth_access_token",
 	{
 		id: text("id").primaryKey(),
@@ -188,9 +194,9 @@ export const oauthAccessToken = sqliteTable(
 		refreshId: text("refresh_id").references(() => oauthRefreshToken.id, {
 			onDelete: "cascade",
 		}),
-		expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
-		createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
-		scopes: text("scopes", { mode: "json" }).$type<string[]>().notNull(),
+		expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+		createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+		scopes: jsonb("scopes").$type<string[]>().notNull(),
 	},
 	(table) => [
 		index("oauth_access_token_client_id_idx").on(table.clientId),
@@ -200,7 +206,7 @@ export const oauthAccessToken = sqliteTable(
 	],
 );
 
-export const oauthConsent = sqliteTable(
+export const oauthConsent = pgTable(
 	"oauth_consent",
 	{
 		id: text("id").primaryKey(),
@@ -209,9 +215,9 @@ export const oauthConsent = sqliteTable(
 			.references(() => oauthClient.clientId, { onDelete: "cascade" }),
 		userId: text("user_id").references(() => user.id, { onDelete: "cascade" }),
 		referenceId: text("reference_id"),
-		scopes: text("scopes", { mode: "json" }).$type<string[]>().notNull(),
-		createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
-		updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+		scopes: jsonb("scopes").$type<string[]>().notNull(),
+		createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+		updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
 	},
 	(table) => [
 		index("oauth_consent_client_id_idx").on(table.clientId),
@@ -219,7 +225,7 @@ export const oauthConsent = sqliteTable(
 	],
 );
 
-export const workspaces = sqliteTable(
+export const workspaces = pgTable(
 	"workspaces",
 	{
 		id: text("id").primaryKey(),
@@ -228,17 +234,16 @@ export const workspaces = sqliteTable(
 		color: text("color"),
 		theme: text("theme"),
 		description: text("description"),
+		revision: integer("revision").default(0).notNull(),
 		ownerId: text("owner_id")
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
-		createdAt: integer("created_at", { mode: "timestamp" })
-			.$defaultFn(() => /* @__PURE__ */ new Date())
-			.notNull(),
-		updatedAt: integer("updated_at", { mode: "timestamp" })
-			.$defaultFn(() => /* @__PURE__ */ new Date())
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+		updatedAt: timestamp("updated_at", { withTimezone: true })
+			.defaultNow()
 			.$onUpdate(() => /* @__PURE__ */ new Date())
 			.notNull(),
-		archivedAt: integer("archived_at", { mode: "timestamp" }),
+		archivedAt: timestamp("archived_at", { withTimezone: true }),
 	},
 	(table) => [
 		index("workspaces_owner_id_idx").on(table.ownerId),
@@ -246,7 +251,163 @@ export const workspaces = sqliteTable(
 	],
 );
 
-export const workspaceMembers = sqliteTable(
+export const workspaceItems = pgTable(
+	"workspace_items",
+	{
+		id: text("id").primaryKey(),
+		workspaceId: text("workspace_id")
+			.notNull()
+			.references(() => workspaces.id, { onDelete: "cascade" }),
+		parentId: text("parent_id"),
+		type: text("type", { enum: WORKSPACE_ITEM_TYPES }).notNull(),
+		name: text("name").notNull(),
+		nameKey: text("name_key").notNull(),
+		color: text("color"),
+		metadata: jsonb("metadata").$type<Record<string, unknown>>().default({}).notNull(),
+		sortOrder: integer("sort_order").notNull(),
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+		updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [
+		foreignKey({
+			columns: [table.workspaceId, table.parentId],
+			foreignColumns: [table.workspaceId, table.id],
+			name: "workspace_items_parent_fk",
+		}).onDelete("cascade"),
+		check(
+			"workspace_items_type_check",
+			sql`${table.type} in (${sqlEnumValues(WORKSPACE_ITEM_TYPES)})`,
+		),
+		unique("workspace_items_workspace_id_id_unique").on(table.workspaceId, table.id),
+		index("workspace_items_tree_idx").on(table.workspaceId, table.parentId, table.sortOrder),
+		index("workspace_items_type_idx").on(table.workspaceId, table.type),
+		uniqueIndex("workspace_items_root_name_unique")
+			.on(table.workspaceId, table.nameKey)
+			.where(sql`${table.parentId} is null`),
+		uniqueIndex("workspace_items_parent_name_unique")
+			.on(table.workspaceId, table.parentId, table.nameKey)
+			.where(sql`${table.parentId} is not null`),
+	],
+);
+
+export const workspaceDocumentCheckpoints = pgTable("workspace_document_checkpoints", {
+	itemId: text("item_id")
+		.primaryKey()
+		.references(() => workspaceItems.id, { onDelete: "cascade" }),
+	content: text("content").notNull(),
+	contentHash: text("content_hash").notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const workspaceFileAssets = pgTable("workspace_file_assets", {
+	itemId: text("item_id")
+		.primaryKey()
+		.references(() => workspaceItems.id, { onDelete: "cascade" }),
+	sourceObjectKey: text("source_object_key").notNull().unique(),
+	sourceHash: text("source_hash").notNull(),
+	originalName: text("original_name").notNull(),
+	mimeType: text("mime_type").notNull(),
+	assetKind: text("asset_kind").notNull(),
+	sizeBytes: bigint("size_bytes", { mode: "number" }).notNull(),
+	previewObjectKey: text("preview_object_key").notNull().unique(),
+	previewSizeBytes: bigint("preview_size_bytes", { mode: "number" }).notNull(),
+	conversion: text("conversion"),
+	convertedSourceName: text("converted_source_name"),
+	convertedSourceMimeType: text("converted_source_mime_type"),
+	convertedSourceSizeBytes: bigint("converted_source_size_bytes", { mode: "number" }),
+});
+
+export const workspaceItemRelations = pgTable(
+	"workspace_item_relations",
+	{
+		id: text("id").primaryKey(),
+		workspaceId: text("workspace_id").notNull(),
+		fromItemId: text("from_item_id").notNull(),
+		toItemId: text("to_item_id").notNull(),
+		kind: text("kind", { enum: WORKSPACE_RELATION_KINDS }).notNull(),
+		note: text("note").default("").notNull(),
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [
+		foreignKey({
+			columns: [table.workspaceId, table.fromItemId],
+			foreignColumns: [workspaceItems.workspaceId, workspaceItems.id],
+			name: "workspace_item_relations_from_fk",
+		}).onDelete("cascade"),
+		foreignKey({
+			columns: [table.workspaceId, table.toItemId],
+			foreignColumns: [workspaceItems.workspaceId, workspaceItems.id],
+			name: "workspace_item_relations_to_fk",
+		}).onDelete("cascade"),
+		check(
+			"workspace_item_relations_kind_check",
+			sql`${table.kind} in (${sqlEnumValues(WORKSPACE_RELATION_KINDS)})`,
+		),
+		uniqueIndex("workspace_item_relations_unique").on(
+			table.fromItemId,
+			table.toItemId,
+			table.kind,
+			table.note,
+		),
+		index("workspace_item_relations_from_idx").on(table.fromItemId, table.createdAt),
+		index("workspace_item_relations_to_idx").on(table.toItemId, table.createdAt),
+	],
+);
+
+export const workspaceItemExtractions = pgTable(
+	"workspace_item_extractions",
+	{
+		workspaceId: text("workspace_id").notNull(),
+		itemId: text("item_id").primaryKey(),
+		status: text("status", { enum: WORKSPACE_EXTRACTION_STATUSES }).notNull(),
+		provider: text("provider"),
+		providerMode: text("provider_mode"),
+		tier: text("tier", { enum: WORKSPACE_EXTRACTION_TIERS }),
+		errorMessage: text("error_message"),
+		sourceHash: text("source_hash"),
+		metadata: jsonb("metadata").$type<Record<string, unknown>>().default({}).notNull(),
+		updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [
+		foreignKey({
+			columns: [table.workspaceId, table.itemId],
+			foreignColumns: [workspaceItems.workspaceId, workspaceItems.id],
+			name: "workspace_item_extractions_item_fk",
+		}).onDelete("cascade"),
+		check(
+			"workspace_item_extractions_status_check",
+			sql`${table.status} in (${sqlEnumValues(WORKSPACE_EXTRACTION_STATUSES)})`,
+		),
+		check(
+			"workspace_item_extractions_tier_check",
+			sql`${table.tier} is null or ${table.tier} in (${sqlEnumValues(WORKSPACE_EXTRACTION_TIERS)})`,
+		),
+		index("workspace_item_extractions_status_idx").on(
+			table.workspaceId,
+			table.status,
+			table.updatedAt,
+		),
+	],
+);
+
+export const workspaceItemPages = pgTable(
+	"workspace_item_pages",
+	{
+		itemId: text("item_id")
+			.notNull()
+			.references(() => workspaceItems.id, { onDelete: "cascade" }),
+		pageNumber: integer("page_number").notNull(),
+		markdown: text("markdown").notNull(),
+		markdownBytes: integer("markdown_bytes").notNull(),
+	},
+	(table) => [
+		primaryKey({ columns: [table.itemId, table.pageNumber] }),
+		check("workspace_item_pages_number_check", sql`${table.pageNumber} > 0`),
+		check("workspace_item_pages_bytes_check", sql`${table.markdownBytes} >= 0`),
+	],
+);
+
+export const workspaceMembers = pgTable(
 	"workspace_members",
 	{
 		id: text("id").primaryKey(),
@@ -257,12 +418,10 @@ export const workspaceMembers = sqliteTable(
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
 		role: text("role", { enum: WORKSPACE_ROLES }).default("viewer").notNull(),
-		lastOpenedAt: integer("last_opened_at", { mode: "timestamp" }),
-		createdAt: integer("created_at", { mode: "timestamp" })
-			.$defaultFn(() => /* @__PURE__ */ new Date())
-			.notNull(),
-		updatedAt: integer("updated_at", { mode: "timestamp" })
-			.$defaultFn(() => /* @__PURE__ */ new Date())
+		lastOpenedAt: timestamp("last_opened_at", { withTimezone: true }),
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+		updatedAt: timestamp("updated_at", { withTimezone: true })
+			.defaultNow()
 			.$onUpdate(() => /* @__PURE__ */ new Date())
 			.notNull(),
 	},
@@ -277,7 +436,7 @@ export const workspaceMembers = sqliteTable(
 	],
 );
 
-export const workspaceInvites = sqliteTable(
+export const workspaceInvites = pgTable(
 	"workspace_invites",
 	{
 		id: text("id").primaryKey(),
@@ -292,12 +451,10 @@ export const workspaceInvites = sqliteTable(
 		createdByUserId: text("created_by_user_id")
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
-		expiresAt: integer("expires_at", { mode: "timestamp" }),
-		createdAt: integer("created_at", { mode: "timestamp" })
-			.$defaultFn(() => /* @__PURE__ */ new Date())
-			.notNull(),
-		updatedAt: integer("updated_at", { mode: "timestamp" })
-			.$defaultFn(() => /* @__PURE__ */ new Date())
+		expiresAt: timestamp("expires_at", { withTimezone: true }),
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+		updatedAt: timestamp("updated_at", { withTimezone: true })
+			.defaultNow()
 			.$onUpdate(() => /* @__PURE__ */ new Date())
 			.notNull(),
 	},

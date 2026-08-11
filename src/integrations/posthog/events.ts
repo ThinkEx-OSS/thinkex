@@ -57,16 +57,6 @@ export interface PostHogEventPropertiesByName {
 		returned_page_count?: number;
 		elapsed_seconds?: number;
 	};
-	workspace_file_extraction_healing_enqueued: {
-		workspace_id: string;
-		/** Candidates enqueued this sweep; duplicate workflow ids are skipped downstream. */
-		total: number;
-		missing: number;
-		failed: number;
-		stalled: number;
-		provisional: number;
-		unreadable: number;
-	};
 	ai_turn_started: {
 		thread_id: string;
 		workspace_id: string;

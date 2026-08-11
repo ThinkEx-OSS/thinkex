@@ -34,8 +34,7 @@ describe("LiteParse response parsing", () => {
 	});
 
 	// The workflow reads this error's name to decide whether to skip the paid tier, so
-	// mislabelling a refusal here means paying a provider to reach the same verdict on
-	// every reconciler sweep, forever.
+	// mislabelling a refusal here means paying a provider to reach the same verdict.
 	it("reports a rejected document as unsupported rather than a retryable failure", async () => {
 		vi.mocked(requestWorkspaceFileProcessor).mockResolvedValue(
 			Response.json(

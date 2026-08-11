@@ -20,13 +20,6 @@ vi.mock("#/features/workspaces/upload/workspace-file-direct-upload-client", () =
 	uploadFileDirectlyToR2,
 }));
 
-vi.mock("#/features/workspaces/use-workspace-client-mutation-echo", () => ({
-	prepareWorkspaceClientMutationInput: <T>(input: T) => ({
-		...input,
-		clientMutationId: "test-mutation",
-	}),
-}));
-
 vi.mock("#/integrations/posthog/provider", () => ({
 	capturePostHogClientException: captureException,
 }));

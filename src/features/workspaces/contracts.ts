@@ -379,7 +379,6 @@ export const createWorkspaceItemInputSchema = z
 		name: z.string().trim().min(1).max(WORKSPACE_ITEM_NAME_MAX_LENGTH).optional(),
 		color: workspaceColorSchema.optional(),
 		initialContent: z.string().optional(),
-		clientMutationId: z.uuid().optional(),
 	})
 	.superRefine((input, context) => {
 		if (input.initialContent !== undefined && input.type !== "document") {
@@ -395,7 +394,6 @@ export const renameWorkspaceItemInputSchema = z.object({
 	workspaceId: z.string().min(1),
 	itemId: z.string().min(1),
 	name: z.string().trim().min(1).max(WORKSPACE_ITEM_NAME_MAX_LENGTH),
-	clientMutationId: z.uuid().optional(),
 });
 
 const moveWorkspaceItemOperationSchema = z.object({
@@ -407,20 +405,17 @@ export const moveWorkspaceItemsInputSchema = z.object({
 	workspaceId: z.string().min(1),
 	items: z.array(moveWorkspaceItemOperationSchema).min(1),
 	parentId: z.string().min(1).nullable().optional(),
-	clientMutationId: z.uuid().optional(),
 });
 
 export const deleteWorkspaceItemsInputSchema = z.object({
 	workspaceId: z.string().min(1),
 	itemIds: z.array(z.string().min(1)).min(1),
-	clientMutationId: z.uuid().optional(),
 });
 
 export const updateWorkspaceItemColorInputSchema = z.object({
 	workspaceId: z.string().min(1),
 	itemId: z.string().min(1),
 	color: workspaceColorSchema,
-	clientMutationId: z.uuid().optional(),
 });
 
 export const createWorkspaceInputSchema = z.object({

@@ -62,13 +62,11 @@ export async function requestWorkspaceFileExtraction(input: {
 		try {
 			const kernel = await getWorkspaceKernel(input.workspaceId);
 			const errorMessage = error instanceof Error ? error.message : "Failed to queue extraction.";
-			await kernel.upsertFileProjection({
+			await kernel.updateFileExtraction({
 				itemId: input.itemId,
-				format: "pages",
 				status: "failed",
 				errorMessage,
 				actorUserId: input.actorUserId,
-				clientMutationId: `${input.requestId}:projection:queue-failed`,
 			});
 		} catch (statusError) {
 			recordOperationalFailure({

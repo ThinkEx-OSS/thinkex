@@ -1,15 +1,13 @@
-import { createDbContext } from "#/db/server";
-import { workspaceKernelAgentName } from "#/features/workspaces/agent-routes";
 import type { ResourcePurgeResult } from "#/features/workspaces/resource-purge-result";
 import type {
 	CreateWorkspaceItemInput,
 	DeleteWorkspaceItemsInput,
+	JsonValue,
 	MoveWorkspaceItemsInput,
 	RenameWorkspaceItemInput,
 	UpdateWorkspaceItemColorInput,
 	WorkspaceItemFacts,
 	WorkspaceItemSummary,
-	WorkspacePage,
 } from "#/features/workspaces/contracts";
 import {
 	requireAppliedWorkspaceKernelMutation,
@@ -22,9 +20,9 @@ import {
 	type LinkWorkspaceKernelItemsArgs,
 	type MoveWorkspaceKernelItemsResult,
 	type ReadWorkspaceKernelFilePreviewResult,
-	type ReadWorkspaceKernelFileProjectionArgs,
-	type ReadWorkspaceKernelFileProjectionResult,
-	type UpsertWorkspaceKernelFileProjectionArgs,
+	type ReadWorkspaceFileExtractionArgs,
+	type ReadWorkspaceFileExtractionResult,
+	type UpdateWorkspaceFileExtractionArgs,
 	type ResolveWorkspaceKernelPathsArgs,
 	type WorkspaceKernelFileSource,
 	type WorkspaceKernelItemRelation,
@@ -37,10 +35,11 @@ import {
 import type { ListWorkspaceKernelItemsResult } from "#/features/workspaces/kernel/workspace-kernel-list";
 import type { WorkspaceFileAssetKind } from "#/features/workspaces/model/workspace-file";
 import type { WorkspaceCommandResult } from "#/features/workspaces/realtime/messages";
+import { createPostgresWorkspacePersistence } from "#/features/workspaces/persistence";
 import {
-	assertCanMutateWorkspace,
-	assertCanReadWorkspace,
-} from "#/features/workspaces/server/permissions";
+	notifyWorkspaceRoom,
+	requestWorkspaceItemCleanup,
+} from "#/features/workspaces/realtime/workspace-room-notifier";
 
 interface DeleteWorkspaceItemsResult {
 	itemIds: string[];
@@ -49,7 +48,7 @@ interface DeleteWorkspaceItemsResult {
 }
 
 export interface WorkspaceKernelClient {
-	getPage(): Promise<{
+	getPage(input?: { userId?: string }): Promise<{
 		workspaceId: string;
 		items: WorkspaceItemSummary[];
 		itemFacts: WorkspaceItemFacts[];
@@ -75,7 +74,6 @@ export interface WorkspaceKernelClient {
 		name: string;
 		onNameConflict?: WorkspaceKernelNameConflictPolicy;
 		actorUserId?: string | null;
-		clientMutationId?: string | null;
 	}): Promise<WorkspaceKernelMutationOutcome<WorkspaceItemSummary>>;
 	moveItems(input: {
 		items: Array<{
@@ -85,36 +83,49 @@ export interface WorkspaceKernelClient {
 		parentId?: string | null;
 		onNameConflict?: WorkspaceKernelNameConflictPolicy;
 		actorUserId?: string | null;
-		clientMutationId?: string | null;
 	}): Promise<WorkspaceKernelMutationOutcome<MoveWorkspaceKernelItemsResult>>;
 	updateItemColor(input: {
 		itemId: string;
 		color: UpdateWorkspaceItemColorInput["color"];
 		actorUserId?: string | null;
-		clientMutationId?: string | null;
 	}): Promise<WorkspaceCommandResult<WorkspaceItemSummary>>;
 	deleteItems(input: {
 		itemIds: string[];
 		actorUserId?: string | null;
-		clientMutationId?: string | null;
 	}): Promise<WorkspaceCommandResult<DeleteWorkspaceKernelItemsResult>>;
 	readDocumentCheckpoint(input: {
 		itemId: string;
 	}): Promise<{ item: WorkspaceItemSummary; content: string }>;
-	getFileSource(input: { itemId: string }): Promise<WorkspaceKernelFileSource>;
-	readFilePreview(input: { itemId: string }): Promise<ReadWorkspaceKernelFilePreviewResult | null>;
-	upsertFileProjection(
-		input: UpsertWorkspaceKernelFileProjectionArgs,
+	getFileSource(input: { itemId: string; userId?: string }): Promise<WorkspaceKernelFileSource>;
+	readFilePreview(input: {
+		itemId: string;
+		userId?: string;
+	}): Promise<ReadWorkspaceKernelFilePreviewResult | null>;
+	updateFileExtraction(
+		input: UpdateWorkspaceFileExtractionArgs,
 	): Promise<WorkspaceKernelPublishOutcome>;
-	readFileProjection(
-		input: ReadWorkspaceKernelFileProjectionArgs,
-	): Promise<ReadWorkspaceKernelFileProjectionResult | null>;
+	readFileExtraction(
+		input: ReadWorkspaceFileExtractionArgs,
+	): Promise<ReadWorkspaceFileExtractionResult | null>;
 	commitDocumentCheckpoint(input: {
 		itemId: string;
 		content: string;
 		actorUserId?: string | null;
-		clientMutationId?: string | null;
 	}): Promise<WorkspaceKernelPublishOutcome>;
+	publishPages(input: {
+		itemId: string;
+		pages: Iterable<{ markdown: string; markdownBytes: number; pageNumber: number }>;
+		provider: string;
+		providerMode: string;
+		sourceHash: string;
+		tier: "fast" | "enhanced";
+		metadataJson?: Record<string, JsonValue>;
+		actorUserId?: string | null;
+	}): Promise<WorkspaceKernelPublishOutcome>;
+	readPages(input: {
+		itemId: string;
+		pageNumbers: number[];
+	}): Promise<Array<{ markdown: string; markdownBytes: number; pageNumber: number }>>;
 	purgeForDeletion(): Promise<ResourcePurgeResult>;
 }
 
@@ -123,16 +134,9 @@ export async function readWorkspaceKernelFileSource(input: {
 	userId: string;
 	itemId: string;
 }) {
-	const dbContext = await createDbContext();
+	const kernel = await getWorkspaceKernel(input.workspaceId);
 
-	try {
-		await assertCanReadWorkspace(dbContext.db, input);
-		const kernel = await getWorkspaceKernel(input.workspaceId);
-
-		return await kernel.getFileSource({ itemId: input.itemId });
-	} finally {
-		await dbContext.dispose();
-	}
+	return await kernel.getFileSource({ itemId: input.itemId, userId: input.userId });
 }
 
 export async function readWorkspaceKernelFilePreview(input: {
@@ -140,65 +144,27 @@ export async function readWorkspaceKernelFilePreview(input: {
 	userId: string;
 	itemId: string;
 }) {
-	const dbContext = await createDbContext();
+	const kernel = await getWorkspaceKernel(input.workspaceId);
 
-	try {
-		await assertCanReadWorkspace(dbContext.db, input);
-		const kernel = await getWorkspaceKernel(input.workspaceId);
-
-		return await kernel.readFilePreview({ itemId: input.itemId });
-	} finally {
-		await dbContext.dispose();
-	}
-}
-
-export async function getWorkspaceKernelPage(input: {
-	workspaceId: string;
-	userId: string;
-	workspace: WorkspacePage["workspace"];
-}): Promise<WorkspacePage> {
-	const dbContext = await createDbContext();
-
-	try {
-		await assertCanReadWorkspace(dbContext.db, input);
-		const kernel = await getWorkspaceKernel(input.workspaceId);
-		const page = await kernel.getPage();
-
-		return {
-			workspace: input.workspace,
-			items: page.items,
-			itemFacts: page.itemFacts,
-			revision: page.revision,
-		};
-	} finally {
-		await dbContext.dispose();
-	}
+	return await kernel.readFilePreview({ itemId: input.itemId, userId: input.userId });
 }
 
 export async function createWorkspaceKernelItem(
 	input: CreateWorkspaceItemInput & { userId: string },
 ): Promise<WorkspaceCommandResult<WorkspaceItemSummary>> {
-	const dbContext = await createDbContext();
+	const kernel = await getWorkspaceKernel(input.workspaceId);
 
-	try {
-		await assertCanMutateWorkspace(dbContext.db, input);
-		const kernel = await getWorkspaceKernel(input.workspaceId);
-
-		return requireAppliedWorkspaceKernelMutation(
-			await kernel.createItem({
-				id: input.id,
-				parentId: input.parentId ?? null,
-				type: input.type,
-				name: input.name,
-				color: input.color,
-				initialContent: input.initialContent,
-				actorUserId: input.userId,
-				clientMutationId: input.clientMutationId ?? null,
-			}),
-		);
-	} finally {
-		await dbContext.dispose();
-	}
+	return requireAppliedWorkspaceKernelMutation(
+		await kernel.createItem({
+			id: input.id,
+			parentId: input.parentId ?? null,
+			type: input.type,
+			name: input.name,
+			color: input.color,
+			initialContent: input.initialContent,
+			actorUserId: input.userId,
+		}),
+	);
 }
 
 export async function createWorkspaceFileFromUpload(input: {
@@ -213,120 +179,79 @@ export async function createWorkspaceFileFromUpload(input: {
 	contentType?: string | null;
 	assetKind: WorkspaceFileAssetKind;
 	source?: CreateWorkspaceKernelFileFromUploadArgs["source"];
-	clientMutationId?: string | null;
 }): Promise<WorkspaceCommandResult<WorkspaceItemSummary>> {
-	const dbContext = await createDbContext();
+	const kernel = await getWorkspaceKernel(input.workspaceId);
 
-	try {
-		await assertCanMutateWorkspace(dbContext.db, input);
-		const kernel = await getWorkspaceKernel(input.workspaceId);
-
-		return await kernel.createFileFromUpload({
-			id: input.id,
-			parentId: input.parentId ?? null,
-			fileName: input.fileName,
-			fileSize: input.fileSize,
-			objectKey: input.objectKey,
-			preview: input.preview,
-			contentType: input.contentType ?? null,
-			assetKind: input.assetKind,
-			source: input.source,
-			actorUserId: input.userId,
-			clientMutationId: input.clientMutationId ?? null,
-		});
-	} finally {
-		await dbContext.dispose();
-	}
+	return await kernel.createFileFromUpload({
+		id: input.id,
+		parentId: input.parentId ?? null,
+		fileName: input.fileName,
+		fileSize: input.fileSize,
+		objectKey: input.objectKey,
+		preview: input.preview,
+		contentType: input.contentType ?? null,
+		assetKind: input.assetKind,
+		source: input.source,
+		actorUserId: input.userId,
+	});
 }
 
 export async function renameWorkspaceKernelItem(
 	input: RenameWorkspaceItemInput & { userId: string },
 ): Promise<WorkspaceCommandResult<WorkspaceItemSummary>> {
-	const dbContext = await createDbContext();
+	const kernel = await getWorkspaceKernel(input.workspaceId);
 
-	try {
-		await assertCanMutateWorkspace(dbContext.db, input);
-		const kernel = await getWorkspaceKernel(input.workspaceId);
-
-		return requireAppliedWorkspaceKernelMutation(
-			await kernel.renameItem({
-				itemId: input.itemId,
-				name: input.name,
-				actorUserId: input.userId,
-				clientMutationId: input.clientMutationId ?? null,
-			}),
-		);
-	} finally {
-		await dbContext.dispose();
-	}
+	return requireAppliedWorkspaceKernelMutation(
+		await kernel.renameItem({
+			itemId: input.itemId,
+			name: input.name,
+			actorUserId: input.userId,
+		}),
+	);
 }
 
 export async function moveWorkspaceKernelItems(
 	input: MoveWorkspaceItemsInput & { userId: string },
 ): Promise<WorkspaceCommandResult<MoveWorkspaceKernelItemsResult>> {
-	const dbContext = await createDbContext();
+	const kernel = await getWorkspaceKernel(input.workspaceId);
 
-	try {
-		await assertCanMutateWorkspace(dbContext.db, input);
-		const kernel = await getWorkspaceKernel(input.workspaceId);
-
-		return requireAppliedWorkspaceKernelMutation(
-			await kernel.moveItems({
-				items: input.items,
-				parentId: input.parentId ?? null,
-				actorUserId: input.userId,
-				clientMutationId: input.clientMutationId ?? null,
-			}),
-		);
-	} finally {
-		await dbContext.dispose();
-	}
+	return requireAppliedWorkspaceKernelMutation(
+		await kernel.moveItems({
+			items: input.items,
+			parentId: input.parentId ?? null,
+			actorUserId: input.userId,
+		}),
+	);
 }
 
 export async function updateWorkspaceKernelItemColor(
 	input: UpdateWorkspaceItemColorInput & { userId: string },
 ): Promise<WorkspaceCommandResult<WorkspaceItemSummary>> {
-	const dbContext = await createDbContext();
+	const kernel = await getWorkspaceKernel(input.workspaceId);
 
-	try {
-		await assertCanMutateWorkspace(dbContext.db, input);
-		const kernel = await getWorkspaceKernel(input.workspaceId);
-
-		return await kernel.updateItemColor({
-			itemId: input.itemId,
-			color: input.color,
-			actorUserId: input.userId,
-			clientMutationId: input.clientMutationId ?? null,
-		});
-	} finally {
-		await dbContext.dispose();
-	}
+	return await kernel.updateItemColor({
+		itemId: input.itemId,
+		color: input.color,
+		actorUserId: input.userId,
+	});
 }
 
 export async function deleteWorkspaceKernelItems(
 	input: DeleteWorkspaceItemsInput & { userId: string },
 ): Promise<WorkspaceCommandResult<DeleteWorkspaceItemsResult>> {
-	const dbContext = await createDbContext();
+	const kernel = await getWorkspaceKernel(input.workspaceId);
+	const command = await kernel.deleteItems({
+		itemIds: input.itemIds,
+		actorUserId: input.userId,
+	});
 
-	try {
-		await assertCanMutateWorkspace(dbContext.db, input);
-		const kernel = await getWorkspaceKernel(input.workspaceId);
-		const command = await kernel.deleteItems({
-			itemIds: input.itemIds,
-			actorUserId: input.userId,
-			clientMutationId: input.clientMutationId ?? null,
-		});
-
-		return {
-			...command,
-			result: {
-				...command.result,
-				workspaceId: input.workspaceId,
-			},
-		};
-	} finally {
-		await dbContext.dispose();
-	}
+	return {
+		...command,
+		result: {
+			...command.result,
+			workspaceId: input.workspaceId,
+		},
+	};
 }
 
 export async function getWorkspaceKernel(workspaceId: string) {
@@ -339,23 +264,10 @@ export async function getWorkspaceKernelFromEnv(
 	env: Cloudflare.Env,
 	workspaceId: string,
 ): Promise<WorkspaceKernelClient> {
-	// The generated recursive Agent stub exceeds TypeScript's instantiation depth.
-	// Keep that SDK limitation at this binding boundary instead of leaking casts to callers.
-	const namespace: unknown = Reflect.get(env as object, workspaceKernelAgentName);
-	if (!isWorkspaceKernelNamespace(namespace)) {
-		throw new Error("Workspace kernel binding is unavailable.");
-	}
-
-	return namespace.getByName(workspaceId);
-}
-
-function isWorkspaceKernelNamespace(value: unknown): value is {
-	getByName(name: string): WorkspaceKernelClient;
-} {
-	return (
-		typeof value === "object" &&
-		value !== null &&
-		"getByName" in value &&
-		typeof value.getByName === "function"
-	);
+	return createPostgresWorkspacePersistence({
+		workspaceId,
+		bucket: env.WORKSPACE_KERNEL_FILES,
+		onChange: (change) => notifyWorkspaceRoom(env, change),
+		onItemsDeleted: (input) => requestWorkspaceItemCleanup(env, input),
+	});
 }

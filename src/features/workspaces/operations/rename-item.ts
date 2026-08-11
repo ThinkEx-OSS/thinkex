@@ -65,7 +65,6 @@ export async function renameWorkspaceItemOperation(
 		name: input.name,
 		onNameConflict: "error",
 		actorUserId: accessContext.actor.userId,
-		clientMutationId: accessContext.operationId,
 	});
 
 	if (outcome.status === "conflict") {
