@@ -17,7 +17,6 @@ import type { JsonValue } from "#/features/workspaces/contracts";
 import { workspaceItemTypeSchema } from "#/features/workspaces/contracts";
 import { getWorkspaceItemNameKey } from "#/features/workspaces/defaults";
 import { workspaceFileAssetKindSchema } from "#/features/workspaces/model/workspace-file";
-import { sha256Base64UrlText } from "#/lib/binary";
 
 const migrationScopePrefix = "workspace:";
 const legacyShellInlineThresholdBytes = 1_500_000;
@@ -169,8 +168,6 @@ export async function migrateLegacyWorkspaceData(input: {
 					await transaction.insert(workspaceDocumentCheckpoints).values({
 						itemId: item.id,
 						content,
-						contentHash: await sha256Base64UrlText(content),
-						updatedAt: new Date(item.updated_at),
 					});
 					report.documents += 1;
 				}
@@ -282,7 +279,7 @@ async function importFileAsset(input: {
 	if (preview.source_hash && preview.source_hash !== sourceObject.etag) {
 		throw new Error(`Legacy file ${input.item.id} preview does not match its source.`);
 	}
-	const sourceMetadata = getJsonRecord(metadata.source);
+	workspaceFileAssetKindSchema.parse(metadata.assetKind);
 
 	await input.transaction.insert(workspaceFileAssets).values({
 		itemId: input.item.id,
@@ -290,14 +287,9 @@ async function importFileAsset(input: {
 		sourceHash: sourceObject.etag,
 		originalName: getString(metadata.originalName) ?? input.item.name,
 		mimeType: getString(metadata.mimeType) ?? "application/octet-stream",
-		assetKind: workspaceFileAssetKindSchema.parse(metadata.assetKind),
 		sizeBytes: sourceObject.size,
 		previewObjectKey: preview.object_key,
 		previewSizeBytes: previewObject.size,
-		conversion: getString(sourceMetadata?.conversion),
-		convertedSourceName: getString(sourceMetadata?.name),
-		convertedSourceMimeType: getString(sourceMetadata?.mimeType),
-		convertedSourceSizeBytes: getNumber(sourceMetadata?.sizeBytes),
 	});
 }
 
@@ -465,10 +457,6 @@ function getJsonRecord(value: unknown): Record<string, JsonValue> | null {
 
 function getString(value: JsonValue | undefined) {
 	return typeof value === "string" ? value : null;
-}
-
-function getNumber(value: JsonValue | undefined) {
-	return typeof value === "number" ? value : null;
 }
 
 function parseRelationKind(value: string) {

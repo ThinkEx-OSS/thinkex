@@ -186,12 +186,6 @@ function readSourceRows(sqlite, spec) {
 }
 
 async function importD1Rows(client, source) {
-	await client.query(`
-		CREATE TABLE IF NOT EXISTS legacy_data_migrations (
-			scope text PRIMARY KEY,
-			completed_at timestamptz NOT NULL
-		)
-	`);
 	if ((await client.query("SELECT 1 FROM legacy_data_migrations WHERE scope = 'd1'")).rowCount) {
 		console.log("Legacy D1 rows already imported.");
 		return;

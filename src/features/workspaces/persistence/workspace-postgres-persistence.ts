@@ -50,7 +50,6 @@ import type {
 	WorkspaceRevision,
 } from "#/features/workspaces/realtime/messages";
 import { assertCanReadWorkspace } from "#/features/workspaces/server/permissions";
-import { sha256Base64UrlText } from "#/lib/binary";
 import { PostgresWorkspaceDocuments } from "./workspace-postgres-documents";
 import { PostgresWorkspaceFiles } from "./workspace-postgres-files";
 import {
@@ -243,8 +242,6 @@ export class PostgresWorkspacePersistence implements WorkspaceKernelClient {
 			initialContent: input.initialContent,
 			metadataJson: input.metadataJson,
 		});
-		const contentHash =
-			type === "document" ? await sha256Base64UrlText(bootstrap.initialContent) : null;
 		const color = resolveWorkspaceItemColorForCreate({ type, color: input.color });
 
 		const outcome = await withWorkspaceTransaction(async (transaction) => {
@@ -283,11 +280,10 @@ export class PostgresWorkspacePersistence implements WorkspaceKernelClient {
 				metadata: bootstrap.metadataJson,
 				sortOrder: await getNextWorkspaceSortOrder(transaction, this.workspaceId, parentId),
 			});
-			if (type === "document" && contentHash) {
+			if (type === "document") {
 				await transaction.insert(workspaceDocumentCheckpoints).values({
 					itemId: input.id,
 					content: bootstrap.initialContent,
-					contentHash,
 				});
 			}
 
@@ -553,32 +549,7 @@ export class PostgresWorkspacePersistence implements WorkspaceKernelClient {
 		return await this.files.readPages(input);
 	}
 
-	async purgeForDeletion() {
-		// Workspace metadata is deleted by the workspaces FK cascade. R2 objects
-		// and DocumentSession objects are deliberately purged by the lifecycle
-		// coordinator, which can retry remote cleanup independently.
-		return { attempted: 0, failed: 0 };
-	}
-
 	private async notify(revision: number) {
 		await this.onChange?.({ workspaceId: this.workspaceId, revision });
 	}
-}
-
-export function createPostgresWorkspacePersistence(input: {
-	workspaceId: string;
-	bucket: R2Bucket;
-	onChange?: (change: WorkspaceRevision) => Promise<void>;
-	onItemsDeleted?: (input: {
-		workspaceId: string;
-		documentItemIds: string[];
-		fileItemIds: string[];
-	}) => Promise<void>;
-}): WorkspaceKernelClient & Pick<PostgresWorkspacePersistence, "publishPages" | "readPages"> {
-	return new PostgresWorkspacePersistence(
-		input.workspaceId,
-		input.bucket,
-		input.onChange,
-		input.onItemsDeleted,
-	);
 }

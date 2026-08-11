@@ -300,8 +300,6 @@ export const workspaceDocumentCheckpoints = pgTable("workspace_document_checkpoi
 		.primaryKey()
 		.references(() => workspaceItems.id, { onDelete: "cascade" }),
 	content: text("content").notNull(),
-	contentHash: text("content_hash").notNull(),
-	updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 export const workspaceFileAssets = pgTable("workspace_file_assets", {
@@ -312,14 +310,9 @@ export const workspaceFileAssets = pgTable("workspace_file_assets", {
 	sourceHash: text("source_hash").notNull(),
 	originalName: text("original_name").notNull(),
 	mimeType: text("mime_type").notNull(),
-	assetKind: text("asset_kind").notNull(),
 	sizeBytes: bigint("size_bytes", { mode: "number" }).notNull(),
 	previewObjectKey: text("preview_object_key").notNull().unique(),
 	previewSizeBytes: bigint("preview_size_bytes", { mode: "number" }).notNull(),
-	conversion: text("conversion"),
-	convertedSourceName: text("converted_source_name"),
-	convertedSourceMimeType: text("converted_source_mime_type"),
-	convertedSourceSizeBytes: bigint("converted_source_size_bytes", { mode: "number" }),
 });
 
 export const workspaceItemRelations = pgTable(

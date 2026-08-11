@@ -116,14 +116,9 @@ export class PostgresWorkspaceFiles {
 				sourceHash: source.etag,
 				originalName,
 				mimeType: contentType,
-				assetKind: input.assetKind,
 				sizeBytes: source.size,
 				previewObjectKey: input.preview.objectKey,
 				previewSizeBytes: input.preview.sizeBytes,
-				conversion: input.source?.conversion ?? null,
-				convertedSourceName: input.source?.fileName ?? null,
-				convertedSourceMimeType: input.source?.mimeType ?? null,
-				convertedSourceSizeBytes: input.source?.sizeBytes ?? null,
 			});
 
 			const item = await requireActiveWorkspaceItem(transaction, this.workspaceId, input.id);

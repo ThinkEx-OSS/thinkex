@@ -7,7 +7,6 @@ import type {
 	WorkspaceKernelPublishOutcome,
 } from "#/features/workspaces/kernel/workspace-kernel-types";
 import type { WorkspaceRevision } from "#/features/workspaces/realtime/messages";
-import { sha256Base64UrlText } from "#/lib/binary";
 import {
 	getActiveWorkspaceItemRow,
 	lockWorkspaceForActor,
@@ -47,7 +46,6 @@ export class PostgresWorkspaceDocuments {
 		content: string;
 		actorUserId?: string | null;
 	}): Promise<WorkspaceKernelPublishOutcome> {
-		const contentHash = await sha256Base64UrlText(input.content);
 		const publication = await withWorkspaceTransaction(async (transaction) => {
 			await lockWorkspaceForActor(transaction, this.workspaceId, input.actorUserId);
 			const row = await getActiveWorkspaceItemRow(transaction, this.workspaceId, input.itemId);
@@ -62,10 +60,10 @@ export class PostgresWorkspaceDocuments {
 			const now = new Date();
 			await transaction
 				.insert(workspaceDocumentCheckpoints)
-				.values({ itemId: input.itemId, content: input.content, contentHash, updatedAt: now })
+				.values({ itemId: input.itemId, content: input.content })
 				.onConflictDoUpdate({
 					target: workspaceDocumentCheckpoints.itemId,
-					set: { content: input.content, contentHash, updatedAt: now },
+					set: { content: input.content },
 				});
 			await transaction
 				.update(workspaceItems)

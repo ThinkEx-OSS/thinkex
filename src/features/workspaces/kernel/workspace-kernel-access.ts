@@ -1,4 +1,3 @@
-import type { ResourcePurgeResult } from "#/features/workspaces/resource-purge-result";
 import type {
 	CreateWorkspaceItemInput,
 	DeleteWorkspaceItemsInput,
@@ -35,7 +34,7 @@ import {
 import type { ListWorkspaceKernelItemsResult } from "#/features/workspaces/kernel/workspace-kernel-list";
 import type { WorkspaceFileAssetKind } from "#/features/workspaces/model/workspace-file";
 import type { WorkspaceCommandResult } from "#/features/workspaces/realtime/messages";
-import { createPostgresWorkspacePersistence } from "#/features/workspaces/persistence";
+import { PostgresWorkspacePersistence } from "#/features/workspaces/persistence/workspace-postgres-persistence";
 import {
 	notifyWorkspaceRoom,
 	requestWorkspaceItemCleanup,
@@ -126,7 +125,6 @@ export interface WorkspaceKernelClient {
 		itemId: string;
 		pageNumbers: number[];
 	}): Promise<Array<{ markdown: string; markdownBytes: number; pageNumber: number }>>;
-	purgeForDeletion(): Promise<ResourcePurgeResult>;
 }
 
 export async function readWorkspaceKernelFileSource(input: {
@@ -264,10 +262,10 @@ export async function getWorkspaceKernelFromEnv(
 	env: Cloudflare.Env,
 	workspaceId: string,
 ): Promise<WorkspaceKernelClient> {
-	return createPostgresWorkspacePersistence({
+	return new PostgresWorkspacePersistence(
 		workspaceId,
-		bucket: env.WORKSPACE_KERNEL_FILES,
-		onChange: (change) => notifyWorkspaceRoom(env, change),
-		onItemsDeleted: (input) => requestWorkspaceItemCleanup(env, input),
-	});
+		env.WORKSPACE_KERNEL_FILES,
+		(change) => notifyWorkspaceRoom(env, change),
+		(input) => requestWorkspaceItemCleanup(env, input),
+	);
 }

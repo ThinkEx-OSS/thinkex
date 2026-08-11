@@ -143,9 +143,7 @@ CREATE TABLE "verification" (
 --> statement-breakpoint
 CREATE TABLE "workspace_document_checkpoints" (
 	"item_id" text PRIMARY KEY NOT NULL,
-	"content" text NOT NULL,
-	"content_hash" text NOT NULL,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+	"content" text NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "workspace_file_assets" (
@@ -154,14 +152,9 @@ CREATE TABLE "workspace_file_assets" (
 	"source_hash" text NOT NULL,
 	"original_name" text NOT NULL,
 	"mime_type" text NOT NULL,
-	"asset_kind" text NOT NULL,
 	"size_bytes" bigint NOT NULL,
 	"preview_object_key" text NOT NULL,
 	"preview_size_bytes" bigint NOT NULL,
-	"conversion" text,
-	"converted_source_name" text,
-	"converted_source_mime_type" text,
-	"converted_source_size_bytes" bigint,
 	CONSTRAINT "workspace_file_assets_source_object_key_unique" UNIQUE("source_object_key"),
 	CONSTRAINT "workspace_file_assets_preview_object_key_unique" UNIQUE("preview_object_key")
 );
