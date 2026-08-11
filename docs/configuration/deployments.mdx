@@ -26,7 +26,7 @@ The separate `React Doctor` workflow runs on pull requests and pushes to `main`.
 
 ## Deploy
 
-Two Workers Builds configurations watch this repository, one per branch. Each runs a build command, then a deploy command that applies remote D1 migrations before shipping the Worker:
+Two Workers Builds configurations watch this repository, one per branch. Each runs a build command, then a deploy command that applies Postgres migrations before shipping the Worker:
 
 | Branch | Build | Deploy |
 | --- | --- | --- |
@@ -35,7 +35,7 @@ Two Workers Builds configurations watch this repository, one per branch. Each ru
 
 `CLOUDFLARE_ENV` is set per configuration in the Cloudflare dashboard, which is why `deploy:worker` takes no `--env` flag. Running it from a local checkout without that variable targets the `thinkex-dev` Worker, not production.
 
-Build variables and secrets (Cloudflare API token, PostHog production set) live in the Workers Builds settings. The token needs `D1 Edit` in addition to Worker and Container deploy permissions — the token Cloudflare generates automatically does not include D1.
+Build variables and secrets (Cloudflare API token, PostHog production set) live in the Workers Builds settings. Each deployment configuration also needs the environment's direct PlanetScale administrative connection string as the build-time `DATABASE_URL`; it is used only by Drizzle Kit and is not a Worker runtime secret. The Worker itself connects with the environment's cache-disabled `HYPERDRIVE` binding and a restricted runtime database role.
 
 ## Container Images
 

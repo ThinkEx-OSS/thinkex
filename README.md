@@ -43,7 +43,7 @@ Instead of uploading sources into a chat, you keep the actual materials in view:
 
 ## Built On
 
-ThinkEx is a full-stack TypeScript app hosted on Cloudflare. The frontend is React, TanStack Start, Tailwind CSS, Tiptap, EmbedPDF/PDFium, Yjs, and AI SDK. The backend runs on Cloudflare Workers with Durable Objects, D1, R2, Vectorize, Workflows, Containers, Workers AI, Images, Browser Run, and Email.
+ThinkEx is a full-stack TypeScript app hosted on Cloudflare. The frontend is React, TanStack Start, Tailwind CSS, Tiptap, EmbedPDF/PDFium, Yjs, and AI SDK. The backend runs on Cloudflare Workers with Durable Objects, PlanetScale Postgres through Hyperdrive, R2, Workflows, Containers, Workers AI, Images, Browser Run, and Email.
 
 <details>
 <summary>Tech stack</summary>
@@ -51,13 +51,12 @@ ThinkEx is a full-stack TypeScript app hosted on Cloudflare. The frontend is Rea
 ### Cloudflare
 
 - **Workers** for the application server.
-- **Durable Objects** for workspace, document, AI, sandbox, and conversion coordination.
-- **D1** for relational app data with Drizzle migrations.
-- **R2** for workspace file storage, with presigned direct uploads over `aws4fetch`.
-- **Vectorize** for workspace semantic search indexes.
+- **Durable Objects** for realtime workspace, document, AI, sandbox, and conversion coordination.
+- **PlanetScale Postgres** for relational and canonical workspace state, accessed through cache-disabled Hyperdrive and managed with Drizzle migrations.
+- **R2** for binary workspace file storage, with presigned direct uploads over `aws4fetch`.
 - **Workflows** for file extraction.
 - **Containers** for code execution (Sandbox), office conversion (Gotenberg), and file processing (LiteParse).
-- **Workers AI** and **AI Gateway** for model and embedding access.
+- **Workers AI** and **AI Gateway** for model access.
 - **Images** for image transforms and conversion.
 - **Worker Loaders** for dynamic code execution behind Codemode.
 - **Browser Run** for page reads, agent-driven CDP sessions, Live View, and human handoff.
