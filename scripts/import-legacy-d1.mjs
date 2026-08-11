@@ -150,13 +150,34 @@ function parseArguments(arguments_) {
 		values.set(arguments_[index], arguments_[index + 1]);
 	}
 	const d1Export = values.get("--d1-export");
-	const appUrl = values.get("--app-url")?.replace(/\/$/, "");
+	const appUrlValue = values.get("--app-url");
+	const appUrl = appUrlValue ? parseMigrationAppUrl(appUrlValue) : undefined;
 	if (!d1Export || (!d1Only && !appUrl)) {
 		throw new Error(
 			"Usage: node scripts/import-legacy-d1.mjs --d1-export <path> (--app-url <url> | --d1-only)",
 		);
 	}
 	return { appUrl, d1Export, d1Only };
+}
+
+function parseMigrationAppUrl(value) {
+	const url = new URL(value);
+	const isThinkEx =
+		url.protocol === "https:" &&
+		(url.hostname === "thinkex.app" || url.hostname === "staging.thinkex.app");
+	const isLocal =
+		url.protocol === "http:" && ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
+	if (
+		(!isThinkEx && !isLocal) ||
+		url.username ||
+		url.password ||
+		url.pathname !== "/" ||
+		url.search ||
+		url.hash
+	) {
+		throw new Error("--app-url must be the ThinkEx app origin or a local development origin.");
+	}
+	return url.origin;
 }
 
 function readSourceRows(sqlite, spec) {

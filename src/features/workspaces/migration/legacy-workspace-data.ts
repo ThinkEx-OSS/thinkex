@@ -89,7 +89,9 @@ export async function migrateLegacyWorkspaceData(input: {
 	const hasLegacyState = hasLegacyKernelTables(input.sql);
 	const items = hasLegacyState
 		? input.sql<LegacyItemRow>`
-				SELECT * FROM kernel_items WHERE deleted_at IS NULL ORDER BY created_at ASC
+				SELECT * FROM kernel_items
+				WHERE deleted_at IS NULL AND type NOT IN ('flashcard', 'quiz')
+				ORDER BY created_at ASC
 			`
 		: [];
 	const activeItemIds = new Set(items.map((item) => item.id));
@@ -302,6 +304,7 @@ async function importExtraction(input: {
 	const status = parseExtractionStatus(input.projection.status);
 	const metadata = parseJsonRecord(input.projection.metadata_json);
 	let pages = 0;
+	let markdownLength = 0;
 	let tier: "enhanced" | "fast" | null = null;
 
 	if (status === "ready") {
@@ -327,6 +330,7 @@ async function importExtraction(input: {
 				markdownBytes: new TextEncoder().encode(page.markdown).byteLength,
 			});
 			pages += 1;
+			markdownLength += page.markdown.length;
 			if (batch.length === pageBatchSize) {
 				await input.transaction.insert(workspaceItemPages).values(batch);
 				batch = [];
@@ -344,7 +348,7 @@ async function importExtraction(input: {
 		tier,
 		errorMessage: input.projection.error_message,
 		sourceHash: input.projection.source_hash,
-		metadata,
+		metadata: status === "ready" ? { ...metadata, markdownLength, pageCount: pages } : metadata,
 		updatedAt: new Date(input.projection.updated_at),
 	});
 	return pages;
