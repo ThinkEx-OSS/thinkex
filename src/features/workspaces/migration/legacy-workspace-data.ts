@@ -16,7 +16,12 @@ import { createDbContext } from "#/db/server";
 import type { JsonValue } from "#/features/workspaces/contracts";
 import { workspaceItemTypeSchema } from "#/features/workspaces/contracts";
 import { getWorkspaceItemNameKey } from "#/features/workspaces/defaults";
+import {
+	createWorkspaceFilePreview,
+	WORKSPACE_FILE_PREVIEW_CONTENT_TYPE,
+} from "#/features/workspaces/files/workspace-file-preview";
 import { workspaceFileAssetKindSchema } from "#/features/workspaces/model/workspace-file";
+import { putFixedLengthR2Object } from "#/lib/r2";
 
 const migrationScopePrefix = "workspace:";
 const legacyShellInlineThresholdBytes = 1_500_000;
@@ -178,6 +183,7 @@ export async function migrateLegacyWorkspaceData(input: {
 			for (const item of items.filter((candidate) => candidate.type === "file")) {
 				await importFileAsset({
 					bucket: input.env.WORKSPACE_KERNEL_FILES,
+					env: input.env,
 					item,
 					projections,
 					transaction,
@@ -260,11 +266,13 @@ function orderParentsBeforeChildren(items: LegacyItemRow[]) {
 
 async function importFileAsset(input: {
 	bucket: R2Bucket;
+	env: Cloudflare.Env;
 	item: LegacyItemRow;
 	projections: LegacyProjectionRow[];
 	transaction: Transaction;
 }) {
 	const metadata = parseJsonRecord(input.item.metadata_json);
+	const assetKind = workspaceFileAssetKindSchema.parse(metadata.assetKind);
 	const preview = input.projections.find(
 		(projection) => projection.item_id === input.item.id && projection.format === "preview",
 	);
@@ -278,10 +286,29 @@ async function importFileAsset(input: {
 	if (!sourceObject || !previewObject) {
 		throw new Error(`Legacy file ${input.item.id} references missing R2 objects.`);
 	}
+	let previewSizeBytes = previewObject.size;
 	if (preview.source_hash && preview.source_hash !== sourceObject.etag) {
-		throw new Error(`Legacy file ${input.item.id} preview does not match its source.`);
+		const source = await input.bucket.get(input.item.object_key);
+		if (!source) {
+			throw new Error(`Legacy file ${input.item.id} source disappeared during preview repair.`);
+		}
+		const generatedPreview = await createWorkspaceFilePreview(input.env, {
+			assetKind,
+			body: source.body,
+			contentType: getString(metadata.mimeType) ?? "application/octet-stream",
+			sizeBytes: source.size,
+		});
+		const storedPreview = await putFixedLengthR2Object(
+			input.bucket,
+			preview.object_key,
+			generatedPreview,
+			{ httpMetadata: { contentType: WORKSPACE_FILE_PREVIEW_CONTENT_TYPE } },
+		);
+		if (!storedPreview) {
+			throw new Error(`Legacy file ${input.item.id} preview could not be repaired.`);
+		}
+		previewSizeBytes = storedPreview.size;
 	}
-	workspaceFileAssetKindSchema.parse(metadata.assetKind);
 
 	await input.transaction.insert(workspaceFileAssets).values({
 		itemId: input.item.id,
@@ -291,7 +318,7 @@ async function importFileAsset(input: {
 		mimeType: getString(metadata.mimeType) ?? "application/octet-stream",
 		sizeBytes: sourceObject.size,
 		previewObjectKey: preview.object_key,
-		previewSizeBytes: previewObject.size,
+		previewSizeBytes,
 	});
 }
 
