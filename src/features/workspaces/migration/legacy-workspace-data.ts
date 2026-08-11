@@ -100,6 +100,9 @@ export async function migrateLegacyWorkspaceData(input: {
 			`
 		: [];
 	const activeItemIds = new Set(items.map((item) => item.id));
+	const destinationItemIds = new Map(
+		items.map((item) => [item.id, getLegacyDestinationId(input.workspaceId, item.id)]),
+	);
 	const projections = hasLegacyState
 		? input.sql<LegacyProjectionRow>`
 				SELECT * FROM kernel_item_projections ORDER BY created_at ASC
@@ -152,10 +155,13 @@ export async function migrateLegacyWorkspaceData(input: {
 
 			for (const item of orderParentsBeforeChildren(items)) {
 				const type = workspaceItemTypeSchema.parse(item.type);
+				const itemId = getDestinationItemId(destinationItemIds, item.id);
 				await transaction.insert(workspaceItems).values({
-					id: item.id,
+					id: itemId,
 					workspaceId: input.workspaceId,
-					parentId: item.parent_id,
+					parentId: item.parent_id
+						? getDestinationItemId(destinationItemIds, item.parent_id)
+						: null,
 					type,
 					name: item.name,
 					nameKey: getWorkspaceItemNameKey(item.name),
@@ -173,8 +179,8 @@ export async function migrateLegacyWorkspaceData(input: {
 						throw new Error(`Legacy document ${item.id} content was not found.`);
 					}
 					await transaction.insert(workspaceDocumentCheckpoints).values({
-						itemId: item.id,
-						content,
+						itemId,
+						content: remapDocumentItemIds(content, destinationItemIds),
 					});
 					report.documents += 1;
 				}
@@ -183,6 +189,7 @@ export async function migrateLegacyWorkspaceData(input: {
 			for (const item of items.filter((candidate) => candidate.type === "file")) {
 				await importFileAsset({
 					bucket: input.env.WORKSPACE_KERNEL_FILES,
+					destinationItemId: getDestinationItemId(destinationItemIds, item.id),
 					env: input.env,
 					item,
 					projections,
@@ -193,10 +200,10 @@ export async function migrateLegacyWorkspaceData(input: {
 
 			for (const relation of relations) {
 				await transaction.insert(workspaceItemRelations).values({
-					id: relation.id,
+					id: getLegacyDestinationId(input.workspaceId, relation.id),
 					workspaceId: input.workspaceId,
-					fromItemId: relation.from_item_id,
-					toItemId: relation.to_item_id,
+					fromItemId: getDestinationItemId(destinationItemIds, relation.from_item_id),
+					toItemId: getDestinationItemId(destinationItemIds, relation.to_item_id),
 					kind: parseRelationKind(relation.kind),
 					note: relation.note,
 					createdAt: new Date(relation.created_at),
@@ -207,6 +214,7 @@ export async function migrateLegacyWorkspaceData(input: {
 			for (const projection of projections.filter((candidate) => candidate.format === "pages")) {
 				report.pages += await importExtraction({
 					bucket: input.env.WORKSPACE_KERNEL_FILES,
+					destinationItemId: getDestinationItemId(destinationItemIds, projection.item_id),
 					projection,
 					transaction,
 					workspaceId: input.workspaceId,
@@ -266,6 +274,7 @@ function orderParentsBeforeChildren(items: LegacyItemRow[]) {
 
 async function importFileAsset(input: {
 	bucket: R2Bucket;
+	destinationItemId: string;
 	env: Cloudflare.Env;
 	item: LegacyItemRow;
 	projections: LegacyProjectionRow[];
@@ -311,7 +320,7 @@ async function importFileAsset(input: {
 	}
 
 	await input.transaction.insert(workspaceFileAssets).values({
-		itemId: input.item.id,
+		itemId: input.destinationItemId,
 		sourceObjectKey: input.item.object_key,
 		sourceHash: sourceObject.etag,
 		originalName: getString(metadata.originalName) ?? input.item.name,
@@ -324,6 +333,7 @@ async function importFileAsset(input: {
 
 async function importExtraction(input: {
 	bucket: R2Bucket;
+	destinationItemId: string;
 	projection: LegacyProjectionRow;
 	transaction: Transaction;
 	workspaceId: string;
@@ -364,7 +374,7 @@ async function importExtraction(input: {
 			...readyProjection,
 		})) {
 			batch.push({
-				itemId: input.projection.item_id,
+				itemId: input.destinationItemId,
 				pageNumber: page.pageNumber,
 				markdown: page.markdown,
 				markdownBytes: new TextEncoder().encode(page.markdown).byteLength,
@@ -381,7 +391,7 @@ async function importExtraction(input: {
 
 	await input.transaction.insert(workspaceItemExtractions).values({
 		workspaceId: input.workspaceId,
-		itemId: input.projection.item_id,
+		itemId: input.destinationItemId,
 		status,
 		provider: input.projection.provider,
 		providerMode: input.projection.provider_mode,
@@ -501,6 +511,34 @@ function getJsonRecord(value: unknown): Record<string, JsonValue> | null {
 
 function getString(value: JsonValue | undefined) {
 	return typeof value === "string" ? value : null;
+}
+
+function getLegacyDestinationId(workspaceId: string, legacyId: string) {
+	return legacyId.startsWith("sample-") ? `${workspaceId}:${legacyId}` : legacyId;
+}
+
+function getDestinationItemId(itemIds: Map<string, string>, legacyId: string) {
+	const itemId = itemIds.get(legacyId);
+	if (!itemId) throw new Error(`Legacy item ${legacyId} was not available for migration.`);
+	return itemId;
+}
+
+function remapDocumentItemIds(content: string, itemIds: Map<string, string>) {
+	if (!content.includes('"itemId"')) return content;
+	return `${JSON.stringify(remapItemIdFields(JSON.parse(content), itemIds))}\n`;
+}
+
+function remapItemIdFields(value: unknown, itemIds: Map<string, string>): unknown {
+	if (Array.isArray(value)) return value.map((entry) => remapItemIdFields(entry, itemIds));
+	if (value === null || typeof value !== "object") return value;
+	return Object.fromEntries(
+		Object.entries(value).map(([key, entry]) => [
+			key,
+			key === "itemId" && typeof entry === "string"
+				? (itemIds.get(entry) ?? entry)
+				: remapItemIdFields(entry, itemIds),
+		]),
+	);
 }
 
 function parseRelationKind(value: string) {
