@@ -166,7 +166,10 @@ export async function migrateLegacyWorkspaceData(input: {
 					name: item.name,
 					nameKey: getWorkspaceItemNameKey(item.name),
 					color: item.color,
-					metadata: parseJsonRecord(item.metadata_json),
+					metadata: {
+						...parseJsonRecord(item.metadata_json),
+						legacyItemId: item.id,
+					},
 					sortOrder: item.sort_order,
 					createdAt: new Date(item.created_at),
 					updatedAt: new Date(item.updated_at),

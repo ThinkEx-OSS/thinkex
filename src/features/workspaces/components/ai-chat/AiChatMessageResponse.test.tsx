@@ -85,6 +85,32 @@ describe("AI chat message response citations", () => {
 		expect(html).toContain("Research Notes");
 	});
 
+	it("resolves citations written before legacy item IDs were globally scoped", () => {
+		const ref = "wr_CCCCCCCC" as WorkspaceReference;
+		const migratedItem: WorkspaceItem = {
+			...documentItem,
+			id: "workspace-1:document-1",
+			metadataJson: { legacyItemId: "document-1" },
+		};
+		const html = renderToStaticMarkup(
+			<WorkspaceLocationProvider
+				itemsById={new Map([[migratedItem.id, migratedItem]])}
+				navigate={() => "tab-1"}
+			>
+				<AiChatMessageResponse
+					workspaceCitationLocations={
+						new Map([[ref, { itemId: "document-1", kind: "item", version: 1 }]])
+					}
+				>
+					{`Claim <citation ref="${ref}"></citation>`}
+				</AiChatMessageResponse>
+			</WorkspaceLocationProvider>,
+		);
+
+		expect(html).toContain("Research Notes");
+		expect(html).not.toContain("Source unavailable");
+	});
+
 	it("does not expose an incomplete streamed citation tag", () => {
 		const html = renderToStaticMarkup(
 			<WorkspaceLocationProvider itemsById={new Map()} navigate={() => undefined}>

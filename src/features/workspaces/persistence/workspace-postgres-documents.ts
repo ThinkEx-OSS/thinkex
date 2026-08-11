@@ -32,7 +32,7 @@ export class PostgresWorkspaceDocuments {
 			const [checkpoint] = await db
 				.select({ content: workspaceDocumentCheckpoints.content })
 				.from(workspaceDocumentCheckpoints)
-				.where(eq(workspaceDocumentCheckpoints.itemId, input.itemId))
+				.where(eq(workspaceDocumentCheckpoints.itemId, item.id))
 				.limit(1);
 			if (!checkpoint) {
 				throw new Error("Workspace document checkpoint is missing.");
@@ -60,7 +60,7 @@ export class PostgresWorkspaceDocuments {
 			const now = new Date();
 			await transaction
 				.insert(workspaceDocumentCheckpoints)
-				.values({ itemId: input.itemId, content: input.content })
+				.values({ itemId: row.id, content: input.content })
 				.onConflictDoUpdate({
 					target: workspaceDocumentCheckpoints.itemId,
 					set: { content: input.content },
@@ -68,7 +68,7 @@ export class PostgresWorkspaceDocuments {
 			await transaction
 				.update(workspaceItems)
 				.set({ metadata, updatedAt: now })
-				.where(eq(workspaceItems.id, input.itemId));
+				.where(eq(workspaceItems.id, row.id));
 			const revision = await nextWorkspaceRevision(transaction, this.workspaceId);
 			return { outcome: "applied" as const, revision };
 		});

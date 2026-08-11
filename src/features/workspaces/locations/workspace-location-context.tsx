@@ -1,5 +1,5 @@
 import { FileQuestion, type LucideIcon } from "lucide-react";
-import { createContext, type ReactNode, use, useCallback, useState } from "react";
+import { createContext, type ReactNode, use, useCallback, useMemo, useState } from "react";
 
 import type { WorkspaceLocation } from "#/features/workspaces/locations/workspace-location";
 import { getWorkspaceItemDisplay } from "#/features/workspaces/model/item-display";
@@ -42,13 +42,25 @@ export function WorkspaceLocationProvider({
 	readonly navigate: (location: WorkspaceLocation) => string | undefined;
 }) {
 	const [revealRequest, setRevealRequest] = useState<WorkspacePdfPageRevealRequest | null>(null);
+	const legacyItemsById = useMemo(() => {
+		const aliases = new Map<string, WorkspaceItem>();
+		for (const item of itemsById.values()) {
+			const legacyItemId = item.metadataJson.legacyItemId;
+			if (typeof legacyItemId === "string") aliases.set(legacyItemId, item);
+		}
+		return aliases;
+	}, [itemsById]);
+	const resolveItem = useCallback(
+		(itemId: string) => itemsById.get(itemId) ?? legacyItemsById.get(itemId),
+		[itemsById, legacyItemsById],
+	);
 	const consumeRevealRequest = useCallback((request: WorkspacePdfPageRevealRequest) => {
 		setRevealRequest((current) => (current === request ? null : current));
 	}, []);
 	const value: WorkspaceLocationContextValue = {
 		consumeRevealRequest,
 		getPresentation(location) {
-			const item = itemsById.get(location.itemId);
+			const item = resolveItem(location.itemId);
 			const itemName = item?.name ?? "Source unavailable";
 			const locatorLabel = location.kind === "pdf-page" ? `p. ${location.pageNumber}` : undefined;
 
@@ -65,13 +77,17 @@ export function WorkspaceLocationProvider({
 			return { Icon, iconClassName, label: itemName, locatorLabel };
 		},
 		hasItem(itemId) {
-			return itemsById.has(itemId);
+			return Boolean(resolveItem(itemId));
 		},
 		reveal(location) {
-			const viewInstanceId = navigate(location);
+			const item = resolveItem(location.itemId);
+			const resolvedLocation = item ? { ...location, itemId: item.id } : location;
+			const viewInstanceId = navigate(resolvedLocation);
 
 			setRevealRequest(
-				viewInstanceId && location.kind === "pdf-page" ? { location, viewInstanceId } : null,
+				viewInstanceId && resolvedLocation.kind === "pdf-page"
+					? { location: resolvedLocation, viewInstanceId }
+					: null,
 			);
 			return Boolean(viewInstanceId);
 		},

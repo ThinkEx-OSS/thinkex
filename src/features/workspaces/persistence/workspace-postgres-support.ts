@@ -95,7 +95,19 @@ export async function getActiveWorkspaceItemRow(
 		.from(workspaceItems)
 		.where(and(eq(workspaceItems.workspaceId, workspaceId), eq(workspaceItems.id, itemId)))
 		.limit(1);
-	return row ?? null;
+	if (row) return row;
+
+	const [legacyRow] = await db
+		.select()
+		.from(workspaceItems)
+		.where(
+			and(
+				eq(workspaceItems.workspaceId, workspaceId),
+				sql`${workspaceItems.metadata}->>'legacyItemId' = ${itemId}`,
+			),
+		)
+		.limit(1);
+	return legacyRow ?? null;
 }
 
 export async function requireActiveWorkspaceItemRow(
