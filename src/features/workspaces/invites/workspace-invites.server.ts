@@ -97,6 +97,15 @@ export async function acceptWorkspaceInvite(db: Db, input: { token: string; user
 	const invite = await getPendingWorkspaceInviteByToken(db, input.token);
 
 	const membershipRows = await db.transaction(async (transaction) => {
+		if (invite.type === "email") {
+			const [claimedInvite] = await transaction
+				.update(workspaceInvites)
+				.set({ status: "accepted" })
+				.where(and(eq(workspaceInvites.id, invite.id), eq(workspaceInvites.status, "pending")))
+				.returning({ id: workspaceInvites.id });
+			if (!claimedInvite) throw new WorkspaceInviteError("Invite not found.");
+		}
+
 		const rows = await transaction
 			.insert(workspaceMembers)
 			.values({
@@ -114,13 +123,6 @@ export async function acceptWorkspaceInvite(db: Db, input: { token: string; user
 			.returning({
 				role: workspaceMembers.role,
 			});
-
-		if (invite.type === "email") {
-			await transaction
-				.update(workspaceInvites)
-				.set({ status: "accepted" })
-				.where(eq(workspaceInvites.id, invite.id));
-		}
 
 		return rows;
 	});

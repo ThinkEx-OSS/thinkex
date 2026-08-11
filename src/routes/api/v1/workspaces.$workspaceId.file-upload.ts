@@ -7,6 +7,7 @@ import { WorkspaceFileConversionError } from "#/features/workspaces/conversion/e
 import { requestWorkspaceFileExtraction } from "#/features/workspaces/extraction/request-workspace-file-extraction";
 import { checkWorkspaceFileUploadAccess } from "#/integrations/autumn/workspace-file-usage";
 import {
+	getWorkspaceFileItemObjectPrefix,
 	getWorkspaceFilePreviewObjectKey,
 	getWorkspaceFileSourceObjectKey,
 } from "#/features/workspaces/files/workspace-file-object-keys";
@@ -40,6 +41,7 @@ import {
 } from "#/features/workspaces/upload/workspace-upload-intake";
 import { apiError, apiJson, getRequestId } from "#/lib/api/http";
 import { getSessionFromRequest } from "#/lib/auth-queries.server";
+import { deleteR2Prefix } from "#/lib/r2";
 import { recordOperationalFailure } from "#/integrations/observability/operational-events";
 
 const uploadIntentSchema = z.object({
@@ -143,6 +145,8 @@ async function finalizeWorkspaceFileUpload(
 	observation: WorkspaceFileIntakeObservation,
 ) {
 	let completionClaimKey: string | null = null;
+	let fileItemCreated = false;
+	let fileObjectPrefix: string | null = null;
 	let uploadCompleted = false;
 
 	try {
@@ -198,6 +202,10 @@ async function finalizeWorkspaceFileUpload(
 			observation.itemId = command.result.id;
 			observation.outputBytes = claims.fileSize;
 		} else {
+			fileObjectPrefix = getWorkspaceFileItemObjectPrefix({
+				itemId: claims.itemId,
+				workspaceId,
+			});
 			const finalObjectKey = getWorkspaceFileSourceObjectKey(claims);
 			const upload = await finalizeWorkspaceFileUploadStorage({
 				contentType: claims.contentType,
@@ -227,6 +235,7 @@ async function finalizeWorkspaceFileUpload(
 				userId,
 				workspaceId,
 			});
+			fileItemCreated = true;
 
 			observation.itemId = command.result.id;
 			await requestWorkspaceFileExtraction({
@@ -254,6 +263,16 @@ async function finalizeWorkspaceFileUpload(
 		observation.error = error;
 		return workspaceUploadErrorResponse(requestId, error);
 	} finally {
+		if (fileObjectPrefix && !fileItemCreated) {
+			await deleteUploadObjectBestEffort({
+				cleanup: "file_objects",
+				key: fileObjectPrefix,
+				prefix: true,
+				requestId,
+				userId: observation.userId,
+				workspaceId,
+			});
+		}
 		if (completionClaimKey && !uploadCompleted) {
 			await deleteUploadObjectBestEffort({
 				cleanup: "completion_claim",
@@ -267,14 +286,19 @@ async function finalizeWorkspaceFileUpload(
 }
 
 async function deleteUploadObjectBestEffort(input: {
-	cleanup: "completion_claim" | "staging_upload";
+	cleanup: "completion_claim" | "file_objects" | "staging_upload";
 	key: string;
+	prefix?: boolean;
 	requestId: string;
 	userId?: string;
 	workspaceId: string;
 }) {
 	try {
-		await env.WORKSPACE_KERNEL_FILES.delete(input.key);
+		if (input.prefix) {
+			await deleteR2Prefix(env.WORKSPACE_KERNEL_FILES, input.key);
+		} else {
+			await env.WORKSPACE_KERNEL_FILES.delete(input.key);
+		}
 	} catch (error) {
 		recordOperationalFailure({
 			distinctId: input.userId,
