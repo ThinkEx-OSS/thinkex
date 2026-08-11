@@ -3,6 +3,8 @@ import { DatabaseSync } from "node:sqlite";
 
 import pg from "pg";
 
+const workspaceMigrationConcurrency = 6;
+
 const tableSpecs = [
 	{
 		name: "user",
@@ -67,10 +69,19 @@ const options = parseArguments(process.argv.slice(2));
 const databaseUrl = process.env.DATABASE_URL?.trim();
 const migrationToken = process.env.POSTGRES_MIGRATION_TOKEN?.trim();
 if (!databaseUrl) throw new Error("DATABASE_URL is required.");
-if (!migrationToken) throw new Error("POSTGRES_MIGRATION_TOKEN is required.");
+if (!migrationToken && !options.d1Only) {
+	throw new Error("POSTGRES_MIGRATION_TOKEN is required.");
+}
 
-const sqlite = new DatabaseSync(":memory:");
+// Wrangler exports tables in name order, so rows from child tables can appear
+// before their referenced parent tables. Replay with enforcement disabled, then
+// validate the completed snapshot before importing anything into Postgres.
+const sqlite = new DatabaseSync(":memory:", { enableForeignKeyConstraints: false });
 sqlite.exec(readFileSync(options.d1Export, "utf8"));
+const foreignKeyViolations = sqlite.prepare("PRAGMA foreign_key_check").all();
+if (foreignKeyViolations.length > 0) {
+	throw new Error(`D1 export has ${foreignKeyViolations.length} foreign key violation(s).`);
+}
 const source = new Map(tableSpecs.map((spec) => [spec.name, readSourceRows(sqlite, spec)]));
 const workspaceIds = (source.get("workspaces") ?? []).map((row) => String(row.id));
 const client = new pg.Client({ connectionString: databaseUrl });
@@ -78,29 +89,61 @@ const client = new pg.Client({ connectionString: databaseUrl });
 await client.connect();
 try {
 	await importD1Rows(client, source);
-	for (const workspaceId of workspaceIds) {
-		const response = await fetch(
-			`${options.appUrl}/api/internal/migrations/postgres/workspaces/${encodeURIComponent(workspaceId)}`,
-			{
-				method: "POST",
-				headers: { authorization: `Bearer ${migrationToken}` },
-			},
-		);
-		if (!response.ok) {
-			throw new Error(
-				`Workspace ${workspaceId} migration failed (${response.status}): ${await response.text()}`,
+	if (!options.d1Only) {
+		const summary = {
+			workspaces: 0,
+			statuses: {},
+			items: 0,
+			documents: 0,
+			files: 0,
+			relations: 0,
+			pages: 0,
+		};
+		for (let index = 0; index < workspaceIds.length; index += workspaceMigrationConcurrency) {
+			const reports = await Promise.all(
+				workspaceIds
+					.slice(index, index + workspaceMigrationConcurrency)
+					.map((workspaceId) => migrateWorkspace(options.appUrl, migrationToken, workspaceId)),
 			);
+			for (const report of reports) addWorkspaceReport(summary, report);
 		}
-		console.log(JSON.stringify(await response.json()));
+		console.log(JSON.stringify({ workspaceMigration: summary }));
 	}
-	await verifyImport(client, source, workspaceIds);
+	await verifyImport(client, source, workspaceIds, options.d1Only);
 } finally {
 	await client.end();
 	sqlite.close();
 }
 
+async function migrateWorkspace(appUrl, migrationToken, workspaceId) {
+	const response = await fetch(
+		`${appUrl}/api/internal/migrations/postgres/workspaces/${encodeURIComponent(workspaceId)}`,
+		{
+			method: "POST",
+			headers: { authorization: `Bearer ${migrationToken}` },
+		},
+	);
+	if (!response.ok) {
+		throw new Error(
+			`Workspace ${workspaceId} migration failed (${response.status}): ${await response.text()}`,
+		);
+	}
+	return await response.json();
+}
+
+function addWorkspaceReport(summary, report) {
+	summary.workspaces += 1;
+	const status = typeof report.status === "string" ? report.status : "unknown";
+	summary.statuses[status] = (summary.statuses[status] ?? 0) + 1;
+	for (const field of ["items", "documents", "files", "relations", "pages"]) {
+		if (typeof report[field] === "number") summary[field] += report[field];
+	}
+}
+
 function parseArguments(arguments_) {
 	arguments_ = arguments_.filter((argument) => argument !== "--");
+	const d1Only = arguments_.includes("--d1-only");
+	arguments_ = arguments_.filter((argument) => argument !== "--d1-only");
 	if (arguments_.length % 2 !== 0) throw new Error("Migration arguments must be name/value pairs.");
 	const values = new Map();
 	for (let index = 0; index < arguments_.length; index += 2) {
@@ -108,10 +151,12 @@ function parseArguments(arguments_) {
 	}
 	const d1Export = values.get("--d1-export");
 	const appUrl = values.get("--app-url")?.replace(/\/$/, "");
-	if (!d1Export || !appUrl) {
-		throw new Error("Usage: node scripts/import-legacy-d1.mjs --d1-export <path> --app-url <url>");
+	if (!d1Export || (!d1Only && !appUrl)) {
+		throw new Error(
+			"Usage: node scripts/import-legacy-d1.mjs --d1-export <path> (--app-url <url> | --d1-only)",
+		);
 	}
-	return { appUrl, d1Export };
+	return { appUrl, d1Export, d1Only };
 }
 
 function readSourceRows(sqlite, spec) {
@@ -148,7 +193,7 @@ async function importD1Rows(client, source) {
 		)
 	`);
 	if ((await client.query("SELECT 1 FROM legacy_data_migrations WHERE scope = 'd1'")).rowCount) {
-		console.log("Legacy D1 rows already imported; continuing with workspace data.");
+		console.log("Legacy D1 rows already imported.");
 		return;
 	}
 
@@ -186,7 +231,7 @@ async function insertRow(client, table, row) {
 	);
 }
 
-async function verifyImport(client, source, workspaceIds) {
+async function verifyImport(client, source, workspaceIds, d1Only) {
 	for (const spec of tableSpecs) {
 		const result = await client.query(
 			`SELECT COUNT(*)::int AS count FROM ${quoteIdentifier(spec.name)}`,
@@ -197,6 +242,10 @@ async function verifyImport(client, source, workspaceIds) {
 				`${spec.name} verification failed: expected ${expected}, got ${result.rows[0].count}.`,
 			);
 		}
+	}
+	if (d1Only) {
+		console.log(`Verified ${tableSpecs.length} D1 tables; skipped workspace data.`);
+		return;
 	}
 	const markers = await client.query(
 		"SELECT COUNT(*)::int AS count FROM legacy_data_migrations WHERE scope LIKE 'workspace:%'",
