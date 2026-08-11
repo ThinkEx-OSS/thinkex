@@ -147,6 +147,14 @@ export class DocumentSession extends YServer {
 		return this.deleted || connection.state?.canMutate !== true;
 	}
 
+	async disconnectMember(input: { userId: string }): Promise<void> {
+		for (const connection of this.getConnections<DocumentSessionConnectionState>()) {
+			if (connection.state?.userId === input.userId) {
+				connection.close(1008, "Workspace access changed");
+			}
+		}
+	}
+
 	override async onLoad() {
 		const persistedUpdate = await this.ctx.storage.get<Uint8Array>(persistedYDocUpdateKey);
 		if (this.deleted) {

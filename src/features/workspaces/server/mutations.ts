@@ -1,3 +1,4 @@
+import { env } from "cloudflare:workers";
 import { and, eq, isNull } from "drizzle-orm";
 
 import { workspaceItems, workspaceMembers, workspaces } from "#/db/schema";
@@ -17,8 +18,13 @@ import {
 } from "#/features/workspaces/defaults";
 import { mapWorkspaceRow } from "#/features/workspaces/server/mappers";
 import {
+	lockWorkspaceForActor,
+	nextWorkspaceRevision,
+	withWorkspaceTransaction,
+} from "#/features/workspaces/persistence/workspace-postgres-support";
+import { notifyWorkspaceRoom } from "#/features/workspaces/realtime/workspace-room-notifier";
+import {
 	assertCanDeleteWorkspace,
-	assertCanMutateWorkspace,
 	assertCanReadWorkspace,
 	getCurrentUserId,
 } from "#/features/workspaces/server/permissions";
@@ -140,61 +146,56 @@ export async function updateWorkspaceForCurrentUser(
 	input: UpdateWorkspaceInput,
 ): Promise<WorkspaceSummary> {
 	const userId = await getCurrentUserId();
-	const dbContext = await createDbContext();
+	const update = await withWorkspaceTransaction(async (transaction) => {
+		await lockWorkspaceForActor(transaction, input.workspaceId, userId);
+		const [updatedWorkspace] = await transaction
+			.update(workspaces)
+			.set({
+				name: input.name,
+				icon: input.icon,
+				color: input.color,
+				theme: input.theme,
+			})
+			.where(and(eq(workspaces.id, input.workspaceId), isNull(workspaces.archivedAt)))
+			.returning();
 
-	try {
-		await assertCanMutateWorkspace(dbContext.db, {
-			workspaceId: input.workspaceId,
-			userId,
-		});
+		if (!updatedWorkspace) {
+			throw new Error("Workspace was not updated.");
+		}
 
-		const { membership, updatedWorkspace } = await dbContext.db.transaction(async (transaction) => {
-			const [updatedWorkspace] = await transaction
-				.update(workspaces)
-				.set({
-					name: input.name,
-					icon: input.icon,
-					color: input.color,
-					theme: input.theme,
-				})
-				.where(and(eq(workspaces.id, input.workspaceId), isNull(workspaces.archivedAt)))
-				.returning();
+		const [membership] = await transaction
+			.select({
+				lastOpenedAt: workspaceMembers.lastOpenedAt,
+				role: workspaceMembers.role,
+			})
+			.from(workspaceMembers)
+			.where(
+				and(
+					eq(workspaceMembers.workspaceId, input.workspaceId),
+					eq(workspaceMembers.userId, userId),
+				),
+			)
+			.limit(1);
 
-			if (!updatedWorkspace) {
-				throw new Error("Workspace was not updated.");
-			}
+		if (!membership) {
+			throw new Error("Workspace membership was not found.");
+		}
 
-			const [membership] = await transaction
-				.select({
-					lastOpenedAt: workspaceMembers.lastOpenedAt,
-					role: workspaceMembers.role,
-				})
-				.from(workspaceMembers)
-				.where(
-					and(
-						eq(workspaceMembers.workspaceId, input.workspaceId),
-						eq(workspaceMembers.userId, userId),
-					),
-				)
-				.limit(1);
-
-			if (!membership) {
-				throw new Error("Workspace membership was not found.");
-			}
-
-			return { membership, updatedWorkspace };
-		});
-
-		const workspace = {
-			...updatedWorkspace,
-			lastOpenedAt: membership.lastOpenedAt,
-			membershipRole: membership.role,
+		return {
+			membership,
+			updatedWorkspace,
+			revision: await nextWorkspaceRevision(transaction, input.workspaceId),
 		};
+	});
+	await notifyWorkspaceRoom(env, { workspaceId: input.workspaceId, revision: update.revision });
 
-		return mapWorkspaceRow(workspace, workspace.membershipRole);
-	} finally {
-		await dbContext.dispose();
-	}
+	const workspace = {
+		...update.updatedWorkspace,
+		lastOpenedAt: update.membership.lastOpenedAt,
+		membershipRole: update.membership.role,
+	};
+
+	return mapWorkspaceRow(workspace, workspace.membershipRole);
 }
 
 export async function deleteWorkspaceForCurrentUser(input: DeleteWorkspaceInput) {

@@ -1,6 +1,6 @@
 import { Agent, type Connection, type ConnectionContext } from "agents";
 import { getChatAttachmentWorkspacePrefix } from "#/features/workspaces/ai/chat-attachment-storage";
-import { getDocumentSessionForDeletionFromEnv } from "#/features/workspaces/document-session-access";
+import { getDocumentSessionStubFromEnv } from "#/features/workspaces/document-session-access";
 import { getWorkspaceFileItemObjectPrefix } from "#/features/workspaces/files/workspace-file-object-keys";
 import { migrateLegacyWorkspaceData } from "#/features/workspaces/migration/legacy-workspace-data";
 import {
@@ -64,12 +64,20 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 		});
 	}
 
-	async disconnectMember(input: { userId: string }): Promise<void> {
+	async disconnectMember(input: { userId: string; documentItemIds: string[] }): Promise<void> {
 		for (const connection of this.getConnections<WorkspaceConnectionState>()) {
 			if (connection.state?.user.id === input.userId) {
 				connection.close(1008, "Workspace access changed");
 			}
 		}
+		await Promise.all(
+			input.documentItemIds.map((itemId) =>
+				getDocumentSessionStubFromEnv(this.env, {
+					workspaceId: this.name,
+					itemId,
+				}).disconnectMember({ userId: input.userId }),
+			),
+		);
 		this.broadcastPresenceSnapshot();
 	}
 
@@ -130,7 +138,7 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 
 	private async purgeDocumentSession(itemId: string) {
 		try {
-			await getDocumentSessionForDeletionFromEnv(this.env, {
+			await getDocumentSessionStubFromEnv(this.env, {
 				workspaceId: this.name,
 				itemId,
 			}).purgeForDeletion();

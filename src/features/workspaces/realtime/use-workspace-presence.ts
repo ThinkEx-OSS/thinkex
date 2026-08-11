@@ -88,6 +88,7 @@ export function useWorkspaceRealtime({
 			users: [],
 			workspaceId,
 		});
+		onWorkspaceChangedRef.current?.();
 	}, [workspaceId]);
 
 	const handleError = useCallback(() => {

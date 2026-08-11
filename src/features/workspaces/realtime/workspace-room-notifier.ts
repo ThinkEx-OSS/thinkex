@@ -5,7 +5,7 @@ import { recordOperationalFailure } from "#/integrations/observability/operation
 interface WorkspaceRoomClient {
 	publishWorkspaceChange(change: WorkspaceRevision): Promise<void>;
 	purgeDeletedItems(input: { documentItemIds: string[]; fileItemIds: string[] }): Promise<void>;
-	disconnectMember(input: { userId: string }): Promise<void>;
+	disconnectMember(input: { userId: string; documentItemIds: string[] }): Promise<void>;
 }
 
 export async function notifyWorkspaceRoom(
@@ -28,10 +28,13 @@ export async function notifyWorkspaceRoom(
 
 export async function disconnectWorkspaceRoomMember(
 	env: Cloudflare.Env,
-	input: { workspaceId: string; userId: string },
+	input: { workspaceId: string; userId: string; documentItemIds: string[] },
 ): Promise<void> {
 	try {
-		await getWorkspaceRoom(env, input.workspaceId).disconnectMember({ userId: input.userId });
+		await getWorkspaceRoom(env, input.workspaceId).disconnectMember({
+			userId: input.userId,
+			documentItemIds: input.documentItemIds,
+		});
 	} catch (error) {
 		recordOperationalFailure({
 			distinctId: input.userId,
