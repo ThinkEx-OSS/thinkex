@@ -2,16 +2,19 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
-const logoSources = [
-	"public/newlogothinkex-light.svg",
-	"public/newlogothinkex-dark.svg",
-	"public/favicon-dev.svg",
-	"docs/assets/thinkex-logo-wordmark-light.svg",
-	"docs/assets/thinkex-logo-wordmark-dark.svg",
-	"src/features/workspaces/components/ai-chat/AiChatAssistantPending.tsx",
-];
-
 const outlineColors = ["#73BF7A", "#DA4944", "#5C8BD6", "#F7B53B"];
+
+const logoSources = [
+	{ sourcePath: "public/newlogothinkex-light.svg", outlineColors },
+	{ sourcePath: "public/newlogothinkex-dark.svg", outlineColors },
+	{ sourcePath: "public/favicon-dev.svg", outlineColors: ["#22D3EE"] },
+	{ sourcePath: "docs/assets/thinkex-logo-wordmark-light.svg", outlineColors },
+	{ sourcePath: "docs/assets/thinkex-logo-wordmark-dark.svg", outlineColors },
+	{
+		sourcePath: "src/features/workspaces/components/ai-chat/AiChatAssistantPending.tsx",
+		outlineColors,
+	},
+];
 
 type Bounds = { left: number; top: number; right: number; bottom: number };
 
@@ -65,14 +68,17 @@ function pathBounds(pathData: string): Bounds[] {
 }
 
 describe("ThinkEx logo assets", () => {
-	it.each(logoSources)("keeps every colored outline uniformly thick in %s", (sourcePath) => {
+	it.each(logoSources)("keeps every colored outline uniformly thick in $sourcePath", (logo) => {
+		const { sourcePath, outlineColors: expectedColors } = logo;
 		const source = readFileSync(resolve(process.cwd(), sourcePath), "utf8");
+		const paths = [
+			...source.matchAll(/<path[^>]*fill=["'](#[0-9A-F]{6})["'][^>]*d=["']([^"']+)/g),
+		].filter(([, color]) => expectedColors.includes(color));
 
-		for (const color of outlineColors) {
-			const path = source.match(new RegExp(`<path[^>]*fill=["']${color}["'][^>]*d=["']([^"']+)`));
-			expect(path, `${sourcePath} is missing the ${color} outline`).not.toBeNull();
+		expect(paths, `${sourcePath} must contain four outline paths`).toHaveLength(4);
 
-			const [outer, cutout] = pathBounds(path?.[1] ?? "");
+		for (const [, , pathData] of paths) {
+			const [outer, cutout] = pathBounds(pathData);
 			expect(outer).toBeDefined();
 			expect(cutout).toBeDefined();
 			expect([
