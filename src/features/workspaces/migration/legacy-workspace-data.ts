@@ -514,7 +514,9 @@ function getString(value: JsonValue | undefined) {
 }
 
 function getLegacyDestinationId(workspaceId: string, legacyId: string) {
-	return legacyId.startsWith("sample-") ? `${workspaceId}:${legacyId}` : legacyId;
+	// Legacy IDs were only unique inside one WorkspaceKernel Durable Object.
+	// Postgres IDs are global, so retain the old identity while adding its scope.
+	return `${workspaceId}:${legacyId}`;
 }
 
 function getDestinationItemId(itemIds: Map<string, string>, legacyId: string) {
