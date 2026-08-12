@@ -251,11 +251,6 @@ export const workspaces = pgTable(
 	],
 );
 
-export const legacyDataMigrations = pgTable("legacy_data_migrations", {
-	scope: text("scope").primaryKey(),
-	completedAt: timestamp("completed_at", { withTimezone: true }).notNull(),
-});
-
 export const workspaceItems = pgTable(
 	"workspace_items",
 	{

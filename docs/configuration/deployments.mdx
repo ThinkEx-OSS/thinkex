@@ -37,39 +37,6 @@ Two Workers Builds configurations watch this repository, one per branch. Each ru
 
 Build variables and secrets (Cloudflare API token, PostHog production set) live in the Workers Builds settings. Each deployment configuration also needs the environment's direct PlanetScale administrative connection string as the build-time `DATABASE_URL`; it is used only by Drizzle Kit and is not a Worker runtime secret. The Worker itself connects with the environment's cache-disabled `HYPERDRIVE` binding and a restricted runtime database role.
 
-## First Postgres Cutover
-
-The first production deploy must be a supervised maintenance release, not the normal automatic `main` deployment. Pause the production Workers Build before merging the Postgres cutover, then:
-
-1. Provision PlanetScale Postgres and the cache-disabled production Hyperdrive binding, and apply `drizzle-postgres` with the direct administrative `DATABASE_URL`.
-2. Generate a one-time `POSTGRES_MIGRATION_TOKEN`, set it on the production Worker, and deploy the cutover build. Until the final cutover marker exists, every normal request returns `503`; only the token-protected migration route is available.
-3. After maintenance is active, export the legacy production D1 database into `.context` with `wrangler d1 export <legacy-d1-id> --remote`. Keep this file as the rollback source.
-4. Import and verify the snapshot:
-
-   ```bash
-   DATABASE_URL='<direct-admin-url>' \
-   POSTGRES_MIGRATION_TOKEN='<one-time-token>' \
-   pnpm db:import:legacy -- \
-     --d1-export .context/thinkex-production-d1.sql \
-     --app-url https://thinkex.app
-   ```
-
-   The importer copies authentication, workspace directory, membership, and invite rows in one transaction. It then asks every retained `WorkspaceKernel` Durable Object to move active items, document checkpoints, file metadata, relations, and paid extraction pages into Postgres. Existing R2 source and preview objects are referenced in place rather than copied. Deleted items and the activity-only `kernel_events` log are intentionally omitted.
-5. Review the per-workspace reports and the final table/marker verification. The production Worker remains fail-closed until the importer writes the final `cutover` marker; after that marker exists, the migration route also closes.
-6. Re-enable the production Workers Build after verifying sign-in, one legacy workspace tree, document content, file preview, extracted pages, and a new write. Retain the migration token, D1 export, and legacy Durable Object storage until a later cleanup release removes the bridge, then delete the token.
-
-The importer is retryable: the D1 transaction and each workspace write their own completion marker. Do not manually create the final `cutover` marker.
-
-### After the rollback window
-
-Do not mix this cleanup into the cutover release. Once production reads and writes have been verified and the agreed rollback window has passed:
-
-1. Take one final backup, then remove the migration endpoint, importer, `migrateLegacyDataToPostgres`, maintenance gate, `POSTGRES_MIGRATION_TOKEN`, `REQUIRE_LEGACY_DATA_MIGRATION`, and the `legacy_data_migrations` table.
-2. Remove the legacy D1 binding and its migrations. Retire the legacy workspace Durable Object data only after the backup and representative document, file, relation, and extraction checks are complete.
-3. Keep R2 source and preview objects: Postgres references them in place. Legacy extraction projection objects may be deleted only after Postgres page counts and sampled content have been verified.
-4. In a separate architecture cleanup, rename the application-facing `WorkspaceKernelClient` persistence seam without renaming the deployed `WorkspaceKernel` class, and consolidate the repeated transaction/revision/notification pattern.
-5. Keep document-session revocation as a simple document-id fan-out. Add active-session tracking only if telemetry shows membership changes becoming slow in very large workspaces.
-
 ## Container Images
 
 Production and staging pin container images to immutable `registry.cloudflare.com` digests (`wrangler.jsonc`), so ordinary deploys never need Docker and Workers Builds can run without a Docker daemon. The top-level config still points at the Dockerfiles for `wrangler dev`.

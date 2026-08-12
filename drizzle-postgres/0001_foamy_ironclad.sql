@@ -1,0 +1,1 @@
+DROP TABLE "legacy_data_migrations" CASCADE;
