@@ -45,7 +45,7 @@ export function summarizeAiTelemetryMessages(messages: unknown) {
 		return sanitizeAiTelemetryValue(messages);
 	}
 
-	return messages.map((message) => {
+	return messages.slice(0, MAX_TELEMETRY_ARRAY_LENGTH).map((message) => {
 		if (!message || typeof message !== "object") {
 			return sanitizeAiTelemetryValue(message);
 		}
@@ -62,14 +62,6 @@ export function summarizeAiTelemetryMessages(messages: unknown) {
 }
 
 export function getAiTelemetryErrorPayload(error: unknown) {
-	if (error instanceof Error) {
-		return sanitizeAiTelemetryValue({
-			name: error.name,
-			message: error.message,
-			stack: error.stack,
-		});
-	}
-
 	return sanitizeAiTelemetryValue(error);
 }
 
@@ -285,7 +277,7 @@ function summarizeMessageContent(content: unknown) {
 		return sanitizeAiTelemetryValue(content);
 	}
 
-	return content.map((part) => {
+	return content.slice(0, MAX_TELEMETRY_ARRAY_LENGTH).map((part) => {
 		if (!part || typeof part !== "object") {
 			return sanitizeAiTelemetryValue(part);
 		}
@@ -334,7 +326,11 @@ function sanitizeValue(value: unknown, depth: number, seen: WeakSet<object>): un
 	}
 
 	if (value instanceof Error) {
-		return { name: value.name, message: value.message, stack: value.stack };
+		return sanitizeValue(
+			{ name: value.name, message: value.message, stack: value.stack },
+			depth,
+			seen,
+		);
 	}
 
 	if (typeof value !== "object") {
@@ -346,17 +342,21 @@ function sanitizeValue(value: unknown, depth: number, seen: WeakSet<object>): un
 	}
 	seen.add(value);
 
-	if (Array.isArray(value)) {
-		return value
-			.slice(0, MAX_TELEMETRY_ARRAY_LENGTH)
-			.map((entry) => sanitizeValue(entry, depth + 1, seen));
-	}
+	try {
+		if (Array.isArray(value)) {
+			return value
+				.slice(0, MAX_TELEMETRY_ARRAY_LENGTH)
+				.map((entry) => sanitizeValue(entry, depth + 1, seen));
+		}
 
-	const output: Record<string, unknown> = {};
-	for (const [key, entry] of Object.entries(value).slice(0, MAX_TELEMETRY_OBJECT_KEYS)) {
-		output[key] = sanitizeValue(entry, depth + 1, seen);
+		const output: Record<string, unknown> = {};
+		for (const [key, entry] of Object.entries(value).slice(0, MAX_TELEMETRY_OBJECT_KEYS)) {
+			output[key] = sanitizeValue(entry, depth + 1, seen);
+		}
+		return output;
+	} finally {
+		seen.delete(value);
 	}
-	return output;
 }
 
 function getTokenValue(value: unknown) {
