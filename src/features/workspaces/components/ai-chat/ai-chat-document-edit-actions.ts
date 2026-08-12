@@ -5,6 +5,7 @@ import {
 	isAiChatToolGroupPart,
 	type AiChatRenderablePart,
 } from "#/features/workspaces/components/ai-chat/ai-chat-display-state";
+import { asRecord } from "#/lib/record";
 
 export interface AiChatDocumentEditGroup {
 	itemId: string;
@@ -95,8 +96,4 @@ function readLineChanges(value: unknown) {
 	return typeof changes.added === "number" && typeof changes.removed === "number"
 		? { added: changes.added, removed: changes.removed }
 		: undefined;
-}
-
-function asRecord(value: unknown): Record<string, unknown> {
-	return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
 }

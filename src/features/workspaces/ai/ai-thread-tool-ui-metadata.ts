@@ -1,3 +1,5 @@
+import { isRecord } from "#/lib/record";
+
 const aiThreadToolUiMetadataKey = "__thinkexUi";
 
 interface AIThreadToolUiMetadata {
@@ -5,7 +7,7 @@ interface AIThreadToolUiMetadata {
 }
 
 export function attachDocumentEditReceiptMetadata(output: unknown, receiptId: string) {
-	if (!isPlainRecord(output)) {
+	if (!isRecord(output)) {
 		return output;
 	}
 
@@ -18,12 +20,12 @@ export function attachDocumentEditReceiptMetadata(output: unknown, receiptId: st
 }
 
 export function getDocumentEditReceiptMetadata(output: unknown) {
-	if (!isPlainRecord(output)) {
+	if (!isRecord(output)) {
 		return undefined;
 	}
 
 	const metadata = output[aiThreadToolUiMetadataKey];
-	if (!isPlainRecord(metadata)) {
+	if (!isRecord(metadata)) {
 		return undefined;
 	}
 
@@ -36,7 +38,7 @@ export function stripAIThreadToolUiMetadata(value: unknown): unknown {
 	if (Array.isArray(value)) {
 		return value.map(stripAIThreadToolUiMetadata);
 	}
-	if (!isPlainRecord(value)) {
+	if (!isRecord(value)) {
 		return value;
 	}
 
@@ -45,8 +47,4 @@ export function stripAIThreadToolUiMetadata(value: unknown): unknown {
 			key === aiThreadToolUiMetadataKey ? [] : [[key, stripAIThreadToolUiMetadata(entry)]],
 		),
 	);
-}
-
-function isPlainRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
 }

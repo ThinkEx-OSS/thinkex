@@ -1,3 +1,5 @@
+import { asRecord } from "#/lib/record";
+
 export type AIThreadBrowserActivityStatus = "completed" | "failed" | "running";
 
 interface AIThreadBrowserActivityCall {
@@ -153,12 +155,6 @@ function formatSiteWord(value: string) {
 
 function unique<T>(values: readonly T[]) {
 	return [...new Set(values)];
-}
-
-function asRecord(value: unknown): Record<string, unknown> {
-	return value && typeof value === "object" && !Array.isArray(value)
-		? (value as Record<string, unknown>)
-		: {};
 }
 
 function getString(value: unknown) {

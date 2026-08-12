@@ -1,4 +1,5 @@
 import type { AiChatToolActivity } from "#/features/workspaces/components/ai-chat/ai-chat-display-state";
+import { asRecord } from "#/lib/record";
 
 export interface ToolSourcePreview {
 	description?: string;
@@ -117,10 +118,6 @@ function sourcePreviewFromUrl(url: string, kind: string): ToolSourcePreview {
 		title: getToolSourceHostname(url) ?? url,
 		url,
 	};
-}
-
-function asRecord(value: unknown): Record<string, unknown> {
-	return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
 }
 
 function getArray(value: unknown): unknown[] {

@@ -1,3 +1,5 @@
+import { asRecord } from "#/lib/record";
+
 export function AiChatComputeImages({ output }: { output: unknown }) {
 	const images = getArray(asRecord(output).results).flatMap(getComputeResultImages);
 
@@ -119,10 +121,6 @@ function getStructuredPreview(...values: unknown[]) {
 	}
 
 	return typeof value === "string" ? value : JSON.stringify(value, null, 2);
-}
-
-function asRecord(value: unknown): Record<string, unknown> {
-	return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
 }
 
 function getArray(value: unknown): unknown[] {

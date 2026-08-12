@@ -1,4 +1,5 @@
-import { isRecord, isWorkspaceDragRow } from "./drag-guards";
+import { isRecord } from "#/lib/record";
+import { isWorkspaceDragRow } from "./drag-guards";
 import {
 	WORKSPACE_FOLDER_DRAG_TYPE,
 	WORKSPACE_ITEM_DRAG_TYPE,

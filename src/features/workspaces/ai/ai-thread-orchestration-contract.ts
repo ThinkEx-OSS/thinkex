@@ -12,6 +12,7 @@ import {
 	getDocumentEditReceiptMetadata,
 	stripAIThreadToolUiMetadata,
 } from "#/features/workspaces/ai/ai-thread-tool-ui-metadata";
+import { asRecord } from "#/lib/record";
 
 const orchestrationCallStateSchema = z.enum([
 	"executing",
@@ -408,8 +409,4 @@ function summarizeOrchestrationCall(outcome: AIToolOutcome) {
 	}
 
 	return "Completed";
-}
-
-function asRecord(value: unknown): Record<string, unknown> {
-	return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
 }

@@ -22,6 +22,7 @@ import {
 	extractAiTelemetryTokenUsage,
 	getAiTelemetryToolCallNames,
 } from "#/features/workspaces/ai/ai-thread-telemetry-format";
+import { isRecord } from "#/lib/record";
 import {
 	getWorkspaceAiChatModel,
 	type WorkspaceAiChatModelId,
@@ -587,8 +588,4 @@ function getComputeErrorTelemetry(ctx: ToolCallResultContext) {
 			compute_error_line_number: lineNumber,
 		},
 	};
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return value !== null && typeof value === "object" && !Array.isArray(value);
 }

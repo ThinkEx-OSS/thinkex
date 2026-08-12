@@ -1,5 +1,6 @@
 import { type JsonValue } from "#/features/workspaces/contracts";
 import { getTiptapDocumentSchema } from "#/features/workspaces/documents/tiptap-schema";
+import { isRecord } from "#/lib/record";
 
 export interface TiptapDocumentJson {
 	type: "doc";
@@ -121,10 +122,6 @@ function describeDroppedNode(node: unknown) {
 	}
 
 	return `value: ${typeof node}`;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function isJsonValue(value: unknown): value is JsonValue {

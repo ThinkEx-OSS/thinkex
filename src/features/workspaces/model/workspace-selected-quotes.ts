@@ -1,3 +1,5 @@
+import { isRecord } from "#/lib/record";
+
 export type WorkspaceSelectedQuote = {
 	id: string;
 	label: string;
@@ -133,8 +135,4 @@ function isWorkspaceSelectedQuoteSource(
 		Array.isArray(source.pageNumbers) &&
 		source.pageNumbers.every((pageNumber) => Number.isInteger(pageNumber) && pageNumber > 0)
 	);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null;
 }

@@ -1,3 +1,5 @@
+import { isRecord } from "#/lib/record";
+
 const FALLBACK_FEEDBACK_QUESTION = "How can we improve ThinkEx?";
 const MAX_FIELD_LENGTH = 4000;
 
@@ -19,10 +21,6 @@ export interface PostHogSurveyFeedbackEmailContent {
 	subject: string;
 	text: string;
 	html: string;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function readText(value: unknown) {
