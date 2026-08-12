@@ -6,10 +6,10 @@ import type {
 	WorkspacePage,
 } from "#/features/workspaces/contracts";
 import {
-	applyWorkspacePageDelta,
 	createWorkspaceItemInPage,
 	moveWorkspaceItemsInPage,
 	removeWorkspaceItemsFromPage,
+	upsertWorkspaceItemInPage,
 } from "#/features/workspaces/model/workspace-page";
 import type { WorkspacePageDelta } from "#/features/workspaces/realtime/messages";
 
@@ -25,7 +25,13 @@ export function applyWorkspacePageDeltaToCache(
 			shouldReconcile = true;
 			return current;
 		}
-		return applyWorkspacePageDelta(current, change);
+		if (change.type === "workspace.items.deleted") {
+			return removeWorkspaceItemsFromPage(current, change.itemIds, change.revision);
+		}
+		return change.items.reduce(
+			(page, item) => upsertWorkspaceItemInPage(page, item, change.revision),
+			current,
+		);
 	});
 	if (shouldReconcile) {
 		void queryClient.invalidateQueries({ queryKey: workspacePageQueryKey(change.workspaceId) });

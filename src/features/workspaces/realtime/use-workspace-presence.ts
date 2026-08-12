@@ -95,7 +95,7 @@ export function useWorkspaceRealtime({
 				return;
 			}
 
-			if (message?.type === "presence.snapshot" && message.workspaceId === workspaceId) {
+			if (message.type === "presence.snapshot" && message.workspaceId === workspaceId) {
 				setPresence((current) => ({
 					...current,
 					users: message.users,
