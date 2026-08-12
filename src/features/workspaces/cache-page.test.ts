@@ -6,6 +6,37 @@ import { applyWorkspacePageDeltaToCache } from "#/features/workspaces/cache-page
 import type { WorkspaceItemSummary, WorkspacePage } from "#/features/workspaces/contracts";
 
 describe("workspace page cache ordering", () => {
+	it("applies only the next revision", () => {
+		const queryClient = createQueryClient(createPage(3, createItem({ name: "Before" })));
+
+		applyWorkspacePageDeltaToCache(queryClient, {
+			type: "workspace.items.upserted",
+			workspaceId: "workspace-1",
+			revision: 4,
+			items: [createItem({ name: "After" })],
+		});
+
+		expect(readPage(queryClient)).toMatchObject({
+			items: [{ name: "After" }],
+			revision: 4,
+		});
+	});
+
+	it("ignores stale revisions", () => {
+		const queryClient = createQueryClient(createPage(3, createItem({ name: "Current" })));
+		const invalidate = vi.spyOn(queryClient, "invalidateQueries").mockResolvedValue();
+
+		applyWorkspacePageDeltaToCache(queryClient, {
+			type: "workspace.items.upserted",
+			workspaceId: "workspace-1",
+			revision: 2,
+			items: [createItem({ name: "Stale" })],
+		});
+
+		expect(readItem(queryClient)).toMatchObject({ name: "Current" });
+		expect(invalidate).not.toHaveBeenCalled();
+	});
+
 	it("keeps current cache data and reconciles a revision gap", () => {
 		const queryClient = createQueryClient(createPage(3, createItem({ name: "Newer" })));
 		const invalidate = vi.spyOn(queryClient, "invalidateQueries").mockResolvedValue();
@@ -29,7 +60,11 @@ function createQueryClient(page: WorkspacePage) {
 }
 
 function readItem(queryClient: QueryClient) {
-	return queryClient.getQueryData<WorkspacePage>(workspacePageQueryKey("workspace-1"))?.items[0];
+	return readPage(queryClient)?.items[0];
+}
+
+function readPage(queryClient: QueryClient) {
+	return queryClient.getQueryData<WorkspacePage>(workspacePageQueryKey("workspace-1"));
 }
 
 function createPage(revision: number, item: WorkspaceItemSummary): WorkspacePage {

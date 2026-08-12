@@ -19,10 +19,6 @@ export function applyWorkspacePageDelta(
 	page: WorkspacePage,
 	change: WorkspacePageDelta,
 ): WorkspacePage {
-	if (change.revision <= page.revision) {
-		return page;
-	}
-
 	if (change.type === "workspace.items.deleted") {
 		return removeWorkspaceItemsFromPage(page, change.itemIds, change.revision);
 	}

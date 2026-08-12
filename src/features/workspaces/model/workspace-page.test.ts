@@ -26,7 +26,7 @@ describe("removeWorkspaceItemsFromPage", () => {
 });
 
 describe("applyWorkspacePageDelta", () => {
-	it("applies newer item deltas and ignores stale ones", () => {
+	it("applies an item delta", () => {
 		const original = createItem({ id: "document", name: "Before" });
 		const page = {
 			workspace: {} as WorkspacePage["workspace"],
@@ -43,14 +43,6 @@ describe("applyWorkspacePageDelta", () => {
 		});
 
 		expect(changed).toMatchObject({ items: [{ name: "After" }], revision: 4 });
-		expect(
-			applyWorkspacePageDelta(changed, {
-				type: "workspace.items.upserted",
-				workspaceId: "workspace",
-				revision: 3,
-				items: [original],
-			}),
-		).toBe(changed);
 	});
 });
 
