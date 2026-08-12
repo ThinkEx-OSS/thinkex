@@ -1,18 +1,18 @@
 import { getAgentByName } from "agents";
 
 import { workspaceKernelAgentName } from "#/features/workspaces/agent-routes";
-import type { WorkspaceRevision } from "#/features/workspaces/realtime/messages";
+import type { WorkspacePageChange } from "#/features/workspaces/realtime/messages";
 import { recordOperationalFailure } from "#/integrations/observability/operational-events";
 
 const workspaceCleanupDeliveryAttempts = 3;
 
 export async function notifyWorkspaceRoom(
 	env: Cloudflare.Env,
-	change: WorkspaceRevision,
+	change: WorkspacePageChange,
 ): Promise<void> {
 	try {
 		const room = await getWorkspaceRoom(env, change.workspaceId);
-		await room.publishWorkspaceChange(change);
+		await room.publishWorkspacePageChange(change);
 	} catch (error) {
 		recordOperationalFailure({
 			error,

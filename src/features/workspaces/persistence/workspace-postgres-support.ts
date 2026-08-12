@@ -1,17 +1,14 @@
-import { and, asc, eq, inArray, isNull, or, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 
 import {
 	workspaceFileAssets,
-	workspaceItemPages,
 	workspaceItemExtractions,
-	workspaceItemRelations,
 	workspaceItems,
 	workspaces,
 } from "#/db/schema";
 import { createDbContext, withDb } from "#/db/server";
 import type {
 	JsonValue,
-	WorkspaceItemFacts,
 	WorkspaceItemSummary,
 	WorkspaceItemType,
 } from "#/features/workspaces/contracts";
@@ -60,9 +57,19 @@ export async function lockWorkspaceForActor(
 export async function nextWorkspaceRevision(transaction: Transaction, workspaceId: string) {
 	const [workspace] = await transaction
 		.update(workspaces)
-		.set({ revision: sql`${workspaces.revision} + 1`, updatedAt: new Date() })
+		.set({ revision: sql`${workspaces.revision} + 1` })
 		.where(eq(workspaces.id, workspaceId))
 		.returning({ revision: workspaces.revision });
+	if (!workspace) throw new Error("Workspace not found.");
+	return workspace.revision;
+}
+
+export async function getWorkspaceRevision(db: QueryExecutor, workspaceId: string) {
+	const [workspace] = await db
+		.select({ revision: workspaces.revision })
+		.from(workspaces)
+		.where(eq(workspaces.id, workspaceId))
+		.limit(1);
 	if (!workspace) throw new Error("Workspace not found.");
 	return workspace.revision;
 }
@@ -79,20 +86,15 @@ export async function getActiveWorkspaceItems(db: QueryExecutor, workspaceId: st
 	return (await getActiveWorkspaceItemRows(db, workspaceId)).map(mapWorkspaceItem);
 }
 
-export async function readWorkspacePageSnapshot(db: QueryExecutor, workspaceId: string) {
-	const [workspace] = await db
-		.select({ revision: workspaces.revision })
-		.from(workspaces)
-		.where(eq(workspaces.id, workspaceId))
-		.limit(1);
-	if (!workspace) throw new Error("Workspace not found.");
-
+export async function readWorkspacePageSnapshot(db: Transaction, workspaceId: string) {
+	// A transaction owns one pg.Client, so its queries execute serially. Both
+	// callers use repeatable-read transactions to keep these statements coherent.
+	const revision = await getWorkspaceRevision(db, workspaceId);
 	const items = await getActiveWorkspaceItems(db, workspaceId);
 	return {
 		workspaceId,
 		items,
-		itemFacts: await getWorkspaceItemFacts(db, workspaceId, items),
-		revision: workspace.revision,
+		revision,
 	};
 }
 
@@ -142,53 +144,6 @@ export async function getWorkspaceItemsByIds(
 		const item = byId.get(id);
 		return item ? [item] : [];
 	});
-}
-
-export async function getWorkspaceItemFacts(
-	db: QueryExecutor,
-	workspaceId: string,
-	items: WorkspaceItemSummary[],
-): Promise<WorkspaceItemFacts[]> {
-	if (items.length === 0) return [];
-	const itemIds = items.map((item) => item.id);
-	const [relations, pageCounts] = await Promise.all([
-		db
-			.select({
-				fromItemId: workspaceItemRelations.fromItemId,
-				toItemId: workspaceItemRelations.toItemId,
-			})
-			.from(workspaceItemRelations)
-			.where(
-				and(
-					eq(workspaceItemRelations.workspaceId, workspaceId),
-					or(
-						inArray(workspaceItemRelations.fromItemId, itemIds),
-						inArray(workspaceItemRelations.toItemId, itemIds),
-					),
-				),
-			),
-		db
-			.select({
-				itemId: workspaceItemPages.itemId,
-				pageCount: sql<number>`count(*)::int`,
-			})
-			.from(workspaceItemPages)
-			.where(inArray(workspaceItemPages.itemId, itemIds))
-			.groupBy(workspaceItemPages.itemId),
-	]);
-	const relationCounts = new Map<string, number>();
-	for (const relation of relations) {
-		relationCounts.set(relation.fromItemId, (relationCounts.get(relation.fromItemId) ?? 0) + 1);
-		if (relation.toItemId !== relation.fromItemId) {
-			relationCounts.set(relation.toItemId, (relationCounts.get(relation.toItemId) ?? 0) + 1);
-		}
-	}
-	const countsByItem = new Map(pageCounts.map((row) => [row.itemId, row.pageCount]));
-	return items.map((item) => ({
-		itemId: item.id,
-		...(countsByItem.get(item.id) ? { pageCount: countsByItem.get(item.id) } : {}),
-		relationshipCount: relationCounts.get(item.id) ?? 0,
-	}));
 }
 
 export async function assertWorkspaceParentIsValid(

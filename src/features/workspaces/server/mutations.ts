@@ -187,7 +187,11 @@ export async function updateWorkspaceForCurrentUser(
 			revision: await nextWorkspaceRevision(transaction, input.workspaceId),
 		};
 	});
-	await notifyWorkspaceRoom(env, { workspaceId: input.workspaceId, revision: update.revision });
+	await notifyWorkspaceRoom(env, {
+		type: "workspace.page.refresh",
+		workspaceId: input.workspaceId,
+		revision: update.revision,
+	});
 
 	const workspace = {
 		...update.updatedWorkspace,

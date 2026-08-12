@@ -13,18 +13,11 @@ describe("removeWorkspaceItemsFromPage", () => {
 				createItem({ id: "grandchild", parentId: "child" }),
 				createItem({ id: "sibling" }),
 			],
-			itemFacts: [
-				{ itemId: "folder", relationshipCount: 0 },
-				{ itemId: "child", relationshipCount: 0 },
-				{ itemId: "grandchild", relationshipCount: 0 },
-				{ itemId: "sibling", relationshipCount: 0 },
-			],
 			revision: 1,
 		} satisfies WorkspacePage;
 
 		expect(removeWorkspaceItemsFromPage(page, ["folder"])).toMatchObject({
 			items: [{ id: "sibling" }],
-			itemFacts: [{ itemId: "sibling" }],
 		});
 	});
 });

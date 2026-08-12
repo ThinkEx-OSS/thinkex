@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { workspaceItemSummarySchema } from "#/features/workspaces/contracts";
 
 const workspacePresenceUserSchema = z.object({
 	id: z.string(),
@@ -7,25 +8,44 @@ const workspacePresenceUserSchema = z.object({
 	image: z.string().nullable(),
 });
 
-const workspaceRealtimeServerMessageSchema = z.discriminatedUnion("type", [
+const workspacePageDeltaSchema = z.discriminatedUnion("type", [
 	z.object({
-		type: z.literal("presence.snapshot"),
+		type: z.literal("workspace.items.upserted"),
 		workspaceId: z.string(),
-		users: z.array(workspacePresenceUserSchema),
+		revision: z.number().int().nonnegative(),
+		items: z.array(workspaceItemSummarySchema).min(1),
 	}),
 	z.object({
-		type: z.literal("workspace.changed"),
+		type: z.literal("workspace.items.deleted"),
+		workspaceId: z.string(),
+		revision: z.number().int().nonnegative(),
+		itemIds: z.array(z.string()).min(1),
+	}),
+]);
+
+const workspacePageChangeSchema = z.union([
+	workspacePageDeltaSchema,
+	z.object({
+		type: z.literal("workspace.page.refresh"),
 		workspaceId: z.string(),
 		revision: z.number().int().nonnegative(),
 	}),
 ]);
 
+const workspaceRealtimeServerMessageSchema = z.union([
+	z.object({
+		type: z.literal("presence.snapshot"),
+		workspaceId: z.string(),
+		users: z.array(workspacePresenceUserSchema),
+	}),
+	workspacePageChangeSchema,
+]);
+
 export type WorkspacePresenceUser = z.infer<typeof workspacePresenceUserSchema>;
 
-export interface WorkspaceRevision {
-	workspaceId: string;
-	revision: number;
-}
+export type WorkspacePageDelta = z.infer<typeof workspacePageDeltaSchema>;
+
+export type WorkspacePageChange = z.infer<typeof workspacePageChangeSchema>;
 
 export interface WorkspaceCommandResult<T> {
 	result: T;

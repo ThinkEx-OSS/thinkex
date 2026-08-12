@@ -69,21 +69,32 @@ function appendAiTraceProperties(
  * route that 400'd on every Google leg and was served by OpenAI looked like
  * Gemini for 105 generations. `credential_type` distinguishes our BYOK keys from
  * Vercel's metered credits.
+ *
+ * `serviceTier` is the tier the provider actually served, not the `priority` we
+ * asked for: the gateway omits it entirely on a silent downgrade to standard.
+ * That absence is the signal worth having — priority bills ~1.8-2x when granted,
+ * so it tells us whether we bought latency or just asked for it.
  */
 export function getGatewayServedRoute(providerMetadata: unknown) {
-	const routing = (providerMetadata as { gateway?: { routing?: unknown } } | undefined)?.gateway
-		?.routing as
+	const gateway = (providerMetadata as { gateway?: unknown } | undefined)?.gateway as
 		| {
-				finalProvider?: string;
-				modelAttempts?: { providerAttempts?: { credentialType?: string; success?: boolean }[] }[];
+				serviceTier?: string;
+				routing?: {
+					finalProvider?: string;
+					modelAttempts?: {
+						providerAttempts?: { credentialType?: string; success?: boolean }[];
+					}[];
+				};
 		  }
 		| undefined;
+	const routing = gateway?.routing;
 
 	return {
 		provider: routing?.finalProvider,
 		credentialType: routing?.modelAttempts
 			?.flatMap((attempt) => attempt.providerAttempts ?? [])
 			.find((attempt) => attempt.success)?.credentialType,
+		serviceTier: gateway?.serviceTier,
 	};
 }
 
@@ -113,6 +124,7 @@ export function capturePostHogAiGeneration(
 	const properties: Record<string, unknown> = {
 		...captureOptions.properties,
 		...(served.credentialType ? { credential_type: served.credentialType } : {}),
+		...(served.serviceTier ? { service_tier: served.serviceTier } : {}),
 	};
 
 	appendAiTraceProperties(properties, {

@@ -348,12 +348,6 @@ export const workspaceSummarySchema = z.object({
 	membershipRole: workspaceMembershipRoleSchema,
 });
 
-export const workspaceItemFactsSchema = z.object({
-	itemId: z.string(),
-	pageCount: z.number().int().positive().optional(),
-	relationshipCount: z.number().int().nonnegative(),
-});
-
 export const workspaceItemSummarySchema = z.object({
 	id: z.string(),
 	workspaceId: z.string(),
@@ -448,7 +442,6 @@ export const workspaceIdInputSchema = z.object({
 export const workspacePageSchema = z.object({
 	workspace: workspaceSummarySchema,
 	items: z.array(workspaceItemSummarySchema),
-	itemFacts: z.array(workspaceItemFactsSchema),
 	revision: z.number().int().nonnegative(),
 });
 
@@ -457,7 +450,6 @@ export type WorkspaceColor = z.infer<typeof workspaceColorSchema>;
 export type WorkspaceItemColor = z.infer<typeof workspaceColorSchema>;
 export type WorkspaceSummary = z.infer<typeof workspaceSummarySchema>;
 export type WorkspaceDetail = WorkspaceSummary;
-export type WorkspaceItemFacts = z.infer<typeof workspaceItemFactsSchema>;
 export type WorkspaceItemSummary = z.infer<typeof workspaceItemSummarySchema>;
 export type CreateWorkspaceItemInput = z.infer<typeof createWorkspaceItemInputSchema>;
 export type RenameWorkspaceItemInput = z.infer<typeof renameWorkspaceItemInputSchema>;

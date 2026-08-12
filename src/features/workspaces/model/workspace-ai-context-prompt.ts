@@ -106,14 +106,7 @@ function formatWorkspaceAiContextOutlineItemMeta(item: WorkspaceAiContextOutline
 			? ""
 			: `, ${item.childCount} direct ${item.childCount === 1 ? "child" : "children"}, ${item.descendantCount} total ${item.descendantCount === 1 ? "descendant" : "descendants"}`;
 
-	const pages = item.pageCount
-		? `, ${item.pageCount} ${item.pageCount === 1 ? "page" : "pages"}`
-		: "";
-	const relationships = item.relationshipCount
-		? `, ${item.relationshipCount} ${item.relationshipCount === 1 ? "relationship" : "relationships"}`
-		: "";
-
-	return `${item.type}${pages}${relationships}${counts}`;
+	return `${item.type}${counts}`;
 }
 
 function limitWorkspaceAiContextOutlineLines(lines: string[]) {

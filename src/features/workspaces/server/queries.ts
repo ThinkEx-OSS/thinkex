@@ -65,7 +65,6 @@ export async function getWorkspacePageForUser(
 				return {
 					workspace,
 					items: page.items,
-					itemFacts: page.itemFacts,
 					revision: page.revision,
 				};
 			},

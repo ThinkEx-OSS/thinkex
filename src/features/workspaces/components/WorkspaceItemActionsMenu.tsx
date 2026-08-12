@@ -113,7 +113,7 @@ export function WorkspaceItemActionsMenuContent({
 				<WorkspaceItemColorSubmenu
 					item={item}
 					menuKind={menuKind}
-					readOnly={readOnly}
+					disabled={readOnly || updateWorkspaceItemColorMutation.isPending}
 					onUpdateItemColor={(color) =>
 						updateWorkspaceItemColorMutation.mutate({
 							workspaceId: item.workspaceId,
@@ -193,12 +193,12 @@ function WorkspaceItemRenameMenuItem({
 function WorkspaceItemColorSubmenu({
 	item,
 	menuKind,
-	readOnly,
+	disabled,
 	onUpdateItemColor,
 }: {
 	item: WorkspaceItem;
 	menuKind: "dropdown" | "context";
-	readOnly: boolean;
+	disabled: boolean;
 	onUpdateItemColor: (color: WorkspaceItemColor) => void;
 }) {
 	const selectedColor = getWorkspaceItemColorValue(item.color);
@@ -210,14 +210,14 @@ function WorkspaceItemColorSubmenu({
 			onValueChange={onUpdateItemColor}
 			showLabels={false}
 			className="grid-flow-col grid-rows-4 gap-1.5"
-			disabled={readOnly}
+			disabled={disabled}
 		/>
 	);
 
 	if (menuKind === "context") {
 		return (
 			<ContextMenuSub>
-				<ContextMenuSubTrigger disabled={readOnly}>
+				<ContextMenuSubTrigger disabled={disabled}>
 					{workspaceItemColorSubmenuTrigger}
 				</ContextMenuSubTrigger>
 				<ContextMenuSubContent className="max-w-[calc(100vw-2rem)] w-fit overflow-x-auto p-2">
@@ -229,7 +229,7 @@ function WorkspaceItemColorSubmenu({
 
 	return (
 		<DropdownMenuSub>
-			<DropdownMenuSubTrigger disabled={readOnly}>
+			<DropdownMenuSubTrigger disabled={disabled}>
 				{workspaceItemColorSubmenuTrigger}
 			</DropdownMenuSubTrigger>
 			<DropdownMenuSubContent className="max-w-[calc(100vw-2rem)] w-fit overflow-x-auto p-2">

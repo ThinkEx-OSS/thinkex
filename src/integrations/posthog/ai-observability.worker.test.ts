@@ -38,6 +38,17 @@ describe("getGatewayServedRoute", () => {
 		).toBe("system");
 	});
 
+	// A granted priority tier bills ~2x, and the gateway reports a downgrade by
+	// omitting the field rather than saying "default".
+	it("reports the tier that was served, and nothing when priority was downgraded", () => {
+		const served = routing([{ provider: "openai", credentialType: "byok", success: true }]);
+
+		expect(
+			getGatewayServedRoute({ gateway: { ...served.gateway, serviceTier: "priority" } }),
+		).toEqual({ provider: "openai", credentialType: "byok", serviceTier: "priority" });
+		expect(getGatewayServedRoute(served).serviceTier).toBeUndefined();
+	});
+
 	it("returns nothing for a non-gateway result, so callers keep their own value", () => {
 		expect(getGatewayServedRoute(undefined)).toEqual({
 			provider: undefined,

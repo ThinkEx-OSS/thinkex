@@ -6,7 +6,11 @@ import {
 	workspaceKernelAgentName,
 	workspaceKernelBasePath,
 } from "#/features/workspaces/agent-routes";
-import { parseWorkspaceRealtimeServerMessage, type WorkspacePresenceUser } from "./messages";
+import {
+	parseWorkspaceRealtimeServerMessage,
+	type WorkspacePageDelta,
+	type WorkspacePresenceUser,
+} from "./messages";
 
 type ConnectionStatus = "connecting" | "connected" | "disconnected";
 
@@ -18,8 +22,8 @@ interface PresenceState {
 
 interface UseWorkspaceRealtimeInput {
 	workspaceId: string;
-	lastSeenRevision?: number;
-	onWorkspaceChanged?: () => void;
+	onPageChange?: (change: WorkspacePageDelta) => void;
+	onDesync?: () => void;
 }
 
 function parseServerMessage(data: unknown) {
@@ -44,34 +48,20 @@ function getInitialPresenceState(workspaceId: string): PresenceState {
 
 export function useWorkspaceRealtime({
 	workspaceId,
-	lastSeenRevision,
-	onWorkspaceChanged,
+	onPageChange,
+	onDesync,
 }: UseWorkspaceRealtimeInput) {
 	const [presence, setPresence] = useState(() => getInitialPresenceState(workspaceId));
-	const cachedRevisionRef = useRef(lastSeenRevision ?? 0);
-	const revisionWorkspaceRef = useRef(workspaceId);
-	const onWorkspaceChangedRef = useRef(onWorkspaceChanged);
+	const onPageChangeRef = useRef(onPageChange);
+	const onDesyncRef = useRef(onDesync);
 
 	useEffect(() => {
-		onWorkspaceChangedRef.current = onWorkspaceChanged;
+		onPageChangeRef.current = onPageChange;
+		onDesyncRef.current = onDesync;
 	});
 
 	const currentPresence =
 		presence.workspaceId === workspaceId ? presence : getInitialPresenceState(workspaceId);
-
-	useEffect(() => {
-		if (revisionWorkspaceRef.current !== workspaceId) {
-			revisionWorkspaceRef.current = workspaceId;
-			cachedRevisionRef.current = lastSeenRevision ?? 0;
-			return;
-		}
-
-		if (lastSeenRevision === undefined) {
-			return;
-		}
-
-		cachedRevisionRef.current = lastSeenRevision;
-	}, [lastSeenRevision, workspaceId]);
 
 	const handleOpen = useCallback(() => {
 		setPresence((current) => ({
@@ -79,7 +69,7 @@ export function useWorkspaceRealtime({
 			status: "connected",
 			workspaceId,
 		}));
-		onWorkspaceChangedRef.current?.();
+		onDesyncRef.current?.();
 	}, [workspaceId]);
 
 	const handleClose = useCallback(() => {
@@ -88,7 +78,6 @@ export function useWorkspaceRealtime({
 			users: [],
 			workspaceId,
 		});
-		onWorkspaceChangedRef.current?.();
 	}, [workspaceId]);
 
 	const handleError = useCallback(() => {
@@ -106,7 +95,7 @@ export function useWorkspaceRealtime({
 				return;
 			}
 
-			if (message?.type === "presence.snapshot" && message.workspaceId === workspaceId) {
+			if (message.type === "presence.snapshot" && message.workspaceId === workspaceId) {
 				setPresence((current) => ({
 					...current,
 					users: message.users,
@@ -114,12 +103,12 @@ export function useWorkspaceRealtime({
 				}));
 			}
 
-			if (
-				message?.type === "workspace.changed" &&
-				message.workspaceId === workspaceId &&
-				message.revision > cachedRevisionRef.current
-			) {
-				onWorkspaceChangedRef.current?.();
+			if (message.type !== "presence.snapshot" && message.workspaceId === workspaceId) {
+				if (message.type === "workspace.page.refresh") {
+					onDesyncRef.current?.();
+				} else {
+					onPageChangeRef.current?.(message);
+				}
 			}
 		},
 		[workspaceId],

@@ -24,7 +24,7 @@ import {
 } from "#/features/workspaces/model/workspace-file";
 import type {
 	WorkspaceCommandResult,
-	WorkspaceRevision,
+	WorkspacePageDelta,
 } from "#/features/workspaces/realtime/messages";
 import { assertCanReadWorkspace } from "#/features/workspaces/server/permissions";
 import {
@@ -47,7 +47,7 @@ export class PostgresWorkspaceFiles {
 	constructor(
 		private readonly workspaceId: string,
 		private readonly bucket: R2Bucket,
-		private readonly onChange?: (change: WorkspaceRevision) => Promise<void>,
+		private readonly onChange?: (change: WorkspacePageDelta) => Promise<void>,
 	) {}
 
 	async createFileFromUpload(
@@ -125,7 +125,12 @@ export class PostgresWorkspaceFiles {
 			const revision = await nextWorkspaceRevision(transaction, this.workspaceId);
 			return { result: item, revision };
 		});
-		await this.notify(command.revision);
+		await this.onChange?.({
+			type: "workspace.items.upserted",
+			workspaceId: this.workspaceId,
+			revision: command.revision,
+			items: [command.result],
+		});
 		return command;
 	}
 
@@ -223,10 +228,8 @@ export class PostgresWorkspaceFiles {
 						updatedAt: now,
 					},
 				});
-			const revision = await nextWorkspaceRevision(transaction, this.workspaceId);
-			return { outcome: "applied" as const, revision };
+			return { outcome: "applied" as const };
 		});
-		if (publication.outcome === "applied") await this.notify(publication.revision);
 		return publication.outcome;
 	}
 
@@ -310,10 +313,8 @@ export class PostgresWorkspaceFiles {
 						updatedAt: now,
 					},
 				});
-			const revision = await nextWorkspaceRevision(transaction, this.workspaceId);
-			return { outcome: "applied" as const, revision };
+			return { outcome: "applied" as const };
 		});
-		if (publication.outcome === "applied") await this.notify(publication.revision);
 		return publication.outcome;
 	}
 
@@ -336,9 +337,5 @@ export class PostgresWorkspaceFiles {
 				)
 				.orderBy(asc(workspaceItemPages.pageNumber));
 		});
-	}
-
-	private async notify(revision: number) {
-		await this.onChange?.({ workspaceId: this.workspaceId, revision });
 	}
 }

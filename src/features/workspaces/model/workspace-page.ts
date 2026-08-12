@@ -1,7 +1,6 @@
 import type {
 	CreateWorkspaceItemInput,
 	MoveWorkspaceItemsInput,
-	UpdateWorkspaceItemColorInput,
 	WorkspaceItemSummary,
 	WorkspacePage,
 } from "#/features/workspaces/contracts";
@@ -116,23 +115,6 @@ export function moveWorkspaceItemsInPage(
 	return nextPage;
 }
 
-export function updateWorkspaceItemColorInPage(
-	page: WorkspacePage,
-	input: UpdateWorkspaceItemColorInput,
-): WorkspacePage | null {
-	const previousItem = page.items.find((item) => item.id === input.itemId);
-
-	if (!previousItem) {
-		return null;
-	}
-
-	return upsertWorkspaceItemInPage(page, {
-		...previousItem,
-		color: input.color,
-		updatedAt: new Date().toISOString(),
-	});
-}
-
 export function upsertWorkspaceItemInPage(
 	page: WorkspacePage,
 	item: WorkspaceItemSummary,
@@ -161,7 +143,6 @@ export function removeWorkspaceItemsFromPage(
 		...page,
 		revision: Math.max(page.revision, revision),
 		items: page.items.filter((item) => !deletedIds.has(item.id)),
-		itemFacts: page.itemFacts.filter((facts) => !deletedIds.has(facts.itemId)),
 	};
 }
 

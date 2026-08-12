@@ -3,15 +3,40 @@ import { workspacePageQueryKey } from "#/features/workspaces/cache-keys";
 import type {
 	CreateWorkspaceItemInput,
 	MoveWorkspaceItemsInput,
-	UpdateWorkspaceItemColorInput,
 	WorkspacePage,
 } from "#/features/workspaces/contracts";
 import {
 	createWorkspaceItemInPage,
 	moveWorkspaceItemsInPage,
 	removeWorkspaceItemsFromPage,
-	updateWorkspaceItemColorInPage,
+	upsertWorkspaceItemInPage,
 } from "#/features/workspaces/model/workspace-page";
+import type { WorkspacePageDelta } from "#/features/workspaces/realtime/messages";
+
+export function applyWorkspacePageDeltaToCache(
+	queryClient: QueryClient,
+	change: WorkspacePageDelta,
+) {
+	let shouldReconcile = false;
+	queryClient.setQueryData<WorkspacePage>(workspacePageQueryKey(change.workspaceId), (current) => {
+		if (!current) return current;
+		if (change.revision <= current.revision) return current;
+		if (change.revision !== current.revision + 1) {
+			shouldReconcile = true;
+			return current;
+		}
+		if (change.type === "workspace.items.deleted") {
+			return removeWorkspaceItemsFromPage(current, change.itemIds, change.revision);
+		}
+		return change.items.reduce(
+			(page, item) => upsertWorkspaceItemInPage(page, item, change.revision),
+			current,
+		);
+	});
+	if (shouldReconcile) {
+		void queryClient.invalidateQueries({ queryKey: workspacePageQueryKey(change.workspaceId) });
+	}
+}
 
 export function createWorkspaceItemInPageCache(
 	queryClient: QueryClient,
@@ -39,32 +64,4 @@ export function removeWorkspaceItemsFromPageCache(
 	queryClient.setQueryData<WorkspacePage>(workspacePageQueryKey(workspaceId), (current) =>
 		current ? removeWorkspaceItemsFromPage(current, itemIds) : current,
 	);
-}
-
-export function updateWorkspaceItemColorInPageCache(
-	queryClient: QueryClient,
-	input: UpdateWorkspaceItemColorInput,
-) {
-	queryClient.setQueryData<WorkspacePage>(workspacePageQueryKey(input.workspaceId), (current) => {
-		if (!current) {
-			return current;
-		}
-
-		const updateResult = updateWorkspaceItemColorInPage(current, input);
-
-		if (!updateResult) {
-			return current;
-		}
-
-		return updateResult;
-	});
-}
-
-export function getWorkspaceItemColorInPageCache(
-	queryClient: QueryClient,
-	input: Pick<UpdateWorkspaceItemColorInput, "itemId" | "workspaceId">,
-) {
-	const page = queryClient.getQueryData<WorkspacePage>(workspacePageQueryKey(input.workspaceId));
-
-	return page?.items.find((item) => item.id === input.itemId)?.color ?? null;
 }

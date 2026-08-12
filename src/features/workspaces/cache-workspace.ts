@@ -38,14 +38,12 @@ export function setWorkspacePageCache(
 	input: {
 		workspace: WorkspaceSummary;
 		items: WorkspaceItemSummary[];
-		itemFacts: WorkspacePage["itemFacts"];
 		revision: number;
 	},
 ) {
 	queryClient.setQueryData<WorkspacePage>(workspacePageQueryKey(input.workspace.id), {
 		workspace: input.workspace,
 		items: input.items,
-		itemFacts: input.itemFacts,
 		revision: input.revision,
 	});
 }
