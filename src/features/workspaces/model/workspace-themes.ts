@@ -19,11 +19,11 @@ import {
 	DEFAULT_WORKSPACE_THEME,
 } from "#/features/workspaces/defaults";
 import {
-	getSearchTermScore,
 	normalizeIconSearch,
 	normalizeIconSearchTerm,
 	workspaceIconOptions,
 } from "#/features/workspaces/model/workspace-icons";
+import { hasNameSearchQuery, scoreNameSearch, type NameSearchField } from "#/lib/name-search";
 
 const art = import.meta.glob("../themes/*.webp", {
 	eager: true,
@@ -766,29 +766,21 @@ const themeIcons = new Map(workspaceIconOptions.map((option) => [option.value, o
 // without weights that alias ties with Chemistry's actual label.
 const TERM_WEIGHTS = { name: 1, group: 0.75, borrowed: 0.5 } as const;
 
-const themeSearchTerms = new Map<string, ReadonlyArray<{ term: string; weight: number }>>(
+const themeSearchFields = new Map<string, readonly NameSearchField[]>(
 	workspaceThemeOptions.map((theme) => {
 		const icon = themeIcons.get(theme.icon);
-		const buckets: ReadonlyArray<readonly [number, string]> = [
-			[TERM_WEIGHTS.name, theme.label],
-			[TERM_WEIGHTS.name, theme.value],
-			[TERM_WEIGHTS.group, theme.group],
-			[TERM_WEIGHTS.borrowed, themeKeywords[theme.value] ?? ""],
-			[TERM_WEIGHTS.borrowed, icon?.label ?? ""],
-			[TERM_WEIGHTS.borrowed, (icon?.aliases ?? []).join(" ")],
+
+		return [
+			theme.value,
+			[
+				{ text: theme.label, weight: TERM_WEIGHTS.name },
+				{ text: theme.value, weight: TERM_WEIGHTS.name },
+				{ text: theme.group, weight: TERM_WEIGHTS.group },
+				{ text: themeKeywords[theme.value] ?? "", weight: TERM_WEIGHTS.borrowed },
+				{ text: icon?.label ?? "", weight: TERM_WEIGHTS.borrowed },
+				{ text: (icon?.aliases ?? []).join(" "), weight: TERM_WEIGHTS.borrowed },
+			],
 		];
-
-		const terms: Array<{ term: string; weight: number }> = [];
-
-		for (const [weight, text] of buckets) {
-			for (const term of normalizeIconSearchTerm(text).split(" ")) {
-				if (term) {
-					terms.push({ term, weight });
-				}
-			}
-		}
-
-		return [theme.value, terms];
 	}),
 );
 
@@ -796,9 +788,8 @@ export function filterWorkspaceThemeOptions(query: string, group: string | null)
 	const scoped = workspaceThemeOptions.filter(
 		(theme) => theme.group !== "Default" && (!group || theme.group === group),
 	);
-	const tokens = normalizeIconSearch(query);
 
-	if (tokens.length === 0) {
+	if (!hasNameSearchQuery(query)) {
 		return scoped;
 	}
 
@@ -807,44 +798,41 @@ export function filterWorkspaceThemeOptions(query: string, group: string | null)
 	// Mathematics first, because the direct label match scores higher.
 	return scoped
 		.map((theme, index) => {
-			const terms = themeSearchTerms.get(theme.value) ?? [];
-			let score = 0;
-
-			for (const token of tokens) {
-				const direct = Math.max(
-					...terms.map(({ term, weight }) => getSearchTermScore(term, token) * weight),
-				);
-
-				// An expansion match must never outrank a direct one: "math" hits
-				// "Statistics" exactly through expansion (12) but only prefixes
-				// "Mathematics" (8), which would put the family above the subject.
-				// Capping expansions below the weakest direct score fixes the order.
-				let expanded = 0;
-
-				if (!direct) {
-					for (const candidate of expansionTokens.get(token) ?? []) {
-						for (const { term, weight } of terms) {
-							expanded = Math.max(expanded, getSearchTermScore(term, candidate) * weight);
-						}
-					}
-
-					expanded = Math.min(3, expanded);
-				}
-
-				const best = direct || expanded;
-
-				if (best === 0) {
-					return null;
-				}
-
-				score += best;
-			}
-
-			return { theme, index, score };
+			const fields = themeSearchFields.get(theme.value) ?? [];
+			const score = scoreThemeQuery(query, fields);
+			return score > 0 ? { index, score, theme } : null;
 		})
 		.filter((result) => result !== null)
 		.sort((left, right) => right.score - left.score || left.index - right.index)
 		.map((result) => result.theme);
+}
+
+function scoreThemeQuery(query: string, fields: readonly NameSearchField[]) {
+	const direct = scoreNameSearch(query, fields);
+	if (direct > 0) {
+		return direct;
+	}
+
+	const tokens = normalizeIconSearch(query);
+	let total = 0;
+
+	for (const token of tokens) {
+		let best = scoreNameSearch(token, fields);
+
+		if (best === 0) {
+			for (const candidate of expansionTokens.get(token) ?? []) {
+				best = Math.max(best, Math.min(3, scoreNameSearch(candidate, fields)));
+			}
+		}
+
+		if (best === 0) {
+			return 0;
+		}
+
+		total += best;
+	}
+
+	return tokens.length > 0 ? total / tokens.length : 0;
 }
 
 export const getWorkspaceThemeArtByValue = (value: string) => art[`../themes/${value}.webp`];

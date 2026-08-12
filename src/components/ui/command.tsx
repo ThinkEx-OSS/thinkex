@@ -9,6 +9,7 @@ import {
 	DialogTitle,
 } from "#/components/ui/dialog.tsx";
 import { InputGroup, InputGroupAddon } from "#/components/ui/input-group.tsx";
+import { hasNameSearchQuery, scoreNameSearch } from "#/lib/name-search";
 import { cn } from "#/lib/utils.ts";
 
 type CommandContextValue = {
@@ -208,19 +209,22 @@ function CommandSeparator({ className, ...props }: React.ComponentProps<"div">) 
 function CommandItem({
 	className,
 	children,
+	keywords,
 	onClick,
 	onKeyDown,
 	onSelect,
 	value,
 	...props
 }: Omit<React.ComponentProps<"div">, "onSelect"> & {
+	keywords?: readonly string[];
 	onSelect?: (value: string) => void;
 	value?: string;
 }) {
 	const id = React.useId();
 	const { dispatchItem, search } = useCommandContext();
 	const itemValue = value ?? (typeof children === "string" ? children : "");
-	const visible = !search || itemValue.toLowerCase().includes(search.trim().toLowerCase());
+	const searching = hasNameSearchQuery(search);
+	const visible = !searching || scoreNameSearch(search, [itemValue, ...(keywords ?? [])]) > 0;
 
 	React.useEffect(() => {
 		dispatchItem({ id, type: "register", visible });
@@ -242,6 +246,8 @@ function CommandItem({
 				"group/command-item relative flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none in-data-[slot=dialog-content]:rounded-lg! data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 data-checked:bg-muted data-checked:text-foreground hover:bg-accent hover:text-foreground focus-visible:bg-accent focus-visible:text-foreground data-highlighted:bg-accent data-highlighted:text-foreground data-selected:bg-accent data-selected:text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
 				className,
 			)}
+			value={itemValue}
+			{...props}
 			onClick={(event) => {
 				selectItem();
 				onClick?.(event);
@@ -249,8 +255,6 @@ function CommandItem({
 			onKeyDown={(event) => {
 				onKeyDown?.(event);
 			}}
-			value={itemValue}
-			{...props}
 		>
 			{children}
 			<CheckIcon className="ml-auto opacity-0 group-has-data-[slot=command-shortcut]/command-item:hidden group-data-[checked=true]/command-item:opacity-100" />
