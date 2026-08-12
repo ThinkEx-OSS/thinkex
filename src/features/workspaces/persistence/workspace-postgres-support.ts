@@ -87,10 +87,10 @@ export async function getActiveWorkspaceItems(db: QueryExecutor, workspaceId: st
 }
 
 export async function readWorkspacePageSnapshot(db: Transaction, workspaceId: string) {
-	const [revision, items] = await Promise.all([
-		getWorkspaceRevision(db, workspaceId),
-		getActiveWorkspaceItems(db, workspaceId),
-	]);
+	// A transaction owns one pg.Client, so its queries execute serially. Both
+	// callers use repeatable-read transactions to keep these statements coherent.
+	const revision = await getWorkspaceRevision(db, workspaceId);
+	const items = await getActiveWorkspaceItems(db, workspaceId);
 	return {
 		workspaceId,
 		items,
