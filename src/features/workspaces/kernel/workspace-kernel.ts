@@ -75,11 +75,11 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 		documentItemIds: string[];
 		fileItemIds: string[];
 		attempt?: number;
-	}): Promise<ResourcePurgeResult> {
+	}): Promise<void> {
 		const documentItemIds = Array.from(new Set(input.documentItemIds));
 		const fileItemIds = Array.from(new Set(input.fileItemIds));
 		if (documentItemIds.length === 0 && fileItemIds.length === 0) {
-			return { attempted: 0, failed: 0 };
+			return;
 		}
 
 		const results = await Promise.allSettled([
@@ -94,10 +94,13 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 
 		const failed = results.filter((result) => result.status === "rejected").length;
 		if (failed > 0) {
+			recordOperationalFailure({
+				error: new Error("Workspace item cleanup was incomplete."),
+				event: "workspace_item_cleanup_incomplete",
+				fields: { attempted: results.length, failed, workspace_id: this.name },
+			});
 			this.scheduleCleanupRetry("purgeDeletedItems", input, input.attempt);
 		}
-
-		return { attempted: results.length, failed };
 	}
 
 	async purgeForDeletion(

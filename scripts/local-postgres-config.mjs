@@ -7,9 +7,10 @@ export function getLocalPostgresConfig(environment = process.env) {
 	}
 	const port = String(portNumber);
 
-	const workspaceId = environment.CONDUCTOR_WORKSPACE_ID?.toLowerCase()
-		.replaceAll(/[^a-z0-9]/g, "")
-		.slice(0, 12);
+	const workspaceId = environment.CONDUCTOR_WORKSPACE_ID?.toLowerCase().replaceAll(
+		/[^a-z0-9]/g,
+		"",
+	);
 	const databaseKey = workspaceId ? `${port}_${workspaceId}` : port;
 	const databaseName = `thinkex_${databaseKey}`;
 	const roleName = `thinkex_local_${databaseKey}`;

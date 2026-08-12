@@ -54,21 +54,10 @@ export async function requestWorkspaceItemCleanup(
 	for (let attempt = 1; attempt <= workspaceCleanupDeliveryAttempts; attempt += 1) {
 		try {
 			const room = await getWorkspaceRoom(env, input.workspaceId);
-			const result = await room.purgeDeletedItems({
+			await room.purgeDeletedItems({
 				documentItemIds: input.documentItemIds,
 				fileItemIds: input.fileItemIds,
 			});
-			if (result.failed > 0) {
-				recordOperationalFailure({
-					error: new Error("Workspace item cleanup was incomplete."),
-					event: "workspace_item_cleanup_incomplete",
-					fields: {
-						attempted: result.attempted,
-						failed: result.failed,
-						workspace_id: input.workspaceId,
-					},
-				});
-			}
 			return;
 		} catch (error) {
 			if (attempt === workspaceCleanupDeliveryAttempts) {

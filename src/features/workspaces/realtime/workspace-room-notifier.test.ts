@@ -29,26 +29,12 @@ describe("workspace item cleanup delivery", () => {
 	it("retries transient room delivery failures without retrying accepted resource work", async () => {
 		mocks.purgeDeletedItems
 			.mockRejectedValueOnce(new Error("temporary"))
-			.mockResolvedValueOnce({ attempted: 2, failed: 0 });
+			.mockResolvedValueOnce(undefined);
 
 		await requestWorkspaceItemCleanup(env, input);
 
 		expect(mocks.purgeDeletedItems).toHaveBeenCalledTimes(2);
 		expect(mocks.recordOperationalFailure).not.toHaveBeenCalled();
-	});
-
-	it("records resource failures returned by the room", async () => {
-		mocks.purgeDeletedItems.mockResolvedValue({ attempted: 2, failed: 1 });
-
-		await requestWorkspaceItemCleanup(env, input);
-
-		expect(mocks.purgeDeletedItems).toHaveBeenCalledOnce();
-		expect(mocks.recordOperationalFailure).toHaveBeenCalledWith(
-			expect.objectContaining({
-				event: "workspace_item_cleanup_incomplete",
-				fields: expect.objectContaining({ attempted: 2, failed: 1 }),
-			}),
-		);
 	});
 
 	it("records a delivery failure after the final attempt", async () => {
