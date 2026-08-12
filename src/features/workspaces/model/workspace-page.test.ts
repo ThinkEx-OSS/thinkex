@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { WorkspaceItemSummary, WorkspacePage } from "#/features/workspaces/contracts";
+import type { WorkspaceItem, WorkspacePage } from "#/features/workspaces/contracts";
 import { removeWorkspaceItemsFromPage } from "#/features/workspaces/model/workspace-page";
 
 describe("removeWorkspaceItemsFromPage", () => {
@@ -22,9 +22,7 @@ describe("removeWorkspaceItemsFromPage", () => {
 	});
 });
 
-function createItem(
-	input: Pick<WorkspaceItemSummary, "id"> & Partial<WorkspaceItemSummary>,
-): WorkspaceItemSummary {
+function createItem(input: Pick<WorkspaceItem, "id"> & Partial<WorkspaceItem>): WorkspaceItem {
 	return {
 		color: null,
 		createdAt: "2026-01-01T00:00:00.000Z",

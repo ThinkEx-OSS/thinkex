@@ -1,11 +1,8 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 
-import {
-	markWorkspaceOpenedInCache,
-	workspacePageQueryKey,
-	workspacesQueryKey,
-} from "#/features/workspaces/cache";
+import { workspacePageQueryKey, workspacesQueryKey } from "#/features/workspaces/cache-keys";
+import { markWorkspaceOpenedInCache } from "#/features/workspaces/cache-workspace";
 import type { WorkspacePage, WorkspaceSummary } from "#/features/workspaces/contracts";
 import { recordWorkspaceOpenedFn } from "#/features/workspaces/server/functions";
 

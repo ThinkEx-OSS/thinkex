@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 
 import { normalizeWorkspaceItemName } from "#/features/workspaces/defaults";
-import type { WorkspaceItemSummary } from "#/features/workspaces/contracts";
+import { type WorkspaceItem, getWorkspaceItemContentKind } from "#/features/workspaces/contracts";
 import {
 	parseTiptapDocumentJson,
 	type TiptapDocumentJson,
@@ -26,7 +26,7 @@ interface PreparedWorkspaceExport {
 	documents: Map<string, TiptapDocumentJson>;
 	fileName: string;
 	fileObjectKeys: Map<string, string>;
-	items: WorkspaceItemSummary[];
+	items: WorkspaceItem[];
 }
 
 export async function createWorkspaceExport(input: { workspaceId: string; userId: string }) {
@@ -69,7 +69,9 @@ export async function canExportWorkspace(input: { workspaceId: string; userId: s
 		(total, item) =>
 			total +
 			512 +
-			(item.type === "file" ? (getMetadataNumber(item.metadataJson, "sizeBytes") ?? 0) : 0),
+			(getWorkspaceItemContentKind(item.type) === "file"
+				? (getMetadataNumber(item.metadataJson, "sizeBytes") ?? 0)
+				: 0),
 		0,
 	);
 
@@ -90,13 +92,13 @@ async function prepareWorkspaceExport(input: { workspaceId: string; userId: stri
 	// Resolve fallible metadata before the response starts streaming. Once ZIP
 	// bytes are sent, an error can only abort the download and leave a partial archive.
 	for (const item of page.items) {
-		if (item.type === "document") {
+		if (getWorkspaceItemContentKind(item.type) === "document") {
 			const { content } = await kernel.readDocumentCheckpoint({ itemId: item.id });
 			estimatedBytes += textEncoder.encode(content).byteLength;
 			documents.set(item.id, parseTiptapDocumentJson(content));
 			continue;
 		}
-		if (item.type === "file") {
+		if (getWorkspaceItemContentKind(item.type) === "file") {
 			const source = await kernel.getFileSource({ itemId: item.id });
 			const object = await env.WORKSPACE_KERNEL_FILES.head(source.objectKey);
 			if (!object) {

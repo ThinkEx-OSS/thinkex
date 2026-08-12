@@ -1,6 +1,10 @@
 import { Zip, ZipPassThrough } from "fflate";
 
-import type { WorkspaceItemSummary } from "#/features/workspaces/contracts";
+import {
+	type WorkspaceItem,
+	getWorkspaceItemContentKind,
+	isWorkspaceItemContainer,
+} from "#/features/workspaces/contracts";
 import { serializeTiptapDocumentToMarkdown } from "#/features/workspaces/documents/document-markdown";
 import type { TiptapDocumentJson } from "#/features/workspaces/documents/tiptap-document";
 import { buildWorkspaceKernelItemPathIndex } from "#/features/workspaces/kernel/workspace-kernel-paths";
@@ -9,12 +13,12 @@ const emptyBytes = new Uint8Array();
 const textEncoder = new TextEncoder();
 
 interface WorkspaceExportReaders {
-	readDocument: (item: WorkspaceItemSummary) => TiptapDocumentJson;
-	readFile: (item: WorkspaceItemSummary) => Promise<ReadableStream<Uint8Array>>;
+	readDocument: (item: WorkspaceItem) => TiptapDocumentJson;
+	readFile: (item: WorkspaceItem) => Promise<ReadableStream<Uint8Array>>;
 }
 
 export function createWorkspaceExportStream(
-	items: readonly WorkspaceItemSummary[],
+	items: readonly WorkspaceItem[],
 	readers: WorkspaceExportReaders,
 ) {
 	const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();
@@ -24,7 +28,7 @@ export function createWorkspaceExportStream(
 
 async function writeWorkspaceExport(
 	writable: WritableStream<Uint8Array>,
-	items: readonly WorkspaceItemSummary[],
+	items: readonly WorkspaceItem[],
 	readers: WorkspaceExportReaders,
 ) {
 	const writer = writable.getWriter();
@@ -50,16 +54,16 @@ async function writeWorkspaceExport(
 				continue;
 			}
 
-			if (item.type === "folder") {
+			if (isWorkspaceItemContainer(item.type)) {
 				await addZipBytes(zip, `${path}/`, emptyBytes, () => output);
 				continue;
 			}
-			if (item.type === "document") {
+			if (getWorkspaceItemContentKind(item.type) === "document") {
 				const markdown = serializeTiptapDocumentToMarkdown(readers.readDocument(item));
 				await addZipBytes(zip, path, textEncoder.encode(`${markdown}\n`), () => output);
 				continue;
 			}
-			if (item.type === "file") {
+			if (getWorkspaceItemContentKind(item.type) === "file") {
 				await addZipStream(zip, path, await readers.readFile(item), () => output);
 			}
 		}
@@ -73,14 +77,14 @@ async function writeWorkspaceExport(
 }
 
 function buildArchivePathIndex(
-	items: readonly WorkspaceItemSummary[],
+	items: readonly WorkspaceItem[],
 	workspacePaths: ReadonlyMap<string, string>,
 ) {
 	const archivePaths = new Map<string, string>();
 	const reservedPaths = new Set<string>();
 
 	for (const item of items) {
-		if (item.type !== "folder" && item.type !== "file") {
+		if (!isWorkspaceItemContainer(item.type) && getWorkspaceItemContentKind(item.type) !== "file") {
 			continue;
 		}
 		const path = workspacePaths.get(item.id)?.slice(1);
@@ -91,7 +95,7 @@ function buildArchivePathIndex(
 	}
 
 	for (const item of items) {
-		if (item.type !== "document") {
+		if (getWorkspaceItemContentKind(item.type) !== "document") {
 			continue;
 		}
 		const workspacePath = workspacePaths.get(item.id)?.slice(1);

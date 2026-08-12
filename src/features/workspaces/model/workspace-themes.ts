@@ -7,12 +7,12 @@
  * public/_headers already sets for that path.
  */
 
-import type {
-	WorkspaceColor,
-	WorkspaceIcon,
-	WorkspaceTheme as WorkspaceThemeValue,
+import {
+	type WorkspaceColor,
+	type WorkspaceIcon,
+	type WorkspaceTheme as WorkspaceThemeValue,
+	workspaceThemeValues,
 } from "#/features/workspaces/contracts";
-import { workspaceThemeValues } from "#/features/workspaces/contracts";
 import {
 	DEFAULT_WORKSPACE_COLOR,
 	DEFAULT_WORKSPACE_ICON,

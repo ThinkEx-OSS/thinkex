@@ -1,7 +1,7 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { workspacePageQueryKey, workspacesQueryKey } from "#/features/workspaces/cache-keys";
 import type {
-	WorkspaceItemSummary,
+	WorkspaceItem,
 	WorkspacePage,
 	WorkspaceSummary,
 } from "#/features/workspaces/contracts";
@@ -37,7 +37,7 @@ export function setWorkspacePageCache(
 	queryClient: QueryClient,
 	input: {
 		workspace: WorkspaceSummary;
-		items: WorkspaceItemSummary[];
+		items: WorkspaceItem[];
 		revision: number;
 	},
 ) {

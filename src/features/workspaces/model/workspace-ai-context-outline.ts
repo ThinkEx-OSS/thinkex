@@ -1,6 +1,9 @@
-import { getWorkspaceItemTypeMeta } from "#/features/workspaces/defaults";
 import { buildWorkspaceKernelItemPathIndex } from "#/features/workspaces/kernel/workspace-kernel-paths";
-import type { WorkspaceItem } from "#/features/workspaces/model/types";
+import {
+	type WorkspaceItem,
+	getWorkspaceItemRegistryEntry,
+	isWorkspaceItemContainer,
+} from "#/features/workspaces/contracts";
 import { resolveWorkspaceFileTypeFromItem } from "#/features/workspaces/model/workspace-file";
 
 import type {
@@ -62,14 +65,16 @@ function getWorkspaceAiContextOutlineRows(
 		return {
 			item,
 			outlineItem: {
-				...(item.type === "folder"
+				...(isWorkspaceItemContainer(item.type)
 					? {
 							childCount: childCountsByItemId.get(item.id) ?? 0,
 							descendantCount: descendantCountsByItemId.get(item.id) ?? 0,
 						}
 					: {}),
 				path,
-				type: resolveWorkspaceFileTypeFromItem(item)?.label ?? getWorkspaceItemTypeMeta(item.type),
+				type:
+					resolveWorkspaceFileTypeFromItem(item)?.label ??
+					getWorkspaceItemRegistryEntry(item.type).menuLabel,
 			},
 		};
 	});
@@ -92,13 +97,13 @@ function summarizeWorkspaceAiContextOutlineRows(input: {
 	};
 
 	for (const row of input.rows) {
-		if (row.item.type === "folder") {
+		if (isWorkspaceItemContainer(row.item.type)) {
 			addRow(row);
 		}
 	}
 
 	for (const row of input.rows) {
-		if (row.item.parentId === null && row.item.type !== "folder") {
+		if (row.item.parentId === null && !isWorkspaceItemContainer(row.item.type)) {
 			addRow(row);
 		}
 	}
@@ -151,7 +156,7 @@ function getWorkspaceAiContextOutlineDescendantCounts(items: WorkspaceItem[]) {
 	};
 
 	for (const item of items) {
-		if (item.type === "folder") {
+		if (isWorkspaceItemContainer(item.type)) {
 			countDescendants(item.id);
 		}
 	}

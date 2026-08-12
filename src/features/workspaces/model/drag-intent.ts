@@ -1,8 +1,11 @@
 import { move } from "@dnd-kit/helpers";
 import type { DragDropEventHandlers } from "@dnd-kit/react";
 
-import type { MoveWorkspaceItemsInput } from "#/features/workspaces/contracts";
-import type { WorkspaceItem } from "#/features/workspaces/model/types";
+import {
+	type MoveWorkspaceItemsInput,
+	type WorkspaceItem,
+	isWorkspaceItemContainer,
+} from "#/features/workspaces/contracts";
 
 import { getWorkspaceDragSource, getWorkspaceDropTarget } from "./drag-targets";
 import type { WorkspaceDragCommand, WorkspaceDragEndEvent } from "./drag-types";
@@ -131,7 +134,7 @@ export function getWorkspaceItemMoveInput(input: {
 		.filter(
 			(item) =>
 				item.parentId === movedItem.parentId &&
-				(dragSource.row === "folder" ? item.type === "folder" : item.type !== "folder"),
+				isWorkspaceItemContainer(item.type) === (dragSource.row === "folder"),
 		)
 		.sort(compareWorkspaceItems);
 	const currentIds = siblings.map((item) => item.id);

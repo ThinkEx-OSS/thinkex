@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import type { WorkspaceSummary } from "#/features/workspaces/contracts";
+import type { WorkspaceItem, WorkspaceSummary } from "#/features/workspaces/contracts";
 import type { WorkspaceTab } from "#/features/workspaces/model/tab-types";
 import {
 	findItemForTab,
@@ -8,7 +8,6 @@ import {
 	getWorkspaceTabViewUpdate,
 	getWorkspaceTabViewUpdateFromSearch,
 } from "#/features/workspaces/model/tabs";
-import type { WorkspaceItem } from "#/features/workspaces/model/types";
 import { useWorkspaceTabsStore } from "#/features/workspaces/state/workspace-tabs-store";
 
 type UseWorkspaceRouteTabsSyncInput = {

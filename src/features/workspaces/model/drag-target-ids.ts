@@ -1,4 +1,3 @@
-import { isWorkspaceSplitDropSide } from "#/features/workspaces/model/drag-guards";
 import type { WorkspaceSplitDropSide } from "#/features/workspaces/model/drag-types";
 
 const WORKSPACE_FOLDER_DROP_TARGET_ID_PREFIX = "workspace-folder-drop:";
@@ -54,6 +53,10 @@ export function getWorkspaceSplitDropTargetInput(id: unknown):
 		paneId,
 		side,
 	};
+}
+
+function isWorkspaceSplitDropSide(value: string): value is WorkspaceSplitDropSide {
+	return value === "left" || value === "right" || value === "top" || value === "bottom";
 }
 
 function decodeWorkspaceDropTargetSegment(value: string) {

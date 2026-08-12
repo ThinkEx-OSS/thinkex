@@ -1,5 +1,5 @@
 import type { WorkspaceTab } from "#/features/workspaces/model/tab-types";
-import type { WorkspaceItem } from "#/features/workspaces/model/types";
+import type { WorkspaceItem } from "#/features/workspaces/contracts";
 import type {
 	WorkspaceAiContextItemViewState,
 	WorkspaceItemViewState,

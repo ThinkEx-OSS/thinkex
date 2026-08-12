@@ -1,8 +1,8 @@
-import type { WorkspaceItemSummary } from "#/features/workspaces/contracts";
+import { type WorkspaceItem, isWorkspaceItemContainer } from "#/features/workspaces/contracts";
 import { normalizeWorkspaceItemName } from "#/features/workspaces/defaults";
 
 export interface WorkspaceKernelTree {
-	childrenByParentId: Map<string | null, WorkspaceItemSummary[]>;
+	childrenByParentId: Map<string | null, WorkspaceItem[]>;
 }
 
 export interface WorkspaceKernelCwd {
@@ -22,8 +22,8 @@ export class WorkspaceKernelPathError extends Error {
 	}
 }
 
-export function buildWorkspaceKernelTree(items: WorkspaceItemSummary[]): WorkspaceKernelTree {
-	const childrenByParentId = new Map<string | null, WorkspaceItemSummary[]>();
+export function buildWorkspaceKernelTree(items: WorkspaceItem[]): WorkspaceKernelTree {
+	const childrenByParentId = new Map<string | null, WorkspaceItem[]>();
 
 	for (const item of items) {
 		const children = childrenByParentId.get(item.parentId) ?? [];
@@ -59,7 +59,7 @@ export function resolveWorkspaceKernelCwd(
 		throw new WorkspaceKernelPathError("path_not_found");
 	}
 
-	if (item.type !== "folder") {
+	if (!isWorkspaceItemContainer(item.type)) {
 		throw new WorkspaceKernelPathError("path_not_folder");
 	}
 
@@ -72,7 +72,7 @@ export function resolveWorkspaceKernelCwd(
 export function resolveWorkspaceKernelItemPath(
 	path: string,
 	tree: WorkspaceKernelTree,
-): WorkspaceItemSummary | null {
+): WorkspaceItem | null {
 	const normalizedPath = normalizeWorkspacePath(path);
 
 	if (normalizedPath === "/") {
@@ -81,7 +81,7 @@ export function resolveWorkspaceKernelItemPath(
 
 	const segments = normalizedPath.split("/").filter(Boolean);
 	let parentId: string | null = null;
-	let item: WorkspaceItemSummary | null = null;
+	let item: WorkspaceItem | null = null;
 
 	for (const segment of segments) {
 		item =
@@ -147,7 +147,7 @@ export function joinWorkspaceItemPath(parentPath: string, name: string) {
 	return `${parentPath}/${relativePath}`;
 }
 
-export function buildWorkspaceKernelItemPathIndex(items: WorkspaceItemSummary[]) {
+export function buildWorkspaceKernelItemPathIndex(items: WorkspaceItem[]) {
 	const tree = buildWorkspaceKernelTree(items);
 	const paths = new Map<string, string>();
 
@@ -168,7 +168,7 @@ export function toWorkspacePathSegment(name: string) {
 	return normalizeWorkspaceItemName(name);
 }
 
-function compareWorkspaceKernelItems(left: WorkspaceItemSummary, right: WorkspaceItemSummary) {
+function compareWorkspaceKernelItems(left: WorkspaceItem, right: WorkspaceItem) {
 	return (
 		left.sortOrder - right.sortOrder ||
 		left.name.localeCompare(right.name) ||

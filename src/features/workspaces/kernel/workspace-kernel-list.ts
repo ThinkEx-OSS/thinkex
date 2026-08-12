@@ -1,4 +1,4 @@
-import type { WorkspaceItemSummary, WorkspaceItemType } from "#/features/workspaces/contracts";
+import type { WorkspaceItem, WorkspaceItemType } from "#/features/workspaces/contracts";
 import {
 	joinWorkspacePathSegment,
 	resolveWorkspaceKernelCwd,
@@ -39,7 +39,7 @@ interface WorkspaceKernelListSelection {
 }
 
 interface WorkspaceKernelListRow {
-	item: WorkspaceItemSummary;
+	item: WorkspaceItem;
 	path: string;
 }
 
@@ -129,7 +129,7 @@ function collectWorkspaceKernelListRows({
 	basePath: string;
 	recursive: boolean;
 	limit: number;
-	childrenByParentId: Map<string | null, WorkspaceItemSummary[]>;
+	childrenByParentId: Map<string | null, WorkspaceItem[]>;
 }): Pick<WorkspaceKernelListSelection, "nextOffset" | "rows" | "total"> {
 	const rows: WorkspaceKernelListRow[] = [];
 	const visitedIds = new Set<string>();
@@ -166,7 +166,7 @@ function collectWorkspaceKernelListRows({
 }
 
 function formatWorkspaceKernelListItem(input: {
-	item: WorkspaceItemSummary;
+	item: WorkspaceItem;
 	path: string;
 }): ListWorkspaceKernelItem {
 	return {

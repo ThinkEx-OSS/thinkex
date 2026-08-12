@@ -2,14 +2,13 @@ import { PointerActivationConstraints } from "@dnd-kit/dom";
 import { DragDropProvider, KeyboardSensor, PointerSensor } from "@dnd-kit/react";
 import type { ReactNode } from "react";
 import { useWorkspaceMutationAccess } from "#/features/workspaces/components/workspace-mutation-access";
-import type { MoveWorkspaceItemsInput } from "#/features/workspaces/contracts";
+import type { MoveWorkspaceItemsInput, WorkspaceItem } from "#/features/workspaces/contracts";
 import {
 	type DndDragEndEvent,
 	getWorkspaceDropIntent,
 	shouldPreventWorkspacePointerActivation,
-	type WorkspaceDragCommand,
-} from "#/features/workspaces/model/drag";
-import type { WorkspaceItem } from "#/features/workspaces/model/types";
+} from "#/features/workspaces/model/drag-intent";
+import type { WorkspaceDragCommand } from "#/features/workspaces/model/drag-types";
 
 const workspaceDragSensors = [
 	PointerSensor.configure({

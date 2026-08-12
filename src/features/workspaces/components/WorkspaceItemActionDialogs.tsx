@@ -22,7 +22,7 @@ import {
 import { Field, FieldGroup, FieldLabel } from "#/components/ui/field";
 import { Input } from "#/components/ui/input";
 import { getWorkspaceDescendantIds } from "#/features/workspaces/model/tree";
-import type { WorkspaceItem } from "#/features/workspaces/model/types";
+import { type WorkspaceItem, isWorkspaceItemContainer } from "#/features/workspaces/contracts";
 import {
 	useDeleteWorkspaceItemsMutation,
 	useRenameWorkspaceItemMutation,
@@ -189,7 +189,7 @@ export function DeleteWorkspaceItemAlert({
 			open={open}
 			workspaceId={item.workspaceId}
 			itemIds={[item.id]}
-			title={`Delete ${item.type === "folder" ? "folder" : "item"}?`}
+			title={`Delete ${isWorkspaceItemContainer(item.type) ? "folder" : "item"}?`}
 			description={<WorkspaceDeleteItemDescription item={item} items={items} />}
 			onOpenChange={onOpenChange}
 			onClosed={onClosed}
@@ -205,7 +205,7 @@ function WorkspaceDeleteItemDescription({
 	items: WorkspaceItem[];
 }) {
 	const descendantCount = getWorkspaceDescendantIds(items, item.id).length;
-	const isFolderWithChildren = item.type === "folder" && descendantCount > 0;
+	const isFolderWithChildren = isWorkspaceItemContainer(item.type) && descendantCount > 0;
 
 	return (
 		<>

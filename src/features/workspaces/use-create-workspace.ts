@@ -3,14 +3,14 @@ import { useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 
+import { workspacesQueryKey } from "#/features/workspaces/cache-keys";
 import {
 	removeWorkspaceDetailCaches,
 	restoreWorkspaceListCache,
 	setWorkspacePageCache,
 	updateWorkspaceInCaches,
 	upsertWorkspaceInList,
-	workspacesQueryKey,
-} from "#/features/workspaces/cache";
+} from "#/features/workspaces/cache-workspace";
 import type { WorkspaceSummary } from "#/features/workspaces/contracts";
 import {
 	DEFAULT_WORKSPACE_COLOR,

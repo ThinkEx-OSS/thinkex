@@ -1,4 +1,4 @@
-import type { WorkspaceItemSummary, WorkspaceRelationKind } from "#/features/workspaces/contracts";
+import type { WorkspaceItem, WorkspaceRelationKind } from "#/features/workspaces/contracts";
 import type {
 	CreateWorkspaceKernelRelationArgs,
 	WorkspaceKernelItemRelation,
@@ -77,7 +77,7 @@ export function resolveWorkspaceRelations(input: {
 }
 
 export function serializeWorkspaceRelations(input: {
-	item: WorkspaceItemSummary;
+	item: WorkspaceItem;
 	pathsByItemId: ReadonlyMap<string, string>;
 	relations: WorkspaceKernelItemRelation[];
 }): WorkspaceRelationOutput[] {

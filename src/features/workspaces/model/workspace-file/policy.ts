@@ -247,18 +247,6 @@ export function resolveMatchedUploadFormat(
 	return format;
 }
 
-export function getWorkspaceFileShellExtension(input: {
-	fileName: string;
-	contentType?: string | null;
-	descriptor: WorkspaceFileTypeDescriptor;
-}) {
-	return (
-		resolveMatchedUploadFormat(input, input.descriptor)?.ext ??
-		input.descriptor.extensions[0]?.ext ??
-		"bin"
-	);
-}
-
 export function resolveWorkspaceFileContentType(input: {
 	contentType?: string | null;
 	descriptor: WorkspaceFileTypeDescriptor;

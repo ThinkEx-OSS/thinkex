@@ -3,7 +3,7 @@ import { createContext, type ReactNode, use, useCallback, useState } from "react
 
 import type { WorkspaceLocation } from "#/features/workspaces/locations/workspace-location";
 import { getWorkspaceItemDisplay } from "#/features/workspaces/model/item-display";
-import type { WorkspaceItem } from "#/features/workspaces/model/types";
+import type { WorkspaceItem } from "#/features/workspaces/contracts";
 
 type WorkspacePdfPageLocation = Extract<WorkspaceLocation, { kind: "pdf-page" }>;
 

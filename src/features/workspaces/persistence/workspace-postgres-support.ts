@@ -7,12 +7,13 @@ import {
 	workspaces,
 } from "#/db/schema";
 import { createDbContext, withDb } from "#/db/server";
-import type {
-	JsonValue,
-	WorkspaceItemSummary,
-	WorkspaceItemType,
+import {
+	type JsonValue,
+	type WorkspaceItem,
+	type WorkspaceItemType,
+	isWorkspaceItemContainer,
+	workspaceItemTypeSchema,
 } from "#/features/workspaces/contracts";
-import { workspaceItemTypeSchema } from "#/features/workspaces/contracts";
 import {
 	getAvailableWorkspaceItemName,
 	getWorkspaceItemNameKey,
@@ -153,7 +154,8 @@ export async function assertWorkspaceParentIsValid(
 ) {
 	if (!parentId) return;
 	const parent = await requireActiveWorkspaceItemRow(db, workspaceId, parentId);
-	if (parent.type !== "folder") throw new Error("Items can only be moved into folders.");
+	if (!isWorkspaceItemContainer(workspaceItemTypeSchema.parse(parent.type)))
+		throw new Error("Items can only be moved into folders.");
 }
 
 export async function getNextWorkspaceSortOrder(
@@ -237,7 +239,7 @@ export async function requireWorkspaceFileAsset(db: QueryExecutor, itemId: strin
 	return asset;
 }
 
-export function mapWorkspaceItem(row: ItemRow): WorkspaceItemSummary {
+export function mapWorkspaceItem(row: ItemRow): WorkspaceItem {
 	const type = workspaceItemTypeSchema.parse(row.type);
 	return {
 		id: row.id,

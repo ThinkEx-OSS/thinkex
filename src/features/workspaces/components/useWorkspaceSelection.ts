@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 
-import type { WorkspaceItem } from "#/features/workspaces/model/types";
+import type { WorkspaceItem } from "#/features/workspaces/contracts";
 import {
 	useWorkspaceSelectionItemIds,
 	useWorkspaceSelectionStore,

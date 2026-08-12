@@ -1,8 +1,9 @@
 import { and, asc, desc, eq, inArray, or } from "drizzle-orm";
 
 import { workspaceDocumentCheckpoints, workspaceItemRelations, workspaceItems } from "#/db/schema";
-import type { WorkspaceItemSummary } from "#/features/workspaces/contracts";
 import {
+	type WorkspaceItem,
+	getWorkspaceItemContentKind,
 	workspaceItemTypeSchema,
 	workspaceRelationKindSchema,
 } from "#/features/workspaces/contracts";
@@ -204,9 +205,9 @@ export class PostgresWorkspacePersistence implements WorkspaceKernelClient {
 
 	async createItem(
 		input: CreateWorkspaceKernelItemArgs,
-	): Promise<WorkspaceKernelMutationOutcome<WorkspaceItemSummary>> {
+	): Promise<WorkspaceKernelMutationOutcome<WorkspaceItem>> {
 		const type = workspaceItemTypeSchema.parse(input.type);
-		if (type === "file") {
+		if (getWorkspaceItemContentKind(type) === "file") {
 			throw new Error("Binary workspace files must be created through the upload flow.");
 		}
 		const bootstrap = buildWorkspaceItemCreateBootstrap({
@@ -252,7 +253,7 @@ export class PostgresWorkspacePersistence implements WorkspaceKernelClient {
 				metadata: bootstrap.metadataJson,
 				sortOrder: await getNextWorkspaceSortOrder(transaction, this.workspaceId, parentId),
 			});
-			if (type === "document") {
+			if (getWorkspaceItemContentKind(type) === "document") {
 				await transaction.insert(workspaceDocumentCheckpoints).values({
 					itemId: input.id,
 					content: bootstrap.initialContent,
@@ -295,7 +296,7 @@ export class PostgresWorkspacePersistence implements WorkspaceKernelClient {
 
 	async renameItem(
 		input: RenameWorkspaceKernelItemArgs,
-	): Promise<WorkspaceKernelMutationOutcome<WorkspaceItemSummary>> {
+	): Promise<WorkspaceKernelMutationOutcome<WorkspaceItem>> {
 		if (!input.name.trim()) {
 			throw new Error("Item name is required.");
 		}
@@ -432,7 +433,7 @@ export class PostgresWorkspacePersistence implements WorkspaceKernelClient {
 
 	async updateItemColor(
 		input: UpdateWorkspaceKernelItemColorArgs,
-	): Promise<WorkspaceCommandResult<WorkspaceItemSummary>> {
+	): Promise<WorkspaceCommandResult<WorkspaceItem>> {
 		const command = await withWorkspaceTransaction(async (transaction) => {
 			await lockWorkspaceForActor(transaction, this.workspaceId, input.actorUserId);
 			const row = await requireActiveWorkspaceItemRow(transaction, this.workspaceId, input.itemId);
@@ -478,12 +479,19 @@ export class PostgresWorkspacePersistence implements WorkspaceKernelClient {
 					? await nextWorkspaceRevision(transaction, this.workspaceId)
 					: await getWorkspaceRevision(transaction, this.workspaceId);
 			const result = { itemIds: rootIds, deletedItemIds: deleteIds };
-			return {
-				result,
-				documentItemIds: deletingRows.filter((row) => row.type === "document").map((row) => row.id),
-				fileItemIds: deletingRows.filter((row) => row.type === "file").map((row) => row.id),
-				revision,
-			};
+			// Deleted rows fan out to per-store cleanup by where their content lives, not by
+			// item type, so a new type backed by an existing store is collected here for free.
+			const documentItemIds: string[] = [];
+			const fileItemIds: string[] = [];
+			for (const row of deletingRows) {
+				const contentKind = getWorkspaceItemContentKind(workspaceItemTypeSchema.parse(row.type));
+				if (contentKind === "document") {
+					documentItemIds.push(row.id);
+				} else if (contentKind === "file") {
+					fileItemIds.push(row.id);
+				}
+			}
+			return { result, documentItemIds, fileItemIds, revision };
 		});
 		await Promise.all([
 			command.result.deletedItemIds.length > 0
@@ -539,7 +547,7 @@ export class PostgresWorkspacePersistence implements WorkspaceKernelClient {
 		return await this.files.readPages(input);
 	}
 
-	private async notifyItemsUpserted(items: WorkspaceItemSummary[], revision: number) {
+	private async notifyItemsUpserted(items: WorkspaceItem[], revision: number) {
 		await this.onChange?.({
 			type: "workspace.items.upserted",
 			workspaceId: this.workspaceId,

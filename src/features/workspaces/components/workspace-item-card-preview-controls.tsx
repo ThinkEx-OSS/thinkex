@@ -9,7 +9,7 @@ import {
 	workspaceItemPreviewControlRowClass,
 	workspaceItemPreviewControlSelectedClass,
 } from "#/features/workspaces/components/workspace-item-card-chrome";
-import type { WorkspaceItem } from "#/features/workspaces/model/types";
+import type { WorkspaceItem } from "#/features/workspaces/contracts";
 import { cn } from "#/lib/utils";
 
 function ItemCardPreviewButton({

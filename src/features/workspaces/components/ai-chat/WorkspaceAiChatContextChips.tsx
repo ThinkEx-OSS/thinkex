@@ -4,12 +4,12 @@ import type { ComponentType } from "react";
 import { Button } from "#/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "#/components/ui/tooltip";
 import { getWorkspaceItemDisplay } from "#/features/workspaces/model/item-display";
-import type { WorkspaceItem } from "#/features/workspaces/model/types";
-import {
-	getWorkspaceAiContextChips,
-	type WorkspaceAiContextChip,
-	type WorkspaceAiContextScope,
-} from "#/features/workspaces/model/workspace-ai-context";
+import type { WorkspaceItem } from "#/features/workspaces/contracts";
+import { getWorkspaceAiContextChips } from "#/features/workspaces/model/workspace-ai-context-chips";
+import type {
+	WorkspaceAiContextChip,
+	WorkspaceAiContextScope,
+} from "#/features/workspaces/model/workspace-ai-context-types";
 import type { WorkspaceSelectedQuote } from "#/features/workspaces/model/workspace-selected-quotes";
 import { useWorkspaceAiComposerDraftStore } from "#/features/workspaces/state/workspace-ai-composer-draft-store";
 import { useWorkspaceSelectionStore } from "#/features/workspaces/state/workspace-selection-store";

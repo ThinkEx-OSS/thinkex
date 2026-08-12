@@ -40,7 +40,7 @@ import { createAIThreadResearchTools } from "#/features/workspaces/ai/research-t
 import { createAIThreadTimeTools } from "#/features/workspaces/ai/time-tools";
 import { createAIThreadWebTools } from "#/features/workspaces/ai/web-tools";
 import { createAIThreadWorkspaceTools } from "#/features/workspaces/ai/workspace-tools";
-import { formatWorkspaceAiContextForPrompt } from "#/features/workspaces/model/workspace-ai-context";
+import { formatWorkspaceAiContextForPrompt } from "#/features/workspaces/model/workspace-ai-context-prompt";
 
 const thinkPromptSectionDivider = "══════════════════════════════════════════════";
 

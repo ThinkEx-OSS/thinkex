@@ -4,46 +4,63 @@ const workspaceItemTypes = ["folder", "document", "file"] as const;
 export const workspaceItemTypeSchema = z.enum(workspaceItemTypes);
 export type WorkspaceItemType = z.infer<typeof workspaceItemTypeSchema>;
 
+/**
+ * Where an item's content lives. Code that asks "can I read/write this item's
+ * body?" must branch on this rather than on the type, because the two are not
+ * the same question: a future type can share `document` storage without being a
+ * document, and `none` covers every item whose body is the tree itself.
+ */
+export type WorkspaceItemContentKind = "document" | "file" | "none";
+
 interface WorkspaceItemRegistryEntry {
 	color: "amber" | "emerald" | "rose" | "sky" | "violet";
-	contentKind: "document" | "empty";
+	contentKind: WorkspaceItemContentKind;
 	defaultName: string;
-	extension: "json" | "txt" | null;
+	/**
+	 * Whether the item can hold children. Code that asks "may this be a move
+	 * target / does this have descendants?" must branch on this rather than on
+	 * `type === "folder"`, which only happens to be the sole container today.
+	 */
+	isContainer: boolean;
 	label: string;
 	menuLabel: string;
-	mimeType: "application/json" | "inode/directory" | "text/plain";
 }
 
 const workspaceItemRegistry = {
 	folder: {
 		color: "amber",
-		contentKind: "empty",
+		contentKind: "none",
 		defaultName: "New folder",
-		extension: null,
+		isContainer: true,
 		label: "Folder",
 		menuLabel: "Folder",
-		mimeType: "inode/directory",
 	},
 	document: {
 		color: "sky",
 		contentKind: "document",
 		defaultName: "New document",
-		extension: "json",
+		isContainer: false,
 		label: "Document",
 		menuLabel: "Document",
-		mimeType: "application/json",
 	},
 	file: {
 		color: "rose",
-		contentKind: "empty",
+		contentKind: "file",
 		defaultName: "New file",
-		extension: "txt",
+		isContainer: false,
 		label: "File",
 		menuLabel: "Upload file",
-		mimeType: "text/plain",
 	},
 } as const satisfies Record<WorkspaceItemType, WorkspaceItemRegistryEntry>;
 
 export function getWorkspaceItemRegistryEntry(type: WorkspaceItemType) {
 	return workspaceItemRegistry[type];
+}
+
+export function isWorkspaceItemContainer(type: WorkspaceItemType) {
+	return workspaceItemRegistry[type].isContainer;
+}
+
+export function getWorkspaceItemContentKind(type: WorkspaceItemType) {
+	return workspaceItemRegistry[type].contentKind;
 }

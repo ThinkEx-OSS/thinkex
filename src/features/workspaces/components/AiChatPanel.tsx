@@ -20,7 +20,7 @@ import {
 } from "#/features/workspaces/components/ai-chat/ai-chat-layout";
 import { useAiChatPanelController } from "#/features/workspaces/components/ai-chat/useAiChatPanelController";
 import { WorkspaceFileDropOverlay } from "#/features/workspaces/components/WorkspaceFileDropOverlay";
-import type { WorkspaceAiContextScope } from "#/features/workspaces/model/workspace-ai-context";
+import type { WorkspaceAiContextScope } from "#/features/workspaces/model/workspace-ai-context-types";
 
 interface AiChatPanelProps {
 	context: WorkspaceAiContextScope;

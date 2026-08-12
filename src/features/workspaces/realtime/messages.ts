@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { workspaceItemSummarySchema } from "#/features/workspaces/contracts";
+import { workspaceItemSchema } from "#/features/workspaces/contracts";
 
 const workspacePresenceUserSchema = z.object({
 	id: z.string(),
@@ -13,7 +13,7 @@ const workspacePageDeltaSchema = z.discriminatedUnion("type", [
 		type: z.literal("workspace.items.upserted"),
 		workspaceId: z.string(),
 		revision: z.number().int().nonnegative(),
-		items: z.array(workspaceItemSummarySchema).min(1),
+		items: z.array(workspaceItemSchema).min(1),
 	}),
 	z.object({
 		type: z.literal("workspace.items.deleted"),

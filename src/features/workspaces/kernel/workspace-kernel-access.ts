@@ -5,7 +5,7 @@ import type {
 	MoveWorkspaceItemsInput,
 	RenameWorkspaceItemInput,
 	UpdateWorkspaceItemColorInput,
-	WorkspaceItemSummary,
+	WorkspaceItem,
 } from "#/features/workspaces/contracts";
 import {
 	requireAppliedWorkspaceKernelMutation,
@@ -48,7 +48,7 @@ interface DeleteWorkspaceItemsResult {
 export interface WorkspaceKernelClient {
 	getPage(input?: { userId?: string }): Promise<{
 		workspaceId: string;
-		items: WorkspaceItemSummary[];
+		items: WorkspaceItem[];
 		revision: number;
 	}>;
 	listTreeItems(input?: ListWorkspaceKernelItemsArgs): Promise<ListWorkspaceKernelItemsResult>;
@@ -60,16 +60,16 @@ export interface WorkspaceKernelClient {
 	): Promise<WorkspaceKernelItemRelation[]>;
 	createItem(
 		input: CreateWorkspaceKernelItemArgs,
-	): Promise<WorkspaceKernelMutationOutcome<WorkspaceItemSummary>>;
+	): Promise<WorkspaceKernelMutationOutcome<WorkspaceItem>>;
 	createFileFromUpload(
 		input: CreateWorkspaceKernelFileFromUploadArgs,
-	): Promise<WorkspaceCommandResult<WorkspaceItemSummary>>;
+	): Promise<WorkspaceCommandResult<WorkspaceItem>>;
 	renameItem(input: {
 		itemId: string;
 		name: string;
 		onNameConflict?: WorkspaceKernelNameConflictPolicy;
 		actorUserId?: string | null;
-	}): Promise<WorkspaceKernelMutationOutcome<WorkspaceItemSummary>>;
+	}): Promise<WorkspaceKernelMutationOutcome<WorkspaceItem>>;
 	moveItems(input: {
 		items: Array<{
 			itemId: string;
@@ -83,14 +83,14 @@ export interface WorkspaceKernelClient {
 		itemId: string;
 		color: UpdateWorkspaceItemColorInput["color"];
 		actorUserId?: string | null;
-	}): Promise<WorkspaceCommandResult<WorkspaceItemSummary>>;
+	}): Promise<WorkspaceCommandResult<WorkspaceItem>>;
 	deleteItems(input: {
 		itemIds: string[];
 		actorUserId?: string | null;
 	}): Promise<WorkspaceCommandResult<DeleteWorkspaceKernelItemsResult>>;
 	readDocumentCheckpoint(input: {
 		itemId: string;
-	}): Promise<{ item: WorkspaceItemSummary; content: string }>;
+	}): Promise<{ item: WorkspaceItem; content: string }>;
 	getFileSource(input: { itemId: string; userId?: string }): Promise<WorkspaceKernelFileSource>;
 	readFilePreview(input: {
 		itemId: string;
@@ -145,7 +145,7 @@ export async function readWorkspaceKernelFilePreview(input: {
 
 export async function createWorkspaceKernelItem(
 	input: CreateWorkspaceItemInput & { userId: string },
-): Promise<WorkspaceCommandResult<WorkspaceItemSummary>> {
+): Promise<WorkspaceCommandResult<WorkspaceItem>> {
 	const kernel = await getWorkspaceKernel(input.workspaceId);
 
 	return requireAppliedWorkspaceKernelMutation(
@@ -173,7 +173,7 @@ export async function createWorkspaceFileFromUpload(input: {
 	contentType?: string | null;
 	assetKind: WorkspaceFileAssetKind;
 	source?: CreateWorkspaceKernelFileFromUploadArgs["source"];
-}): Promise<WorkspaceCommandResult<WorkspaceItemSummary>> {
+}): Promise<WorkspaceCommandResult<WorkspaceItem>> {
 	const kernel = await getWorkspaceKernel(input.workspaceId);
 
 	return await kernel.createFileFromUpload({
@@ -192,7 +192,7 @@ export async function createWorkspaceFileFromUpload(input: {
 
 export async function renameWorkspaceKernelItem(
 	input: RenameWorkspaceItemInput & { userId: string },
-): Promise<WorkspaceCommandResult<WorkspaceItemSummary>> {
+): Promise<WorkspaceCommandResult<WorkspaceItem>> {
 	const kernel = await getWorkspaceKernel(input.workspaceId);
 
 	return requireAppliedWorkspaceKernelMutation(
@@ -220,7 +220,7 @@ export async function moveWorkspaceKernelItems(
 
 export async function updateWorkspaceKernelItemColor(
 	input: UpdateWorkspaceItemColorInput & { userId: string },
-): Promise<WorkspaceCommandResult<WorkspaceItemSummary>> {
+): Promise<WorkspaceCommandResult<WorkspaceItem>> {
 	const kernel = await getWorkspaceKernel(input.workspaceId);
 
 	return await kernel.updateItemColor({

@@ -1,6 +1,9 @@
-import type { WorkspaceItemType, WorkspaceSummary } from "#/features/workspaces/contracts";
-import type { WorkspaceItem } from "#/features/workspaces/model/types";
-import type { WorkspaceAiContextScope } from "#/features/workspaces/model/workspace-ai-context";
+import type {
+	WorkspaceItem,
+	WorkspaceItemType,
+	WorkspaceSummary,
+} from "#/features/workspaces/contracts";
+import type { WorkspaceAiContextScope } from "#/features/workspaces/model/workspace-ai-context-types";
 import type { WorkspacePane } from "#/features/workspaces/state/workspace-ui-store";
 
 export interface WorkspacePresentationProps {

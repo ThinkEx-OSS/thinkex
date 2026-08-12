@@ -14,7 +14,7 @@ import {
 } from "#/components/ui/alert-dialog";
 import { useBillingState } from "#/features/account/use-billing-state";
 import { showUpgradeDialog } from "#/features/account/upgrade-navigation";
-import { applyWorkspacePageDeltaToCache } from "#/features/workspaces/cache";
+import { applyWorkspacePageDeltaToCache } from "#/features/workspaces/cache-page";
 import { useWorkspaceMutationAccess } from "#/features/workspaces/components/workspace-mutation-access";
 import { runWorkspaceFileUploadBatch } from "#/features/workspaces/files/workspace-file-upload";
 import { workspaceUploadAccept } from "#/features/workspaces/upload/workspace-upload-intake";

@@ -1,6 +1,7 @@
 {
 	"$schema": "https://unpkg.com/knip@6/schema.json",
 	"entry": [
+		"autumn.config.ts",
 		"content-collections.ts",
 		"drizzle.config.ts",
 		"src/client.tsx",

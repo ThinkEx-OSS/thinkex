@@ -1,6 +1,6 @@
 import { queryOptions, replaceEqualDeep } from "@tanstack/react-query";
 
-import { workspacePageQueryKey, workspacesQueryKey } from "#/features/workspaces/cache";
+import { workspacePageQueryKey, workspacesQueryKey } from "#/features/workspaces/cache-keys";
 import { getWorkspacePageFn, listWorkspacesFn } from "#/features/workspaces/server/functions";
 
 type WorkspacePageQueryResult = Awaited<ReturnType<typeof getWorkspacePageFn>>;

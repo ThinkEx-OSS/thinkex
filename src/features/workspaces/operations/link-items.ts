@@ -1,4 +1,4 @@
-import type { WorkspaceItemSummary } from "#/features/workspaces/contracts";
+import type { WorkspaceItem } from "#/features/workspaces/contracts";
 import {
 	resolveWorkspaceRelations,
 	type WorkspaceRelationInput,
@@ -26,7 +26,7 @@ export interface LinkWorkspaceItemsOperationResult {
 	failed: LinkWorkspaceItemsFailure[];
 	item?: {
 		path: string;
-		type: WorkspaceItemSummary["type"];
+		type: WorkspaceItem["type"];
 	};
 }
 

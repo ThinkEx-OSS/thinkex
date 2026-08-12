@@ -6,7 +6,7 @@ import {
 	readWorkspacePageSnapshot,
 	type QueryExecutor,
 } from "#/features/workspaces/persistence/workspace-postgres-support";
-import { mapWorkspaceDetailRow, mapWorkspaceRow } from "#/features/workspaces/server/mappers";
+import { mapWorkspaceRow } from "#/features/workspaces/server/mappers";
 import { getCurrentUserId } from "#/features/workspaces/server/permissions";
 import { withDb } from "#/features/workspaces/server/workspace-db";
 
@@ -99,7 +99,7 @@ async function getWorkspace(
 		return null;
 	}
 
-	return mapWorkspaceDetailRow(
+	return mapWorkspaceRow(
 		{
 			...workspaceRow.workspace,
 			lastOpenedAt: workspaceRow.lastOpenedAt,

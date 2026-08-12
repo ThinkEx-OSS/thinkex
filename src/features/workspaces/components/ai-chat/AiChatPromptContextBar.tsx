@@ -4,10 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { usePromptInputAttachments } from "#/features/workspaces/components/ai-chat/ai-chat-prompt-input";
 import AiChatPromptAttachments from "#/features/workspaces/components/ai-chat/AiChatPromptAttachments";
 import WorkspaceAiChatContextChips from "#/features/workspaces/components/ai-chat/WorkspaceAiChatContextChips";
-import {
-	getWorkspaceAiContextChips,
-	type WorkspaceAiContextScope,
-} from "#/features/workspaces/model/workspace-ai-context";
+import { getWorkspaceAiContextChips } from "#/features/workspaces/model/workspace-ai-context-chips";
+import type { WorkspaceAiContextScope } from "#/features/workspaces/model/workspace-ai-context-types";
 
 const contextBarTransition = { duration: 0.22, ease: [0.22, 1, 0.36, 1] as const };
 

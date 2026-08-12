@@ -22,7 +22,7 @@ import {
 	useDocumentCollaborationSession,
 } from "#/features/workspaces/documents/use-document-collaboration-session";
 import { useDocumentEditReviewOverlay } from "#/features/workspaces/documents/use-document-edit-review-overlay";
-import type { WorkspaceItem } from "#/features/workspaces/model/types";
+import type { WorkspaceItem } from "#/features/workspaces/contracts";
 import { DEFAULT_COLLABORATION_COLOR } from "#/lib/design-system-colors";
 import { getAuthSessionQueryOptions } from "#/lib/session-query";
 

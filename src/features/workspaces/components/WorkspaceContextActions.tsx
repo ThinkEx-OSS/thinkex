@@ -7,8 +7,11 @@ import {
 	WorkspaceToolbarIconButton,
 	WorkspaceToolbarTextButton,
 } from "#/features/workspaces/components/WorkspaceToolbar";
-import type { WorkspaceItemType } from "#/features/workspaces/contracts";
-import type { WorkspaceItem } from "#/features/workspaces/model/types";
+import {
+	type WorkspaceItem,
+	type WorkspaceItemType,
+	isWorkspaceItemContainer,
+} from "#/features/workspaces/contracts";
 
 interface WorkspaceContextActionsProps {
 	activeItem?: WorkspaceItem;
@@ -27,7 +30,7 @@ export default function WorkspaceContextActions({
 	onSearch,
 	onCloseItemView,
 }: WorkspaceContextActionsProps) {
-	const showBrowseActions = !activeItem || activeItem.type === "folder";
+	const showBrowseActions = !activeItem || isWorkspaceItemContainer(activeItem.type);
 
 	return (
 		<>

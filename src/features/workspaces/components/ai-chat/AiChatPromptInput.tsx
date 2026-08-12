@@ -35,7 +35,7 @@ import {
 } from "#/features/workspaces/components/WorkspaceToolbar";
 import { workspaceToolbarIconButtonClass } from "#/features/workspaces/components/workspace-toolbar-styles";
 import { useWorkspaceMutationAccess } from "#/features/workspaces/components/workspace-mutation-access";
-import type { WorkspaceAiContextScope } from "#/features/workspaces/model/workspace-ai-context";
+import type { WorkspaceAiContextScope } from "#/features/workspaces/model/workspace-ai-context-types";
 import { workspaceUploadAccept } from "#/features/workspaces/upload/workspace-upload-intake";
 import {
 	useWorkspaceAiComposerDraftFiles,

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { WorkspaceItemSummary } from "#/features/workspaces/contracts";
+import type { WorkspaceItem } from "#/features/workspaces/contracts";
 import type { WorkspaceContentReadRequest } from "#/features/workspaces/content/workspace-content-contract";
 import {
 	createDocumentAiBlockSnapshot,
@@ -16,7 +16,7 @@ import type { WorkspaceKernelPathResolution } from "#/features/workspaces/kernel
 import { readWorkspaceContent } from "#/features/workspaces/content/workspace-content-reader";
 import { encodeWorkspaceContentCursor } from "#/features/workspaces/content/workspace-content-cursor";
 
-const documentItem: WorkspaceItemSummary = {
+const documentItem: WorkspaceItem = {
 	id: "document-1",
 	workspaceId: "workspace-1",
 	parentId: null,
@@ -232,7 +232,7 @@ describe("WorkspaceContentReader", () => {
 			id: "file-1",
 			name: "Book.pdf",
 			type: "file",
-		} satisfies WorkspaceItemSummary;
+		} satisfies WorkspaceItem;
 		const read = createReader({
 			bucket: {} as R2Bucket,
 			getDocumentSession: () => createDocumentSession({ html: "", revision: "revision-1" }),
@@ -314,7 +314,7 @@ function createDocumentSession(input: { html: string; revision: string }) {
 	};
 }
 
-function createKernel(item: WorkspaceItemSummary = documentItem) {
+function createKernel(item: WorkspaceItem = documentItem) {
 	return {
 		resolvePaths: vi.fn(async ({ paths }: { paths: string[] }) =>
 			paths.map((path) => ({ item, path, status: "item" as const })),

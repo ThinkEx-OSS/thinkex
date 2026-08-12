@@ -1,48 +1,49 @@
 import {
-	type WorkspaceItemColor,
+	type WorkspaceColor,
 	type WorkspaceItemType,
+	getWorkspaceItemRegistryEntry,
+	isWorkspaceItemContainer,
 	workspaceColorSchema,
 } from "#/features/workspaces/contracts";
 import {
 	getRandomWorkspaceColor,
-	workspaceColorOptions,
 	workspaceColors,
 } from "#/features/workspaces/model/workspace-colors";
-import { getWorkspaceItemRegistryEntry } from "#/features/workspaces/workspace-item-registry";
 
-export const workspaceItemColorOptions = workspaceColorOptions;
-
+/**
+ * Only containers carry a user-chosen colour. Everything else takes the
+ * registry's colour for its type, so a stored value on one is ignored.
+ */
 export function workspaceItemSupportsCustomColor(type: WorkspaceItemType) {
-	return type === "folder";
+	return isWorkspaceItemContainer(type);
 }
 
-export function getWorkspaceItemColorValue(color: string | null): WorkspaceItemColor | null {
+export function getWorkspaceItemColorValue(color: string | null): WorkspaceColor | null {
 	const parsed = workspaceColorSchema.safeParse(color);
 
 	return parsed.success ? parsed.data : null;
 }
 
-// Non-folder items ignore stored color; palette comes from the item registry.
 export function resolveWorkspaceItemColor(input: {
 	type: WorkspaceItemType;
 	color: string | null;
-}): WorkspaceItemColor {
-	if (input.type === "folder") {
-		return getWorkspaceItemColorValue(input.color) ?? getWorkspaceItemRegistryEntry("folder").color;
-	}
+}): WorkspaceColor {
+	const registryColor = getWorkspaceItemRegistryEntry(input.type).color;
 
-	return getWorkspaceItemRegistryEntry(input.type).color;
+	return workspaceItemSupportsCustomColor(input.type)
+		? (getWorkspaceItemColorValue(input.color) ?? registryColor)
+		: registryColor;
 }
 
 export function resolveWorkspaceItemColorForCreate(input: {
 	type: WorkspaceItemType;
-	color?: WorkspaceItemColor;
-}): WorkspaceItemColor | null {
-	if (input.type === "folder") {
-		return input.color ?? getRandomWorkspaceColor();
+	color?: WorkspaceColor;
+}): WorkspaceColor | null {
+	if (!workspaceItemSupportsCustomColor(input.type)) {
+		return null;
 	}
 
-	return null;
+	return input.color ?? getRandomWorkspaceColor();
 }
 
 export function getWorkspaceItemPalette(input: { type: WorkspaceItemType; color: string | null }) {

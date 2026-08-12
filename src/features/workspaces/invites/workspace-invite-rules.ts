@@ -1,5 +1,4 @@
-import type { WorkspaceMembershipRole } from "#/features/workspaces/contracts";
-import { workspaceRoles } from "#/features/workspaces/contracts";
+import { type WorkspaceMembershipRole, workspaceRoles } from "#/features/workspaces/contracts";
 
 export type WorkspaceRole = WorkspaceMembershipRole;
 

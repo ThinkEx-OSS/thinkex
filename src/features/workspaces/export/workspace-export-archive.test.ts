@@ -1,7 +1,7 @@
 import { strFromU8, unzipSync } from "fflate";
 import { describe, expect, it, vi } from "vitest";
 
-import type { WorkspaceItemSummary } from "#/features/workspaces/contracts";
+import type { WorkspaceItem } from "#/features/workspaces/contracts";
 import { createWorkspaceExportStream } from "#/features/workspaces/export/workspace-export-archive";
 
 const baseItem = {
@@ -15,7 +15,7 @@ const baseItem = {
 
 describe("workspace export archive", () => {
 	it("preserves folders, converts documents to Markdown, and streams original files", async () => {
-		const items: WorkspaceItemSummary[] = [
+		const items: WorkspaceItem[] = [
 			{
 				...baseItem,
 				id: "folder",
@@ -61,7 +61,7 @@ describe("workspace export archive", () => {
 	});
 
 	it("keeps every item when Markdown extensions collide", async () => {
-		const items: WorkspaceItemSummary[] = [
+		const items: WorkspaceItem[] = [
 			{
 				...baseItem,
 				id: "document-1",

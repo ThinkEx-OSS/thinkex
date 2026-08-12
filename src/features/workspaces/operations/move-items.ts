@@ -3,7 +3,7 @@ import {
 	resolveWorkspaceExistingItemPath,
 } from "#/features/workspaces/operations/workspace-operation-context";
 import type { WorkspaceAccessContext } from "#/features/workspaces/operations/workspace-access-context";
-import type { WorkspaceItemSummary } from "#/features/workspaces/contracts";
+import { type WorkspaceItem, isWorkspaceItemContainer } from "#/features/workspaces/contracts";
 import {
 	getParentWorkspacePath,
 	joinWorkspaceItemPath,
@@ -34,7 +34,7 @@ export interface MoveWorkspaceItemsFailure {
 export interface MovedWorkspaceItem {
 	path: string;
 	previousPath: string;
-	type: WorkspaceItemSummary["type"];
+	type: WorkspaceItem["type"];
 }
 
 export interface MoveWorkspaceItemsOperationResult {
@@ -75,7 +75,7 @@ export async function moveWorkspaceItemsOperation(
 	const failed: MoveWorkspaceItemsFailure[] = [];
 	const resolvedItems: Array<{
 		index: number;
-		item: WorkspaceItemSummary;
+		item: WorkspaceItem;
 		path: string;
 	}> = [];
 
@@ -95,7 +95,7 @@ export async function moveWorkspaceItemsOperation(
 		}
 
 		if (
-			resolution.item.type === "folder" &&
+			isWorkspaceItemContainer(resolution.item.type) &&
 			isWorkspacePathEqualOrDescendant(resolution.path, destination.path)
 		) {
 			failed.push({
@@ -225,7 +225,7 @@ function resolveMoveWorkspaceDestination(input: { resolution: WorkspaceKernelPat
 		};
 	}
 
-	if (resolution.item.type !== "folder") {
+	if (!isWorkspaceItemContainer(resolution.item.type)) {
 		return {
 			failure: {
 				code: "destination_path_not_folder",

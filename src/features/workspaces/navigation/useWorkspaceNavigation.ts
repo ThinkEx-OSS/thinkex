@@ -1,10 +1,9 @@
 import { useNavigate } from "@tanstack/react-router";
 import { useCallback, useMemo } from "react";
-import type { WorkspaceSummary } from "#/features/workspaces/contracts";
+import type { WorkspaceItem, WorkspaceSummary } from "#/features/workspaces/contracts";
 import type { WorkspaceLocation } from "#/features/workspaces/locations/workspace-location";
-import type { WorkspaceDragCommand } from "#/features/workspaces/model/drag";
+import type { WorkspaceDragCommand } from "#/features/workspaces/model/drag-types";
 import { getWorkspaceTabSearch } from "#/features/workspaces/model/tabs";
-import type { WorkspaceItem } from "#/features/workspaces/model/types";
 import { isWorkspaceItemView } from "#/features/workspaces/model/view";
 import { useWorkspaceRouteTabsSync } from "#/features/workspaces/navigation/useWorkspaceRouteTabsSync";
 import {

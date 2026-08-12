@@ -1,12 +1,12 @@
 import { type UseDroppableInput, useDroppable } from "@dnd-kit/react";
 
+import { createWorkspaceFolderDropTargetData } from "#/features/workspaces/model/drag-data";
+import { getWorkspaceFolderDropTargetId } from "#/features/workspaces/model/drag-target-ids";
 import {
-	createWorkspaceFolderDropTargetData,
-	getWorkspaceFolderDropTargetId,
 	WORKSPACE_FOLDER_DRAG_TYPE,
 	WORKSPACE_ITEM_DRAG_TYPES,
 	type WorkspaceDropTargetData,
-} from "#/features/workspaces/model/drag";
+} from "#/features/workspaces/model/drag-types";
 
 type WorkspaceDropTargetBehavior = Pick<
 	UseDroppableInput<WorkspaceDropTargetData>,

@@ -3,7 +3,7 @@ import {
 	resolveWorkspaceExistingItemPath,
 } from "#/features/workspaces/operations/workspace-operation-context";
 import type { WorkspaceAccessContext } from "#/features/workspaces/operations/workspace-access-context";
-import type { WorkspaceItemSummary } from "#/features/workspaces/contracts";
+import type { WorkspaceItem } from "#/features/workspaces/contracts";
 import {
 	getParentWorkspacePath,
 	joinWorkspaceItemPath,
@@ -24,7 +24,7 @@ export interface RenameWorkspaceItemFailure {
 export interface RenamedWorkspaceItem {
 	path: string;
 	previousPath: string;
-	type: WorkspaceItemSummary["type"];
+	type: WorkspaceItem["type"];
 }
 
 export interface RenameWorkspaceItemOperationResult {

@@ -6,7 +6,11 @@ import {
 	workspaceItemExtractions,
 	workspaceItems,
 } from "#/db/schema";
-import type { JsonValue, WorkspaceItemSummary } from "#/features/workspaces/contracts";
+import {
+	type JsonValue,
+	type WorkspaceItem,
+	getWorkspaceItemContentKind,
+} from "#/features/workspaces/contracts";
 import { getWorkspaceItemNameKey } from "#/features/workspaces/defaults";
 import { WORKSPACE_FILE_PREVIEW_CONTENT_TYPE } from "#/features/workspaces/files/workspace-file-preview.constants";
 import type {
@@ -52,7 +56,7 @@ export class PostgresWorkspaceFiles {
 
 	async createFileFromUpload(
 		input: CreateWorkspaceKernelFileFromUploadArgs,
-	): Promise<WorkspaceCommandResult<WorkspaceItemSummary>> {
+	): Promise<WorkspaceCommandResult<WorkspaceItem>> {
 		// R2 validation happens before opening the database transaction.
 		const [source, preview] = await Promise.all([
 			this.bucket.head(input.objectKey),
@@ -140,7 +144,8 @@ export class PostgresWorkspaceFiles {
 				await assertCanReadWorkspace(db, { workspaceId: this.workspaceId, userId: input.userId });
 			}
 			const item = await requireActiveWorkspaceItemRow(db, this.workspaceId, input.itemId);
-			if (item.type !== "file") throw new Error("Workspace item is not a file.");
+			if (getWorkspaceItemContentKind(item.type) !== "file")
+				throw new Error("Workspace item is not a file.");
 			const asset = await requireWorkspaceFileAsset(db, input.itemId);
 			return {
 				objectKey: asset.sourceObjectKey,
@@ -157,7 +162,8 @@ export class PostgresWorkspaceFiles {
 				await assertCanReadWorkspace(db, { workspaceId: this.workspaceId, userId: input.userId });
 			}
 			const item = await requireActiveWorkspaceItemRow(db, this.workspaceId, input.itemId);
-			if (item.type !== "file") throw new Error("Workspace item is not a file.");
+			if (getWorkspaceItemContentKind(item.type) !== "file")
+				throw new Error("Workspace item is not a file.");
 			const asset = await requireWorkspaceFileAsset(db, input.itemId);
 			return {
 				itemId: input.itemId,
@@ -177,7 +183,8 @@ export class PostgresWorkspaceFiles {
 	): Promise<ReadWorkspaceFileExtractionResult | null> {
 		return await withWorkspaceDatabase(async (db) => {
 			const item = await requireActiveWorkspaceItemRow(db, this.workspaceId, input.itemId);
-			if (item.type !== "file") throw new Error("Workspace item is not a file.");
+			if (getWorkspaceItemContentKind(item.type) !== "file")
+				throw new Error("Workspace item is not a file.");
 			const [projection] = await db
 				.select()
 				.from(workspaceItemExtractions)
@@ -199,7 +206,8 @@ export class PostgresWorkspaceFiles {
 			await lockWorkspaceForActor(transaction, this.workspaceId, input.actorUserId);
 			const item = await getActiveWorkspaceItemRow(transaction, this.workspaceId, input.itemId);
 			if (!item) return { outcome: "discarded" as const };
-			if (item.type !== "file") throw new Error("Workspace item is not a file.");
+			if (getWorkspaceItemContentKind(item.type) !== "file")
+				throw new Error("Workspace item is not a file.");
 			const now = new Date();
 			await transaction
 				.insert(workspaceItemExtractions)
@@ -250,7 +258,8 @@ export class PostgresWorkspaceFiles {
 			await lockWorkspaceForActor(transaction, this.workspaceId, input.actorUserId);
 			const item = await getActiveWorkspaceItemRow(transaction, this.workspaceId, input.itemId);
 			if (!item) return { outcome: "discarded" as const };
-			if (item.type !== "file") throw new Error("Workspace item is not a file.");
+			if (getWorkspaceItemContentKind(item.type) !== "file")
+				throw new Error("Workspace item is not a file.");
 			const asset = await requireWorkspaceFileAsset(transaction, input.itemId);
 			if (asset.sourceHash !== input.sourceHash) return { outcome: "discarded" as const };
 			const [currentExtraction] = await transaction

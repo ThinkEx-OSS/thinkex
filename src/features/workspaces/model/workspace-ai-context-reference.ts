@@ -1,7 +1,6 @@
-import { getWorkspaceItemTypeMeta } from "#/features/workspaces/defaults";
 import type { WorkspaceTab } from "#/features/workspaces/model/tab-types";
 import { getWorkspaceItemPath } from "#/features/workspaces/model/tree";
-import type { WorkspaceItem } from "#/features/workspaces/model/types";
+import { type WorkspaceItem, getWorkspaceItemRegistryEntry } from "#/features/workspaces/contracts";
 import { getWorkspaceAiContextItemViewState } from "#/features/workspaces/model/workspace-item-view-state";
 import type { WorkspacePane } from "#/features/workspaces/state/workspace-ui-store";
 
@@ -22,7 +21,7 @@ export function getWorkspaceAiContextItemReference(input: {
 	return {
 		name: item.name,
 		path: getWorkspaceItemPath(item, context.itemsById),
-		type: getWorkspaceItemTypeMeta(item.type),
+		type: getWorkspaceItemRegistryEntry(item.type).menuLabel,
 		state: {
 			activeVisible: isVisible,
 			viewState: isVisible
