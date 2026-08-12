@@ -43,6 +43,11 @@ describe("theme search", () => {
 		expect(labels("chem")).toContain("Chemistry");
 	});
 
+	it("treats spaces and hyphens as the same in names", () => {
+		expect(labels("todo")).toContain("To-Do");
+		expect(labels("to do")).toContain("To-Do");
+	});
+
 	it("requires every token to match", () => {
 		expect(labels("chemistry zzzz")).toHaveLength(0);
 	});

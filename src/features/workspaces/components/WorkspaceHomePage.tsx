@@ -31,6 +31,7 @@ import { useWorkspaceTabsStore } from "#/features/workspaces/state/workspace-tab
 import { useCreateWorkspaceMutation } from "#/features/workspaces/use-create-workspace";
 import { useCopyToClipboard } from "#/hooks/use-copy-to-clipboard";
 import { useTypeToFocusTextInput } from "#/hooks/use-type-to-focus-text-input";
+import { rankNameSearch } from "#/lib/name-search";
 
 const workspaceHomeCommunityLinkOrder = ["Discord", "Twitter / X", "GitHub"];
 
@@ -218,10 +219,5 @@ function filterWorkspaces<TWorkspace extends { name: string }>(
 	workspaces: TWorkspace[],
 	search: string,
 ) {
-	const query = search.trim().toLocaleLowerCase();
-	if (!query) {
-		return workspaces;
-	}
-
-	return workspaces.filter((workspace) => workspace.name.toLocaleLowerCase().includes(query));
+	return rankNameSearch(search, workspaces, (workspace) => [workspace.name]);
 }
