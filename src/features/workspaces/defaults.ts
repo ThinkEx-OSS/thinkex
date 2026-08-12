@@ -4,8 +4,8 @@ import {
 	type WorkspaceIcon,
 	type WorkspaceItemType,
 	type WorkspaceTheme,
+	getWorkspaceItemRegistryEntry,
 } from "#/features/workspaces/contracts";
-import { getWorkspaceItemRegistryEntry } from "#/features/workspaces/workspace-item-registry";
 
 export const DEFAULT_WORKSPACE_NAME = "Untitled Workspace";
 export const DEFAULT_WORKSPACE_COLOR = "sky" satisfies WorkspaceColor;
@@ -15,14 +15,6 @@ export const DEFAULT_WORKSPACE_ICON = "compass" satisfies WorkspaceIcon;
 export const DEFAULT_WORKSPACE_THEME = "default" satisfies WorkspaceTheme;
 export const WORKSPACE_ITEM_SORT_STEP = 1024;
 
-export function getDefaultWorkspaceItemName(type: WorkspaceItemType) {
-	return getWorkspaceItemRegistryEntry(type).defaultName;
-}
-
-export function getWorkspaceItemTypeMeta(type: WorkspaceItemType) {
-	return getWorkspaceItemRegistryEntry(type).menuLabel;
-}
-
 export function getAvailableWorkspaceItemName(input: {
 	type: WorkspaceItemType;
 	existingNames: Iterable<string>;
@@ -31,7 +23,7 @@ export function getAvailableWorkspaceItemName(input: {
 	const requestedName = input.requestedName
 		? normalizeWorkspaceItemName(input.requestedName, "")
 		: "";
-	const baseName = requestedName || getDefaultWorkspaceItemName(input.type);
+	const baseName = requestedName || getWorkspaceItemRegistryEntry(input.type).defaultName;
 	const existingNames = new Set(Array.from(input.existingNames, getWorkspaceItemNameKey));
 
 	if (requestedName && !existingNames.has(getWorkspaceItemNameKey(baseName))) {
@@ -62,15 +54,14 @@ export function getAvailableWorkspaceItemName(input: {
 }
 
 export function normalizeWorkspaceItemName(name: string | null | undefined, fallback = "Untitled") {
-	const normalized =
-		stripControlCharacters(name ?? "")
-			.normalize("NFC")
-			.replace(/[<>:"/\\|?*]+/g, "-")
-			.replace(/\s+/g, " ")
-			.trim()
-			.slice(0, WORKSPACE_ITEM_NAME_MAX_LENGTH)
-			.trim()
-			.replace(/[. ]+$/g, "") ?? "";
+	const normalized = stripControlCharacters(name ?? "")
+		.normalize("NFC")
+		.replace(/[<>:"/\\|?*]+/g, "-")
+		.replace(/\s+/g, " ")
+		.trim()
+		.slice(0, WORKSPACE_ITEM_NAME_MAX_LENGTH)
+		.trim()
+		.replace(/[. ]+$/g, "");
 
 	if (!normalized) {
 		return fallback;

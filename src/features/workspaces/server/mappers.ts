@@ -1,12 +1,9 @@
 import type { InferSelectModel } from "drizzle-orm";
 
 import type { workspaces } from "#/db/schema";
-import type {
-	WorkspaceDetail,
-	WorkspaceMembershipRole,
-	WorkspaceSummary,
-} from "#/features/workspaces/contracts";
 import {
+	type WorkspaceMembershipRole,
+	type WorkspaceSummary,
 	workspaceColorSchema,
 	workspaceIconSchema,
 	workspaceThemeSchema,
@@ -39,13 +36,6 @@ export function mapWorkspaceRow(
 		archivedAt: toIsoString(row.archivedAt),
 		membershipRole,
 	};
-}
-
-export function mapWorkspaceDetailRow(
-	row: WorkspaceSummaryRow,
-	membershipRole: WorkspaceMembershipRole,
-): WorkspaceDetail {
-	return mapWorkspaceRow(row, membershipRole);
 }
 
 function parseWorkspaceIcon(value: string | null) {

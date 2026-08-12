@@ -4,10 +4,9 @@ import { toast } from "sonner";
 
 import { Button } from "#/components/ui/button";
 import { WorkspaceItemTreePickerDialog } from "#/features/workspaces/components/WorkspaceItemTreePickerDialog";
-import type { WorkspaceSummary } from "#/features/workspaces/contracts";
+import type { WorkspaceItem, WorkspaceSummary } from "#/features/workspaces/contracts";
 import { getWorkspaceDisplay } from "#/features/workspaces/model/display";
 import { getWorkspaceRootItems } from "#/features/workspaces/model/tree";
-import type { WorkspaceItem } from "#/features/workspaces/model/types";
 import {
 	createWorkspaceFolderTreePickerNodes,
 	getCommonWorkspaceItemParentId,

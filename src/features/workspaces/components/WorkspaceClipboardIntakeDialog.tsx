@@ -9,15 +9,14 @@ import {
 	DialogTitle,
 } from "#/components/ui/dialog";
 import type { WorkspaceClipboardIntake } from "#/features/workspaces/clipboard/workspace-clipboard-intake";
-import { getWorkspaceObjectRegistryEntry } from "#/features/workspaces/model/object-registry";
+import { getWorkspaceItemTypeDisplay } from "#/features/workspaces/model/item-display";
 import { workspaceColors } from "#/features/workspaces/model/workspace-colors";
 import { resolveWorkspaceFileTypeFromHint } from "#/features/workspaces/model/workspace-file";
 import { cn } from "#/lib/utils";
 
-const documentDisplay = getWorkspaceObjectRegistryEntry("document");
+const documentDisplay = getWorkspaceItemTypeDisplay("document");
 const documentIconClassName = workspaceColors[documentDisplay.color].iconClassName;
-const fileIconClassName =
-	workspaceColors[getWorkspaceObjectRegistryEntry("file").color].iconClassName;
+const fileIconClassName = workspaceColors[getWorkspaceItemTypeDisplay("file").color].iconClassName;
 
 export function WorkspaceClipboardIntakeDialog({
 	intake,
@@ -111,7 +110,7 @@ function WorkspaceClipboardFileRow({ file }: { file: File }) {
 		fileName: file.name,
 	});
 	const label = descriptor?.label ?? "File";
-	const Icon = descriptor?.icon ?? getWorkspaceObjectRegistryEntry("file").icon;
+	const Icon = descriptor?.icon ?? getWorkspaceItemTypeDisplay("file").icon;
 
 	return (
 		<li className="grid min-w-0 grid-cols-[3.5rem_minmax(0,1fr)] items-center gap-3 rounded-lg border border-border/70 px-3 py-2.5">

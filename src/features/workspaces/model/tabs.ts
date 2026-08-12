@@ -1,5 +1,5 @@
 import type { WorkspaceTab, WorkspaceTabSession } from "#/features/workspaces/model/tab-types";
-import type { WorkspaceItem } from "#/features/workspaces/model/types";
+import type { WorkspaceItem } from "#/features/workspaces/contracts";
 
 export const WORKSPACE_ROOT_VIEW = "root";
 

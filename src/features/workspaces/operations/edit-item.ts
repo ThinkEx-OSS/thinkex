@@ -8,6 +8,7 @@ import { type DocumentAiEdit } from "#/features/workspaces/documents/document-ai
 import { editWorkspaceItemFailureCodes } from "#/features/workspaces/operations/workspace-operation-failure-codes";
 import type { DocumentEditLineChanges } from "#/features/workspaces/documents/document-edit-receipt";
 import { resolveDocumentCitations } from "#/features/workspaces/operations/document-citations";
+import { getWorkspaceItemContentKind } from "#/features/workspaces/contracts";
 
 type EditWorkspaceItemFailureCode = (typeof editWorkspaceItemFailureCodes)[number];
 
@@ -56,7 +57,7 @@ export async function editWorkspaceItemOperation(
 		};
 	}
 
-	if (resolution.item.type !== "document") {
+	if (getWorkspaceItemContentKind(resolution.item.type) !== "document") {
 		return {
 			path: resolution.path,
 			...failedWorkspaceEditResult("unsupported_item_type", edits.length),

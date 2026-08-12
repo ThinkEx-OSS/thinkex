@@ -5,7 +5,6 @@ import {
 } from "./drag-data";
 import {
 	getWorkspaceFolderDropTargetFolderId,
-	getWorkspaceFolderDropTargetId,
 	getWorkspaceSplitDropTargetInput,
 } from "./drag-target-ids";
 import {
@@ -25,8 +24,6 @@ function dragEntityIdToString(id: unknown): string {
 
 	return "";
 }
-
-export { getWorkspaceFolderDropTargetId };
 
 export function getWorkspaceDragSource(
 	source: WorkspaceDragEntity | null | undefined,

@@ -1,6 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
-import { applyWorkspacePageDeltaToCache, workspacePageQueryKey } from "#/features/workspaces/cache";
+import { workspacePageQueryKey } from "#/features/workspaces/cache-keys";
+import { applyWorkspacePageDeltaToCache } from "#/features/workspaces/cache-page";
 import AiChatPanel from "#/features/workspaces/components/AiChatPanel";
 import WorkspaceChatLayout from "#/features/workspaces/components/WorkspaceChatLayout";
 import WorkspaceContextBar from "#/features/workspaces/components/WorkspaceContextBar";
@@ -22,11 +23,14 @@ import {
 	useWorkspaceViewPolicy,
 	WorkspaceViewCapabilitiesProvider,
 } from "#/features/workspaces/components/workspace-view-policy";
-import type { WorkspaceItemType, WorkspaceSummary } from "#/features/workspaces/contracts";
+import type {
+	WorkspaceItem,
+	WorkspaceItemType,
+	WorkspaceSummary,
+} from "#/features/workspaces/contracts";
 import type { WorkspaceLocation } from "#/features/workspaces/locations/workspace-location";
 import { WorkspaceLocationProvider } from "#/features/workspaces/locations/workspace-location-context";
 import { DocumentEditReviewProvider } from "#/features/workspaces/documents/document-edit-review-context";
-import type { WorkspaceItem } from "#/features/workspaces/model/types";
 import { isWorkspaceItemView } from "#/features/workspaces/model/view";
 import { workspaceItemRequiresHeavyViewerRuntime } from "#/features/workspaces/model/workspace-file";
 import { getWorkspaceMobileChatSurfaceMode } from "#/features/workspaces/model/workspace-ui";
@@ -47,8 +51,6 @@ import {
 import { getWorkspaceMemberCapabilities } from "#/features/workspaces/workspace-member-capabilities";
 import { useAppHotkey } from "#/lib/hotkeys-core";
 import { isOpenPopupInteractionTarget } from "#/lib/keyboard-event-target";
-
-export type { WorkspaceItem } from "#/features/workspaces/model/types";
 
 interface WorkspaceShellProps {
 	workspace: WorkspaceSummary;

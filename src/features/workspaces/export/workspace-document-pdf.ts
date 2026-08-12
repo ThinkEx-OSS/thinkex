@@ -4,6 +4,7 @@ import { parseTiptapDocumentJson } from "#/features/workspaces/documents/tiptap-
 import { renderWorkspaceDocumentPdfHtml } from "#/features/workspaces/export/workspace-document-pdf-html";
 import { WorkspaceForbiddenError } from "#/features/workspaces/server/permissions";
 import { getWorkspacePageForUser } from "#/features/workspaces/server/queries";
+import { getWorkspaceItemContentKind } from "#/features/workspaces/contracts";
 
 export class WorkspaceDocumentNotFoundError extends Error {}
 
@@ -19,7 +20,7 @@ export async function createWorkspaceDocumentPdf(input: {
 	}
 
 	const item = page.items.find((candidate) => candidate.id === input.itemId);
-	if (!item || item.type !== "document") {
+	if (!item || getWorkspaceItemContentKind(item.type) !== "document") {
 		throw new WorkspaceDocumentNotFoundError();
 	}
 

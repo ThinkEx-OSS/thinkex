@@ -1,15 +1,41 @@
-import { Upload } from "lucide-react";
+import { FilePen, Folder, Paperclip, Upload } from "lucide-react";
 
-import { getWorkspaceObjectRegistryEntry } from "#/features/workspaces/model/object-registry";
-import type { WorkspaceItem } from "#/features/workspaces/model/types";
+import {
+	type WorkspaceItem,
+	type WorkspaceItemType,
+	getWorkspaceItemContentKind,
+	getWorkspaceItemRegistryEntry,
+} from "#/features/workspaces/contracts";
 import { workspaceColors } from "#/features/workspaces/model/workspace-colors";
 import { resolveWorkspaceFileTypeFromItem } from "#/features/workspaces/model/workspace-file";
 import { getWorkspaceItemPalette } from "#/features/workspaces/model/workspace-item-colors";
 
+const workspaceItemIcons = {
+	document: FilePen,
+	file: Paperclip,
+	folder: Folder,
+} satisfies Record<WorkspaceItemType, typeof FilePen>;
+
+/**
+ * The registry entry plus everything that only the client can supply. Kept out
+ * of the registry itself so server code can read item metadata without pulling
+ * an icon set into the Worker bundle.
+ */
+export function getWorkspaceItemTypeDisplay(type: WorkspaceItemType) {
+	return {
+		...getWorkspaceItemRegistryEntry(type),
+		icon: workspaceItemIcons[type],
+		type,
+	};
+}
+
 export function getWorkspaceItemDisplay(item: WorkspaceItem) {
-	const typeDisplay = getWorkspaceObjectRegistryEntry(item.type);
+	const typeDisplay = getWorkspaceItemTypeDisplay(item.type);
 	const palette = getWorkspaceItemPalette(item);
-	const fileDescriptor = item.type === "file" ? resolveWorkspaceFileTypeFromItem(item) : null;
+	const fileDescriptor =
+		getWorkspaceItemContentKind(item.type) === "file"
+			? resolveWorkspaceFileTypeFromItem(item)
+			: null;
 
 	return {
 		...typeDisplay,
@@ -26,7 +52,7 @@ export const workspaceItemPrimaryCreateActions =
 	workspaceItemPrimaryCreateActionOrder.map(createWorkspaceItemAction);
 
 function createWorkspaceItemAction(type: "document" | "folder") {
-	const display = getWorkspaceObjectRegistryEntry(type);
+	const display = getWorkspaceItemTypeDisplay(type);
 	return {
 		type,
 		label: display.menuLabel,
@@ -41,7 +67,7 @@ export const workspaceItemAcquisitionActions = [
 		label: "Upload",
 		description: undefined,
 		Icon: Upload,
-		iconClassName: workspaceColors[getWorkspaceObjectRegistryEntry("file").color].iconClassName,
+		iconClassName: workspaceColors[getWorkspaceItemTypeDisplay("file").color].iconClassName,
 		disabled: false,
 	},
 ] as const;

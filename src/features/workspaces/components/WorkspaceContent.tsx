@@ -38,14 +38,18 @@ import WorkspaceSelectionActionBar from "#/features/workspaces/components/Worksp
 import { workspaceItemGridClass } from "#/features/workspaces/components/workspace-item-card-chrome";
 import { useWorkspaceMutationAccess } from "#/features/workspaces/components/workspace-mutation-access";
 import { useWorkspaceViewCapabilities } from "#/features/workspaces/components/workspace-view-policy";
-import type { WorkspaceItemType, WorkspaceSummary } from "#/features/workspaces/contracts";
+import {
+	type WorkspaceItem,
+	type WorkspaceItemType,
+	type WorkspaceSummary,
+	getWorkspaceItemContentKind,
+} from "#/features/workspaces/contracts";
 import { getWorkspaceItemDisplay } from "#/features/workspaces/model/item-display";
 import {
 	getWorkspaceChildren,
 	getWorkspaceItemPath,
 	splitWorkspaceChildren,
 } from "#/features/workspaces/model/tree";
-import type { WorkspaceItem } from "#/features/workspaces/model/types";
 import { getWorkspaceBrowseParentId, isWorkspaceItemView } from "#/features/workspaces/model/view";
 import { workspaceUploadTypeLabel } from "#/features/workspaces/upload/workspace-upload-intake";
 import { eventTargetsPreventTypeToFocus } from "#/lib/keyboard-event-target";
@@ -496,7 +500,7 @@ function WorkspaceItemView({
 }) {
 	const viewCapabilities = useWorkspaceViewCapabilities();
 
-	if (item.type === "document") {
+	if (getWorkspaceItemContentKind(item.type) === "document") {
 		return (
 			<DocumentEditorSurface
 				documentPath={documentPath}
@@ -507,7 +511,7 @@ function WorkspaceItemView({
 		);
 	}
 
-	if (item.type === "file") {
+	if (getWorkspaceItemContentKind(item.type) === "file") {
 		return (
 			<WorkspaceFileViewer
 				item={item}

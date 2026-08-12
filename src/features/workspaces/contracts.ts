@@ -1,12 +1,23 @@
 import { z } from "zod";
 
 import {
+	getWorkspaceItemContentKind,
+	getWorkspaceItemRegistryEntry,
+	isWorkspaceItemContainer,
 	workspaceItemTypeSchema,
+	type WorkspaceItemContentKind,
 	type WorkspaceItemType,
 } from "#/features/workspaces/workspace-item-registry";
 
-export { workspaceItemTypeSchema };
-export type { WorkspaceItemType };
+// The registry is reached through here, not imported directly, so item-type
+// facts arrive from the same module as the schemas that carry them.
+export {
+	getWorkspaceItemContentKind,
+	getWorkspaceItemRegistryEntry,
+	isWorkspaceItemContainer,
+	workspaceItemTypeSchema,
+};
+export type { WorkspaceItemContentKind, WorkspaceItemType };
 
 export const WORKSPACE_ITEM_NAME_MAX_LENGTH = 160;
 
@@ -348,7 +359,7 @@ export const workspaceSummarySchema = z.object({
 	membershipRole: workspaceMembershipRoleSchema,
 });
 
-export const workspaceItemSummarySchema = z.object({
+export const workspaceItemSchema = z.object({
 	id: z.string(),
 	workspaceId: z.string(),
 	parentId: z.string().nullable(),
@@ -372,7 +383,10 @@ export const createWorkspaceItemInputSchema = z
 		initialContent: z.string().optional(),
 	})
 	.superRefine((input, context) => {
-		if (input.initialContent !== undefined && input.type !== "document") {
+		if (
+			input.initialContent !== undefined &&
+			getWorkspaceItemContentKind(input.type) !== "document"
+		) {
 			context.addIssue({
 				code: "custom",
 				message: "Initial content can only be provided for documents.",
@@ -441,16 +455,14 @@ export const workspaceIdInputSchema = z.object({
 
 export const workspacePageSchema = z.object({
 	workspace: workspaceSummarySchema,
-	items: z.array(workspaceItemSummarySchema),
+	items: z.array(workspaceItemSchema),
 	revision: z.number().int().nonnegative(),
 });
 
 export type WorkspaceIcon = z.infer<typeof workspaceIconSchema>;
 export type WorkspaceColor = z.infer<typeof workspaceColorSchema>;
-export type WorkspaceItemColor = z.infer<typeof workspaceColorSchema>;
 export type WorkspaceSummary = z.infer<typeof workspaceSummarySchema>;
-export type WorkspaceDetail = WorkspaceSummary;
-export type WorkspaceItemSummary = z.infer<typeof workspaceItemSummarySchema>;
+export type WorkspaceItem = z.infer<typeof workspaceItemSchema>;
 export type CreateWorkspaceItemInput = z.infer<typeof createWorkspaceItemInputSchema>;
 export type RenameWorkspaceItemInput = z.infer<typeof renameWorkspaceItemInputSchema>;
 export type MoveWorkspaceItemsInput = z.infer<typeof moveWorkspaceItemsInputSchema>;

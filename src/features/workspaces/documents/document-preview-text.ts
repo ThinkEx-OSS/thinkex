@@ -1,7 +1,7 @@
 import type { TextSerializer } from "@tiptap/core";
 import { getText, getTextSerializersFromSchema } from "@tiptap/core";
 
-import type { JsonValue, WorkspaceItemSummary } from "#/features/workspaces/contracts";
+import type { JsonValue, WorkspaceItem } from "#/features/workspaces/contracts";
 import { parseTiptapDocumentJson } from "#/features/workspaces/documents/tiptap-document";
 import { getTiptapDocumentSchema } from "#/features/workspaces/documents/tiptap-schema";
 
@@ -18,7 +18,7 @@ const documentPreviewTextSerializers: Record<string, TextSerializer> = {
 	widget: ({ node }) => (typeof node.attrs.title === "string" ? node.attrs.title : ""),
 };
 
-export function getWorkspaceDocumentPreviewText(item: Pick<WorkspaceItemSummary, "metadataJson">) {
+export function getWorkspaceDocumentPreviewText(item: Pick<WorkspaceItem, "metadataJson">) {
 	const previewText = item.metadataJson[WORKSPACE_DOCUMENT_PREVIEW_TEXT_METADATA_KEY];
 
 	return typeof previewText === "string" ? previewText.trim() : "";

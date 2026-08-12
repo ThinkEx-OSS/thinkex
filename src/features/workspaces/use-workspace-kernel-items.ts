@@ -2,13 +2,13 @@ import { type QueryClient, useMutation, useQueryClient } from "@tanstack/react-q
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 
+import { workspacePageQueryKey } from "#/features/workspaces/cache-keys";
 import {
 	applyWorkspacePageDeltaToCache,
 	createWorkspaceItemInPageCache,
 	moveWorkspaceItemsInPageCache,
 	removeWorkspaceItemsFromPageCache,
-	workspacePageQueryKey,
-} from "#/features/workspaces/cache";
+} from "#/features/workspaces/cache-page";
 import type {
 	CreateWorkspaceItemInput,
 	DeleteWorkspaceItemsInput,

@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 
-import type { WorkspaceItem } from "#/features/workspaces/model/types";
+import type { WorkspaceItem } from "#/features/workspaces/contracts";
 
 interface WorkspaceItemActionDialogState {
 	renamingItemId: string | null;

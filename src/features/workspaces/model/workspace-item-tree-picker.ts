@@ -1,5 +1,5 @@
 import { getWorkspaceSubtreeItemIds } from "#/features/workspaces/model/tree";
-import type { WorkspaceItem } from "#/features/workspaces/model/types";
+import { type WorkspaceItem, isWorkspaceItemContainer } from "#/features/workspaces/contracts";
 
 const workspaceRootPickerNodeId = "workspace-root";
 
@@ -24,7 +24,7 @@ export function createWorkspaceFolderTreePickerNodes(input: {
 }) {
 	const excludedFolderIds = input.excludedFolderIds ?? new Set<string>();
 	const folderItems = input.items.filter(
-		(item) => item.type === "folder" && !excludedFolderIds.has(item.id),
+		(item) => isWorkspaceItemContainer(item.type) && !excludedFolderIds.has(item.id),
 	);
 
 	return [

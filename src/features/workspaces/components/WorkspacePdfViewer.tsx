@@ -60,7 +60,7 @@ import { useWorkspaceViewCapabilities } from "#/features/workspaces/components/w
 import { createCaptureAttachmentFile } from "#/features/workspaces/components/workspace-region-capture";
 import { stageCaptureAttachmentToComposerWithFeedback } from "#/features/workspaces/composer/workspace-composer-actions";
 import { useWorkspacePdfPageRevealRequest } from "#/features/workspaces/locations/workspace-location-context";
-import type { WorkspaceItem } from "#/features/workspaces/model/types";
+import type { WorkspaceItem } from "#/features/workspaces/contracts";
 import { getWorkspaceFileContentUrl } from "#/features/workspaces/model/workspace-file";
 import {
 	type ClientPoint,

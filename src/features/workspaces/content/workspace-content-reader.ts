@@ -1,4 +1,8 @@
-import type { WorkspaceItemSummary } from "#/features/workspaces/contracts";
+import {
+	type WorkspaceItem,
+	getWorkspaceItemContentKind,
+	isWorkspaceItemContainer,
+} from "#/features/workspaces/contracts";
 import type {
 	WorkspaceContentReadRequest,
 	WorkspaceContentReadResult,
@@ -32,7 +36,7 @@ interface DocumentContentReader {
 }
 
 interface PendingReadyResult {
-	item: WorkspaceItemSummary;
+	item: WorkspaceItem;
 	read: Extract<WorkspaceContentReadResult, { status: "ready" }>;
 	relations: ReturnType<WorkspaceKernelClient["listItemRelations"]>;
 }
@@ -71,7 +75,7 @@ export async function readWorkspaceContent(input: {
 			results.push({ code: "path_not_found", path: resolution.path, status: "failed" });
 			continue;
 		}
-		if (resolution.item.type === "folder") {
+		if (isWorkspaceItemContainer(resolution.item.type)) {
 			results.push({ code: "path_is_folder", path: resolution.path, status: "failed" });
 			continue;
 		}
@@ -79,7 +83,9 @@ export async function readWorkspaceContent(input: {
 			code: "read_budget_exceeded" as const,
 			path: resolution.path,
 			status: "failed" as const,
-			...(resolution.item.type === "file" ? { type: "file" as const } : {}),
+			...(getWorkspaceItemContentKind(resolution.item.type) === "file"
+				? { type: "file" as const }
+				: {}),
 		};
 		if (readBudgetExhausted) {
 			results.push(readBudgetFailure);
@@ -128,23 +134,26 @@ export async function readWorkspaceContent(input: {
 async function readWorkspaceItem(input: {
 	bucket: R2Bucket;
 	getDocumentSession: (itemId: string) => DocumentContentReader | Promise<DocumentContentReader>;
-	item: WorkspaceItemSummary;
+	item: WorkspaceItem;
 	kernel: WorkspaceKernelClient;
 	path: string;
 	request: WorkspaceContentReadRequest;
 }): Promise<WorkspaceContentReadResult> {
-	if (input.item.type === "document") {
-		return input.request.mode === "block"
-			? readDocumentBlock(input, input.request.editRef)
-			: readDocument(input);
+	// Exhaustive on content kind, not on item type: a new item type that stores
+	// its body somewhere new must fail this switch rather than fall through to
+	// `unsupported_item_type` at runtime.
+	switch (getWorkspaceItemContentKind(input.item.type)) {
+		case "document":
+			return input.request.mode === "block"
+				? readDocumentBlock(input, input.request.editRef)
+				: readDocument(input);
+		case "file":
+			return input.request.mode === "block"
+				? { code: "invalid_selection", path: input.path, status: "failed" }
+				: readFile(input);
+		case "none":
+			return { code: "unsupported_item_type", path: input.path, status: "failed" };
 	}
-	if (input.item.type === "file") {
-		if (input.request.mode === "block") {
-			return { code: "invalid_selection", path: input.path, status: "failed" };
-		}
-		return readFile(input);
-	}
-	return { code: "unsupported_item_type", path: input.path, status: "failed" };
 }
 
 /**
@@ -157,7 +166,7 @@ async function readWorkspaceItem(input: {
 async function readDocumentBlock(
 	input: {
 		getDocumentSession: (itemId: string) => DocumentContentReader | Promise<DocumentContentReader>;
-		item: WorkspaceItemSummary;
+		item: WorkspaceItem;
 		path: string;
 	},
 	editRef: string,
@@ -181,7 +190,7 @@ async function readDocumentBlock(
 
 async function readDocument(input: {
 	getDocumentSession: (itemId: string) => DocumentContentReader | Promise<DocumentContentReader>;
-	item: WorkspaceItemSummary;
+	item: WorkspaceItem;
 	path: string;
 	request: WorkspaceContentReadRequest;
 }): Promise<WorkspaceContentReadResult> {
@@ -231,7 +240,7 @@ async function readDocument(input: {
 
 async function readFile(input: {
 	bucket: R2Bucket;
-	item: WorkspaceItemSummary;
+	item: WorkspaceItem;
 	kernel: WorkspaceKernelClient;
 	path: string;
 	request: WorkspaceContentReadRequest;

@@ -25,11 +25,10 @@ import type { WorkspaceMenuRenderer } from "#/features/workspaces/components/wor
 import { workspaceMenuItemInteraction } from "#/features/workspaces/components/workspace-menu-actions";
 import { useWorkspaceMutationAccess } from "#/features/workspaces/components/workspace-mutation-access";
 import { WorkspaceViewerMenuNotice } from "#/features/workspaces/components/workspace-viewer-ui";
-import type { WorkspaceItemColor } from "#/features/workspaces/contracts";
-import type { WorkspaceItem } from "#/features/workspaces/model/types";
+import type { WorkspaceColor, WorkspaceItem } from "#/features/workspaces/contracts";
+import { workspaceColorOptions } from "#/features/workspaces/model/workspace-colors";
 import {
 	getWorkspaceItemColorValue,
-	workspaceItemColorOptions,
 	workspaceItemSupportsCustomColor,
 } from "#/features/workspaces/model/workspace-item-colors";
 import { useUpdateWorkspaceItemColorMutation } from "#/features/workspaces/use-workspace-kernel-items";
@@ -199,14 +198,14 @@ function WorkspaceItemColorSubmenu({
 	item: WorkspaceItem;
 	menuKind: "dropdown" | "context";
 	disabled: boolean;
-	onUpdateItemColor: (color: WorkspaceItemColor) => void;
+	onUpdateItemColor: (color: WorkspaceColor) => void;
 }) {
 	const selectedColor = getWorkspaceItemColorValue(item.color);
 	const content = (
 		<ColorSwatchPicker
 			aria-label={`Color for ${item.name}`}
 			value={selectedColor}
-			options={workspaceItemColorOptions}
+			options={workspaceColorOptions}
 			onValueChange={onUpdateItemColor}
 			showLabels={false}
 			className="grid-flow-col grid-rows-4 gap-1.5"

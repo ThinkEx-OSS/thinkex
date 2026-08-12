@@ -1,7 +1,7 @@
 import { WorkspaceCardMetaRow } from "#/features/workspaces/components/workspace-card-meta-row";
 import { getWorkspaceItemRecencyLabel } from "#/features/workspaces/model/display";
 import { getWorkspaceItemDisplay } from "#/features/workspaces/model/item-display";
-import type { WorkspaceItem } from "#/features/workspaces/model/types";
+import type { WorkspaceItem } from "#/features/workspaces/contracts";
 import { cn } from "#/lib/utils";
 
 interface WorkspaceItemCardFooterProps {

@@ -1,5 +1,8 @@
-import type { WorkspaceItemSummary, WorkspaceSummary } from "#/features/workspaces/contracts";
-import { workspaceRoleLabels } from "#/features/workspaces/contracts";
+import {
+	type WorkspaceItem,
+	type WorkspaceSummary,
+	workspaceRoleLabels,
+} from "#/features/workspaces/contracts";
 import { workspaceColors } from "#/features/workspaces/model/workspace-colors";
 import { resolveWorkspaceIdentity } from "#/features/workspaces/model/workspace-themes";
 import { workspaceIcons } from "#/features/workspaces/model/workspace-icons";
@@ -48,7 +51,7 @@ export function getWorkspaceCardRoleLabel(workspace: WorkspaceSummary) {
 }
 
 export function getWorkspaceItemRecencyLabel(
-	item: Pick<WorkspaceItemSummary, "createdAt" | "updatedAt">,
+	item: Pick<WorkspaceItem, "createdAt" | "updatedAt">,
 	now = new Date(),
 ) {
 	const createdAt = Date.parse(item.createdAt);

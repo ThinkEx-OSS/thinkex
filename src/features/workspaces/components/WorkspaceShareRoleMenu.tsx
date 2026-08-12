@@ -8,8 +8,7 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "#/components/ui/dropdown-menu";
-import type { WorkspaceMembershipRole } from "#/features/workspaces/contracts";
-import { workspaceRoleLabels } from "#/features/workspaces/contracts";
+import { type WorkspaceMembershipRole, workspaceRoleLabels } from "#/features/workspaces/contracts";
 
 export function WorkspaceShareRoleMenu({
 	align = "end",

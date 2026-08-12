@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getRouteApi, notFound } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 
-import { upsertWorkspaceInList } from "#/features/workspaces/cache";
+import { upsertWorkspaceInList } from "#/features/workspaces/cache-workspace";
 import WorkspaceShellSkeleton from "#/features/workspaces/components/WorkspaceShellSkeleton";
 import { workspacePageQueryOptions } from "#/features/workspaces/query-options";
 import { useWorkspaceUiSession } from "#/features/workspaces/state/workspace-ui-store";

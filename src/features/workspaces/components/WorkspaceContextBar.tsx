@@ -22,11 +22,14 @@ import WorkspaceMobileBreadcrumbOverflow from "#/features/workspaces/components/
 import WorkspaceRootActionsMenu from "#/features/workspaces/components/WorkspaceRootActionsMenu";
 import { WorkspaceSearchDialog } from "#/features/workspaces/components/WorkspaceSearchDialog";
 import { WorkspaceToolbarGroup } from "#/features/workspaces/components/WorkspaceToolbar";
-import type { WorkspaceItemType, WorkspaceSummary } from "#/features/workspaces/contracts";
+import type {
+	WorkspaceItem,
+	WorkspaceItemType,
+	WorkspaceSummary,
+} from "#/features/workspaces/contracts";
 import { getWorkspaceDisplay } from "#/features/workspaces/model/display";
 import { getWorkspaceItemDisplay } from "#/features/workspaces/model/item-display";
 import { getWorkspaceBreadcrumbItems } from "#/features/workspaces/model/tree";
-import type { WorkspaceItem } from "#/features/workspaces/model/types";
 import { getWorkspaceBrowseParentId } from "#/features/workspaces/model/view";
 import { formatAppHotkey, getAppHotkey, useAppHotkey } from "#/lib/hotkeys-core";
 import { cn } from "#/lib/utils";

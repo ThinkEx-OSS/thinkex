@@ -9,7 +9,7 @@ import {
 	CommandList,
 } from "#/components/ui/command";
 import { getWorkspaceItemDisplay } from "#/features/workspaces/model/item-display";
-import type { WorkspaceItem } from "#/features/workspaces/model/types";
+import type { WorkspaceItem } from "#/features/workspaces/contracts";
 import { cn } from "#/lib/utils";
 
 interface WorkspaceSearchDialogProps {

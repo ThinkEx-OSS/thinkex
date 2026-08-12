@@ -6,10 +6,8 @@ import { WorkspaceTabShell } from "#/features/workspaces/components/WorkspaceTab
 import { useWorkspaceMutationAccess } from "#/features/workspaces/components/workspace-mutation-access";
 import { WORKSPACE_TAB_ITEM_CLASS } from "#/features/workspaces/components/workspace-tab-bar-model";
 import { WORKSPACE_SORTABLE_TAB_TRANSITION } from "#/features/workspaces/components/workspace-tab-motion";
-import {
-	createWorkspaceTabDragData,
-	WORKSPACE_TAB_DRAG_TYPE,
-} from "#/features/workspaces/model/drag";
+import { createWorkspaceTabDragData } from "#/features/workspaces/model/drag-data";
+import { WORKSPACE_TAB_DRAG_TYPE } from "#/features/workspaces/model/drag-types";
 import type { WorkspaceTab } from "#/features/workspaces/state/workspace-tabs-store";
 import { cn } from "#/lib/utils";
 

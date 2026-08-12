@@ -1,7 +1,7 @@
 import type {
 	CreateWorkspaceItemInput,
 	MoveWorkspaceItemsInput,
-	WorkspaceItemSummary,
+	WorkspaceItem,
 	WorkspacePage,
 } from "#/features/workspaces/contracts";
 import {
@@ -117,7 +117,7 @@ export function moveWorkspaceItemsInPage(
 
 export function upsertWorkspaceItemInPage(
 	page: WorkspacePage,
-	item: WorkspaceItemSummary,
+	item: WorkspaceItem,
 	revision = page.revision,
 ): WorkspacePage {
 	const exists = page.items.some((candidate) => candidate.id === item.id);
@@ -146,7 +146,7 @@ export function removeWorkspaceItemsFromPage(
 	};
 }
 
-function compareWorkspaceItems(left: WorkspaceItemSummary, right: WorkspaceItemSummary) {
+function compareWorkspaceItems(left: WorkspaceItem, right: WorkspaceItem) {
 	return (
 		(left.parentId ?? "").localeCompare(right.parentId ?? "") ||
 		left.sortOrder - right.sortOrder ||
@@ -154,7 +154,7 @@ function compareWorkspaceItems(left: WorkspaceItemSummary, right: WorkspaceItemS
 	);
 }
 
-function getNextWorkspaceItemSortOrder(items: WorkspaceItemSummary[], parentId: string | null) {
+function getNextWorkspaceItemSortOrder(items: WorkspaceItem[], parentId: string | null) {
 	let maxSortOrder = 0;
 
 	for (const item of items) {
@@ -167,8 +167,8 @@ function getNextWorkspaceItemSortOrder(items: WorkspaceItemSummary[], parentId: 
 }
 
 function getAvailableWorkspaceItemNameInPage(input: {
-	items: WorkspaceItemSummary[];
-	type: WorkspaceItemSummary["type"];
+	items: WorkspaceItem[];
+	type: WorkspaceItem["type"];
 	parentId: string | null;
 	requestedName?: string;
 	excludeItemId?: string;

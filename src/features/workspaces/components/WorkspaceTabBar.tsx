@@ -11,11 +11,10 @@ import {
 	getWorkspaceTabItemStyle,
 	getWorkspaceTabListStyle,
 } from "#/features/workspaces/components/workspace-tab-bar-model";
-import type { WorkspaceSummary } from "#/features/workspaces/contracts";
+import type { WorkspaceItem, WorkspaceSummary } from "#/features/workspaces/contracts";
 import { getWorkspaceDisplay } from "#/features/workspaces/model/display";
 import { getWorkspaceItemDisplay } from "#/features/workspaces/model/item-display";
 import { findItemForTab } from "#/features/workspaces/model/tabs";
-import type { WorkspaceItem } from "#/features/workspaces/model/types";
 import type { WorkspaceTab } from "#/features/workspaces/state/workspace-tabs-store";
 import { cn } from "#/lib/utils";
 

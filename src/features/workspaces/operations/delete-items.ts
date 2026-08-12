@@ -3,7 +3,7 @@ import {
 	resolveWorkspaceExistingItemPath,
 } from "#/features/workspaces/operations/workspace-operation-context";
 import type { WorkspaceAccessContext } from "#/features/workspaces/operations/workspace-access-context";
-import type { WorkspaceItemSummary } from "#/features/workspaces/contracts";
+import type { WorkspaceItem } from "#/features/workspaces/contracts";
 
 export interface DeleteWorkspaceItemsOperationInput {
 	paths: string[];
@@ -19,7 +19,7 @@ export interface DeleteWorkspaceItemsFailure {
 
 export interface DeletedWorkspaceItem {
 	path: string;
-	type: WorkspaceItemSummary["type"];
+	type: WorkspaceItem["type"];
 }
 
 export interface DeleteWorkspaceItemsOperationResult {
@@ -37,7 +37,7 @@ export async function deleteWorkspaceItemsOperation(
 	});
 	const failed: DeleteWorkspaceItemsFailure[] = [];
 	const resolvedItems: Array<{
-		item: WorkspaceItemSummary;
+		item: WorkspaceItem;
 		path: string;
 	}> = [];
 	const resolutions = await kernel.resolvePaths({ paths: input.paths });

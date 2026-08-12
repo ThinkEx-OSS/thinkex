@@ -10,7 +10,7 @@ import {
 	DropdownMenuTrigger,
 } from "#/components/ui/dropdown-menu";
 import { getWorkspaceItemDisplay } from "#/features/workspaces/model/item-display";
-import type { WorkspaceItem } from "#/features/workspaces/model/types";
+import type { WorkspaceItem } from "#/features/workspaces/contracts";
 
 interface WorkspaceMobileBreadcrumbOverflowProps {
 	items: WorkspaceItem[];

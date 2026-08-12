@@ -2,11 +2,8 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 
-import {
-	updateWorkspaceInCaches,
-	workspacePageQueryKey,
-	workspacesQueryKey,
-} from "#/features/workspaces/cache";
+import { workspacePageQueryKey, workspacesQueryKey } from "#/features/workspaces/cache-keys";
+import { updateWorkspaceInCaches } from "#/features/workspaces/cache-workspace";
 import type {
 	UpdateWorkspaceInput,
 	WorkspacePage,

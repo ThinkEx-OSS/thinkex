@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { AiChatMessageResponse } from "#/features/workspaces/components/ai-chat/AiChatMessageResponse";
 import type { WorkspaceReference } from "#/features/workspaces/locations/workspace-location";
 import { WorkspaceLocationProvider } from "#/features/workspaces/locations/workspace-location-context";
-import type { WorkspaceItem } from "#/features/workspaces/model/types";
+import type { WorkspaceItem } from "#/features/workspaces/contracts";
 
 const documentItem: WorkspaceItem = {
 	color: null,

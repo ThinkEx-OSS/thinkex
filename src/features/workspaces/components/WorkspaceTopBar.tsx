@@ -12,8 +12,7 @@ import {
 	WorkspaceToolbarIconButton,
 	WorkspaceToolbarTextButton,
 } from "#/features/workspaces/components/WorkspaceToolbar";
-import type { WorkspaceSummary } from "#/features/workspaces/contracts";
-import type { WorkspaceItem } from "#/features/workspaces/model/types";
+import type { WorkspaceItem, WorkspaceSummary } from "#/features/workspaces/contracts";
 import type { WorkspacePresenceUser } from "#/features/workspaces/realtime/messages";
 import type { WorkspaceTab } from "#/features/workspaces/state/workspace-tabs-store";
 import {

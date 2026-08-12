@@ -2,7 +2,7 @@ import { Feedback } from "@dnd-kit/dom";
 import { OptimisticSortingPlugin } from "@dnd-kit/dom/sortable";
 import type { UseSortableInput } from "@dnd-kit/react/sortable";
 import { WorkspaceOptimisticSortingPlugin } from "#/features/workspaces/components/workspace-optimistic-sorting-plugin";
-import type { WorkspaceDragData } from "#/features/workspaces/model/drag";
+import type { WorkspaceDragData } from "#/features/workspaces/model/drag-types";
 
 type WorkspaceSortablePlugins = NonNullable<UseSortableInput<WorkspaceDragData>["plugins"]>;
 type WorkspaceSortablePluginResolver = Exclude<WorkspaceSortablePlugins, readonly unknown[]>;

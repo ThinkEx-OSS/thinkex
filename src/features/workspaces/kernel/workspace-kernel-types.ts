@@ -1,7 +1,7 @@
 import type {
 	JsonValue,
-	WorkspaceItemColor,
-	WorkspaceItemSummary,
+	WorkspaceColor,
+	WorkspaceItem,
 	WorkspaceRelationKind,
 	WorkspaceItemType,
 } from "#/features/workspaces/contracts";
@@ -58,7 +58,7 @@ export type WorkspaceKernelPathResolution =
 			status: "root";
 	  }
 	| {
-			item: WorkspaceItemSummary;
+			item: WorkspaceItem;
 			path: string;
 			status: "item";
 	  };
@@ -114,7 +114,7 @@ export interface CreateWorkspaceKernelItemArgs {
 	type: WorkspaceItemType;
 	name?: string;
 	onNameConflict?: WorkspaceKernelNameConflictPolicy;
-	color?: WorkspaceItemColor;
+	color?: WorkspaceColor;
 	metadataJson?: Record<string, JsonValue>;
 	initialContent?: string;
 	initialRelations?: CreateWorkspaceKernelRelationArgs[];
@@ -138,11 +138,11 @@ export interface MoveWorkspaceKernelItemsArgs {
 	actorUserId?: string | null;
 }
 
-export type MoveWorkspaceKernelItemsResult = WorkspaceItemSummary[];
+export type MoveWorkspaceKernelItemsResult = WorkspaceItem[];
 
 export interface UpdateWorkspaceKernelItemColorArgs {
 	itemId: string;
-	color: WorkspaceItemColor;
+	color: WorkspaceColor;
 	actorUserId?: string | null;
 }
 

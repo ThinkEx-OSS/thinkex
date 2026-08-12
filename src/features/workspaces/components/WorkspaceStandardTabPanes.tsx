@@ -1,8 +1,11 @@
 import WorkspaceContent from "#/features/workspaces/components/WorkspaceContent";
 import { WorkspacePaneRuntimeProvider } from "#/features/workspaces/components/WorkspacePaneRuntime";
-import type { WorkspaceItemType, WorkspaceSummary } from "#/features/workspaces/contracts";
+import type {
+	WorkspaceItem,
+	WorkspaceItemType,
+	WorkspaceSummary,
+} from "#/features/workspaces/contracts";
 import type { WorkspaceTab } from "#/features/workspaces/model/tab-types";
-import type { WorkspaceItem } from "#/features/workspaces/model/types";
 import { cn } from "#/lib/utils";
 
 export default function WorkspaceStandardTabPanes({

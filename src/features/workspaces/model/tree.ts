@@ -1,6 +1,9 @@
-import type { WorkspaceItem } from "#/features/workspaces/model/types";
+import {
+	type WorkspaceItem,
+	getWorkspaceItemRegistryEntry,
+	isWorkspaceItemContainer,
+} from "#/features/workspaces/contracts";
 import { joinWorkspacePathSegment } from "#/features/workspaces/kernel/workspace-kernel-paths";
-import { getWorkspaceItemTypeMeta } from "#/features/workspaces/defaults";
 
 interface WorkspaceTreeItem {
 	id: string;
@@ -63,8 +66,8 @@ export function getWorkspaceDescendantIds(items: readonly WorkspaceItem[], itemI
 
 export function splitWorkspaceChildren(items: WorkspaceItem[]) {
 	return {
-		folders: items.filter((item) => item.type === "folder"),
-		items: items.filter((item) => item.type !== "folder"),
+		folders: items.filter((item) => isWorkspaceItemContainer(item.type)),
+		items: items.filter((item) => !isWorkspaceItemContainer(item.type)),
 	};
 }
 
@@ -142,8 +145,8 @@ export function getWorkspaceItemPath(
 }
 
 export function getWorkspaceItemMeta(item: WorkspaceItem, allItems: WorkspaceItem[]) {
-	if (item.type !== "folder") {
-		return getWorkspaceItemTypeMeta(item.type);
+	if (!isWorkspaceItemContainer(item.type)) {
+		return getWorkspaceItemRegistryEntry(item.type).menuLabel;
 	}
 
 	const count = allItems.filter((child) => child.parentId === item.id).length;

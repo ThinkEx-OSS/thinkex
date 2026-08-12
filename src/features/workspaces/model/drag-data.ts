@@ -1,5 +1,4 @@
 import { isRecord } from "#/lib/record";
-import { isWorkspaceDragRow } from "./drag-guards";
 import {
 	WORKSPACE_FOLDER_DRAG_TYPE,
 	WORKSPACE_ITEM_DRAG_TYPE,
@@ -55,7 +54,7 @@ export function getWorkspaceDragData(data: unknown): WorkspaceDragData | undefin
 		data.kind === "workspace-item" &&
 		typeof data.itemId === "string" &&
 		data.itemId &&
-		isWorkspaceDragRow(data.row)
+		(data.row === "folder" || data.row === "item")
 	) {
 		return {
 			kind: "workspace-item",

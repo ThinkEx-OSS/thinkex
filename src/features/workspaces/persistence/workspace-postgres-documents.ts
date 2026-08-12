@@ -2,6 +2,10 @@ import { eq } from "drizzle-orm";
 
 import { workspaceDocumentCheckpoints, workspaceItems } from "#/db/schema";
 import { prepareDocumentItemMetadata } from "#/features/workspaces/documents/document-item-content";
+import {
+	getWorkspaceItemContentKind,
+	workspaceItemTypeSchema,
+} from "#/features/workspaces/contracts";
 import type {
 	ReadWorkspaceDocumentCheckpointArgs,
 	WorkspaceKernelPublishOutcome,
@@ -26,7 +30,7 @@ export class PostgresWorkspaceDocuments {
 	async readCheckpoint(input: ReadWorkspaceDocumentCheckpointArgs) {
 		return await withWorkspaceDatabase(async (db) => {
 			const item = await requireActiveWorkspaceItem(db, this.workspaceId, input.itemId);
-			if (item.type !== "document") {
+			if (getWorkspaceItemContentKind(item.type) !== "document") {
 				throw new Error("Only document items have document checkpoints.");
 			}
 			const [checkpoint] = await db
@@ -50,7 +54,7 @@ export class PostgresWorkspaceDocuments {
 			await lockWorkspaceForActor(transaction, this.workspaceId, input.actorUserId);
 			const row = await getActiveWorkspaceItemRow(transaction, this.workspaceId, input.itemId);
 			if (!row) return { outcome: "discarded" as const };
-			if (row.type !== "document") {
+			if (getWorkspaceItemContentKind(workspaceItemTypeSchema.parse(row.type)) !== "document") {
 				throw new Error("Only document checkpoints can update workspace text content.");
 			}
 			const metadata = prepareDocumentItemMetadata(

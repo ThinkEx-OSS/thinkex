@@ -7,7 +7,7 @@ import {
 	type ReviewedIncomingFile,
 } from "#/features/workspaces/files/file-intake-review";
 import { resolveWorkspaceUploadDestination } from "#/features/workspaces/model/view";
-import type { WorkspaceItem } from "#/features/workspaces/model/types";
+import type { WorkspaceItem } from "#/features/workspaces/contracts";
 
 interface UseAiChatAttachmentIntakeInput {
 	activeItem?: WorkspaceItem;

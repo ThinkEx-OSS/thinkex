@@ -13,6 +13,10 @@ import {
 import { resolveDocumentCitations } from "#/features/workspaces/operations/document-citations";
 import { stringifyTiptapDocumentJson } from "#/features/workspaces/documents/tiptap-document";
 import {
+	getWorkspaceItemContentKind,
+	isWorkspaceItemContainer,
+} from "#/features/workspaces/contracts";
+import {
 	createWorkspaceReferenceRecords,
 	type WorkspaceReferenceRecord,
 } from "#/features/workspaces/locations/workspace-location";
@@ -112,7 +116,8 @@ export async function createWorkspaceItemsOperation(
 		}
 
 		const initialContent = getCreateWorkspaceItemInitialContent(
-			itemInput.type === "document" && itemInput.initialContent !== undefined
+			getWorkspaceItemContentKind(itemInput.type) === "document" &&
+				itemInput.initialContent !== undefined
 				? {
 						...itemInput,
 						initialContent: await resolveDocumentCitations({
@@ -221,7 +226,7 @@ function resolveCreateWorkspaceItemParent(resolution: WorkspaceKernelPathResolut
 		};
 	}
 
-	if (resolution.item.type !== "folder") {
+	if (!isWorkspaceItemContainer(resolution.item.type)) {
 		return {
 			code: "path_not_folder",
 			status: "failed",
@@ -280,7 +285,10 @@ function getCreateWorkspaceItemInitialContent(input: CreateWorkspaceItemOperatio
 			detail?: string;
 			status: "failed";
 	  } {
-	if (input.type !== "document" || input.initialContent === undefined) {
+	if (
+		getWorkspaceItemContentKind(input.type) !== "document" ||
+		input.initialContent === undefined
+	) {
 		return { status: "ready" };
 	}
 

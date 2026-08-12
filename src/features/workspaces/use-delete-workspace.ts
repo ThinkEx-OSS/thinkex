@@ -3,7 +3,8 @@ import { useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 
-import { removeWorkspaceCaches, workspacesQueryKey } from "#/features/workspaces/cache";
+import { workspacesQueryKey } from "#/features/workspaces/cache-keys";
+import { removeWorkspaceCaches } from "#/features/workspaces/cache-workspace";
 import type { DeleteWorkspaceInput, WorkspaceSummary } from "#/features/workspaces/contracts";
 import { deleteWorkspaceFn } from "#/features/workspaces/server/functions";
 import { getErrorMessage } from "#/lib/error-message";

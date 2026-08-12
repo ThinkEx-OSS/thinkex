@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { workspacePageQueryKey } from "#/features/workspaces/cache-keys";
 import { applyWorkspacePageDeltaToCache } from "#/features/workspaces/cache-page";
-import type { WorkspaceItemSummary, WorkspacePage } from "#/features/workspaces/contracts";
+import type { WorkspaceItem, WorkspacePage } from "#/features/workspaces/contracts";
 
 describe("workspace page cache ordering", () => {
 	it("applies only the next revision", () => {
@@ -67,11 +67,11 @@ function readPage(queryClient: QueryClient) {
 	return queryClient.getQueryData<WorkspacePage>(workspacePageQueryKey("workspace-1"));
 }
 
-function createPage(revision: number, item: WorkspaceItemSummary): WorkspacePage {
+function createPage(revision: number, item: WorkspaceItem): WorkspacePage {
 	return { workspace: {} as WorkspacePage["workspace"], items: [item], revision };
 }
 
-function createItem(input: Partial<WorkspaceItemSummary> = {}): WorkspaceItemSummary {
+function createItem(input: Partial<WorkspaceItem> = {}): WorkspaceItem {
 	return {
 		color: input.color ?? null,
 		createdAt: "2026-01-01T00:00:00.000Z",

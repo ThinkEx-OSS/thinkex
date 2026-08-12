@@ -1,6 +1,6 @@
 import { toast } from "sonner";
 
-import type { WorkspaceItemSummary } from "#/features/workspaces/contracts";
+import type { WorkspaceItem } from "#/features/workspaces/contracts";
 import { workspaceFileUploadLimits } from "#/features/workspaces/model/workspace-file";
 import type { WorkspaceCommandResult } from "#/features/workspaces/realtime/messages";
 import { uploadFileDirectlyToR2 } from "#/features/workspaces/upload/workspace-file-direct-upload-client";
@@ -26,12 +26,12 @@ interface WorkspaceFileUploadBatchInput {
 	parentId: string | null;
 	files: readonly File[];
 	onLimitReached: (result: { successCount: number; total: number }) => void;
-	onSuccess: (command: WorkspaceCommandResult<WorkspaceItemSummary>) => void;
+	onSuccess: (command: WorkspaceCommandResult<WorkspaceItem>) => void;
 }
 
 type WorkspaceFileUploadOutcome =
 	| {
-			command: WorkspaceCommandResult<WorkspaceItemSummary>;
+			command: WorkspaceCommandResult<WorkspaceItem>;
 			ok: true;
 	  }
 	| {
@@ -146,7 +146,7 @@ export async function runWorkspaceFileUploadBatch(
 
 async function uploadWorkspaceFile(
 	job: WorkspaceFileUploadJob,
-): Promise<WorkspaceCommandResult<WorkspaceItemSummary>> {
+): Promise<WorkspaceCommandResult<WorkspaceItem>> {
 	const endpoint = `/api/v1/workspaces/${job.workspaceId}/file-upload`;
 	const contentType = job.file.type || "application/octet-stream";
 	const session = await requestUploadJson<WorkspaceDirectUploadSession>(
@@ -172,17 +172,14 @@ async function uploadWorkspaceFile(
 		url: session.uploadUrl,
 	});
 
-	return requestUploadJson<WorkspaceCommandResult<WorkspaceItemSummary>>(
-		`${endpoint}?action=complete`,
-		{
-			body: JSON.stringify({
-				completionToken: session.completionToken,
-			} satisfies CompleteWorkspaceDirectUploadInput),
-			headers: { "content-type": "application/json" },
-			method: "POST",
-			signal: getUploadRequestSignal(job.signal),
-		},
-	);
+	return requestUploadJson<WorkspaceCommandResult<WorkspaceItem>>(`${endpoint}?action=complete`, {
+		body: JSON.stringify({
+			completionToken: session.completionToken,
+		} satisfies CompleteWorkspaceDirectUploadInput),
+		headers: { "content-type": "application/json" },
+		method: "POST",
+		signal: getUploadRequestSignal(job.signal),
+	});
 }
 
 async function settleWorkspaceFileUpload(
@@ -213,7 +210,7 @@ async function uploadAcceptedFiles(input: {
 	parentId: string | null;
 	files: readonly File[];
 	onProgress: (file: File, loadedBytes: number) => void;
-	onSuccess: (command: WorkspaceCommandResult<WorkspaceItemSummary>) => void;
+	onSuccess: (command: WorkspaceCommandResult<WorkspaceItem>) => void;
 	signal: AbortSignal;
 }): Promise<WorkspaceFileUploadOutcome[]> {
 	const jobs = input.files.map((file) => ({

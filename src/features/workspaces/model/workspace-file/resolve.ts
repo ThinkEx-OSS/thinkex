@@ -1,4 +1,8 @@
-import type { JsonValue } from "#/features/workspaces/contracts";
+import {
+	type JsonValue,
+	type WorkspaceItemType,
+	getWorkspaceItemContentKind,
+} from "#/features/workspaces/contracts";
 import { getMetadataString } from "#/features/workspaces/model/workspace-file/metadata";
 import type { WorkspaceFileTypeDescriptor } from "#/features/workspaces/model/workspace-file/policy";
 import { getWorkspaceUploadFamily } from "#/features/workspaces/model/workspace-file/policy";
@@ -8,7 +12,7 @@ import {
 } from "#/features/workspaces/model/workspace-file/types";
 
 export interface WorkspaceFileItemLike {
-	type: string;
+	type: WorkspaceItemType;
 	name: string;
 	metadataJson: Record<string, JsonValue>;
 }
@@ -20,7 +24,7 @@ export function workspaceItemRequiresHeavyViewerRuntime(item: WorkspaceFileItemL
 export function resolveWorkspaceFileTypeFromItem(
 	item: WorkspaceFileItemLike,
 ): WorkspaceFileTypeDescriptor | null {
-	if (item.type !== "file") {
+	if (getWorkspaceItemContentKind(item.type) !== "file") {
 		return null;
 	}
 

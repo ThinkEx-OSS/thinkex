@@ -1,4 +1,4 @@
-import type { WorkspaceItem } from "#/features/workspaces/model/types";
+import { type WorkspaceItem, isWorkspaceItemContainer } from "#/features/workspaces/contracts";
 
 export type WorkspaceViewMode = "root" | "folder" | "item";
 
@@ -7,7 +7,7 @@ export function getWorkspaceViewMode(activeItem?: WorkspaceItem): WorkspaceViewM
 		return "root";
 	}
 
-	if (activeItem.type === "folder") {
+	if (isWorkspaceItemContainer(activeItem.type)) {
 		return "folder";
 	}
 
@@ -19,7 +19,7 @@ export function isWorkspaceItemView(activeItem?: WorkspaceItem): activeItem is W
 }
 
 export function getWorkspaceBrowseParentId(activeItem?: WorkspaceItem) {
-	return activeItem?.type === "folder" ? activeItem.id : null;
+	return activeItem && isWorkspaceItemContainer(activeItem.type) ? activeItem.id : null;
 }
 
 export function resolveWorkspaceUploadDestination(activeItem?: WorkspaceItem) {
@@ -27,7 +27,7 @@ export function resolveWorkspaceUploadDestination(activeItem?: WorkspaceItem) {
 		return null;
 	}
 
-	if (activeItem.type === "folder") {
+	if (isWorkspaceItemContainer(activeItem.type)) {
 		return activeItem.id;
 	}
 

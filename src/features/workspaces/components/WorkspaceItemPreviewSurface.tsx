@@ -8,7 +8,7 @@ import {
 } from "#/features/workspaces/components/workspace-item-card-chrome";
 import { getWorkspaceDocumentPreviewText } from "#/features/workspaces/documents/document-preview-text";
 import { getWorkspaceItemDisplay } from "#/features/workspaces/model/item-display";
-import type { WorkspaceItem } from "#/features/workspaces/model/types";
+import type { WorkspaceItem } from "#/features/workspaces/contracts";
 import {
 	getWorkspaceFilePreviewUrl,
 	resolveWorkspaceFileTypeFromItem,

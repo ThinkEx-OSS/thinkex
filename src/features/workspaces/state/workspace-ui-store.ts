@@ -12,7 +12,6 @@ import {
 	type WorkspaceItemViewState,
 } from "#/features/workspaces/model/workspace-item-view-state";
 import {
-	defaultWorkspaceUiSession,
 	getUpdatedWorkspaceUiSession,
 	getWorkspaceUiSession,
 	maximizeItemSession,
@@ -84,8 +83,6 @@ type WorkspaceUiState = {
 	) => void;
 	getSession: (workspaceId: string) => WorkspaceUiSession | undefined;
 };
-
-export { defaultWorkspaceUiSession, getWorkspaceUiSession };
 
 export const EMPTY_ITEM_VIEW_STATES: Readonly<Record<string, WorkspaceItemViewState | undefined>> =
 	{};

@@ -5,7 +5,7 @@ import { Spinner } from "#/components/ui/spinner";
 import { WorkspaceItemActionsContextMenuContent } from "#/features/workspaces/components/WorkspaceItemActionsMenu";
 import { useWorkspaceViewCapabilities } from "#/features/workspaces/components/workspace-view-policy";
 import { getWorkspaceItemDisplay } from "#/features/workspaces/model/item-display";
-import type { WorkspaceItem } from "#/features/workspaces/model/types";
+import type { WorkspaceItem } from "#/features/workspaces/contracts";
 import {
 	resolveWorkspaceFileTypeFromItem,
 	type WorkspaceFileAssetKind,

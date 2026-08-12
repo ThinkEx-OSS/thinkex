@@ -21,15 +21,15 @@ import { WorkspaceItemCardPreviewStage } from "#/features/workspaces/components/
 import { useWorkspaceMutationAccess } from "#/features/workspaces/components/workspace-mutation-access";
 import { workspaceItemSortablePlugins } from "#/features/workspaces/components/workspace-sortable-plugins";
 import { useWorkspaceViewCapabilities } from "#/features/workspaces/components/workspace-view-policy";
+import { createWorkspaceItemDragData } from "#/features/workspaces/model/drag-data";
 import {
-	createWorkspaceItemDragData,
 	getWorkspaceDragSource,
 	getWorkspaceItemDragTypeForRow,
 	getWorkspaceItemSortableAccept,
 	getWorkspaceItemSortableGroup,
-} from "#/features/workspaces/model/drag";
+} from "#/features/workspaces/model/drag-targets";
 import { getWorkspaceItemMeta } from "#/features/workspaces/model/tree";
-import type { WorkspaceItem } from "#/features/workspaces/model/types";
+import { type WorkspaceItem, isWorkspaceItemContainer } from "#/features/workspaces/contracts";
 import { cn } from "#/lib/utils";
 
 const WORKSPACE_COLLISION_PRIORITY_HIGH = 3;
@@ -64,7 +64,7 @@ export default function WorkspaceItemCard({
 	const { capabilities, itemSortableDisabled } = useWorkspaceMutationAccess();
 	const viewCapabilities = useWorkspaceViewCapabilities();
 	const { canMutateContent } = capabilities;
-	const isFolder = item.type === "folder";
+	const isFolder = isWorkspaceItemContainer(item.type);
 	const row = isFolder ? "folder" : "item";
 	const sortableDragType = getWorkspaceItemDragTypeForRow(row);
 	const dragOperation = useDragOperation();

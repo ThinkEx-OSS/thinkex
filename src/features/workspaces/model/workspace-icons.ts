@@ -108,8 +108,7 @@ import {
 	Zap,
 } from "lucide-react";
 
-import type { WorkspaceIcon } from "#/features/workspaces/contracts";
-import { workspaceIconValues } from "#/features/workspaces/contracts";
+import { type WorkspaceIcon, workspaceIconValues } from "#/features/workspaces/contracts";
 
 export interface WorkspaceIconOption {
 	value: WorkspaceIcon;
