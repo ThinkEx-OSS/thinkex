@@ -21,6 +21,13 @@ function deleteCookie(name: string) {
 	document.cookie = `${name}=; Path=/; Max-Age=0`;
 }
 
+function resetLocalStorage() {
+	const storage = window.localStorage;
+	if (typeof storage?.removeItem === "function") {
+		storage.removeItem(CONSENT_COOKIE_NAME);
+	}
+}
+
 function setConsentCookie(analytics: boolean, sessionReplay: boolean) {
 	const serialized = JSON.stringify({ analytics, sessionReplay, version: 2 });
 	document.cookie = `${CONSENT_COOKIE_NAME}=${encodeURIComponent(serialized)}; Path=/`;
@@ -44,7 +51,7 @@ describe("browser consent state", () => {
 	beforeEach(() => {
 		deleteCookie(CONSENT_COOKIE_NAME);
 		deleteCookie(CONSENT_REQUIRED_COOKIE);
-		window.localStorage.clear();
+		resetLocalStorage();
 		container = document.createElement("div");
 		document.body.appendChild(container);
 		root = createRoot(container);
@@ -55,7 +62,7 @@ describe("browser consent state", () => {
 		container.remove();
 		deleteCookie(CONSENT_COOKIE_NAME);
 		deleteCookie(CONSENT_REQUIRED_COOKIE);
-		window.localStorage.clear();
+		resetLocalStorage();
 	});
 
 	it("renders a stored decision without entering an update loop", async () => {
