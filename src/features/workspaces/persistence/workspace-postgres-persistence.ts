@@ -54,6 +54,7 @@ import {
 	getNextWorkspaceSortOrder,
 	getActiveWorkspaceItemRow,
 	getWorkspaceItemsByIds,
+	getWorkspaceRevision,
 	hasSelectedAncestor,
 	isDescendantOf,
 	lockWorkspaceForActor,
@@ -174,7 +175,7 @@ export class PostgresWorkspacePersistence implements WorkspaceKernelClient {
 	}
 
 	async linkItems(input: LinkWorkspaceKernelItemsArgs) {
-		const command = await withWorkspaceTransaction(async (transaction) => {
+		await withWorkspaceTransaction(async (transaction) => {
 			await lockWorkspaceForActor(transaction, this.workspaceId, input.actorUserId);
 			const itemIds = Array.from(
 				new Set(input.relations.flatMap((relation) => [relation.fromItemId, relation.toItemId])),
@@ -198,11 +199,7 @@ export class PostgresWorkspacePersistence implements WorkspaceKernelClient {
 					)
 					.onConflictDoNothing();
 			}
-
-			const revision = await nextWorkspaceRevision(transaction, this.workspaceId);
-			return { result: undefined, revision };
 		});
-		return command;
 	}
 
 	async createItem(
@@ -476,7 +473,10 @@ export class PostgresWorkspacePersistence implements WorkspaceKernelClient {
 				await transaction.delete(workspaceItems).where(inArray(workspaceItems.id, rootIds));
 			}
 
-			const revision = await nextWorkspaceRevision(transaction, this.workspaceId);
+			const revision =
+				deleteIds.length > 0
+					? await nextWorkspaceRevision(transaction, this.workspaceId)
+					: await getWorkspaceRevision(transaction, this.workspaceId);
 			const result = { itemIds: rootIds, deletedItemIds: deleteIds };
 			return {
 				result,

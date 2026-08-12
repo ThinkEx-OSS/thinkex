@@ -228,8 +228,7 @@ export class PostgresWorkspaceFiles {
 						updatedAt: now,
 					},
 				});
-			const revision = await nextWorkspaceRevision(transaction, this.workspaceId);
-			return { outcome: "applied" as const, revision };
+			return { outcome: "applied" as const };
 		});
 		return publication.outcome;
 	}
@@ -314,8 +313,7 @@ export class PostgresWorkspaceFiles {
 						updatedAt: now,
 					},
 				});
-			const revision = await nextWorkspaceRevision(transaction, this.workspaceId);
-			return { outcome: "applied" as const, revision };
+			return { outcome: "applied" as const };
 		});
 		return publication.outcome;
 	}

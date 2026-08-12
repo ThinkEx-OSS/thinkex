@@ -1,15 +1,12 @@
 import { type QueryClient, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useMemo } from "react";
 import { toast } from "sonner";
 
 import {
+	applyWorkspacePageDeltaToCache,
 	createWorkspaceItemInPageCache,
-	getWorkspaceItemColorInPageCache,
 	moveWorkspaceItemsInPageCache,
 	removeWorkspaceItemsFromPageCache,
-	updateWorkspaceItemColorInPageCache,
-	upsertWorkspaceItemsInPageCache,
 	workspacePageQueryKey,
 } from "#/features/workspaces/cache";
 import type {
@@ -28,9 +25,6 @@ import {
 	updateWorkspaceItemColorFn,
 } from "#/features/workspaces/server/functions";
 import { getErrorMessage } from "#/lib/error-message";
-import { createKeyedDebouncedLatest } from "#/lib/keyed-debounced-latest";
-
-const workspaceItemColorCommitDelayMs = 180;
 export function useCreateWorkspaceItemMutation() {
 	const createWorkspaceItem = useServerFn(createWorkspaceItemFn);
 	const queryClient = useQueryClient();
@@ -51,12 +45,12 @@ export function useCreateWorkspaceItemMutation() {
 			}
 		},
 		onSuccess: (command, input) => {
-			upsertWorkspaceItemsInPageCache(
-				queryClient,
-				input.workspaceId,
-				[command.result],
-				command.revision,
-			);
+			applyWorkspacePageDeltaToCache(queryClient, {
+				type: "workspace.items.upserted",
+				workspaceId: input.workspaceId,
+				items: [command.result],
+				revision: command.revision,
+			});
 		},
 		onError: (error, preparedInput) => {
 			if (preparedInput.id) {
@@ -89,12 +83,12 @@ export function useRenameWorkspaceItemMutation() {
 	return useMutation({
 		mutationFn: (input: RenameWorkspaceItemInput) => renameWorkspaceItem({ data: input }),
 		onSuccess: (command, input) => {
-			upsertWorkspaceItemsInPageCache(
-				queryClient,
-				input.workspaceId,
-				[command.result],
-				command.revision,
-			);
+			applyWorkspacePageDeltaToCache(queryClient, {
+				type: "workspace.items.upserted",
+				workspaceId: input.workspaceId,
+				items: [command.result],
+				revision: command.revision,
+			});
 		},
 		onError: (error) => {
 			toast.error(getErrorMessage(error, "Unable to rename workspace item right now."));
@@ -116,12 +110,12 @@ export function useMoveWorkspaceItemsMutation() {
 			moveWorkspaceItemsInPageCache(queryClient, input);
 		},
 		onSuccess: (command, input) => {
-			upsertWorkspaceItemsInPageCache(
-				queryClient,
-				input.workspaceId,
-				command.result,
-				command.revision,
-			);
+			applyWorkspacePageDeltaToCache(queryClient, {
+				type: "workspace.items.upserted",
+				workspaceId: input.workspaceId,
+				items: command.result,
+				revision: command.revision,
+			});
 		},
 		onError: (_error, input) => refreshWorkspacePage(queryClient, input.workspaceId),
 	});
@@ -131,44 +125,20 @@ export function useUpdateWorkspaceItemColorMutation() {
 	const updateWorkspaceItemColor = useServerFn(updateWorkspaceItemColorFn);
 	const queryClient = useQueryClient();
 
-	const commitColor = useMemo(
-		() =>
-			createKeyedDebouncedLatest<UpdateWorkspaceItemColorInput>({
-				getKey: getWorkspaceItemColorCommitKey,
-				wait: workspaceItemColorCommitDelayMs,
-				onExecute: (input) => {
-					updateWorkspaceItemColor({ data: input })
-						.then((command) => {
-							upsertWorkspaceItemsInPageCache(
-								queryClient,
-								input.workspaceId,
-								[command.result],
-								command.revision,
-							);
-						})
-						.catch((error: unknown) => {
-							if (getWorkspaceItemColorInPageCache(queryClient, input) !== input.color) {
-								return;
-							}
-
-							void refreshWorkspacePage(queryClient, input.workspaceId);
-							toast.error(getErrorMessage(error, "Unable to update item color right now."));
-						});
-				},
-			}),
-		[queryClient, updateWorkspaceItemColor],
-	);
-
-	const mutate = (input: UpdateWorkspaceItemColorInput) => {
-		void queryClient
-			.cancelQueries({ queryKey: workspacePageQueryKey(input.workspaceId) })
-			.then(() => {
-				updateWorkspaceItemColorInPageCache(queryClient, input);
-				commitColor(input);
+	return useMutation({
+		mutationFn: (input: UpdateWorkspaceItemColorInput) => updateWorkspaceItemColor({ data: input }),
+		onSuccess: (command, input) => {
+			applyWorkspacePageDeltaToCache(queryClient, {
+				type: "workspace.items.upserted",
+				workspaceId: input.workspaceId,
+				items: [command.result],
+				revision: command.revision,
 			});
-	};
-
-	return { mutate };
+		},
+		onError: (error) => {
+			toast.error(getErrorMessage(error, "Unable to update item color right now."));
+		},
+	});
 }
 
 export function useDeleteWorkspaceItemsMutation() {
@@ -205,12 +175,14 @@ export function useDeleteWorkspaceItemsMutation() {
 			removeWorkspaceItemsFromPageCache(queryClient, input.workspaceId, input.itemIds);
 		},
 		onSuccess: (command, input) => {
-			removeWorkspaceItemsFromPageCache(
-				queryClient,
-				input.workspaceId,
-				command.result.deletedItemIds,
-				command.revision,
-			);
+			if (command.result.deletedItemIds.length > 0) {
+				applyWorkspacePageDeltaToCache(queryClient, {
+					type: "workspace.items.deleted",
+					workspaceId: input.workspaceId,
+					itemIds: command.result.deletedItemIds,
+					revision: command.revision,
+				});
+			}
 		},
 		onError: (_error, input) => refreshWorkspacePage(queryClient, input.workspaceId),
 	});
@@ -222,10 +194,6 @@ function getDeleteWorkspaceItemsToastMessage(
 	suffix: string,
 ) {
 	return `${action} ${itemCount === 1 ? "item" : `${itemCount} items`}${suffix}`;
-}
-
-function getWorkspaceItemColorCommitKey(input: UpdateWorkspaceItemColorInput) {
-	return `${input.workspaceId}:${input.itemId}`;
 }
 
 function refreshWorkspacePage(queryClient: QueryClient, workspaceId: string) {

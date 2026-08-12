@@ -54,7 +54,7 @@ export interface WorkspaceKernelClient {
 	listTreeItems(input?: ListWorkspaceKernelItemsArgs): Promise<ListWorkspaceKernelItemsResult>;
 	resolvePaths(input: ResolveWorkspaceKernelPathsArgs): Promise<WorkspaceKernelPathResolution[]>;
 	getItemPaths(input: GetWorkspaceKernelItemPathsArgs): Promise<WorkspaceKernelItemPath[]>;
-	linkItems(input: LinkWorkspaceKernelItemsArgs): Promise<WorkspaceCommandResult<void>>;
+	linkItems(input: LinkWorkspaceKernelItemsArgs): Promise<void>;
 	listItemRelations(
 		input: ListWorkspaceKernelItemRelationsArgs,
 	): Promise<WorkspaceKernelItemRelation[]>;

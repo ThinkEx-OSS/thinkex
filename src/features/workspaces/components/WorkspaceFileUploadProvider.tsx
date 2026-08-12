@@ -14,7 +14,7 @@ import {
 } from "#/components/ui/alert-dialog";
 import { useBillingState } from "#/features/account/use-billing-state";
 import { showUpgradeDialog } from "#/features/account/upgrade-navigation";
-import { upsertWorkspaceItemsInPageCache } from "#/features/workspaces/cache";
+import { applyWorkspacePageDeltaToCache } from "#/features/workspaces/cache";
 import { useWorkspaceMutationAccess } from "#/features/workspaces/components/workspace-mutation-access";
 import { runWorkspaceFileUploadBatch } from "#/features/workspaces/files/workspace-file-upload";
 import { workspaceUploadAccept } from "#/features/workspaces/upload/workspace-upload-intake";
@@ -58,12 +58,12 @@ export function WorkspaceFileUploadProvider({
 			files: fileList,
 			onLimitReached: setLimitResult,
 			onSuccess: (command) => {
-				upsertWorkspaceItemsInPageCache(
-					queryClient,
+				applyWorkspacePageDeltaToCache(queryClient, {
+					type: "workspace.items.upserted",
 					workspaceId,
-					[command.result],
-					command.revision,
-				);
+					items: [command.result],
+					revision: command.revision,
+				});
 			},
 		});
 	};

@@ -22,7 +22,6 @@ interface PresenceState {
 
 interface UseWorkspaceRealtimeInput {
 	workspaceId: string;
-	lastSeenRevision?: number;
 	onPageChange?: (change: WorkspacePageDelta) => void;
 	onDesync?: () => void;
 }
@@ -49,14 +48,10 @@ function getInitialPresenceState(workspaceId: string): PresenceState {
 
 export function useWorkspaceRealtime({
 	workspaceId,
-	lastSeenRevision,
 	onPageChange,
 	onDesync,
 }: UseWorkspaceRealtimeInput) {
 	const [presence, setPresence] = useState(() => getInitialPresenceState(workspaceId));
-	const cachedRevisionRef = useRef(lastSeenRevision ?? 0);
-	const revisionWorkspaceRef = useRef(workspaceId);
-	const hasConnectedRef = useRef(false);
 	const onPageChangeRef = useRef(onPageChange);
 	const onDesyncRef = useRef(onDesync);
 
@@ -68,31 +63,13 @@ export function useWorkspaceRealtime({
 	const currentPresence =
 		presence.workspaceId === workspaceId ? presence : getInitialPresenceState(workspaceId);
 
-	useEffect(() => {
-		if (revisionWorkspaceRef.current !== workspaceId) {
-			revisionWorkspaceRef.current = workspaceId;
-			cachedRevisionRef.current = lastSeenRevision ?? 0;
-			hasConnectedRef.current = false;
-			return;
-		}
-
-		if (lastSeenRevision === undefined) {
-			return;
-		}
-
-		cachedRevisionRef.current = lastSeenRevision;
-	}, [lastSeenRevision, workspaceId]);
-
 	const handleOpen = useCallback(() => {
 		setPresence((current) => ({
 			...current,
 			status: "connected",
 			workspaceId,
 		}));
-		if (hasConnectedRef.current) {
-			onDesyncRef.current?.();
-		}
-		hasConnectedRef.current = true;
+		onDesyncRef.current?.();
 	}, [workspaceId]);
 
 	const handleClose = useCallback(() => {
@@ -127,11 +104,6 @@ export function useWorkspaceRealtime({
 			}
 
 			if (message.type !== "presence.snapshot" && message.workspaceId === workspaceId) {
-				if (message.revision <= cachedRevisionRef.current) {
-					return;
-				}
-
-				cachedRevisionRef.current = message.revision;
 				if (message.type === "workspace.page.refresh") {
 					onDesyncRef.current?.();
 				} else {

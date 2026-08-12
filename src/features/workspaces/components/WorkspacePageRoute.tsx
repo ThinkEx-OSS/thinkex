@@ -75,7 +75,6 @@ export default function WorkspacePageRoute() {
 			activeTabIdFromUrl={tab}
 			activeViewFromUrl={view}
 			items={page.items}
-			revision={page.revision}
 			workspace={page.workspace}
 		/>
 	);

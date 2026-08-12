@@ -53,7 +53,6 @@ export type { WorkspaceItem } from "#/features/workspaces/model/types";
 interface WorkspaceShellProps {
 	workspace: WorkspaceSummary;
 	items: WorkspaceItem[];
-	revision: number;
 	activeTabIdFromUrl?: string;
 	activeViewFromUrl?: string;
 }
@@ -61,7 +60,6 @@ interface WorkspaceShellProps {
 export function WorkspaceShell({
 	workspace,
 	items,
-	revision,
 	activeTabIdFromUrl,
 	activeViewFromUrl,
 }: WorkspaceShellProps) {
@@ -77,7 +75,6 @@ export function WorkspaceShell({
 	const normalizedUiSession = useWorkspaceUiSession(workspace.id);
 	const realtime = useWorkspaceRealtime({
 		workspaceId: workspace.id,
-		lastSeenRevision: revision,
 		onPageChange: (change) => {
 			applyWorkspacePageDeltaToCache(queryClient, change);
 		},

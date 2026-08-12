@@ -64,6 +64,16 @@ export async function nextWorkspaceRevision(transaction: Transaction, workspaceI
 	return workspace.revision;
 }
 
+export async function getWorkspaceRevision(db: QueryExecutor, workspaceId: string) {
+	const [workspace] = await db
+		.select({ revision: workspaces.revision })
+		.from(workspaces)
+		.where(eq(workspaces.id, workspaceId))
+		.limit(1);
+	if (!workspace) throw new Error("Workspace not found.");
+	return workspace.revision;
+}
+
 export async function getActiveWorkspaceItemRows(db: QueryExecutor, workspaceId: string) {
 	return await db
 		.select()
@@ -77,18 +87,15 @@ export async function getActiveWorkspaceItems(db: QueryExecutor, workspaceId: st
 }
 
 export async function readWorkspacePageSnapshot(db: QueryExecutor, workspaceId: string) {
-	const [workspace] = await db
-		.select({ revision: workspaces.revision })
-		.from(workspaces)
-		.where(eq(workspaces.id, workspaceId))
-		.limit(1);
-	if (!workspace) throw new Error("Workspace not found.");
-
+	// Read the cursor first. A concurrent commit can then be safely replayed onto
+	// the returned items; reading these in parallel could pair old items with a
+	// newer cursor and cause the client to discard that commit's delta.
+	const revision = await getWorkspaceRevision(db, workspaceId);
 	const items = await getActiveWorkspaceItems(db, workspaceId);
 	return {
 		workspaceId,
 		items,
-		revision: workspace.revision,
+		revision,
 	};
 }
 

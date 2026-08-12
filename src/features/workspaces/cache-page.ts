@@ -3,8 +3,6 @@ import { workspacePageQueryKey } from "#/features/workspaces/cache-keys";
 import type {
 	CreateWorkspaceItemInput,
 	MoveWorkspaceItemsInput,
-	UpdateWorkspaceItemColorInput,
-	WorkspaceItemSummary,
 	WorkspacePage,
 } from "#/features/workspaces/contracts";
 import {
@@ -12,8 +10,6 @@ import {
 	createWorkspaceItemInPage,
 	moveWorkspaceItemsInPage,
 	removeWorkspaceItemsFromPage,
-	updateWorkspaceItemColorInPage,
-	upsertWorkspaceItemInPage,
 } from "#/features/workspaces/model/workspace-page";
 import type { WorkspacePageDelta } from "#/features/workspaces/realtime/messages";
 
@@ -21,9 +17,19 @@ export function applyWorkspacePageDeltaToCache(
 	queryClient: QueryClient,
 	change: WorkspacePageDelta,
 ) {
-	queryClient.setQueryData<WorkspacePage>(workspacePageQueryKey(change.workspaceId), (current) =>
-		current ? applyWorkspacePageDelta(current, change) : current,
-	);
+	let shouldReconcile = false;
+	queryClient.setQueryData<WorkspacePage>(workspacePageQueryKey(change.workspaceId), (current) => {
+		if (!current) return current;
+		if (change.revision <= current.revision) return current;
+		if (change.revision !== current.revision + 1) {
+			shouldReconcile = true;
+			return current;
+		}
+		return applyWorkspacePageDelta(current, change);
+	});
+	if (shouldReconcile) {
+		void queryClient.invalidateQueries({ queryKey: workspacePageQueryKey(change.workspaceId) });
+	}
 }
 
 export function createWorkspaceItemInPageCache(
@@ -44,54 +50,12 @@ export function moveWorkspaceItemsInPageCache(
 	);
 }
 
-export function upsertWorkspaceItemsInPageCache(
-	queryClient: QueryClient,
-	workspaceId: string,
-	items: WorkspaceItemSummary[],
-	revision: number,
-) {
-	queryClient.setQueryData<WorkspacePage>(workspacePageQueryKey(workspaceId), (current) =>
-		current
-			? items.reduce((page, item) => upsertWorkspaceItemInPage(page, item, revision), current)
-			: current,
-	);
-}
-
 export function removeWorkspaceItemsFromPageCache(
 	queryClient: QueryClient,
 	workspaceId: string,
 	itemIds: string[],
-	revision?: number,
 ) {
 	queryClient.setQueryData<WorkspacePage>(workspacePageQueryKey(workspaceId), (current) =>
-		current ? removeWorkspaceItemsFromPage(current, itemIds, revision) : current,
+		current ? removeWorkspaceItemsFromPage(current, itemIds) : current,
 	);
-}
-
-export function updateWorkspaceItemColorInPageCache(
-	queryClient: QueryClient,
-	input: UpdateWorkspaceItemColorInput,
-) {
-	queryClient.setQueryData<WorkspacePage>(workspacePageQueryKey(input.workspaceId), (current) => {
-		if (!current) {
-			return current;
-		}
-
-		const updateResult = updateWorkspaceItemColorInPage(current, input);
-
-		if (!updateResult) {
-			return current;
-		}
-
-		return updateResult;
-	});
-}
-
-export function getWorkspaceItemColorInPageCache(
-	queryClient: QueryClient,
-	input: Pick<UpdateWorkspaceItemColorInput, "itemId" | "workspaceId">,
-) {
-	const page = queryClient.getQueryData<WorkspacePage>(workspacePageQueryKey(input.workspaceId));
-
-	return page?.items.find((item) => item.id === input.itemId)?.color ?? null;
 }
