@@ -60,7 +60,6 @@ export function useCreateWorkspaceMutation() {
 			setWorkspacePageCache(queryClient, {
 				workspace: optimisticWorkspace,
 				items: [],
-				itemFacts: [],
 				revision: 0,
 			});
 			markWorkspaceCreatedThisSession(id);

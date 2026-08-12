@@ -161,7 +161,6 @@ export function removeWorkspaceItemsFromPage(
 		...page,
 		revision: Math.max(page.revision, revision),
 		items: page.items.filter((item) => !deletedIds.has(item.id)),
-		itemFacts: page.itemFacts.filter((facts) => !deletedIds.has(facts.itemId)),
 	};
 }
 

@@ -5,7 +5,6 @@ import type {
 	MoveWorkspaceItemsInput,
 	RenameWorkspaceItemInput,
 	UpdateWorkspaceItemColorInput,
-	WorkspaceItemFacts,
 	WorkspaceItemSummary,
 } from "#/features/workspaces/contracts";
 import {
@@ -50,15 +49,12 @@ export interface WorkspaceKernelClient {
 	getPage(input?: { userId?: string }): Promise<{
 		workspaceId: string;
 		items: WorkspaceItemSummary[];
-		itemFacts: WorkspaceItemFacts[];
 		revision: number;
 	}>;
 	listTreeItems(input?: ListWorkspaceKernelItemsArgs): Promise<ListWorkspaceKernelItemsResult>;
 	resolvePaths(input: ResolveWorkspaceKernelPathsArgs): Promise<WorkspaceKernelPathResolution[]>;
 	getItemPaths(input: GetWorkspaceKernelItemPathsArgs): Promise<WorkspaceKernelItemPath[]>;
-	linkItems(
-		input: LinkWorkspaceKernelItemsArgs,
-	): Promise<WorkspaceCommandResult<WorkspaceItemFacts[]>>;
+	linkItems(input: LinkWorkspaceKernelItemsArgs): Promise<WorkspaceCommandResult<void>>;
 	listItemRelations(
 		input: ListWorkspaceKernelItemRelationsArgs,
 	): Promise<WorkspaceKernelItemRelation[]>;

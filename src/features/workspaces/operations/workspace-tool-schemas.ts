@@ -71,9 +71,7 @@ const workspacePathItemSchema = z.object({
 
 const workspaceListItemSchema = z.object({
 	modifiedAt: z.string(),
-	pageCount: z.number().int().positive().optional(),
 	path: workspacePathSchema,
-	relationshipCount: z.number().int().nonnegative(),
 	type: z.union([workspaceItemTypeSchema, workspaceFileAssetKindSchema]),
 });
 

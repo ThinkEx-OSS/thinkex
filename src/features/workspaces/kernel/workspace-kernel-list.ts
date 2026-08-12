@@ -1,8 +1,4 @@
-import type {
-	WorkspaceItemFacts,
-	WorkspaceItemSummary,
-	WorkspaceItemType,
-} from "#/features/workspaces/contracts";
+import type { WorkspaceItemSummary, WorkspaceItemType } from "#/features/workspaces/contracts";
 import {
 	joinWorkspacePathSegment,
 	resolveWorkspaceKernelCwd,
@@ -25,9 +21,7 @@ export interface ListWorkspaceKernelItemsResult {
 
 export interface ListWorkspaceKernelItem {
 	modifiedAt: string;
-	pageCount?: number;
 	path: string;
-	relationshipCount: number;
 	type: WorkspaceItemType | WorkspaceFileAssetKind;
 }
 
@@ -50,18 +44,13 @@ interface WorkspaceKernelListRow {
 }
 
 export function listWorkspaceKernelTreeItems(input: {
-	getItemFacts: (items: WorkspaceItemSummary[]) => WorkspaceItemFacts[];
 	tree: WorkspaceKernelTree;
 	offset?: number;
 	path?: string;
 	recursive?: boolean;
 	limit?: number;
 }): ListWorkspaceKernelItemsResult {
-	const selection = selectWorkspaceKernelTreeItems(input);
-	return formatWorkspaceKernelListSelection(
-		selection,
-		input.getItemFacts(selection.rows.map((row) => row.item)),
-	);
+	return formatWorkspaceKernelListSelection(selectWorkspaceKernelTreeItems(input));
 }
 
 function selectWorkspaceKernelTreeItems(input: {
@@ -112,14 +101,11 @@ function selectWorkspaceKernelTreeItems(input: {
 
 function formatWorkspaceKernelListSelection(
 	selection: WorkspaceKernelListSelection,
-	itemFacts: WorkspaceItemFacts[],
 ): ListWorkspaceKernelItemsResult {
-	const itemFactsById = new Map(itemFacts.map((facts) => [facts.itemId, facts]));
 	return {
 		failed: selection.failed,
 		items: selection.rows.map((row) =>
 			formatWorkspaceKernelListItem({
-				facts: itemFactsById.get(row.item.id),
 				item: row.item,
 				path: row.path,
 			}),
@@ -180,15 +166,12 @@ function collectWorkspaceKernelListRows({
 }
 
 function formatWorkspaceKernelListItem(input: {
-	facts?: WorkspaceItemFacts;
 	item: WorkspaceItemSummary;
 	path: string;
 }): ListWorkspaceKernelItem {
 	return {
 		modifiedAt: input.item.updatedAt,
-		...(input.facts?.pageCount ? { pageCount: input.facts.pageCount } : {}),
 		path: input.path,
-		relationshipCount: input.facts?.relationshipCount ?? 0,
 		type: resolveWorkspaceFileTypeFromItem(input.item)?.assetKind ?? input.item.type,
 	};
 }

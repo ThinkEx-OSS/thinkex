@@ -52,7 +52,6 @@ import {
 	collectDescendants,
 	getActiveWorkspaceItemRows,
 	getNextWorkspaceSortOrder,
-	getWorkspaceItemFacts,
 	getActiveWorkspaceItemRow,
 	getWorkspaceItemsByIds,
 	hasSelectedAncestor,
@@ -111,12 +110,9 @@ export class PostgresWorkspacePersistence implements WorkspaceKernelClient {
 
 	async listTreeItems(input: ListWorkspaceKernelItemsArgs = {}) {
 		const page = await this.getPage();
-		const factsById = new Map(page.itemFacts.map((facts) => [facts.itemId, facts]));
 		return listWorkspaceKernelTreeItems({
 			...input,
 			tree: buildWorkspaceKernelTree(page.items),
-			getItemFacts: (items) =>
-				items.map((item) => factsById.get(item.id) ?? { itemId: item.id, relationshipCount: 0 }),
 		});
 	}
 
@@ -203,10 +199,8 @@ export class PostgresWorkspacePersistence implements WorkspaceKernelClient {
 					.onConflictDoNothing();
 			}
 
-			const summaries = await getWorkspaceItemsByIds(transaction, this.workspaceId, itemIds);
-			const itemFacts = await getWorkspaceItemFacts(transaction, this.workspaceId, summaries);
 			const revision = await nextWorkspaceRevision(transaction, this.workspaceId);
-			return { result: itemFacts, revision };
+			return { result: undefined, revision };
 		});
 		await this.notify(command.revision);
 		return command;

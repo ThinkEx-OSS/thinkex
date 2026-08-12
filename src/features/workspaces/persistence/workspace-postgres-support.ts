@@ -1,17 +1,14 @@
-import { and, asc, eq, inArray, isNull, or, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 
 import {
 	workspaceFileAssets,
-	workspaceItemPages,
 	workspaceItemExtractions,
-	workspaceItemRelations,
 	workspaceItems,
 	workspaces,
 } from "#/db/schema";
 import { createDbContext, withDb } from "#/db/server";
 import type {
 	JsonValue,
-	WorkspaceItemFacts,
 	WorkspaceItemSummary,
 	WorkspaceItemType,
 } from "#/features/workspaces/contracts";
@@ -91,7 +88,6 @@ export async function readWorkspacePageSnapshot(db: QueryExecutor, workspaceId: 
 	return {
 		workspaceId,
 		items,
-		itemFacts: await getWorkspaceItemFacts(db, workspaceId, items),
 		revision: workspace.revision,
 	};
 }
@@ -142,53 +138,6 @@ export async function getWorkspaceItemsByIds(
 		const item = byId.get(id);
 		return item ? [item] : [];
 	});
-}
-
-export async function getWorkspaceItemFacts(
-	db: QueryExecutor,
-	workspaceId: string,
-	items: WorkspaceItemSummary[],
-): Promise<WorkspaceItemFacts[]> {
-	if (items.length === 0) return [];
-	const itemIds = items.map((item) => item.id);
-	const [relations, pageCounts] = await Promise.all([
-		db
-			.select({
-				fromItemId: workspaceItemRelations.fromItemId,
-				toItemId: workspaceItemRelations.toItemId,
-			})
-			.from(workspaceItemRelations)
-			.where(
-				and(
-					eq(workspaceItemRelations.workspaceId, workspaceId),
-					or(
-						inArray(workspaceItemRelations.fromItemId, itemIds),
-						inArray(workspaceItemRelations.toItemId, itemIds),
-					),
-				),
-			),
-		db
-			.select({
-				itemId: workspaceItemPages.itemId,
-				pageCount: sql<number>`count(*)::int`,
-			})
-			.from(workspaceItemPages)
-			.where(inArray(workspaceItemPages.itemId, itemIds))
-			.groupBy(workspaceItemPages.itemId),
-	]);
-	const relationCounts = new Map<string, number>();
-	for (const relation of relations) {
-		relationCounts.set(relation.fromItemId, (relationCounts.get(relation.fromItemId) ?? 0) + 1);
-		if (relation.toItemId !== relation.fromItemId) {
-			relationCounts.set(relation.toItemId, (relationCounts.get(relation.toItemId) ?? 0) + 1);
-		}
-	}
-	const countsByItem = new Map(pageCounts.map((row) => [row.itemId, row.pageCount]));
-	return items.map((item) => ({
-		itemId: item.id,
-		...(countsByItem.get(item.id) ? { pageCount: countsByItem.get(item.id) } : {}),
-		relationshipCount: relationCounts.get(item.id) ?? 0,
-	}));
 }
 
 export async function assertWorkspaceParentIsValid(

@@ -59,13 +59,9 @@ function getWorkspaceAiContextOutlineRows(
 			throw new Error("Workspace outline path index returned an unknown item.");
 		}
 
-		const facts = context.itemFactsById.get(item.id);
-
 		return {
 			item,
 			outlineItem: {
-				...(facts?.pageCount ? { pageCount: facts.pageCount } : {}),
-				relationshipCount: facts?.relationshipCount ?? 0,
 				...(item.type === "folder"
 					? {
 							childCount: childCountsByItemId.get(item.id) ?? 0,
