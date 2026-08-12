@@ -4,10 +4,6 @@ import type { UIMessage } from "ai";
 import { nanoid } from "nanoid";
 
 import { aiThreadAgentName, userAIAgentName } from "#/features/workspaces/agent-routes";
-import {
-	type AIInspectorSnapshot,
-	isAIInspectorEnabled,
-} from "#/features/workspaces/ai/ai-inspector";
 import { createAIThreadClass } from "#/features/workspaces/ai/ai-thread";
 import type { ResourcePurgeResult } from "#/features/workspaces/resource-purge-result";
 import { WorkspaceForbiddenError } from "#/features/workspaces/server/permissions";
@@ -410,18 +406,6 @@ export class UserAIStore extends Agent<Cloudflare.Env, UserAIStoreState> {
 		}
 
 		return snapshots;
-	}
-
-	@callable()
-	async getThreadInspectorSnapshot(threadId: string): Promise<AIInspectorSnapshot> {
-		if (!isAIInspectorEnabled()) {
-			return { isEnabled: false, threadId, events: [] };
-		}
-
-		await this._requireThreadMeta(threadId);
-
-		const thread = await this.subAgent(AIThread, threadId);
-		return thread.getInspectorSnapshot();
 	}
 
 	async getThreadContext(threadId: string): Promise<AIThreadContext | null> {

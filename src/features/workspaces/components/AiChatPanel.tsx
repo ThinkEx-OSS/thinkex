@@ -38,7 +38,6 @@ function AiChatPanelLayout({ context }: AiChatPanelProps) {
 	const [activeThreadIsRecovering, setActiveThreadIsRecovering] = useState(false);
 	const {
 		activeThreadId,
-		getThreadInspectorSnapshot,
 		isCreatingThread,
 		isLoading,
 		isMaximized,
@@ -77,7 +76,6 @@ function AiChatPanelLayout({ context }: AiChatPanelProps) {
 			<Suspense key={activeThreadId} fallback={<AiChatPanelLoading />}>
 				<AiChatThreadView
 					context={context}
-					getInspectorSnapshot={getThreadInspectorSnapshot}
 					modelId={modelId}
 					onModelChange={onModelChange}
 					onRecoveringChange={setActiveThreadIsRecovering}

@@ -18,14 +18,12 @@ import {
 } from "#/features/workspaces/ai/models";
 import { recordOperationalFailure } from "#/integrations/observability/operational-events";
 import {
-	getInspectorErrorPayload,
-	sanitizeInspectorValue,
-	summarizeInspectorMessages,
-} from "#/features/workspaces/ai/ai-inspector-serialization";
-import {
 	buildAiTelemetryToolDefinitions,
 	buildTccTokenUsage,
 	extractAiTelemetryTokenUsage,
+	getAiTelemetryErrorPayload,
+	sanitizeAiTelemetryValue,
+	summarizeAiTelemetryMessages,
 } from "#/features/workspaces/ai/ai-thread-telemetry-format";
 
 const TCC_WORKSPACE_AGENT_NAME = "workspace-assistant";
@@ -123,7 +121,7 @@ export class AIThreadTccRecorder {
 		}
 
 		turn.activeSteps.set(ctx.stepNumber, {
-			prompt: stringifyTccPayload(summarizeInspectorMessages(ctx.messages)),
+			prompt: stringifyTccPayload(summarizeAiTelemetryMessages(ctx.messages)),
 			startTime: new Date(),
 		});
 	}
@@ -135,7 +133,7 @@ export class AIThreadTccRecorder {
 		}
 
 		turn.activeToolCalls.set(ctx.toolCallId, {
-			args: toTccRecord(sanitizeInspectorValue(ctx.input)),
+			args: toTccRecord(sanitizeAiTelemetryValue(ctx.input)),
 			name: ctx.toolName,
 			startTime: new Date(),
 		});
@@ -159,8 +157,8 @@ export class AIThreadTccRecorder {
 			endTime: new Date(),
 			name: activeToolCall.name,
 			result: ctx.success
-				? toTccRecord(sanitizeInspectorValue(ctx.output))
-				: toTccRecord(getInspectorErrorPayload(ctx.error)),
+				? toTccRecord(sanitizeAiTelemetryValue(ctx.output))
+				: toTccRecord(getAiTelemetryErrorPayload(ctx.error)),
 			startTime: activeToolCall.startTime,
 			statusCode: outcome.status === "success" ? 0 : 2,
 			statusMessage:
@@ -192,7 +190,7 @@ export class AIThreadTccRecorder {
 				requested: turn.modelId,
 				used: turn.gatewayModel,
 			},
-			prompt: activeStep?.prompt ?? stringifyTccPayload(summarizeInspectorMessages(ctx.request)),
+			prompt: activeStep?.prompt ?? stringifyTccPayload(summarizeAiTelemetryMessages(ctx.request)),
 			response,
 			startTime: activeStep?.startTime ?? turn.startTime,
 			stepId: crypto.randomUUID(),
@@ -500,9 +498,9 @@ function createTccMetadata(input: {
 function buildTccRunPrompt(ctx: TurnContext, system: string) {
 	return {
 		full_input: stringifyTccPayload({
-			body: sanitizeInspectorValue(ctx.body),
+			body: sanitizeAiTelemetryValue(ctx.body),
 			continuation: ctx.continuation,
-			messages: summarizeInspectorMessages(ctx.messages),
+			messages: summarizeAiTelemetryMessages(ctx.messages),
 		}),
 		system_prompt: system,
 		user_prompt: getLastUserMessageText(ctx.messages) ?? "User message",
@@ -565,9 +563,9 @@ function getTccStepResponse(ctx: StepContext) {
 	}
 
 	return stringifyTccPayload({
-		response: sanitizeInspectorValue(ctx.response),
-		toolCalls: sanitizeInspectorValue(ctx.toolCalls),
-		toolResults: sanitizeInspectorValue(ctx.toolResults),
+		response: sanitizeAiTelemetryValue(ctx.response),
+		toolCalls: sanitizeAiTelemetryValue(ctx.toolCalls),
+		toolResults: sanitizeAiTelemetryValue(ctx.toolResults),
 	});
 }
 
@@ -580,7 +578,7 @@ function toTccRecord(value: unknown): Record<string, unknown> | undefined {
 }
 
 function stringifyTccPayload(value: unknown) {
-	return JSON.stringify(sanitizeInspectorValue(value));
+	return JSON.stringify(sanitizeAiTelemetryValue(value));
 }
 
 function buildTccToolDefinitions(tools: unknown) {

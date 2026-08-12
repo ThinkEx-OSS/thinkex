@@ -1,5 +1,10 @@
 import type { StepContext } from "@cloudflare/think";
 
+const MAX_TELEMETRY_STRING_LENGTH = 6000;
+const MAX_TELEMETRY_ARRAY_LENGTH = 80;
+const MAX_TELEMETRY_OBJECT_KEYS = 80;
+const MAX_TELEMETRY_DEPTH = 8;
+
 export interface AiTelemetryTokenUsage {
 	cacheCreationInputTokens?: number;
 	cacheReadInputTokens?: number;
@@ -33,6 +38,43 @@ export function buildAiTelemetryToolDefinitions(tools: unknown) {
 			},
 		};
 	});
+}
+
+export function summarizeAiTelemetryMessages(messages: unknown) {
+	if (!Array.isArray(messages)) {
+		return sanitizeAiTelemetryValue(messages);
+	}
+
+	return messages.map((message) => {
+		if (!message || typeof message !== "object") {
+			return sanitizeAiTelemetryValue(message);
+		}
+
+		const record = message as Record<string, unknown>;
+		return sanitizeAiTelemetryValue({
+			role: record.role,
+			content: summarizeMessageContent(record.content),
+			parts: summarizeMessageContent(record.parts),
+			toolCallId: record.toolCallId,
+			toolName: record.toolName,
+		});
+	});
+}
+
+export function getAiTelemetryErrorPayload(error: unknown) {
+	if (error instanceof Error) {
+		return sanitizeAiTelemetryValue({
+			name: error.name,
+			message: error.message,
+			stack: error.stack,
+		});
+	}
+
+	return sanitizeAiTelemetryValue(error);
+}
+
+export function sanitizeAiTelemetryValue(value: unknown): unknown {
+	return sanitizeValue(value, 0, new WeakSet<object>());
 }
 
 export function buildAiTelemetryInputFromStep(ctx: StepContext) {
@@ -236,6 +278,85 @@ function stringifyToolArguments(input: unknown) {
 	} catch {
 		return "[unserializable arguments]";
 	}
+}
+
+function summarizeMessageContent(content: unknown) {
+	if (!Array.isArray(content)) {
+		return sanitizeAiTelemetryValue(content);
+	}
+
+	return content.map((part) => {
+		if (!part || typeof part !== "object") {
+			return sanitizeAiTelemetryValue(part);
+		}
+
+		const record = part as Record<string, unknown>;
+		return sanitizeAiTelemetryValue({
+			type: record.type,
+			text: record.text,
+			state: record.state,
+			toolCallId: record.toolCallId,
+			toolName: record.toolName,
+			input: record.input,
+			output: record.output,
+			errorText: record.errorText,
+			providerExecuted: record.providerExecuted,
+			providerMetadata: record.providerMetadata,
+			sourceType: record.sourceType,
+			id: record.id,
+			title: record.title,
+			url: record.url,
+		});
+	});
+}
+
+function sanitizeValue(value: unknown, depth: number, seen: WeakSet<object>): unknown {
+	if (value === null || value === undefined) {
+		return value;
+	}
+
+	if (typeof value === "string") {
+		return value.length > MAX_TELEMETRY_STRING_LENGTH
+			? `${value.slice(0, MAX_TELEMETRY_STRING_LENGTH)}...`
+			: value;
+	}
+
+	if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") {
+		return typeof value === "bigint" ? value.toString() : value;
+	}
+
+	if (typeof value === "function" || typeof value === "symbol") {
+		return `[${typeof value}]`;
+	}
+
+	if (depth >= MAX_TELEMETRY_DEPTH) {
+		return "[max-depth]";
+	}
+
+	if (value instanceof Error) {
+		return { name: value.name, message: value.message, stack: value.stack };
+	}
+
+	if (typeof value !== "object") {
+		return value;
+	}
+
+	if (seen.has(value)) {
+		return "[circular]";
+	}
+	seen.add(value);
+
+	if (Array.isArray(value)) {
+		return value
+			.slice(0, MAX_TELEMETRY_ARRAY_LENGTH)
+			.map((entry) => sanitizeValue(entry, depth + 1, seen));
+	}
+
+	const output: Record<string, unknown> = {};
+	for (const [key, entry] of Object.entries(value).slice(0, MAX_TELEMETRY_OBJECT_KEYS)) {
+		output[key] = sanitizeValue(entry, depth + 1, seen);
+	}
+	return output;
 }
 
 function getTokenValue(value: unknown) {

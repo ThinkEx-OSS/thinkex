@@ -1,13 +1,5 @@
-import { Bug, Mic, Paperclip } from "lucide-react";
-import {
-	lazy,
-	type SetStateAction,
-	Suspense,
-	useCallback,
-	useEffect,
-	useRef,
-	useState,
-} from "react";
+import { Mic, Paperclip } from "lucide-react";
+import { type SetStateAction, useCallback, useEffect, useRef } from "react";
 
 import {
 	type AttachmentsContext,
@@ -21,7 +13,6 @@ import {
 	PromptInputTools,
 	usePromptInputAttachments,
 } from "#/features/workspaces/components/ai-chat/ai-chat-prompt-input";
-import type { AIInspectorSnapshot } from "#/features/workspaces/ai/ai-inspector";
 import { useWorkspaceAiAllowance } from "#/features/workspaces/ai/use-workspace-ai-allowance";
 import { AiChatAttachmentDropBridge } from "#/features/workspaces/components/ai-chat/AiChatAttachmentDrop";
 import AiChatModelPicker from "#/features/workspaces/components/ai-chat/AiChatModelPicker";
@@ -64,14 +55,6 @@ const PROMPT_INPUT_FOOTER_PADDING = "pl-2 pr-3.5 pt-1 pb-2";
 const CHAT_ATTACHMENT_PICKER_ACCEPT = [
 	...new Set([WORKSPACE_AI_CHAT_ATTACHMENT_POLICY.accept, ...workspaceUploadAccept.split(",")]),
 ].join(",");
-const AiChatInspectorDialog = import.meta.env.DEV
-	? lazy(async () => {
-			const module = await import("#/features/workspaces/components/ai-chat/AiChatInspectorDialog");
-
-			return { default: module.AiChatInspectorDialog };
-		})
-	: null;
-
 function AiChatAttachmentButton() {
 	const attachments = usePromptInputAttachments();
 
@@ -91,7 +74,6 @@ interface AiChatPromptInputProps {
 	activeThreadId: string;
 	canSend: boolean;
 	context: WorkspaceAiContextScope;
-	getInspectorSnapshot?: (threadId: string) => Promise<AIInspectorSnapshot>;
 	modelId?: AiChatModelId;
 	onModelChange?: (modelId: AiChatModelId) => void;
 	onSubmit: (message: PromptInputMessage) => void;
@@ -103,14 +85,12 @@ export default function AiChatPromptInput({
 	activeThreadId,
 	canSend: canSendWhileConnected,
 	context,
-	getInspectorSnapshot,
 	modelId = DEFAULT_WORKSPACE_AI_CHAT_MODEL_ID,
 	onModelChange,
 	onSubmit,
 	onStop,
 	status = "ready",
 }: AiChatPromptInputProps) {
-	const [isInspectorOpen, setIsInspectorOpen] = useState(false);
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 	const input = useWorkspaceAiComposerDraftText(activeThreadId);
 	const setDraftText = useWorkspaceAiComposerDraftStore((state) => state.setText);
@@ -227,16 +207,6 @@ export default function AiChatPromptInput({
 						<AiChatAttachmentButton />
 
 						<AiChatModelPicker modelId={modelId} onModelChange={handleModelChange} />
-
-						{import.meta.env.DEV && getInspectorSnapshot ? (
-							<WorkspaceToolbarIconButton
-								aria-label="Open AI inspector"
-								disabled={!activeThreadId}
-								onClick={() => setIsInspectorOpen(true)}
-							>
-								<Bug />
-							</WorkspaceToolbarIconButton>
-						) : null}
 					</PromptInputTools>
 
 					{/* Keep sm at gap-1 to match paperclip↔model picker (group default is sm:gap-0.5). */}
@@ -265,17 +235,6 @@ export default function AiChatPromptInput({
 					</WorkspaceToolbarGroup>
 				</PromptInputFooter>
 			</PromptInput>
-
-			{AiChatInspectorDialog && getInspectorSnapshot ? (
-				<Suspense fallback={null}>
-					<AiChatInspectorDialog
-						getSnapshot={getInspectorSnapshot}
-						open={isInspectorOpen}
-						onOpenChange={setIsInspectorOpen}
-						threadId={activeThreadId}
-					/>
-				</Suspense>
-			) : null}
 			<WorkspaceFileIntakeReviewDialog
 				open={Boolean(reviewState)}
 				mode="chat_fallback"

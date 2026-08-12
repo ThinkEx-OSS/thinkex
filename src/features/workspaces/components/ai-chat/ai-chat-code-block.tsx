@@ -19,20 +19,6 @@ import {
 import { AiChatMermaidDiagram } from "#/features/workspaces/components/ai-chat/AiChatMermaidDiagram";
 import { cn } from "#/lib/utils.ts";
 
-export {
-	CodeBlockActions,
-	CodeBlockCopyButton,
-	CodeBlockDownloadButton,
-	CodeBlockHeader,
-	CodeBlockLabel,
-	CodeBlockLanguageSelector,
-	CodeBlockLanguageSelectorContent,
-	CodeBlockLanguageSelectorItem,
-	CodeBlockLanguageSelectorTrigger,
-	CodeBlockLanguageSelectorValue,
-	CodeBlockTitle,
-} from "#/components/code-block/code-block-chrome";
-
 // Shiki uses bitflags for font styles: 1=italic, 2=bold, 4=underline
 // oxlint-disable-next-line eslint(no-bitwise)
 const isItalic = (fontStyle: number | undefined) => fontStyle && fontStyle & 1;

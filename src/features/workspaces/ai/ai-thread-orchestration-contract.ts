@@ -8,7 +8,6 @@ import {
 	type AIToolOutcome,
 } from "#/features/workspaces/ai/ai-tool-outcome";
 import { summarizeAIThreadBrowserActivity } from "#/features/workspaces/ai/ai-thread-browser-activity";
-import { asRecord } from "#/features/workspaces/ai/ai-inspector-view-parsing";
 import {
 	getDocumentEditReceiptMetadata,
 	stripAIThreadToolUiMetadata,
@@ -409,4 +408,8 @@ function summarizeOrchestrationCall(outcome: AIToolOutcome) {
 	}
 
 	return "Completed";
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+	return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
 }

@@ -1,7 +1,5 @@
 import { isToolUIPart } from "ai";
 
-import { asRecord } from "#/features/workspaces/ai/ai-inspector-view-parsing";
-
 import {
 	getToolPartName,
 	isAiChatToolGroupPart,
@@ -97,4 +95,8 @@ function readLineChanges(value: unknown) {
 	return typeof changes.added === "number" && typeof changes.removed === "number"
 		? { added: changes.added, removed: changes.removed }
 		: undefined;
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+	return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
 }

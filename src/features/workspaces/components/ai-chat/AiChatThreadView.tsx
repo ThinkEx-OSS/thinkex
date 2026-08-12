@@ -2,7 +2,6 @@ import { generateId } from "ai";
 import { useEffect, useState } from "react";
 
 import type { PromptInputMessage } from "#/features/workspaces/components/ai-chat/ai-chat-prompt-input";
-import type { AIInspectorSnapshot } from "#/features/workspaces/ai/ai-inspector";
 import type { AIThreadSummary } from "#/features/workspaces/ai/user-ai-agents";
 import AiChatMessageList from "#/features/workspaces/components/ai-chat/AiChatMessageList";
 import AiChatPromptInput from "#/features/workspaces/components/ai-chat/AiChatPromptInput";
@@ -19,7 +18,6 @@ import { useWorkspaceAiComposerDraftStore } from "#/features/workspaces/state/wo
 
 export default function AiChatThreadView({
 	context,
-	getInspectorSnapshot,
 	modelId,
 	onModelChange,
 	onRecoveringChange,
@@ -27,7 +25,6 @@ export default function AiChatThreadView({
 	threadId,
 }: {
 	context: WorkspaceAiContextScope;
-	getInspectorSnapshot?: (threadId: string) => Promise<AIInspectorSnapshot>;
 	modelId: AiChatModelId;
 	onModelChange: (modelId: AiChatModelId) => void;
 	onRecoveringChange?: (isRecovering: boolean) => void;
@@ -109,7 +106,6 @@ export default function AiChatThreadView({
 						activeThreadId={threadId}
 						canSend={canSend}
 						context={context}
-						getInspectorSnapshot={getInspectorSnapshot}
 						modelId={modelId}
 						status={inputStatus}
 						onModelChange={onModelChange}
