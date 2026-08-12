@@ -8,11 +8,11 @@ import {
 	type AIToolOutcome,
 } from "#/features/workspaces/ai/ai-tool-outcome";
 import { summarizeAIThreadBrowserActivity } from "#/features/workspaces/ai/ai-thread-browser-activity";
-import { asRecord } from "#/features/workspaces/ai/ai-inspector-view-parsing";
 import {
 	getDocumentEditReceiptMetadata,
 	stripAIThreadToolUiMetadata,
 } from "#/features/workspaces/ai/ai-thread-tool-ui-metadata";
+import { asRecord } from "#/lib/record";
 
 const orchestrationCallStateSchema = z.enum([
 	"executing",

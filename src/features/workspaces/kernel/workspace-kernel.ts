@@ -92,7 +92,13 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 			),
 		]);
 
-		if (results.some((result) => result.status === "rejected")) {
+		const failed = results.filter((result) => result.status === "rejected").length;
+		if (failed > 0) {
+			recordOperationalFailure({
+				error: new Error("Workspace item cleanup was incomplete."),
+				event: "workspace_item_cleanup_incomplete",
+				fields: { attempted: results.length, failed, workspace_id: this.name },
+			});
 			this.scheduleCleanupRetry("purgeDeletedItems", input, input.attempt);
 		}
 	}
@@ -107,8 +113,6 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 		const results = await Promise.allSettled([
 			...documentItemIds.map((itemId) => this.purgeDocumentSession(itemId)),
 			deleteR2Prefix(this.env.WORKSPACE_KERNEL_FILES, getChatAttachmentWorkspacePrefix(this.name)),
-			deleteR2Prefix(this.env.WORKSPACE_KERNEL_FILES, `uploads/workspaces/${this.name}/`),
-			deleteR2Prefix(this.env.WORKSPACE_KERNEL_FILES, `workspace_kernel_files/${this.name}/`),
 			deleteR2Prefix(this.env.WORKSPACE_KERNEL_FILES, `workspace_file_objects/${this.name}/`),
 			deleteR2Prefix(this.env.WORKSPACE_KERNEL_FILES, `workspace_file_uploads/${this.name}/`),
 		]);
@@ -149,6 +153,11 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 	) {
 		const attempt = previousAttempt + 1;
 		if (attempt >= workspacePurgeMaximumAttempts) {
+			recordOperationalFailure({
+				error: new Error("Workspace cleanup retries exhausted."),
+				event: "workspace_cleanup_retry_exhausted",
+				fields: { attempt, method, workspace_id: this.name },
+			});
 			return;
 		}
 

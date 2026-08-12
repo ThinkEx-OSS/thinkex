@@ -1,4 +1,4 @@
-import { relations, sql } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import {
 	bigint,
 	boolean,
@@ -475,55 +475,3 @@ export const workspaceInvites = pgTable(
 		index("workspace_invites_created_by_user_id_idx").on(table.createdByUserId),
 	],
 );
-
-export const userRelations = relations(user, ({ many }) => ({
-	sessions: many(session),
-	accounts: many(account),
-	ownedWorkspaces: many(workspaces),
-	workspaceMemberships: many(workspaceMembers),
-}));
-
-export const sessionRelations = relations(session, ({ one }) => ({
-	user: one(user, {
-		fields: [session.userId],
-		references: [user.id],
-	}),
-}));
-
-export const accountRelations = relations(account, ({ one }) => ({
-	user: one(user, {
-		fields: [account.userId],
-		references: [user.id],
-	}),
-}));
-
-export const workspaceRelations = relations(workspaces, ({ one, many }) => ({
-	owner: one(user, {
-		fields: [workspaces.ownerId],
-		references: [user.id],
-	}),
-	members: many(workspaceMembers),
-	invites: many(workspaceInvites),
-}));
-
-export const workspaceMemberRelations = relations(workspaceMembers, ({ one }) => ({
-	workspace: one(workspaces, {
-		fields: [workspaceMembers.workspaceId],
-		references: [workspaces.id],
-	}),
-	user: one(user, {
-		fields: [workspaceMembers.userId],
-		references: [user.id],
-	}),
-}));
-
-export const workspaceInviteRelations = relations(workspaceInvites, ({ one }) => ({
-	workspace: one(workspaces, {
-		fields: [workspaceInvites.workspaceId],
-		references: [workspaces.id],
-	}),
-	createdBy: one(user, {
-		fields: [workspaceInvites.createdByUserId],
-		references: [user.id],
-	}),
-}));

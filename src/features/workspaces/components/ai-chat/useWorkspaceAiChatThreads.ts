@@ -2,7 +2,6 @@ import { useAgent } from "agents/react";
 import { useState } from "react";
 
 import { userAIAgentName, userAIBasePath } from "#/features/workspaces/agent-routes";
-import type { AIInspectorSnapshot } from "#/features/workspaces/ai/ai-inspector";
 import type { AIThreadSummary, UserAIStoreState } from "#/features/workspaces/ai/user-ai-agents";
 
 interface UseWorkspaceAiChatThreadsOptions {
@@ -41,15 +40,10 @@ export function useWorkspaceAiChatThreads({ workspaceId }: UseWorkspaceAiChatThr
 		await directory.call("markThreadViewed", [threadId]);
 	};
 
-	const getThreadInspectorSnapshot = async (threadId: string): Promise<AIInspectorSnapshot> => {
-		return await directory.call<AIInspectorSnapshot>("getThreadInspectorSnapshot", [threadId]);
-	};
-
 	return {
 		createThread,
 		deleteThread,
 		directory,
-		getThreadInspectorSnapshot: import.meta.env.DEV ? getThreadInspectorSnapshot : undefined,
 		isCreatingThread,
 		isReady: directory.state?.isLoaded === true,
 		markThreadViewed,

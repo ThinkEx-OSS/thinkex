@@ -1,3 +1,5 @@
+import { asRecord } from "#/lib/record";
+
 export type AiChatToolReceiptStatus = "completed" | "failed" | "interrupted" | "running";
 type AiChatFinishedToolReceiptStatus = Exclude<AiChatToolReceiptStatus, "interrupted" | "running">;
 
@@ -599,10 +601,6 @@ function getDestinationName(path: string | undefined): ReceiptPart[] | undefined
 	if (path === "/") return ["workspace root"];
 	const basename = getBaseName(path);
 	return basename ? name(basename) : undefined;
-}
-
-function asRecord(value: unknown): Record<string, unknown> {
-	return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
 }
 
 function getArray(value: unknown): unknown[] {

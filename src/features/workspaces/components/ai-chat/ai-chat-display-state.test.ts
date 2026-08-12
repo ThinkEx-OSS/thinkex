@@ -58,40 +58,6 @@ describe("Code Mode tool groups", () => {
 		expect(parts[1]).toMatchObject({ toolCallId: "direct-tool-1" });
 	});
 
-	it("falls back to sibling tool parts for messages created before call logs", () => {
-		const message = createMessage([
-			createOrchestratePart({ status: "completed", executionId: "execution-1", result: null }),
-			{
-				type: "tool-web_search",
-				toolCallId: "tool-1",
-				state: "output-available",
-				input: { query: "hello" },
-				output: { results: [] },
-			},
-		]);
-
-		const [group] = getDisplayableParts(message) as AiChatToolGroupPart[];
-
-		expect(group.children).toEqual([
-			{
-				id: "tool-1",
-				presentation: {
-					icon: "search",
-					title: "Search web",
-					visibility: "visible",
-				},
-				status: "completed",
-				summary: "Found 0 sources for “hello”",
-				segments: [
-					{ kind: "text", value: "Found 0 sources for “" },
-					{ kind: "name", value: "hello" },
-					{ kind: "text", value: "”" },
-				],
-				toolName: "web_search",
-			},
-		]);
-	});
-
 	it("applies registry visibility to nested Code Mode calls", () => {
 		const output = {
 			status: "completed",

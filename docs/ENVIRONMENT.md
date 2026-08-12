@@ -8,11 +8,19 @@ Pick whichever fits your setup — the worker reads the same variable names in e
 
 | Path | Who | How variables arrive |
 | --- | --- | --- |
-| `pnpm dev` | Core team with Infisical access | Infisical injects `dev:/app` secrets, then runs the dev server |
-| `pnpm serve:dev` | Anyone | Reads a local, gitignored `.dev.vars` file (copy `.dev.vars.example`) |
+| `pnpm dev` | Core team with Infisical access | Prepares the isolated local Postgres database, then Infisical injects `dev:/app` secrets and starts the server |
+| `pnpm serve:dev` | Anyone | Prepares the isolated local Postgres database, then reads a gitignored `.dev.vars` file (copy `.dev.vars.example`) |
 | `pnpm serve:dev` | Cloud agents / sandboxes | The sandbox injects the same names into `process.env` |
 
 Contributors without Infisical should copy `.dev.vars.example` to `.dev.vars` and run `pnpm serve:dev`.
+
+On a local machine, both commands derive the database name from `CONDUCTOR_PORT` plus the
+stable `CONDUCTOR_WORKSPACE_ID`, falling back to port 3000 outside Conductor. They create
+the database, apply pending migrations, and provide Wrangler's local `HYPERDRIVE`
+connection override automatically. The derived local connection string is not an
+Infisical secret. To use an explicit development database instead, set
+`CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE`; automatic database creation
+and migrations are then skipped.
 
 ## How secrets are declared
 

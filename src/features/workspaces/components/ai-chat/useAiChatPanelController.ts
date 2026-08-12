@@ -31,7 +31,6 @@ export function useAiChatPanelController({ workspaceId }: UseAiChatPanelControll
 	const {
 		createThread,
 		deleteThread,
-		getThreadInspectorSnapshot,
 		isCreatingThread,
 		isReady: areThreadsReady,
 		markThreadViewed,
@@ -109,7 +108,6 @@ export function useAiChatPanelController({ workspaceId }: UseAiChatPanelControll
 
 	return {
 		activeThreadId: resolvedActiveThreadId,
-		getThreadInspectorSnapshot,
 		isCreatingThread,
 		isLoading: !areThreadsReady,
 		isMaximized,

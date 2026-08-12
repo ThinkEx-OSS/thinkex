@@ -8,6 +8,7 @@ import type {
 	WorkspaceAiContextSnapshotSelectedQuote,
 	WorkspaceAiContextTabReference,
 } from "./workspace-ai-context-types";
+import { isRecord } from "#/lib/record";
 
 export function isWorkspaceAiContextSnapshot(value: unknown): value is WorkspaceAiContextSnapshot {
 	if (!isRecord(value)) {
@@ -20,10 +21,17 @@ export function isWorkspaceAiContextSnapshot(value: unknown): value is Workspace
 		(value.workspace.outline === undefined ||
 			isWorkspaceAiContextOutline(value.workspace.outline)) &&
 		Array.isArray(value.selectedItems) &&
+		value.selectedItems.every(isWorkspaceAiContextSelectedItem) &&
 		Array.isArray(value.openTabs) &&
+		value.openTabs.every(isWorkspaceAiContextTabReference) &&
 		Array.isArray(value.selectedQuotes) &&
+		value.selectedQuotes.every(isWorkspaceAiContextSelectedQuote) &&
 		value.contentIncluded === false &&
 		isRecord(value.view) &&
+		(value.view.activeItem === undefined ||
+			isWorkspaceAiContextItemReference(value.view.activeItem)) &&
+		(value.view.activeTab === undefined ||
+			isWorkspaceAiContextTabReference(value.view.activeTab)) &&
 		isWorkspaceAiContextPresentationReference(value.view.presentation)
 	);
 }
@@ -92,9 +100,7 @@ function isPositiveInteger(value: unknown) {
 	return typeof value === "number" && Number.isInteger(value) && value > 0;
 }
 
-export function isWorkspaceAiContextSelectedItem(
-	value: unknown,
-): value is WorkspaceAiContextSelectedItem {
+function isWorkspaceAiContextSelectedItem(value: unknown): value is WorkspaceAiContextSelectedItem {
 	if (!isRecord(value) || !isWorkspaceAiContextItemReference(value)) {
 		return false;
 	}
@@ -109,9 +115,7 @@ export function isWorkspaceAiContextSelectedItem(
 	);
 }
 
-export function isWorkspaceAiContextTabReference(
-	value: unknown,
-): value is WorkspaceAiContextTabReference {
+function isWorkspaceAiContextTabReference(value: unknown): value is WorkspaceAiContextTabReference {
 	if (!isRecord(value) || !isRecord(value.view)) {
 		return false;
 	}
@@ -131,7 +135,7 @@ export function isWorkspaceAiContextTabReference(
 	return value.view.kind === "workspace-item" && isWorkspaceAiContextItemReference(value.view.item);
 }
 
-export function isWorkspaceAiContextSelectedQuote(
+function isWorkspaceAiContextSelectedQuote(
 	value: unknown,
 ): value is WorkspaceAiContextSnapshotSelectedQuote {
 	if (!isRecord(value) || !isRecord(value.source)) {
@@ -166,7 +170,7 @@ export function isWorkspaceAiContextSelectedQuote(
 	);
 }
 
-export function isWorkspaceAiContextPresentationReference(
+function isWorkspaceAiContextPresentationReference(
 	value: unknown,
 ): value is WorkspaceAiContextPresentationReference {
 	if (!isRecord(value) || typeof value.mode !== "string") {
@@ -237,8 +241,4 @@ function isWorkspaceAiContextPaneReference(
 	}
 
 	return value.kind === "workspace-item" && isWorkspaceAiContextItemReference(value.item);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null;
 }

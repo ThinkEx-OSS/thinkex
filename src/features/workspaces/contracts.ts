@@ -359,15 +359,12 @@ export const workspaceItemSummarySchema = z.object({
 	workspaceId: z.string(),
 	parentId: z.string().nullable(),
 	type: workspaceItemTypeSchema,
-	title: z.string(),
 	name: z.string(),
-	meta: z.string(),
 	color: z.string().nullable(),
 	metadataJson: z.record(z.string(), jsonValueSchema),
 	sortOrder: z.number(),
 	createdAt: z.string(),
 	updatedAt: z.string(),
-	deletedAt: z.string().nullable(),
 });
 
 export const createWorkspaceItemInputSchema = z

@@ -1,12 +1,11 @@
 import { isToolUIPart } from "ai";
 
-import { asRecord } from "#/features/workspaces/ai/ai-inspector-view-parsing";
-
 import {
 	getToolPartName,
 	isAiChatToolGroupPart,
 	type AiChatRenderablePart,
 } from "#/features/workspaces/components/ai-chat/ai-chat-display-state";
+import { asRecord } from "#/lib/record";
 
 export interface AiChatDocumentEditGroup {
 	itemId: string;

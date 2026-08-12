@@ -1,4 +1,5 @@
 import type { MarkdownProjectionPage } from "#/features/workspaces/extraction/page-markdown-projection";
+import { isRecord } from "#/lib/record";
 
 export function parseLiteParsePage(payload: unknown): MarkdownProjectionPage {
 	if (
@@ -12,8 +13,4 @@ export function parseLiteParsePage(payload: unknown): MarkdownProjectionPage {
 	}
 
 	return { pageNumber: payload.pageNumber, markdown: payload.markdown.trim() };
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null;
 }

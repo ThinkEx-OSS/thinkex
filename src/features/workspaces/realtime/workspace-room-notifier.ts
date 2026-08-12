@@ -1,19 +1,18 @@
+import { getAgentByName } from "agents";
+
 import { workspaceKernelAgentName } from "#/features/workspaces/agent-routes";
 import type { WorkspaceRevision } from "#/features/workspaces/realtime/messages";
 import { recordOperationalFailure } from "#/integrations/observability/operational-events";
 
-interface WorkspaceRoomClient {
-	publishWorkspaceChange(change: WorkspaceRevision): Promise<void>;
-	purgeDeletedItems(input: { documentItemIds: string[]; fileItemIds: string[] }): Promise<void>;
-	disconnectMember(input: { userId: string; documentItemIds: string[] }): Promise<void>;
-}
+const workspaceCleanupDeliveryAttempts = 3;
 
 export async function notifyWorkspaceRoom(
 	env: Cloudflare.Env,
 	change: WorkspaceRevision,
 ): Promise<void> {
 	try {
-		await getWorkspaceRoom(env, change.workspaceId).publishWorkspaceChange(change);
+		const room = await getWorkspaceRoom(env, change.workspaceId);
+		await room.publishWorkspaceChange(change);
 	} catch (error) {
 		recordOperationalFailure({
 			error,
@@ -31,7 +30,8 @@ export async function disconnectWorkspaceRoomMember(
 	input: { workspaceId: string; userId: string; documentItemIds: string[] },
 ): Promise<void> {
 	try {
-		await getWorkspaceRoom(env, input.workspaceId).disconnectMember({
+		const room = await getWorkspaceRoom(env, input.workspaceId);
+		await room.disconnectMember({
 			userId: input.userId,
 			documentItemIds: input.documentItemIds,
 		});
@@ -49,15 +49,18 @@ export async function requestWorkspaceItemCleanup(
 	env: Cloudflare.Env,
 	input: { workspaceId: string; documentItemIds: string[]; fileItemIds: string[] },
 ): Promise<void> {
-	for (let attempt = 1; attempt <= 3; attempt += 1) {
+	// Delivery retries end once the room accepts the RPC. The room separately owns
+	// durable retries for individual document-session and R2 cleanup failures.
+	for (let attempt = 1; attempt <= workspaceCleanupDeliveryAttempts; attempt += 1) {
 		try {
-			await getWorkspaceRoom(env, input.workspaceId).purgeDeletedItems({
+			const room = await getWorkspaceRoom(env, input.workspaceId);
+			await room.purgeDeletedItems({
 				documentItemIds: input.documentItemIds,
 				fileItemIds: input.fileItemIds,
 			});
 			return;
 		} catch (error) {
-			if (attempt === 3) {
+			if (attempt === workspaceCleanupDeliveryAttempts) {
 				recordOperationalFailure({
 					error,
 					event: "workspace_item_cleanup_request",
@@ -73,21 +76,5 @@ export async function requestWorkspaceItemCleanup(
 }
 
 function getWorkspaceRoom(env: Cloudflare.Env, workspaceId: string) {
-	const namespace: unknown = Reflect.get(env as object, workspaceKernelAgentName);
-	if (!isWorkspaceRoomNamespace(namespace)) {
-		throw new Error("Workspace room binding is unavailable.");
-	}
-
-	return namespace.getByName(workspaceId);
-}
-
-function isWorkspaceRoomNamespace(value: unknown): value is {
-	getByName(name: string): WorkspaceRoomClient;
-} {
-	return (
-		typeof value === "object" &&
-		value !== null &&
-		"getByName" in value &&
-		typeof value.getByName === "function"
-	);
+	return getAgentByName(env[workspaceKernelAgentName], workspaceId);
 }

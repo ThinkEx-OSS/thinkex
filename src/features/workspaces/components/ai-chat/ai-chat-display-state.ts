@@ -168,18 +168,14 @@ export function getDisplayableParts(message: AiChatMessage): AiChatRenderablePar
 		return parts;
 	}
 
-	const loggedChildren = getCodemodeCallActivities(codemodePart.output);
-	const groupsSiblingTools = loggedChildren === undefined;
 	// Each call logs its own `seq`, so ids repeat across calls. Namespace them by
 	// the call that produced them to keep the merged trail's keys unique.
-	const codemodeChildren = groupsSiblingTools
-		? getLegacyCodemodeChildren(parts, codemodePart)
-		: codemodeParts.flatMap((part) =>
-				(getCodemodeCallActivities(part.output) ?? []).map((child) => ({
-					...child,
-					id: `${part.toolCallId}:${child.id}`,
-				})),
-			);
+	const codemodeChildren = codemodeParts.flatMap((part) =>
+		(getCodemodeCallActivities(part.output) ?? []).map((child) => ({
+			...child,
+			id: `${part.toolCallId}:${child.id}`,
+		})),
+	);
 
 	const result: AiChatRenderablePart[] = [];
 
@@ -187,15 +183,6 @@ export function getDisplayableParts(message: AiChatMessage): AiChatRenderablePar
 		if (isToolUIPart(part) && getToolPartName(part) === "orchestrate" && part !== codemodePart) {
 			continue;
 		}
-		if (
-			groupsSiblingTools &&
-			isToolUIPart(part) &&
-			part !== codemodePart &&
-			isVisibleToolPart(part)
-		) {
-			continue;
-		}
-
 		if (part === codemodePart) {
 			result.push({
 				type: "data-tool-group",
@@ -209,40 +196,6 @@ export function getDisplayableParts(message: AiChatMessage): AiChatRenderablePar
 	}
 
 	return result;
-}
-
-function getLegacyCodemodeChildren(
-	parts: AiChatMessagePart[],
-	codemodePart: AiChatToolPart,
-): AiChatToolChildActivity[] {
-	return parts.flatMap((part) => {
-		if (
-			!isToolUIPart(part) ||
-			part === codemodePart ||
-			getToolPartName(part) === "orchestrate" ||
-			!isVisibleToolPart(part)
-		) {
-			return [];
-		}
-
-		return getToolPartActivities(part);
-	});
-}
-
-function getToolPartActivities(part: AiChatToolPart): AiChatToolChildActivity[] {
-	const activity = getToolActivityForPart(part);
-	return activity
-		? [
-				{
-					id: part.toolCallId,
-					presentation: activity.presentation,
-					status: activity.status,
-					summary: activity.summary,
-					segments: activity.segments,
-					toolName: activity.toolName,
-				},
-			]
-		: [];
 }
 
 export function isDisplayableMessagePart(part: AiChatMessagePart): boolean {

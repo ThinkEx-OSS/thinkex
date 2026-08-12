@@ -5,12 +5,7 @@ import type {
 	WorkspaceAiContextSnapshotSelectedQuote,
 	WorkspaceAiContextTabReference,
 } from "./workspace-ai-context-types";
-import {
-	isWorkspaceAiContextSelectedItem,
-	isWorkspaceAiContextSelectedQuote,
-	isWorkspaceAiContextSnapshot,
-	isWorkspaceAiContextTabReference,
-} from "./workspace-ai-context-validation";
+import { isWorkspaceAiContextSnapshot } from "./workspace-ai-context-validation";
 import {
 	formatWorkspaceAiContextItemViewState,
 	formatWorkspaceAiContextItemViewStateSuffix,
@@ -28,9 +23,7 @@ export function formatWorkspaceAiContextForPrompt(value: unknown) {
 		"- Item bodies are not included unless fetched with tools. Quotes are user-selected excerpts.",
 		`- User active view: ${formatWorkspaceAiContextPresentation(value.view.presentation)}`,
 	];
-	const selectedItems = value.selectedItems.filter(isWorkspaceAiContextSelectedItem);
-	const openTabs = value.openTabs.filter(isWorkspaceAiContextTabReference);
-	const selectedQuotes = value.selectedQuotes.filter(isWorkspaceAiContextSelectedQuote);
+	const { selectedItems, openTabs, selectedQuotes } = value;
 
 	if (selectedItems.length > 0) {
 		lines.push("- User-selected workspace items:");

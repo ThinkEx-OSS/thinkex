@@ -21,15 +21,12 @@ const documentItem: WorkspaceItemSummary = {
 	workspaceId: "workspace-1",
 	parentId: null,
 	type: "document",
-	title: "Notes",
 	name: "Notes",
-	meta: "Document",
 	color: null,
 	metadataJson: {},
 	sortOrder: 1,
 	createdAt: "2026-01-01T00:00:00.000Z",
 	updatedAt: "2026-01-01T00:00:00.000Z",
-	deletedAt: null,
 };
 
 describe("WorkspaceContentReader", () => {
@@ -233,9 +230,7 @@ describe("WorkspaceContentReader", () => {
 		const fileItem = {
 			...documentItem,
 			id: "file-1",
-			meta: "PDF",
 			name: "Book.pdf",
-			title: "Book.pdf",
 			type: "file",
 		} satisfies WorkspaceItemSummary;
 		const read = createReader({

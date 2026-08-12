@@ -9,11 +9,6 @@ import type {
 	TurnContext,
 } from "@cloudflare/think";
 
-import type { AIInspectorSnapshot } from "#/features/workspaces/ai/ai-inspector";
-import {
-	AIThreadInspectorRecorder,
-	type AIThreadInspectorHost,
-} from "#/features/workspaces/ai/ai-thread-inspector-recorder";
 import type { AIThreadContext } from "#/features/workspaces/ai/ai-thread-metadata";
 import { getAIToolOutcome } from "#/features/workspaces/ai/ai-tool-outcome";
 import { AIThreadPostHogRecorder } from "#/features/workspaces/ai/ai-thread-posthog-recorder";
@@ -24,20 +19,14 @@ type AIThreadTelemetryScheduler = (task: Promise<void>) => void;
 
 export class AIThreadTelemetryRecorder {
 	private readonly env: Cloudflare.Env;
-	private readonly inspector: AIThreadInspectorRecorder;
 	private readonly posthog: AIThreadPostHogRecorder;
 	private readonly tcc: AIThreadTccRecorder;
 	/** Consent arrives per turn because the Durable Object cannot read browser cookies. */
 	private analyticsConsent = false;
 	private sessionReplayConsent = false;
 
-	constructor(input: {
-		env: Cloudflare.Env;
-		host: AIThreadInspectorHost;
-		schedule?: AIThreadTelemetryScheduler;
-	}) {
+	constructor(input: { env: Cloudflare.Env; schedule?: AIThreadTelemetryScheduler }) {
 		this.env = input.env;
-		this.inspector = new AIThreadInspectorRecorder(input.host);
 		this.posthog = new AIThreadPostHogRecorder({ schedule: input.schedule });
 		this.tcc = new AIThreadTccRecorder({ schedule: input.schedule });
 	}
@@ -47,14 +36,13 @@ export class AIThreadTelemetryRecorder {
 		this.sessionReplayConsent = input.analytics && input.sessionReplay;
 	}
 
-	async recordTurnStarted(input: {
+	recordTurnStarted(input: {
 		ctx: TurnContext;
 		modelId: WorkspaceAiChatModelId;
 		instructions: string;
 		thread: AIThreadContext;
 		tools: unknown;
 	}) {
-		await this.inspector.recordTurnStarted(input);
 		if (!this.analyticsConsent) {
 			return;
 		}
@@ -68,7 +56,6 @@ export class AIThreadTelemetryRecorder {
 	}
 
 	recordStepStarted(ctx: PrepareStepContext) {
-		this.inspector.recordStepStarted(ctx);
 		if (!this.analyticsConsent) {
 			return;
 		}
@@ -79,7 +66,6 @@ export class AIThreadTelemetryRecorder {
 	}
 
 	recordToolStarted(ctx: ToolCallContext) {
-		this.inspector.recordToolStarted(ctx);
 		if (!this.analyticsConsent) {
 			return;
 		}
@@ -90,7 +76,6 @@ export class AIThreadTelemetryRecorder {
 	}
 
 	recordTurnFinished(result: ChatResponseResult) {
-		this.inspector.recordTurnFinished(result);
 		if (!this.analyticsConsent) {
 			return;
 		}
@@ -101,7 +86,6 @@ export class AIThreadTelemetryRecorder {
 	}
 
 	recordTurnError(error: unknown, ctx?: ChatErrorContext) {
-		this.inspector.recordTurnError(error);
 		if (!this.analyticsConsent) {
 			return;
 		}
@@ -123,7 +107,6 @@ export class AIThreadTelemetryRecorder {
 
 	recordToolFinished(ctx: ToolCallResultContext) {
 		const outcome = getAIToolOutcome(ctx);
-		this.inspector.recordToolFinished(ctx);
 		if (!this.analyticsConsent) {
 			return;
 		}
@@ -134,7 +117,6 @@ export class AIThreadTelemetryRecorder {
 	}
 
 	recordStepFinished(ctx: StepContext) {
-		this.inspector.recordStepFinished(ctx);
 		if (!this.analyticsConsent) {
 			return;
 		}
@@ -145,7 +127,6 @@ export class AIThreadTelemetryRecorder {
 	}
 
 	recordChunk(ctx: ChunkContext) {
-		this.inspector.recordChunk(ctx);
 		if (!this.analyticsConsent) {
 			return;
 		}
@@ -201,10 +182,6 @@ export class AIThreadTelemetryRecorder {
 				env: this.env,
 			});
 		}
-	}
-
-	getInspectorSnapshot(threadId: string): AIInspectorSnapshot {
-		return this.inspector.getSnapshot(threadId);
 	}
 }
 

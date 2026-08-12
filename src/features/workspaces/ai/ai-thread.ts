@@ -37,7 +37,6 @@ import {
 	collectWorkspaceReferenceRecords,
 	reconcileWorkspaceMessageCitations,
 } from "#/features/workspaces/ai/workspace-citations";
-import type { AIInspectorSnapshot } from "#/features/workspaces/ai/ai-inspector";
 import { resolveChatAttachmentModelMessages } from "#/features/workspaces/ai/chat-attachment-model";
 import { classifyAIThreadChatError } from "#/features/workspaces/ai/chat-error-classification";
 import type { AIThreadContext } from "#/features/workspaces/ai/ai-thread-metadata";
@@ -116,7 +115,6 @@ export function createAIThreadClass(getUserAIStore: () => typeof UserAIStore) {
 		private activeWorkspaceReferences: WorkspaceReferenceRecord[] = [];
 		private readonly telemetry = new AIThreadTelemetryRecorder({
 			env: this.env,
-			host: this,
 			schedule: (task) => {
 				void this.keepAliveWhile(() => task);
 			},
@@ -297,7 +295,7 @@ export function createAIThreadClass(getUserAIStore: () => typeof UserAIStore) {
 				activeToolNames,
 			);
 
-			await this.telemetry.recordTurnStarted({
+			this.telemetry.recordTurnStarted({
 				ctx,
 				modelId,
 				instructions,
@@ -385,10 +383,6 @@ export function createAIThreadClass(getUserAIStore: () => typeof UserAIStore) {
 
 		onChunk(ctx: ChunkContext): void {
 			this.telemetry.recordChunk(ctx);
-		}
-
-		getInspectorSnapshot(): AIInspectorSnapshot {
-			return this.telemetry.getInspectorSnapshot(this.name);
 		}
 
 		private async _getThreadContext() {
