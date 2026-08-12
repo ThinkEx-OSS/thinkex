@@ -9,7 +9,7 @@ import {
 	DialogTitle,
 } from "#/components/ui/dialog.tsx";
 import { InputGroup, InputGroupAddon } from "#/components/ui/input-group.tsx";
-import { scoreNameSearch } from "#/lib/name-search";
+import { hasNameSearchQuery, scoreNameSearch } from "#/lib/name-search";
 import { cn } from "#/lib/utils.ts";
 
 type CommandContextValue = {
@@ -180,7 +180,7 @@ function CommandGroup({ className, ...props }: React.ComponentProps<"div">) {
 	return (
 		<AutocompletePrimitive.Group
 			data-slot="command-group"
-			className={cn("flex flex-col overflow-hidden p-1 text-foreground", className)}
+			className={cn("overflow-hidden p-1 text-foreground", className)}
 			{...props}
 		/>
 	);
@@ -213,7 +213,6 @@ function CommandItem({
 	onClick,
 	onKeyDown,
 	onSelect,
-	style,
 	value,
 	...props
 }: Omit<React.ComponentProps<"div">, "onSelect"> & {
@@ -224,9 +223,8 @@ function CommandItem({
 	const id = React.useId();
 	const { dispatchItem, search } = useCommandContext();
 	const itemValue = value ?? (typeof children === "string" ? children : "");
-	const query = search.trim();
-	const score = query ? scoreNameSearch(query, [itemValue, ...(keywords ?? [])]) : 0;
-	const visible = !query || score > 0;
+	const searching = hasNameSearchQuery(search);
+	const visible = !searching || scoreNameSearch(search, [itemValue, ...(keywords ?? [])]) > 0;
 
 	React.useEffect(() => {
 		dispatchItem({ id, type: "register", visible });
@@ -250,7 +248,6 @@ function CommandItem({
 			)}
 			value={itemValue}
 			{...props}
-			style={{ ...style, order: query ? Math.round((8 - score) * 1000) : style?.order }}
 			onClick={(event) => {
 				selectItem();
 				onClick?.(event);

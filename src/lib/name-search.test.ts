@@ -17,6 +17,10 @@ describe("name search", () => {
 		expect(byName).toBeGreaterThan(byType);
 	});
 
+	it("ranks an exact name ahead of a longer name that contains it", () => {
+		expect(scoreNameSearch("foo", ["foo"])).toBeGreaterThan(scoreNameSearch("foo", ["foo bar"]));
+	});
+
 	it("keeps token order free and ranks closer names first", () => {
 		const ranked = rankNameSearch("notes meet", ["Meeting Notes", "Notes", "Unrelated"], (name) => [
 			name,

@@ -86,7 +86,8 @@ export function rankNameSearch<T>(
 function scoreToken(haystack: PreparedName, token: string) {
 	let best = rankString(haystack.compact, token);
 	for (const hayToken of haystack.tokens) {
-		best = Math.max(best, rankString(hayToken, token));
+		const rank = rankString(hayToken, token);
+		best = Math.max(best, rank === equalRank ? prefixRank : rank);
 	}
 	if (token.length >= 2 && haystack.acronym.startsWith(token)) {
 		best = Math.max(best, acronymRank);
