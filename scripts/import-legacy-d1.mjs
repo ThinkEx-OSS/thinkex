@@ -88,6 +88,8 @@ const workspaceIds = (source.get("workspaces") ?? []).map((row) => String(row.id
 try {
 	await withPostgresClient((client) => importD1Rows(client, source));
 	if (!options.d1Only) {
+		const completedWorkspaceIds = await withPostgresClient(readCompletedWorkspaceIds);
+		const pendingWorkspaceIds = workspaceIds.filter((id) => !completedWorkspaceIds.has(id));
 		const summary = {
 			workspaces: 0,
 			statuses: {},
@@ -97,9 +99,13 @@ try {
 			relations: 0,
 			pages: 0,
 		};
-		for (let index = 0; index < workspaceIds.length; index += workspaceMigrationConcurrency) {
+		for (
+			let index = 0;
+			index < pendingWorkspaceIds.length;
+			index += workspaceMigrationConcurrency
+		) {
 			const reports = await Promise.all(
-				workspaceIds
+				pendingWorkspaceIds
 					.slice(index, index + workspaceMigrationConcurrency)
 					.map((workspaceId) => migrateWorkspace(options.appUrl, migrationToken, workspaceId)),
 			);
@@ -122,20 +128,39 @@ async function withPostgresClient(run) {
 	}
 }
 
-async function migrateWorkspace(appUrl, migrationToken, workspaceId) {
-	const response = await fetch(
-		`${appUrl}/api/internal/migrations/postgres/workspaces/${encodeURIComponent(workspaceId)}`,
-		{
-			method: "POST",
-			headers: { authorization: `Bearer ${migrationToken}` },
-		},
+async function readCompletedWorkspaceIds(client) {
+	const result = await client.query(
+		"SELECT scope FROM legacy_data_migrations WHERE scope LIKE 'workspace:%'",
 	);
-	if (!response.ok) {
-		throw new Error(
-			`Workspace ${workspaceId} migration failed (${response.status}): ${await response.text()}`,
-		);
+	return new Set(result.rows.map((row) => row.scope.slice("workspace:".length)));
+}
+
+async function migrateWorkspace(appUrl, migrationToken, workspaceId) {
+	const url = `${appUrl}/api/internal/migrations/postgres/workspaces/${encodeURIComponent(workspaceId)}`;
+	for (let attempt = 1; attempt <= 4; attempt += 1) {
+		let response;
+		try {
+			response = await fetch(url, {
+				method: "POST",
+				headers: { authorization: `Bearer ${migrationToken}` },
+			});
+		} catch (error) {
+			if (attempt === 4) throw error;
+			await retryDelay(attempt);
+			continue;
+		}
+		if (response.ok) return await response.json();
+		const body = await response.text();
+		if (response.status < 500 || attempt === 4) {
+			throw new Error(`Workspace ${workspaceId} migration failed (${response.status}): ${body}`);
+		}
+		await retryDelay(attempt);
 	}
-	return await response.json();
+	throw new Error(`Workspace ${workspaceId} migration failed after retries.`);
+}
+
+async function retryDelay(attempt) {
+	await new Promise((resolve) => setTimeout(resolve, 5_000 * 2 ** (attempt - 1)));
 }
 
 function addWorkspaceReport(summary, report) {
