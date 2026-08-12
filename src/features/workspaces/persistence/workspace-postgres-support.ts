@@ -86,12 +86,11 @@ export async function getActiveWorkspaceItems(db: QueryExecutor, workspaceId: st
 	return (await getActiveWorkspaceItemRows(db, workspaceId)).map(mapWorkspaceItem);
 }
 
-export async function readWorkspacePageSnapshot(db: QueryExecutor, workspaceId: string) {
-	// Read the cursor first. A concurrent commit can then be safely replayed onto
-	// the returned items; reading these in parallel could pair old items with a
-	// newer cursor and cause the client to discard that commit's delta.
-	const revision = await getWorkspaceRevision(db, workspaceId);
-	const items = await getActiveWorkspaceItems(db, workspaceId);
+export async function readWorkspacePageSnapshot(db: Transaction, workspaceId: string) {
+	const [revision, items] = await Promise.all([
+		getWorkspaceRevision(db, workspaceId),
+		getActiveWorkspaceItems(db, workspaceId),
+	]);
 	return {
 		workspaceId,
 		items,
