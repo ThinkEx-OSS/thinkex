@@ -325,6 +325,17 @@ function getWorkspaceAiLanguageModelForGatewayModel(
 function getWorkspaceAiGatewayTransportOptions() {
 	return {
 		caching: "auto" as const,
+		// Buy the fast lane where it exists. The gateway only forwards a tier to
+		// OpenAI, Google AI Studio, and Vertex, so this is a no-op on the Claude
+		// primaries and moves the models we actually default to (`auto`/luna, the
+		// Gemini pair, the nano/flash-lite title legs). It is a hint, never a
+		// promise: an unsupported model ignores it, and a provider that is out of
+		// priority capacity silently downgrades to standard and bills standard.
+		// Priority runs ~1.8-2x standard token price when it *is* granted, which
+		// the `cost` ladder in models.ts does not account for — read
+		// `service_tier` in PostHog before trusting those multipliers, since a
+		// missing value means we paid standard and got standard.
+		serviceTier: "priority" as const,
 		// Time-to-first-token budget before a BYOK leg is abandoned for the next
 		// provider — and eventually for Vercel's own credits. A flat 8s evicted
 		// healthy requests: 37% of gemini-3.1-pro steps and 29% of sonnet steps
