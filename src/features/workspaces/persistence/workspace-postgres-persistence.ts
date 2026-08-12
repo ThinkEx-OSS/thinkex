@@ -3,7 +3,6 @@ import { and, asc, desc, eq, inArray, or } from "drizzle-orm";
 import { workspaceDocumentCheckpoints, workspaceItemRelations, workspaceItems } from "#/db/schema";
 import {
 	type WorkspaceItem,
-	type WorkspaceItemContentKind,
 	getWorkspaceItemContentKind,
 	workspaceItemTypeSchema,
 	workspaceRelationKindSchema,
@@ -480,12 +479,19 @@ export class PostgresWorkspacePersistence implements WorkspaceKernelClient {
 					? await nextWorkspaceRevision(transaction, this.workspaceId)
 					: await getWorkspaceRevision(transaction, this.workspaceId);
 			const result = { itemIds: rootIds, deletedItemIds: deleteIds };
-			return {
-				result,
-				documentItemIds: filterWorkspaceRowsByContentKind(deletingRows, "document"),
-				fileItemIds: filterWorkspaceRowsByContentKind(deletingRows, "file"),
-				revision,
-			};
+			// Deleted rows fan out to per-store cleanup by where their content lives, not by
+			// item type, so a new type backed by an existing store is collected here for free.
+			const documentItemIds: string[] = [];
+			const fileItemIds: string[] = [];
+			for (const row of deletingRows) {
+				const contentKind = getWorkspaceItemContentKind(workspaceItemTypeSchema.parse(row.type));
+				if (contentKind === "document") {
+					documentItemIds.push(row.id);
+				} else if (contentKind === "file") {
+					fileItemIds.push(row.id);
+				}
+			}
+			return { result, documentItemIds, fileItemIds, revision };
 		});
 		await Promise.all([
 			command.result.deletedItemIds.length > 0
@@ -549,19 +555,4 @@ export class PostgresWorkspacePersistence implements WorkspaceKernelClient {
 			items,
 		});
 	}
-}
-
-/**
- * Deleted rows fan out to per-store cleanup by where their content lives, not by
- * item type, so a new type backed by an existing store is collected here for free.
- */
-function filterWorkspaceRowsByContentKind(
-	rows: readonly { id: string; type: string }[],
-	contentKind: WorkspaceItemContentKind,
-) {
-	return rows
-		.filter(
-			(row) => getWorkspaceItemContentKind(workspaceItemTypeSchema.parse(row.type)) === contentKind,
-		)
-		.map((row) => row.id);
 }
