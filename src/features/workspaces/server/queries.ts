@@ -1,26 +1,24 @@
 import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
 
 import { workspaceMembers, workspaces } from "#/db/schema";
-import { createDbContext } from "#/db/server";
 import type { WorkspacePage, WorkspaceSummary } from "#/features/workspaces/contracts";
-import { getWorkspaceKernel } from "#/features/workspaces/kernel/workspace-kernel-access";
+import {
+	readWorkspacePageSnapshot,
+	type QueryExecutor,
+} from "#/features/workspaces/persistence/workspace-postgres-support";
 import { mapWorkspaceDetailRow, mapWorkspaceRow } from "#/features/workspaces/server/mappers";
 import { getCurrentUserId } from "#/features/workspaces/server/permissions";
-
-type Db = Awaited<ReturnType<typeof createDbContext>>["db"];
+import { withDb } from "#/features/workspaces/server/workspace-db";
 
 export async function listWorkspacesForCurrentUser(): Promise<WorkspaceSummary[]> {
 	const userId = await getCurrentUserId();
-	const dbContext = await createDbContext();
-
-	try {
-		return await listWorkspacesForUser(dbContext.db, userId);
-	} finally {
-		await dbContext.dispose();
-	}
+	return await withDb((db) => listWorkspacesForUser(db, userId));
 }
 
-export async function listWorkspacesForUser(db: Db, userId: string): Promise<WorkspaceSummary[]> {
+export async function listWorkspacesForUser(
+	db: QueryExecutor,
+	userId: string,
+): Promise<WorkspaceSummary[]> {
 	const rows = await db
 		.select({
 			workspace: workspaces,
@@ -57,32 +55,27 @@ export async function getWorkspacePageForUser(
 	workspaceId: string,
 	userId: string,
 ): Promise<WorkspacePage | null> {
-	const dbContext = await createDbContext();
-	let workspace: WorkspacePage["workspace"] | null;
+	return await withDb((db) =>
+		db.transaction(
+			async (transaction) => {
+				const workspace = await getWorkspace(transaction, workspaceId, userId);
+				if (!workspace) return null;
 
-	try {
-		workspace = await getWorkspace(dbContext.db, workspaceId, userId);
-	} finally {
-		await dbContext.dispose();
-	}
-
-	if (!workspace) {
-		return null;
-	}
-
-	const kernel = await getWorkspaceKernel(workspaceId);
-	const page = await kernel.getPage({ userId });
-
-	return {
-		workspace,
-		items: page.items,
-		itemFacts: page.itemFacts,
-		revision: page.revision,
-	};
+				const page = await readWorkspacePageSnapshot(transaction, workspaceId);
+				return {
+					workspace,
+					items: page.items,
+					itemFacts: page.itemFacts,
+					revision: page.revision,
+				};
+			},
+			{ isolationLevel: "repeatable read" },
+		),
+	);
 }
 
 async function getWorkspace(
-	db: Db,
+	db: QueryExecutor,
 	workspaceId: string,
 	userId: string,
 ): Promise<WorkspacePage["workspace"] | null> {

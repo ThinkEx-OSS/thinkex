@@ -27,3 +27,14 @@ export async function createDbContext(bindings: DatabaseBindings = env) {
 		dispose: async () => client.end(),
 	};
 }
+
+type Database = Awaited<ReturnType<typeof createDbContext>>["db"];
+
+export async function withDb<T>(handler: (db: Database) => Promise<T>) {
+	const context = await createDbContext();
+	try {
+		return await handler(context.db);
+	} finally {
+		await context.dispose();
+	}
+}

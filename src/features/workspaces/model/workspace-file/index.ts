@@ -1,26 +1,18 @@
 export { workspaceFileUploadLimits } from "#/features/workspaces/model/workspace-file/limits";
-export {
-	getMetadataNumber,
-	getMetadataString,
-} from "#/features/workspaces/model/workspace-file/metadata";
+export { getMetadataNumber } from "#/features/workspaces/model/workspace-file/metadata";
 export {
 	getWorkspaceConvertedFileName,
-	getWorkspaceFileShellExtension,
 	getWorkspaceUploadFamily,
 	normalizeWorkspaceUploadFileName,
 	requireWorkspaceFileTypeFromHint,
-	resolveMatchedUploadFormat,
 	resolveWorkspaceFileContentType,
 	resolveWorkspaceFileTypeFromHint,
 	resolveWorkspaceUploadConversion,
-	resolveWorkspaceUploadFormat,
 	type WorkspaceFileTypeDescriptor,
 	WorkspaceFileUploadError,
 	type WorkspaceFileUploadHint,
 	type WorkspaceFileUploadValidationError,
 	type WorkspaceUploadConversion,
-	type WorkspaceUploadFamily,
-	type WorkspaceUploadFormat,
 	workspaceFileUploadFormats,
 } from "#/features/workspaces/model/workspace-file/policy";
 export {
@@ -30,12 +22,7 @@ export {
 } from "#/features/workspaces/model/workspace-file/resolve";
 export {
 	type WorkspaceFileAssetKind,
-	type WorkspaceFileExtractionMode,
-	type WorkspaceFileExtractionProviderId,
-	type WorkspaceFileExtractionRoute,
 	workspaceFileAssetKindSchema,
-	workspaceFileAssetKinds,
-	workspaceFileExtractionProviders,
 } from "#/features/workspaces/model/workspace-file/types";
 export {
 	getWorkspaceFileContentUrl,

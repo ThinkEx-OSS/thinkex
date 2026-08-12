@@ -7,7 +7,6 @@ import type {
 } from "#/features/workspaces/contracts";
 import {
 	getAvailableWorkspaceItemName,
-	getWorkspaceItemTypeMeta,
 	WORKSPACE_ITEM_SORT_STEP,
 } from "#/features/workspaces/defaults";
 import { buildWorkspaceItemCreateBootstrap } from "#/features/workspaces/documents/document-item-content";
@@ -39,15 +38,12 @@ export function createWorkspaceItemInPage(
 		workspaceId: input.workspaceId,
 		parentId,
 		type: input.type,
-		title: name,
 		name,
-		meta: getWorkspaceItemTypeMeta(input.type),
 		color: input.color ?? null,
 		metadataJson,
 		sortOrder: getNextWorkspaceItemSortOrder(page.items, parentId),
 		createdAt: now,
 		updatedAt: now,
-		deletedAt: null,
 	});
 }
 
@@ -78,7 +74,6 @@ function moveWorkspaceItemInPage(
 		...previousItem,
 		parentId: nextParentId,
 		name,
-		title: name,
 		sortOrder:
 			input.sortOrder ??
 			getNextWorkspaceItemSortOrder(

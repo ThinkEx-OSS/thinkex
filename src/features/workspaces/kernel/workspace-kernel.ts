@@ -107,8 +107,6 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 		const results = await Promise.allSettled([
 			...documentItemIds.map((itemId) => this.purgeDocumentSession(itemId)),
 			deleteR2Prefix(this.env.WORKSPACE_KERNEL_FILES, getChatAttachmentWorkspacePrefix(this.name)),
-			deleteR2Prefix(this.env.WORKSPACE_KERNEL_FILES, `uploads/workspaces/${this.name}/`),
-			deleteR2Prefix(this.env.WORKSPACE_KERNEL_FILES, `workspace_kernel_files/${this.name}/`),
 			deleteR2Prefix(this.env.WORKSPACE_KERNEL_FILES, `workspace_file_objects/${this.name}/`),
 			deleteR2Prefix(this.env.WORKSPACE_KERNEL_FILES, `workspace_file_uploads/${this.name}/`),
 		]);

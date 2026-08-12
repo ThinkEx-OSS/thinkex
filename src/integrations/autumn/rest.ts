@@ -151,14 +151,6 @@ export function getOrCreateAutumnCustomer(input: {
 	});
 }
 
-export function getAutumnCustomer(input: { customerId: string; secretKey: string }) {
-	return autumnRequest<AutumnCustomer>({
-		body: { customer_id: input.customerId },
-		path: "customers.get",
-		secretKey: input.secretKey,
-	});
-}
-
 /** Null when the plan needs no payment, which is why callers must handle both. */
 export function attachAutumnPlan(input: {
 	checkoutSessionParams?: Record<string, unknown>;

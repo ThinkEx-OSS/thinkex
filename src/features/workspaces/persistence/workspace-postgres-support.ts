@@ -8,7 +8,7 @@ import {
 	workspaceItems,
 	workspaces,
 } from "#/db/schema";
-import { createDbContext } from "#/db/server";
+import { createDbContext, withDb } from "#/db/server";
 import type {
 	JsonValue,
 	WorkspaceItemFacts,
@@ -19,7 +19,6 @@ import { workspaceItemTypeSchema } from "#/features/workspaces/contracts";
 import {
 	getAvailableWorkspaceItemName,
 	getWorkspaceItemNameKey,
-	getWorkspaceItemTypeMeta,
 	normalizeWorkspaceItemName,
 	WORKSPACE_ITEM_SORT_STEP,
 } from "#/features/workspaces/defaults";
@@ -37,12 +36,7 @@ export type QueryExecutor = Database | Transaction;
 export type ItemRow = typeof workspaceItems.$inferSelect;
 
 export async function withWorkspaceDatabase<T>(run: (db: Database) => Promise<T>) {
-	const context = await createDbContext();
-	try {
-		return await run(context.db);
-	} finally {
-		await context.dispose();
-	}
+	return await withDb(run);
 }
 
 export async function withWorkspaceTransaction<T>(run: (transaction: Transaction) => Promise<T>) {
@@ -83,6 +77,23 @@ export async function getActiveWorkspaceItemRows(db: QueryExecutor, workspaceId:
 
 export async function getActiveWorkspaceItems(db: QueryExecutor, workspaceId: string) {
 	return (await getActiveWorkspaceItemRows(db, workspaceId)).map(mapWorkspaceItem);
+}
+
+export async function readWorkspacePageSnapshot(db: QueryExecutor, workspaceId: string) {
+	const [workspace] = await db
+		.select({ revision: workspaces.revision })
+		.from(workspaces)
+		.where(eq(workspaces.id, workspaceId))
+		.limit(1);
+	if (!workspace) throw new Error("Workspace not found.");
+
+	const items = await getActiveWorkspaceItems(db, workspaceId);
+	return {
+		workspaceId,
+		items,
+		itemFacts: await getWorkspaceItemFacts(db, workspaceId, items),
+		revision: workspace.revision,
+	};
 }
 
 export async function getActiveWorkspaceItemRow(
@@ -140,7 +151,7 @@ export async function getWorkspaceItemFacts(
 ): Promise<WorkspaceItemFacts[]> {
 	if (items.length === 0) return [];
 	const itemIds = items.map((item) => item.id);
-	const [relations, projections, pageCounts] = await Promise.all([
+	const [relations, pageCounts] = await Promise.all([
 		db
 			.select({
 				fromItemId: workspaceItemRelations.fromItemId,
@@ -154,19 +165,6 @@ export async function getWorkspaceItemFacts(
 						inArray(workspaceItemRelations.fromItemId, itemIds),
 						inArray(workspaceItemRelations.toItemId, itemIds),
 					),
-				),
-			),
-		db
-			.select({
-				itemId: workspaceItemExtractions.itemId,
-				metadata: workspaceItemExtractions.metadata,
-			})
-			.from(workspaceItemExtractions)
-			.where(
-				and(
-					eq(workspaceItemExtractions.workspaceId, workspaceId),
-					inArray(workspaceItemExtractions.itemId, itemIds),
-					eq(workspaceItemExtractions.status, "ready"),
 				),
 			),
 		db
@@ -186,13 +184,6 @@ export async function getWorkspaceItemFacts(
 		}
 	}
 	const countsByItem = new Map(pageCounts.map((row) => [row.itemId, row.pageCount]));
-	for (const projection of projections) {
-		if (countsByItem.has(projection.itemId)) continue;
-		const count = toWorkspaceMetadata(projection.metadata).pageCount;
-		if (typeof count === "number" && Number.isInteger(count) && count > 0) {
-			countsByItem.set(projection.itemId, count);
-		}
-	}
 	return items.map((item) => ({
 		itemId: item.id,
 		...(countsByItem.get(item.id) ? { pageCount: countsByItem.get(item.id) } : {}),
@@ -298,15 +289,12 @@ export function mapWorkspaceItem(row: ItemRow): WorkspaceItemSummary {
 		workspaceId: row.workspaceId,
 		parentId: row.parentId,
 		type,
-		title: row.name,
 		name: row.name,
-		meta: getWorkspaceItemTypeMeta(type),
 		color: row.color,
 		metadataJson: toWorkspaceMetadata(row.metadata),
 		sortOrder: row.sortOrder,
 		createdAt: row.createdAt.toISOString(),
 		updatedAt: row.updatedAt.toISOString(),
-		deletedAt: null,
 	};
 }
 

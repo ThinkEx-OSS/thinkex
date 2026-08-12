@@ -1,11 +1,6 @@
 import { and, asc, desc, eq, inArray, or } from "drizzle-orm";
 
-import {
-	workspaceDocumentCheckpoints,
-	workspaceItemRelations,
-	workspaceItems,
-	workspaces,
-} from "#/db/schema";
+import { workspaceDocumentCheckpoints, workspaceItemRelations, workspaceItems } from "#/db/schema";
 import type { WorkspaceItemSummary } from "#/features/workspaces/contracts";
 import {
 	workspaceItemTypeSchema,
@@ -56,7 +51,6 @@ import {
 	assertWorkspaceParentIsValid,
 	collectDescendants,
 	getActiveWorkspaceItemRows,
-	getActiveWorkspaceItems,
 	getNextWorkspaceSortOrder,
 	getWorkspaceItemFacts,
 	getActiveWorkspaceItemRow,
@@ -67,6 +61,7 @@ import {
 	nextWorkspaceRevision,
 	requireActiveWorkspaceItem,
 	requireActiveWorkspaceItemRow,
+	readWorkspacePageSnapshot,
 	resolveWorkspaceItemName,
 	withWorkspaceDatabase,
 	withWorkspaceTransaction,
@@ -107,20 +102,7 @@ export class PostgresWorkspacePersistence implements WorkspaceKernelClient {
 							userId: input.userId,
 						});
 					}
-					const [workspace] = await transaction
-						.select({ revision: workspaces.revision })
-						.from(workspaces)
-						.where(eq(workspaces.id, this.workspaceId))
-						.limit(1);
-					if (!workspace) throw new Error("Workspace not found.");
-
-					const items = await getActiveWorkspaceItems(transaction, this.workspaceId);
-					return {
-						workspaceId: this.workspaceId,
-						items,
-						itemFacts: await getWorkspaceItemFacts(transaction, this.workspaceId, items),
-						revision: workspace.revision,
-					};
+					return await readWorkspacePageSnapshot(transaction, this.workspaceId);
 				},
 				{ isolationLevel: "repeatable read" },
 			);

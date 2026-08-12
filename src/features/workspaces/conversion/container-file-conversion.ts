@@ -8,30 +8,6 @@ type FileConversionContainer = {
 	}): Promise<void>;
 };
 
-export async function convertFileWithContainer(input: {
-	container: FileConversionContainer;
-	emptyMessage: string;
-	error: (message: string) => Error;
-	file: File;
-	fileName: string;
-	formFieldName: string;
-	url: string;
-}): Promise<ArrayBuffer> {
-	const response = await convertFileStreamWithContainer({
-		...input,
-		body: input.file.stream(),
-		contentType: input.file.type || "application/octet-stream",
-		sizeBytes: input.file.size,
-	});
-	const bytes = await new Response(response.body).arrayBuffer();
-
-	if (bytes.byteLength === 0) {
-		throw input.error(input.emptyMessage);
-	}
-
-	return bytes;
-}
-
 export async function convertFileStreamWithContainer(input: {
 	container: FileConversionContainer;
 	body: ReadableStream<Uint8Array>;

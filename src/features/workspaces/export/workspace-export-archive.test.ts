@@ -6,13 +6,11 @@ import { createWorkspaceExportStream } from "#/features/workspaces/export/worksp
 
 const baseItem = {
 	workspaceId: "workspace-1",
-	meta: "",
 	color: null,
 	metadataJson: {},
 	sortOrder: 0,
 	createdAt: "2026-08-05T00:00:00.000Z",
 	updatedAt: "2026-08-05T00:00:00.000Z",
-	deletedAt: null,
 } as const;
 
 describe("workspace export archive", () => {
@@ -23,7 +21,6 @@ describe("workspace export archive", () => {
 				id: "folder",
 				parentId: null,
 				type: "folder",
-				title: "Research",
 				name: "Research",
 			},
 			{
@@ -31,7 +28,6 @@ describe("workspace export archive", () => {
 				id: "document",
 				parentId: "folder",
 				type: "document",
-				title: "Notes",
 				name: "Notes",
 			},
 			{
@@ -39,10 +35,9 @@ describe("workspace export archive", () => {
 				id: "file",
 				parentId: "folder",
 				type: "file",
-				title: "source.pdf",
 				name: "source.pdf",
 			},
-			{ ...baseItem, id: "empty", parentId: null, type: "folder", title: "Empty", name: "Empty" },
+			{ ...baseItem, id: "empty", parentId: null, type: "folder", name: "Empty" },
 		];
 		const archive = await new Response(
 			createWorkspaceExportStream(items, {
@@ -72,7 +67,6 @@ describe("workspace export archive", () => {
 				id: "document-1",
 				parentId: null,
 				type: "document",
-				title: "Notes",
 				name: "Notes",
 			},
 			{
@@ -80,7 +74,6 @@ describe("workspace export archive", () => {
 				id: "document-2",
 				parentId: null,
 				type: "document",
-				title: "Notes.md",
 				name: "Notes.md",
 			},
 			{
@@ -88,7 +81,6 @@ describe("workspace export archive", () => {
 				id: "file",
 				parentId: null,
 				type: "file",
-				title: "notes.md",
 				name: "notes.md",
 			},
 		];

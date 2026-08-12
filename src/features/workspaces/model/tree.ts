@@ -1,5 +1,6 @@
 import type { WorkspaceItem } from "#/features/workspaces/model/types";
 import { joinWorkspacePathSegment } from "#/features/workspaces/kernel/workspace-kernel-paths";
+import { getWorkspaceItemTypeMeta } from "#/features/workspaces/defaults";
 
 interface WorkspaceTreeItem {
 	id: string;
@@ -142,7 +143,7 @@ export function getWorkspaceItemPath(
 
 export function getWorkspaceItemMeta(item: WorkspaceItem, allItems: WorkspaceItem[]) {
 	if (item.type !== "folder") {
-		return item.meta;
+		return getWorkspaceItemTypeMeta(item.type);
 	}
 
 	const count = allItems.filter((child) => child.parentId === item.id).length;

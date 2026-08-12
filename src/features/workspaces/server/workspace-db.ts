@@ -1,4 +1,4 @@
-import { createDbContext } from "#/db/server";
+import { createDbContext, withDb } from "#/db/server";
 
 import { getCurrentUserId } from "#/features/workspaces/server/permissions";
 
@@ -13,21 +13,7 @@ export async function withWorkspaceDb<T>(
 	handler: (context: WorkspaceDbContext) => Promise<T>,
 ): Promise<T> {
 	const userId = await getCurrentUserId();
-	const dbContext = await createDbContext();
-
-	try {
-		return await handler({ db: dbContext.db, userId });
-	} finally {
-		await dbContext.dispose();
-	}
+	return await withDb((db) => handler({ db, userId }));
 }
 
-export async function withDb<T>(handler: (db: Db) => Promise<T>): Promise<T> {
-	const dbContext = await createDbContext();
-
-	try {
-		return await handler(dbContext.db);
-	} finally {
-		await dbContext.dispose();
-	}
-}
+export { withDb };
