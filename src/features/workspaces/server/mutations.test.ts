@@ -88,6 +88,7 @@ describe("workspace settings mutations", () => {
 		);
 		expect(mocks.nextWorkspaceRevision).toHaveBeenCalledWith(transaction, workspace.id);
 		expect(mocks.notifyWorkspaceRoom).toHaveBeenCalledWith(mocks.env, {
+			type: "workspace.page.refresh",
 			workspaceId: workspace.id,
 			revision: 8,
 		});

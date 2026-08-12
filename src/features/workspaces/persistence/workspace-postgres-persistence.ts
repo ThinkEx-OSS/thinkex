@@ -42,7 +42,7 @@ import {
 } from "#/features/workspaces/model/workspace-item-colors";
 import type {
 	WorkspaceCommandResult,
-	WorkspaceRevision,
+	WorkspacePageDelta,
 } from "#/features/workspaces/realtime/messages";
 import { assertCanReadWorkspace } from "#/features/workspaces/server/permissions";
 import { PostgresWorkspaceDocuments } from "./workspace-postgres-documents";
@@ -70,8 +70,8 @@ import {
 /**
  * Postgres implementation of the existing workspace-kernel persistence surface.
  *
- * Mutations commit a workspace revision atomically, then publish that revision
- * as a cache-invalidation hint through the injected callback.
+ * Page-affecting mutations commit a workspace revision atomically, then publish
+ * their canonical cache delta through the injected callback.
  */
 export class PostgresWorkspacePersistence implements WorkspaceKernelClient {
 	private readonly files: PostgresWorkspaceFiles;
@@ -80,7 +80,7 @@ export class PostgresWorkspacePersistence implements WorkspaceKernelClient {
 	constructor(
 		private readonly workspaceId: string,
 		bucket: R2Bucket,
-		private readonly onChange?: (change: WorkspaceRevision) => Promise<void>,
+		private readonly onChange?: (change: WorkspacePageDelta) => Promise<void>,
 		private readonly onItemsDeleted?: (input: {
 			workspaceId: string;
 			documentItemIds: string[];
@@ -202,7 +202,6 @@ export class PostgresWorkspacePersistence implements WorkspaceKernelClient {
 			const revision = await nextWorkspaceRevision(transaction, this.workspaceId);
 			return { result: undefined, revision };
 		});
-		await this.notify(command.revision);
 		return command;
 	}
 
@@ -287,7 +286,9 @@ export class PostgresWorkspacePersistence implements WorkspaceKernelClient {
 				},
 			};
 		});
-		if (outcome.status === "applied") await this.notify(outcome.command.revision);
+		if (outcome.status === "applied") {
+			await this.notifyItemsUpserted([outcome.command.result], outcome.command.revision);
+		}
 		return outcome;
 	}
 
@@ -335,7 +336,9 @@ export class PostgresWorkspacePersistence implements WorkspaceKernelClient {
 				},
 			};
 		});
-		if (outcome.status === "applied") await this.notify(outcome.command.revision);
+		if (outcome.status === "applied") {
+			await this.notifyItemsUpserted([outcome.command.result], outcome.command.revision);
+		}
 		return outcome;
 	}
 
@@ -424,7 +427,9 @@ export class PostgresWorkspacePersistence implements WorkspaceKernelClient {
 				},
 			};
 		});
-		if (outcome.status === "applied") await this.notify(outcome.command.revision);
+		if (outcome.status === "applied") {
+			await this.notifyItemsUpserted(outcome.command.result, outcome.command.revision);
+		}
 		return outcome;
 	}
 
@@ -445,7 +450,7 @@ export class PostgresWorkspacePersistence implements WorkspaceKernelClient {
 			const revision = await nextWorkspaceRevision(transaction, this.workspaceId);
 			return { result: item, revision };
 		});
-		await this.notify(command.revision);
+		await this.notifyItemsUpserted([command.result], command.revision);
 		return command;
 	}
 
@@ -481,12 +486,21 @@ export class PostgresWorkspacePersistence implements WorkspaceKernelClient {
 			};
 		});
 		await Promise.all([
-			this.notify(command.revision),
-			this.onItemsDeleted?.({
-				workspaceId: this.workspaceId,
-				documentItemIds: command.documentItemIds,
-				fileItemIds: command.fileItemIds,
-			}),
+			command.result.deletedItemIds.length > 0
+				? this.onChange?.({
+						type: "workspace.items.deleted",
+						workspaceId: this.workspaceId,
+						revision: command.revision,
+						itemIds: command.result.deletedItemIds,
+					})
+				: undefined,
+			command.documentItemIds.length > 0 || command.fileItemIds.length > 0
+				? this.onItemsDeleted?.({
+						workspaceId: this.workspaceId,
+						documentItemIds: command.documentItemIds,
+						fileItemIds: command.fileItemIds,
+					})
+				: undefined,
 		]);
 		return { revision: command.revision, result: command.result };
 	}
@@ -525,7 +539,12 @@ export class PostgresWorkspacePersistence implements WorkspaceKernelClient {
 		return await this.files.readPages(input);
 	}
 
-	private async notify(revision: number) {
-		await this.onChange?.({ workspaceId: this.workspaceId, revision });
+	private async notifyItemsUpserted(items: WorkspaceItemSummary[], revision: number) {
+		await this.onChange?.({
+			type: "workspace.items.upserted",
+			workspaceId: this.workspaceId,
+			revision,
+			items,
+		});
 	}
 }

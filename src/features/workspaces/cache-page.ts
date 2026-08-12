@@ -4,14 +4,27 @@ import type {
 	CreateWorkspaceItemInput,
 	MoveWorkspaceItemsInput,
 	UpdateWorkspaceItemColorInput,
+	WorkspaceItemSummary,
 	WorkspacePage,
 } from "#/features/workspaces/contracts";
 import {
+	applyWorkspacePageDelta,
 	createWorkspaceItemInPage,
 	moveWorkspaceItemsInPage,
 	removeWorkspaceItemsFromPage,
 	updateWorkspaceItemColorInPage,
+	upsertWorkspaceItemInPage,
 } from "#/features/workspaces/model/workspace-page";
+import type { WorkspacePageDelta } from "#/features/workspaces/realtime/messages";
+
+export function applyWorkspacePageDeltaToCache(
+	queryClient: QueryClient,
+	change: WorkspacePageDelta,
+) {
+	queryClient.setQueryData<WorkspacePage>(workspacePageQueryKey(change.workspaceId), (current) =>
+		current ? applyWorkspacePageDelta(current, change) : current,
+	);
+}
 
 export function createWorkspaceItemInPageCache(
 	queryClient: QueryClient,
@@ -31,13 +44,27 @@ export function moveWorkspaceItemsInPageCache(
 	);
 }
 
+export function upsertWorkspaceItemsInPageCache(
+	queryClient: QueryClient,
+	workspaceId: string,
+	items: WorkspaceItemSummary[],
+	revision: number,
+) {
+	queryClient.setQueryData<WorkspacePage>(workspacePageQueryKey(workspaceId), (current) =>
+		current
+			? items.reduce((page, item) => upsertWorkspaceItemInPage(page, item, revision), current)
+			: current,
+	);
+}
+
 export function removeWorkspaceItemsFromPageCache(
 	queryClient: QueryClient,
 	workspaceId: string,
 	itemIds: string[],
+	revision?: number,
 ) {
 	queryClient.setQueryData<WorkspacePage>(workspacePageQueryKey(workspaceId), (current) =>
-		current ? removeWorkspaceItemsFromPage(current, itemIds) : current,
+		current ? removeWorkspaceItemsFromPage(current, itemIds, revision) : current,
 	);
 }
 

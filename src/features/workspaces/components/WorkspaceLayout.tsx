@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
-import { workspacePageQueryKey } from "#/features/workspaces/cache";
+import { applyWorkspacePageDeltaToCache, workspacePageQueryKey } from "#/features/workspaces/cache";
 import AiChatPanel from "#/features/workspaces/components/AiChatPanel";
 import WorkspaceChatLayout from "#/features/workspaces/components/WorkspaceChatLayout";
 import WorkspaceContextBar from "#/features/workspaces/components/WorkspaceContextBar";
@@ -78,7 +78,10 @@ export function WorkspaceShell({
 	const realtime = useWorkspaceRealtime({
 		workspaceId: workspace.id,
 		lastSeenRevision: revision,
-		onWorkspaceChanged: () => {
+		onPageChange: (change) => {
+			applyWorkspacePageDeltaToCache(queryClient, change);
+		},
+		onDesync: () => {
 			void queryClient.invalidateQueries({
 				queryKey: workspacePageQueryKey(workspace.id),
 			});

@@ -32,4 +32,4 @@ Think of it as the place where the work happens: you keep the actual source mate
 
 ## Source of Truth
 
-The app stores workspace access, the item tree, relationships, current document checkpoints, and extracted text in Postgres. Original and preview file bytes live in R2. The `WorkspaceKernel` Durable Object is a live room for presence, revision notifications, and cleanup coordination; it is not a second database. Clients refetch the authoritative workspace query when a newer revision is announced. UI and AI operations go through workspace commands rather than writing directly to scattered client state.
+The app stores workspace access, the item tree, relationships, current document checkpoints, and extracted text in Postgres. Original and preview file bytes live in R2. The `WorkspaceKernel` Durable Object is a live room for presence, workspace-page deltas, and cleanup coordination; it is not a second database. Clients apply canonical item deltas and refetch the authoritative workspace query after reconnecting or when a full refresh is announced. UI and AI operations go through workspace commands rather than writing directly to scattered client state.

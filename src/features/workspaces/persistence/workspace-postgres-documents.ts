@@ -6,7 +6,7 @@ import type {
 	ReadWorkspaceDocumentCheckpointArgs,
 	WorkspaceKernelPublishOutcome,
 } from "#/features/workspaces/kernel/workspace-kernel-types";
-import type { WorkspaceRevision } from "#/features/workspaces/realtime/messages";
+import type { WorkspacePageDelta } from "#/features/workspaces/realtime/messages";
 import {
 	getActiveWorkspaceItemRow,
 	lockWorkspaceForActor,
@@ -20,7 +20,7 @@ import {
 export class PostgresWorkspaceDocuments {
 	constructor(
 		private readonly workspaceId: string,
-		private readonly onChange?: (change: WorkspaceRevision) => Promise<void>,
+		private readonly onChange?: (change: WorkspacePageDelta) => Promise<void>,
 	) {}
 
 	async readCheckpoint(input: ReadWorkspaceDocumentCheckpointArgs) {
@@ -69,11 +69,17 @@ export class PostgresWorkspaceDocuments {
 				.update(workspaceItems)
 				.set({ metadata, updatedAt: now })
 				.where(eq(workspaceItems.id, input.itemId));
+			const item = await requireActiveWorkspaceItem(transaction, this.workspaceId, input.itemId);
 			const revision = await nextWorkspaceRevision(transaction, this.workspaceId);
-			return { outcome: "applied" as const, revision };
+			return { outcome: "applied" as const, item, revision };
 		});
 		if (publication.outcome === "applied") {
-			await this.onChange?.({ workspaceId: this.workspaceId, revision: publication.revision });
+			await this.onChange?.({
+				type: "workspace.items.upserted",
+				workspaceId: this.workspaceId,
+				revision: publication.revision,
+				items: [publication.item],
+			});
 		}
 		return publication.outcome;
 	}

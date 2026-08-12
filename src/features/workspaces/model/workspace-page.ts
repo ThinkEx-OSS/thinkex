@@ -14,6 +14,25 @@ import {
 	getWorkspaceRootItems,
 	getWorkspaceSubtreeItemIds,
 } from "#/features/workspaces/model/tree";
+import type { WorkspacePageDelta } from "#/features/workspaces/realtime/messages";
+
+export function applyWorkspacePageDelta(
+	page: WorkspacePage,
+	change: WorkspacePageDelta,
+): WorkspacePage {
+	if (change.revision <= page.revision) {
+		return page;
+	}
+
+	if (change.type === "workspace.items.deleted") {
+		return removeWorkspaceItemsFromPage(page, change.itemIds, change.revision);
+	}
+
+	return change.items.reduce(
+		(current, item) => upsertWorkspaceItemInPage(current, item, change.revision),
+		page,
+	);
+}
 
 export function createWorkspaceItemInPage(
 	page: WorkspacePage,

@@ -10,7 +10,7 @@ import {
 import type { ResourcePurgeResult } from "#/features/workspaces/resource-purge-result";
 import type {
 	WorkspaceConnectionState,
-	WorkspaceRevision,
+	WorkspacePageChange,
 	WorkspaceRealtimeServerMessage,
 } from "#/features/workspaces/realtime/messages";
 import { recordOperationalFailure } from "#/integrations/observability/operational-events";
@@ -23,7 +23,7 @@ export { setWorkspaceKernelUserHeaders };
 /**
  * The deployed class name is retained to avoid a destructive Durable Object
  * migration. Canonical workspace data lives in Postgres; this object is only a
- * live room for presence, revision notifications, and retryable remote cleanup.
+ * live room for presence, workspace-page deltas, and retryable remote cleanup.
  */
 export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 	onConnect(connection: Connection<WorkspaceConnectionState>, context: ConnectionContext) {
@@ -42,16 +42,12 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 		this.broadcastPresenceSnapshot();
 	}
 
-	async publishWorkspaceChange(change: WorkspaceRevision): Promise<void> {
+	async publishWorkspacePageChange(change: WorkspacePageChange): Promise<void> {
 		if (change.workspaceId !== this.name) {
 			throw new Error("Workspace change was routed to the wrong room.");
 		}
 
-		this.broadcastRealtimeMessage({
-			type: "workspace.changed",
-			workspaceId: this.name,
-			revision: change.revision,
-		});
+		this.broadcastRealtimeMessage(change);
 	}
 
 	async disconnectMember(input: { userId: string; documentItemIds: string[] }): Promise<void> {

@@ -57,7 +57,7 @@ export async function lockWorkspaceForActor(
 export async function nextWorkspaceRevision(transaction: Transaction, workspaceId: string) {
 	const [workspace] = await transaction
 		.update(workspaces)
-		.set({ revision: sql`${workspaces.revision} + 1`, updatedAt: new Date() })
+		.set({ revision: sql`${workspaces.revision} + 1` })
 		.where(eq(workspaces.id, workspaceId))
 		.returning({ revision: workspaces.revision });
 	if (!workspace) throw new Error("Workspace not found.");
