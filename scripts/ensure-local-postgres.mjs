@@ -1,13 +1,8 @@
 import { Client } from "pg";
 
-const conductorPort = process.env.CONDUCTOR_PORT ?? "3000";
+import { getLocalPostgresConfig } from "./local-postgres-config.mjs";
 
-if (!/^\d{2,5}$/.test(conductorPort)) {
-	throw new Error("CONDUCTOR_PORT must be a numeric local port.");
-}
-
-const databaseName = `thinkex_${conductorPort}`;
-const roleName = `thinkex_local_${conductorPort}`;
+const { databaseName, roleName } = getLocalPostgresConfig();
 const password = roleName;
 const admin = new Client({ database: "postgres" });
 

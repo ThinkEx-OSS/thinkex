@@ -6,8 +6,8 @@
 		"#/*": "./src/*"
 	},
 	"scripts": {
-		"dev": "infisical run --env=dev --path=/app --watch -- pnpm serve:dev",
-		"serve:dev": "vp dev --host 0.0.0.0 --port 3000",
+		"dev": "node scripts/run-local-dev.mjs --infisical",
+		"serve:dev": "node scripts/run-local-dev.mjs",
 		"build": "vp run ciBuild",
 		"build:app": "NODE_ENV=production CLOUDFLARE_VITE_FORCE_LOCAL=true CLOUDFLARE_LOAD_DEV_VARS_FROM_DOT_ENV=false vp build && node scripts/patch-worker-observability.mjs",
 		"build:production": "NODE_ENV=production CLOUDFLARE_ENV=production CLOUDFLARE_LOAD_DEV_VARS_FROM_DOT_ENV=false vp build && node scripts/patch-worker-observability.mjs",

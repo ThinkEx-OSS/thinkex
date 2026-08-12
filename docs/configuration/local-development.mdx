@@ -64,20 +64,18 @@ This disables remote-only features such as deployed AI chat, browser rendering, 
 
 ## Database
 
-Local development requires PostgreSQL. Conductor creates an isolated database from its assigned port and applies migrations automatically. Outside Conductor, prepare the port-3000 database and apply migrations with:
+Local development requires PostgreSQL. Both development commands create an isolated database from `CONDUCTOR_PORT` and `CONDUCTOR_WORKSPACE_ID` (or port 3000 outside Conductor), apply pending migrations, and pass its direct URL to Wrangler's local Hyperdrive binding automatically. Including the stable workspace ID prevents a newly created workspace from inheriting data or migration history when Conductor reuses a port:
 
 ```bash
-CONDUCTOR_PORT=3000 pnpm db:setup:local
-DATABASE_URL=postgresql://thinkex_local_3000:thinkex_local_3000@localhost:5432/thinkex_3000 pnpm db:migrate:local
-```
-
-Pass the same direct URL to Wrangler's local Hyperdrive binding when starting the app:
-
-```bash
-CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE=postgresql://thinkex_local_3000:thinkex_local_3000@localhost:5432/thinkex_3000 pnpm dev
+pnpm dev
+# or, without Infisical:
+pnpm serve:dev
 ```
 
 Local Wrangler connects directly to PostgreSQL; it does not emulate Hyperdrive pooling or caching.
+The generated connection string is per-workspace local configuration and should not be stored in
+Infisical. If `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE` is already set, the
+development command uses it and deliberately skips automatic creation and migrations.
 
 ## Docker
 
