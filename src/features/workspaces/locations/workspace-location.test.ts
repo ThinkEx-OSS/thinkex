@@ -11,6 +11,16 @@ describe("workspace location", () => {
 	it.each([
 		[{ itemId: "item-1", kind: "item", version: 1 }, "1:item:item-1"],
 		[{ itemId: "item-1", kind: "pdf-page", pageNumber: 12, version: 1 }, "1:pdf-page:item-1:12"],
+		[
+			{
+				itemId: "item-1",
+				kind: "flashcard-side",
+				cardId: "f67080f9-0158-4565-86a9-4c90ed6809d2",
+				side: "back",
+				version: 1,
+			},
+			"1:flashcard-side:item-1:f67080f9-0158-4565-86a9-4c90ed6809d2:back",
+		],
 	])("parses and keys %o", (input, expectedKey) => {
 		const result = workspaceLocationSchema.safeParse(input);
 
@@ -23,6 +33,7 @@ describe("workspace location", () => {
 	it.each([
 		{ itemId: "", kind: "item", version: 1 },
 		{ itemId: "item-1", kind: "pdf-page", pageNumber: 0, version: 1 },
+		{ cardId: "not-a-uuid", itemId: "item-1", kind: "flashcard-side", side: "front", version: 1 },
 		{ blockId: "block-1", itemId: "item-1", kind: "document-block", version: 1 },
 		{ itemId: "item-1", kind: "item", version: 2 },
 		{ extra: true, itemId: "item-1", kind: "item", version: 1 },

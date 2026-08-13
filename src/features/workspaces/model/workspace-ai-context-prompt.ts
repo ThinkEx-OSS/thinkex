@@ -8,6 +8,7 @@ import type {
 import { isWorkspaceAiContextSnapshot } from "./workspace-ai-context-validation";
 import {
 	formatWorkspaceAiContextItemViewState,
+	formatWorkspaceAiContextItemViewStateDetail,
 	formatWorkspaceAiContextItemViewStateSuffix,
 } from "./workspace-item-view-state";
 
@@ -30,7 +31,9 @@ export function formatWorkspaceAiContextForPrompt(value: unknown) {
 		for (const item of selectedItems) {
 			const state = [
 				item.state.activeVisible ? "active visible" : "",
-				formatWorkspaceAiContextItemViewState(item.state.viewState),
+				item.state.viewState?.kind === "flashcard"
+					? formatWorkspaceAiContextItemViewStateDetail(item.state.viewState)
+					: formatWorkspaceAiContextItemViewState(item.state.viewState),
 				item.state.openInTabs.length > 0 ? `open in ${item.state.openInTabs.join(", ")}` : "",
 			]
 				.filter(Boolean)

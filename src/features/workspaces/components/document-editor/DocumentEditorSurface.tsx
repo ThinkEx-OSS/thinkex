@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { Skeleton } from "#/components/ui/skeleton";
-import { stageComposerPrompt } from "#/features/workspaces/composer/workspace-composer-actions";
+import { sendComposerPrompt } from "#/features/workspaces/composer/workspace-composer-actions";
 import { DocumentAskSelectionMenu } from "#/features/workspaces/components/document-editor/DocumentAskSelectionMenu";
 import { DocumentWordCount } from "#/features/workspaces/components/document-editor/DocumentWordCount";
 import { useDocumentEditorToolbar } from "#/features/workspaces/components/WorkspaceItemToolbarSlot";
@@ -135,7 +135,7 @@ function DocumentEditorInstance({
 						onAskAiToFix={
 							capabilities.canMutateContent
 								? (error) =>
-										stageComposerPrompt(
+										sendComposerPrompt(
 											workspaceId,
 											`A widget in ${documentPath} hit this error. Please fix it:\n\n${error}`,
 										)

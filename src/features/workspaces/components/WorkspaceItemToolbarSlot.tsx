@@ -6,12 +6,15 @@ import {
 	type SetStateAction,
 	use,
 	useEffect,
+	useMemo,
 	useState,
 } from "react";
 
 import { TooltipProvider } from "#/components/ui/tooltip";
 import { DocumentToolbar } from "#/features/workspaces/components/document-editor/DocumentToolbar";
+import { FlashcardToolbar } from "#/features/workspaces/components/flashcards/FlashcardToolbar";
 import { WorkspaceFileToolbar } from "#/features/workspaces/components/WorkspaceFileToolbar";
+import type { FlashcardStudyMode } from "#/features/workspaces/flashcards/flashcard-study-session";
 
 type WorkspaceItemToolbarRegistration =
 	| {
@@ -31,6 +34,18 @@ type WorkspaceItemToolbarRegistration =
 			fileName: string;
 			fileUrl: string;
 			kind: "file";
+			slotId: string;
+	  }
+	| {
+			canReset: boolean;
+			isResetting: boolean;
+			kind: "flashcard";
+			missedCount: number;
+			mode: FlashcardStudyMode;
+			onModeChange: (mode: FlashcardStudyMode) => void;
+			onReset: () => void;
+			onShuffleToggle: () => void;
+			shuffled: boolean;
 			slotId: string;
 	  };
 
@@ -68,56 +83,20 @@ export function useDocumentEditorToolbar({
 	slotId: string;
 	workspaceId: string;
 }) {
-	const context = use(WorkspaceItemToolbarContext);
-	const setRegistration = context?.setRegistration;
-
-	useEffect(() => {
-		if (!setRegistration) {
-			return;
-		}
-
-		const registration = {
-			canEdit,
-			documentPath,
-			editor,
-			itemId,
-			kind: "document" as const,
-			slotId,
-			workspaceId,
-		};
-		setRegistration((current) => {
-			const existing = current[slotId];
-			if (
-				existing?.kind === "document" &&
-				existing.canEdit === canEdit &&
-				existing.documentPath === documentPath &&
-				existing.editor === editor &&
-				existing.itemId === itemId &&
-				existing.slotId === slotId &&
-				existing.workspaceId === workspaceId
-			) {
-				return current;
-			}
-
-			return {
-				...current,
-				[slotId]: registration,
-			};
-		});
-
-		return () => {
-			setRegistration((current) => {
-				if (current[slotId] !== registration) {
-					return current;
-				}
-
-				const next = { ...current };
-				delete next[slotId];
-
-				return next;
-			});
-		};
-	}, [canEdit, documentPath, editor, itemId, slotId, workspaceId, setRegistration]);
+	useWorkspaceItemToolbarRegistration(
+		useMemo(
+			() => ({
+				canEdit,
+				documentPath,
+				editor,
+				itemId,
+				kind: "document" as const,
+				slotId,
+				workspaceId,
+			}),
+			[canEdit, documentPath, editor, itemId, slotId, workspaceId],
+		),
+	);
 }
 
 export function useFileItemToolbar({
@@ -134,60 +113,96 @@ export function useFileItemToolbar({
 	fileUrl: string;
 	slotId: string;
 }) {
-	const context = use(WorkspaceItemToolbarContext);
-	const setRegistration = context?.setRegistration;
 	const captureIsActive = capture?.isActive;
 	const captureOnToggle = capture?.onToggle;
+	useWorkspaceItemToolbarRegistration(
+		useMemo(
+			() => ({
+				capture: captureOnToggle
+					? { isActive: Boolean(captureIsActive), onToggle: captureOnToggle }
+					: undefined,
+				fileName,
+				fileUrl,
+				kind: "file" as const,
+				slotId,
+			}),
+			[captureIsActive, captureOnToggle, fileName, fileUrl, slotId],
+		),
+	);
+}
+
+export function useFlashcardItemToolbar({
+	canReset,
+	isResetting,
+	missedCount,
+	mode,
+	onModeChange,
+	onReset,
+	onShuffleToggle,
+	shuffled,
+	slotId,
+}: {
+	canReset: boolean;
+	isResetting: boolean;
+	missedCount: number;
+	mode: FlashcardStudyMode;
+	onModeChange: (mode: FlashcardStudyMode) => void;
+	onReset: () => void;
+	onShuffleToggle: () => void;
+	shuffled: boolean;
+	slotId: string;
+}) {
+	useWorkspaceItemToolbarRegistration(
+		useMemo(
+			() => ({
+				canReset,
+				isResetting,
+				kind: "flashcard" as const,
+				missedCount,
+				mode,
+				onModeChange,
+				onReset,
+				onShuffleToggle,
+				shuffled,
+				slotId,
+			}),
+			[
+				canReset,
+				isResetting,
+				missedCount,
+				mode,
+				onModeChange,
+				onReset,
+				onShuffleToggle,
+				shuffled,
+				slotId,
+			],
+		),
+	);
+}
+
+function useWorkspaceItemToolbarRegistration(registration: WorkspaceItemToolbarRegistration) {
+	const context = use(WorkspaceItemToolbarContext);
+	const setRegistration = context?.setRegistration;
 
 	useEffect(() => {
-		if (!setRegistration) {
-			return;
-		}
+		if (!setRegistration) return;
 
-		const registeredCapture = captureOnToggle
-			? {
-					isActive: Boolean(captureIsActive),
-					onToggle: captureOnToggle,
-				}
-			: undefined;
-		const registration = {
-			capture: registeredCapture,
-			fileName,
-			fileUrl,
-			kind: "file" as const,
-			slotId,
-		};
-		setRegistration((current) => {
-			const existing = current[slotId];
-			if (
-				existing?.kind === "file" &&
-				existing.fileName === fileName &&
-				existing.fileUrl === fileUrl &&
-				existing.capture?.isActive === registeredCapture?.isActive &&
-				existing.capture?.onToggle === registeredCapture?.onToggle
-			) {
-				return current;
-			}
-
-			return {
-				...current,
-				[slotId]: registration,
-			};
-		});
+		setRegistration((current) =>
+			current[registration.slotId] === registration
+				? current
+				: { ...current, [registration.slotId]: registration },
+		);
 
 		return () => {
 			setRegistration((current) => {
-				if (current[slotId] !== registration) {
-					return current;
-				}
-
+				if (current[registration.slotId] !== registration) return current;
 				const next = { ...current };
-				delete next[slotId];
-
+				delete next[registration.slotId];
 				return next;
 			});
 		};
-	}, [captureIsActive, captureOnToggle, fileName, fileUrl, slotId, setRegistration]);
+	}, [registration, setRegistration]);
 }
 
 export function WorkspaceItemToolbarSlot({
@@ -206,23 +221,42 @@ export function WorkspaceItemToolbarSlot({
 
 	return (
 		<div className="flex min-w-0 shrink-0 items-center overflow-hidden">
-			<TooltipProvider>
-				{registration.kind === "document" ? (
-					<DocumentToolbar
-						canEdit={registration.canEdit}
-						documentPath={registration.documentPath}
-						editor={registration.editor}
-						itemId={registration.itemId}
-						workspaceId={registration.workspaceId}
-					/>
-				) : (
-					<WorkspaceFileToolbar
-						capture={registration.capture}
-						fileName={registration.fileName}
-						fileUrl={registration.fileUrl}
-					/>
-				)}
-			</TooltipProvider>
+			<TooltipProvider>{renderWorkspaceItemToolbar(registration)}</TooltipProvider>
 		</div>
+	);
+}
+
+function renderWorkspaceItemToolbar(registration: WorkspaceItemToolbarRegistration) {
+	if (registration.kind === "document") {
+		return (
+			<DocumentToolbar
+				canEdit={registration.canEdit}
+				documentPath={registration.documentPath}
+				editor={registration.editor}
+				itemId={registration.itemId}
+				workspaceId={registration.workspaceId}
+			/>
+		);
+	}
+	if (registration.kind === "file") {
+		return (
+			<WorkspaceFileToolbar
+				capture={registration.capture}
+				fileName={registration.fileName}
+				fileUrl={registration.fileUrl}
+			/>
+		);
+	}
+	return (
+		<FlashcardToolbar
+			canReset={registration.canReset}
+			isResetting={registration.isResetting}
+			missedCount={registration.missedCount}
+			mode={registration.mode}
+			shuffled={registration.shuffled}
+			onModeChange={registration.onModeChange}
+			onReset={registration.onReset}
+			onShuffleToggle={registration.onShuffleToggle}
+		/>
 	);
 }

@@ -1,9 +1,10 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { workspacePageQueryKey } from "#/features/workspaces/cache-keys";
 import { applyWorkspacePageDeltaToCache } from "#/features/workspaces/cache-page";
 import AiChatPanel from "#/features/workspaces/components/AiChatPanel";
 import WorkspaceChatLayout from "#/features/workspaces/components/WorkspaceChatLayout";
+import { CreateFlashcardsDialog } from "#/features/workspaces/components/flashcards/CreateFlashcardsDialog";
 import WorkspaceContextBar from "#/features/workspaces/components/WorkspaceContextBar";
 import { hasActiveWorkspaceCapture } from "#/features/workspaces/components/WorkspaceCaptureChrome";
 import WorkspaceDragProvider from "#/features/workspaces/components/WorkspaceDragProvider";
@@ -32,6 +33,7 @@ import type { WorkspaceLocation } from "#/features/workspaces/locations/workspac
 import { WorkspaceLocationProvider } from "#/features/workspaces/locations/workspace-location-context";
 import { DocumentEditReviewProvider } from "#/features/workspaces/documents/document-edit-review-context";
 import { isWorkspaceItemView } from "#/features/workspaces/model/view";
+import { getWorkspaceItemPath } from "#/features/workspaces/model/tree";
 import { workspaceItemRequiresHeavyViewerRuntime } from "#/features/workspaces/model/workspace-file";
 import { getWorkspaceMobileChatSurfaceMode } from "#/features/workspaces/model/workspace-ui";
 import { useWorkspaceNavigation } from "#/features/workspaces/navigation/useWorkspaceNavigation";
@@ -68,6 +70,7 @@ export function WorkspaceShell({
 	const queryClient = useQueryClient();
 	const createWorkspaceItemMutation = useCreateWorkspaceItemMutation();
 	const moveWorkspaceItemsMutation = useMoveWorkspaceItemsMutation();
+	const [flashcardParentId, setFlashcardParentId] = useState<string | null | undefined>();
 	const persistedStoresHydrated = useWorkspacePersistedStoresHydrated();
 	const ensureWorkspaceUiSession = useWorkspaceUiStore((state) => state.ensureWorkspaceSession);
 	const itemViewStatesByItemId = useWorkspaceItemViewStates(workspace.id);
@@ -129,6 +132,11 @@ export function WorkspaceShell({
 	};
 	const createWorkspaceItem = (input: { type: WorkspaceItemType; parentId: string | null }) => {
 		if (!getWorkspaceMemberCapabilities(workspace.membershipRole).canMutateContent) {
+			return;
+		}
+
+		if (input.type === "flashcard") {
+			setFlashcardParentId(input.parentId);
 			return;
 		}
 
@@ -290,6 +298,10 @@ export function WorkspaceShell({
 			</WorkspaceFileIntakeProvider>
 		</WorkspaceFileUploadProvider>
 	);
+	const flashcardParent = flashcardParentId ? itemsById.get(flashcardParentId) : undefined;
+	const flashcardParentPath = flashcardParent
+		? getWorkspaceItemPath(flashcardParent, itemsById)
+		: "/";
 
 	return (
 		<WorkspaceMutationAccessProvider membershipRole={workspace.membershipRole}>
@@ -298,6 +310,14 @@ export function WorkspaceShell({
 					<WorkspacePdfEngineProvider active={hasHeavyViewerRuntimeItems}>
 						{workspaceInteractionContent}
 					</WorkspacePdfEngineProvider>
+					<CreateFlashcardsDialog
+						open={flashcardParentId !== undefined}
+						parentPath={flashcardParentPath}
+						workspaceId={workspace.id}
+						onOpenChange={(open) => {
+							if (!open) setFlashcardParentId(undefined);
+						}}
+					/>
 				</DocumentEditReviewProvider>
 			</WorkspaceLocationProvider>
 		</WorkspaceMutationAccessProvider>
