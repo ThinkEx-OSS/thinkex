@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 
 import { workspaceItemContents, workspaceItems } from "#/db/schema";
 import { withDb } from "#/db/server";
@@ -63,8 +63,6 @@ export async function commitWorkspaceDocumentCheckpoint(
 				target: workspaceItemContents.itemId,
 				set: {
 					content: input.content,
-					revision: sql`${workspaceItemContents.revision} + 1`,
-					updatedAt: now,
 				},
 			});
 		await transaction

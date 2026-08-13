@@ -295,8 +295,6 @@ export const workspaceItemContents = pgTable("workspace_item_contents", {
 		.primaryKey()
 		.references(() => workspaceItems.id, { onDelete: "cascade" }),
 	content: text("content").notNull(),
-	revision: integer("revision").default(0).notNull(),
-	updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 export const workspaceFileAssets = pgTable("workspace_file_assets", {

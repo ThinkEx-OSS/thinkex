@@ -1,5 +1,5 @@
 {
-  "id": "6d492c12-be0a-4a88-a220-3b11fe3af4d1",
+  "id": "2b13358a-fc28-4689-a006-e4dd005e868e",
   "prevId": "0f7ab040-7303-448b-8516-b816f8fa8062",
   "version": "7",
   "dialect": "postgresql",
@@ -1486,20 +1486,6 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
-        },
-        "revision": {
-          "name": "revision",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
         }
       },
       "indexes": {},
