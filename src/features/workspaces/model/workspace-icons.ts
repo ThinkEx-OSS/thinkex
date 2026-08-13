@@ -638,22 +638,6 @@ function icon(
 	return { value, label, Icon, category, aliases };
 }
 
-export function getSearchTermScore(term: string, token: string) {
-	if (term === token) {
-		return 12;
-	}
-
-	if (term.startsWith(token)) {
-		return 8;
-	}
-
-	if (term.includes(token)) {
-		return 4;
-	}
-
-	return 0;
-}
-
 export function normalizeIconSearch(query: string) {
 	return normalizeIconSearchTerm(query).split(" ").filter(Boolean);
 }
