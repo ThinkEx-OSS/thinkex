@@ -104,13 +104,9 @@ export const updateWorkspaceItemColorFn = createServerFn({ method: "POST" })
 
 export const deleteWorkspaceItemsFn = createServerFn({ method: "POST" })
 	.validator(deleteWorkspaceItemsInputSchema)
-	.handler(async ({ data }) => {
-		const command = await deleteWorkspaceItems(env, {
+	.handler(async ({ data }) =>
+		deleteWorkspaceItems(env, {
 			...data,
 			actorUserId: await getCurrentUserId(),
-		});
-		return {
-			...command,
-			result: { ...command.result, workspaceId: data.workspaceId },
-		};
-	});
+		}),
+	);

@@ -334,7 +334,10 @@ export async function readWorkspaceFilePages(input: {
 }) {
 	if (input.pageNumbers.length === 0) return [];
 	return await withDb(async (db) => {
-		await requireActiveWorkspaceItemRow(db, input.workspaceId, input.itemId);
+		const item = await requireActiveWorkspaceItemRow(db, input.workspaceId, input.itemId);
+		if (getWorkspaceItemContentKind(item.type) !== "file") {
+			throw new Error("Workspace item is not a file.");
+		}
 		return await db
 			.select({
 				pageNumber: workspaceItemPages.pageNumber,
