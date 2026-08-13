@@ -1,9 +1,9 @@
 import type { WorkspaceItem, WorkspaceRelationKind } from "#/features/workspaces/contracts";
 import type {
-	CreateWorkspaceKernelRelationArgs,
-	WorkspaceKernelItemRelation,
-	WorkspaceKernelPathResolution,
-} from "#/features/workspaces/kernel/workspace-kernel-types";
+	CreateWorkspaceRelationArgs,
+	WorkspaceItemRelation,
+	WorkspacePathResolution,
+} from "#/features/workspaces/persistence/workspace-persistence-types";
 
 export interface WorkspaceRelationInput {
 	kind: WorkspaceRelationKind;
@@ -36,17 +36,17 @@ export function resolveWorkspaceRelations(input: {
 	excludeItemId?: string;
 	fromItemId: string;
 	relations?: WorkspaceRelationInput[];
-	targets: WorkspaceKernelPathResolution[];
+	targets: WorkspacePathResolution[];
 }):
 	| {
-			relations: CreateWorkspaceKernelRelationArgs[];
+			relations: CreateWorkspaceRelationArgs[];
 			status: "ready";
 	  }
 	| {
 			failure: WorkspaceRelationFailure;
 			status: "failed";
 	  } {
-	const relations: CreateWorkspaceKernelRelationArgs[] = [];
+	const relations: CreateWorkspaceRelationArgs[] = [];
 
 	for (const [index, relation] of (input.relations ?? []).entries()) {
 		const resolution = input.targets[index];
@@ -79,7 +79,7 @@ export function resolveWorkspaceRelations(input: {
 export function serializeWorkspaceRelations(input: {
 	item: WorkspaceItem;
 	pathsByItemId: ReadonlyMap<string, string>;
-	relations: WorkspaceKernelItemRelation[];
+	relations: WorkspaceItemRelation[];
 }): WorkspaceRelationOutput[] {
 	const serialized: WorkspaceRelationOutput[] = [];
 
@@ -105,7 +105,7 @@ export function serializeWorkspaceRelations(input: {
 
 function resolveWorkspaceRelationTarget(input: {
 	excludeItemId?: string;
-	resolution: WorkspaceKernelPathResolution;
+	resolution: WorkspacePathResolution;
 }):
 	| {
 			itemId: string;

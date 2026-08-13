@@ -1,28 +1,25 @@
 import { type WorkspaceItem, isWorkspaceItemContainer } from "#/features/workspaces/contracts";
 import { normalizeWorkspaceItemName } from "#/features/workspaces/defaults";
 
-export interface WorkspaceKernelTree {
+export interface WorkspaceTree {
 	childrenByParentId: Map<string | null, WorkspaceItem[]>;
 }
 
-export interface WorkspaceKernelCwd {
+export interface WorkspaceCwd {
 	path: string;
 	parentId: string | null;
 }
 
-export type WorkspaceKernelPathErrorCode =
-	| "path_not_absolute"
-	| "path_not_folder"
-	| "path_not_found";
+export type WorkspacePathErrorCode = "path_not_absolute" | "path_not_folder" | "path_not_found";
 
-export class WorkspaceKernelPathError extends Error {
-	constructor(readonly code: WorkspaceKernelPathErrorCode) {
+export class WorkspacePathError extends Error {
+	constructor(readonly code: WorkspacePathErrorCode) {
 		super(code);
-		this.name = "WorkspaceKernelPathError";
+		this.name = "WorkspacePathError";
 	}
 }
 
-export function buildWorkspaceKernelTree(items: WorkspaceItem[]): WorkspaceKernelTree {
+export function buildWorkspaceTree(items: WorkspaceItem[]): WorkspaceTree {
 	const childrenByParentId = new Map<string | null, WorkspaceItem[]>();
 
 	for (const item of items) {
@@ -32,7 +29,7 @@ export function buildWorkspaceKernelTree(items: WorkspaceItem[]): WorkspaceKerne
 	}
 
 	for (const children of childrenByParentId.values()) {
-		children.sort(compareWorkspaceKernelItems);
+		children.sort(compareWorkspaceItems);
 	}
 
 	return {
@@ -40,10 +37,7 @@ export function buildWorkspaceKernelTree(items: WorkspaceItem[]): WorkspaceKerne
 	};
 }
 
-export function resolveWorkspaceKernelCwd(
-	path: string,
-	tree: WorkspaceKernelTree,
-): WorkspaceKernelCwd {
+export function resolveWorkspaceCwd(path: string, tree: WorkspaceTree): WorkspaceCwd {
 	const normalizedPath = normalizeWorkspacePath(path);
 
 	if (normalizedPath === "/") {
@@ -53,14 +47,14 @@ export function resolveWorkspaceKernelCwd(
 		};
 	}
 
-	const item = resolveWorkspaceKernelItemPath(normalizedPath, tree);
+	const item = resolveWorkspaceItemPath(normalizedPath, tree);
 
 	if (!item) {
-		throw new WorkspaceKernelPathError("path_not_found");
+		throw new WorkspacePathError("path_not_found");
 	}
 
 	if (!isWorkspaceItemContainer(item.type)) {
-		throw new WorkspaceKernelPathError("path_not_folder");
+		throw new WorkspacePathError("path_not_folder");
 	}
 
 	return {
@@ -69,10 +63,7 @@ export function resolveWorkspaceKernelCwd(
 	};
 }
 
-export function resolveWorkspaceKernelItemPath(
-	path: string,
-	tree: WorkspaceKernelTree,
-): WorkspaceItem | null {
+export function resolveWorkspaceItemPath(path: string, tree: WorkspaceTree): WorkspaceItem | null {
 	const normalizedPath = normalizeWorkspacePath(path);
 
 	if (normalizedPath === "/") {
@@ -107,7 +98,7 @@ export function normalizeWorkspacePath(path: string) {
 	}
 
 	if (!trimmedPath.startsWith("/")) {
-		throw new WorkspaceKernelPathError("path_not_absolute");
+		throw new WorkspacePathError("path_not_absolute");
 	}
 
 	const segments = trimmedPath.split("/").flatMap((segment) => {
@@ -147,8 +138,8 @@ export function joinWorkspaceItemPath(parentPath: string, name: string) {
 	return `${parentPath}/${relativePath}`;
 }
 
-export function buildWorkspaceKernelItemPathIndex(items: WorkspaceItem[]) {
-	const tree = buildWorkspaceKernelTree(items);
+export function buildWorkspaceItemPathIndex(items: WorkspaceItem[]) {
+	const tree = buildWorkspaceTree(items);
 	const paths = new Map<string, string>();
 
 	const visit = (parentId: string | null, parentPath: string) => {
@@ -168,7 +159,7 @@ export function toWorkspacePathSegment(name: string) {
 	return normalizeWorkspaceItemName(name);
 }
 
-function compareWorkspaceKernelItems(left: WorkspaceItem, right: WorkspaceItem) {
+function compareWorkspaceItems(left: WorkspaceItem, right: WorkspaceItem) {
 	return (
 		left.sortOrder - right.sortOrder ||
 		left.name.localeCompare(right.name) ||

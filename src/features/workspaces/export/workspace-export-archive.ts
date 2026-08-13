@@ -7,7 +7,7 @@ import {
 } from "#/features/workspaces/contracts";
 import { serializeTiptapDocumentToMarkdown } from "#/features/workspaces/documents/document-markdown";
 import type { TiptapDocumentJson } from "#/features/workspaces/documents/tiptap-document";
-import { buildWorkspaceKernelItemPathIndex } from "#/features/workspaces/kernel/workspace-kernel-paths";
+import { buildWorkspaceItemPathIndex } from "#/features/workspaces/model/workspace-paths";
 
 const emptyBytes = new Uint8Array();
 const textEncoder = new TextEncoder();
@@ -46,7 +46,7 @@ async function writeWorkspaceExport(
 	});
 
 	try {
-		const paths = buildWorkspaceKernelItemPathIndex([...items]);
+		const paths = buildWorkspaceItemPathIndex([...items]);
 		const archivePaths = buildArchivePathIndex(items, paths);
 		for (const item of items) {
 			const path = archivePaths.get(item.id);

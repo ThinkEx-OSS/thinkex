@@ -11,8 +11,8 @@ ThinkEx is a full-stack TypeScript app hosted as a Cloudflare Worker. The fronte
 | --- | --- |
 | Auth, users, workspace directory, membership, invites | PlanetScale Postgres through Drizzle and cache-disabled Hyperdrive |
 | Workspace item tree, relationships, current document checkpoints, extracted text, revisions | PlanetScale Postgres through Drizzle and cache-disabled Hyperdrive |
-| Workspace presence, realtime fanout, cleanup coordination | `WorkspaceKernel` Durable Object |
-| Original and preview workspace file bytes | R2 `WORKSPACE_KERNEL_FILES` |
+| Workspace presence, realtime fanout, cleanup coordination | `WorkspaceRoom` Durable Object |
+| Original and preview workspace file bytes | R2 `WORKSPACE_FILES` |
 | User AI thread directory | `UserAIStore` Durable Object |
 | AI conversation runtime | `AIThread` Agent / Durable Object |
 | Collaborative document sessions | `DocumentSession` Durable Object |
@@ -25,7 +25,7 @@ ThinkEx is a full-stack TypeScript app hosted as a Cloudflare Worker. The fronte
 | --- | --- |
 | Workspace contracts and commands | `src/features/workspaces/contracts.ts`, `src/features/workspaces/operations/` |
 | Workspace persistence | `src/features/workspaces/persistence/` |
-| Workspace realtime room | `src/features/workspaces/kernel/`, `src/features/workspaces/realtime/` |
+| Workspace realtime room | `src/features/workspaces/realtime/` |
 | AI threads and tools | `src/features/workspaces/ai/` |
 | File upload and extraction | `src/features/workspaces/upload/`, `src/features/workspaces/extraction/` |
 | Document collaboration | `src/features/workspaces/documents/` |

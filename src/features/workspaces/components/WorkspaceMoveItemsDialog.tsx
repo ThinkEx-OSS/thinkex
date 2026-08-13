@@ -15,7 +15,7 @@ import {
 import {
 	useCreateWorkspaceItemMutation,
 	useMoveWorkspaceItemsMutation,
-} from "#/features/workspaces/use-workspace-kernel-items";
+} from "#/features/workspaces/use-workspace-items";
 import { getErrorMessage } from "#/lib/error-message";
 
 export function MoveWorkspaceItemsDialog({

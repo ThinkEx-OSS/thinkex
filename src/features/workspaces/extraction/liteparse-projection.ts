@@ -11,7 +11,6 @@ import type {
 } from "#/features/workspaces/extraction/types";
 import { getWorkspaceFileSourceObject } from "#/features/workspaces/extraction/workspace-file-source";
 import { publishWorkspacePageProjection } from "#/features/workspaces/extraction/workspace-page-projection";
-import { getWorkspaceKernelFromEnv } from "#/features/workspaces/kernel/workspace-kernel-access";
 import { recordOperationalFailure } from "#/integrations/observability/operational-events";
 
 export async function publishLiteParseProjection(
@@ -31,15 +30,14 @@ export async function publishLiteParseProjection(
 			"publish fast LiteParse projection",
 			getWorkspaceExtractionStepConfig(workspaceExtractionStepBudgets.liteParse),
 			async () => {
-				const kernel = await getWorkspaceKernelFromEnv(env, params.workspaceId);
 				const { object, source } = await getWorkspaceFileSourceObject({
 					env,
 					itemId: params.itemId,
-					kernel,
+					workspaceId: params.workspaceId,
 				});
 				const projection = await publishWorkspacePageProjection({
-					kernel,
 					itemId: params.itemId,
+					workspaceId: params.workspaceId,
 					pages: extractPdfWithLiteParse(env, {
 						body: object.body,
 						fileName: source.fileName,

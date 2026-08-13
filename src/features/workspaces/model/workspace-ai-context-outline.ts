@@ -1,4 +1,4 @@
-import { buildWorkspaceKernelItemPathIndex } from "#/features/workspaces/kernel/workspace-kernel-paths";
+import { buildWorkspaceItemPathIndex } from "#/features/workspaces/model/workspace-paths";
 import {
 	type WorkspaceItem,
 	getWorkspaceItemRegistryEntry,
@@ -51,7 +51,7 @@ function getWorkspaceAiContextOutlineRows(
 	context: WorkspaceAiContextScope,
 ): WorkspaceAiContextOutlineRow[] {
 	const items = Array.from(context.itemsById.values());
-	const pathsByItemId = buildWorkspaceKernelItemPathIndex(items);
+	const pathsByItemId = buildWorkspaceItemPathIndex(items);
 	const childCountsByItemId = getWorkspaceAiContextOutlineChildCounts(items);
 	const descendantCountsByItemId = getWorkspaceAiContextOutlineDescendantCounts(items);
 

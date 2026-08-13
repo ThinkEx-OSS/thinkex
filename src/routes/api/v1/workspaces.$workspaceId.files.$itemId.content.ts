@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { createFileRoute } from "@tanstack/react-router";
 
-import { readWorkspaceKernelFileSource } from "#/features/workspaces/kernel/workspace-kernel-access";
+import { readWorkspaceFileSource } from "#/features/workspaces/persistence/workspace-files";
 import { WorkspaceForbiddenError } from "#/features/workspaces/server/permissions";
 import { apiError, apiFailure, getRequestId } from "#/lib/api/http";
 import { getSessionFromRequest } from "#/lib/auth-queries.server";
@@ -21,12 +21,12 @@ async function handleWorkspaceFileContent(request: Request, workspaceId: string,
 			);
 		}
 
-		const source = await readWorkspaceKernelFileSource({
+		const source = await readWorkspaceFileSource({
 			workspaceId,
 			userId: session.user.id,
 			itemId,
 		});
-		const object = await env.WORKSPACE_KERNEL_FILES.get(source.objectKey);
+		const object = await env.WORKSPACE_FILES.get(source.objectKey);
 
 		if (!object) {
 			return apiError(requestId, 404, "FILE_NOT_FOUND", "Unable to load this workspace file.");

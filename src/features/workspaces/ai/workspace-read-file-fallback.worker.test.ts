@@ -4,14 +4,15 @@ import {
 	createPendingPdfModelOutput,
 	isPendingPdfFallbackInput,
 } from "#/features/workspaces/ai/workspace-read-file-fallback";
-import type { WorkspaceKernelClient } from "#/features/workspaces/kernel/workspace-kernel-access";
-
-const { kernelsByEnv } = vi.hoisted(() => ({
-	kernelsByEnv: new WeakMap<object, WorkspaceKernelClient>(),
+const fileSource = vi.hoisted(() => ({
+	contentType: "application/pdf",
+	fileName: "Report.pdf",
+	objectKey: "sources/file-1.pdf",
+	sizeBytes: 0,
 }));
 
-vi.mock("#/features/workspaces/kernel/workspace-kernel-access", () => ({
-	getWorkspaceKernelFromEnv: async (env: Cloudflare.Env) => kernelsByEnv.get(env as object),
+vi.mock("#/features/workspaces/persistence/workspace-files", () => ({
+	readWorkspaceFileSource: async () => fileSource,
 }));
 
 describe("pending PDF model output", () => {
@@ -96,23 +97,14 @@ function pendingOutput() {
 }
 
 function createEnv(bytes: Uint8Array): Cloudflare.Env {
-	const kernel = {
-		getFileSource: async () => ({
-			contentType: "application/pdf",
-			fileName: "Report.pdf",
-			objectKey: "sources/file-1.pdf",
-			sizeBytes: bytes.byteLength,
-		}),
-	} as unknown as WorkspaceKernelClient;
-
 	const env = {
-		WORKSPACE_KERNEL_FILES: {
+		WORKSPACE_FILES: {
 			get: async () => ({
 				arrayBuffer: async () => bytes.buffer,
 				size: bytes.byteLength,
 			}),
 		},
 	} as unknown as Cloudflare.Env;
-	kernelsByEnv.set(env as object, kernel);
+	fileSource.sizeBytes = bytes.byteLength;
 	return env;
 }

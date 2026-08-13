@@ -5,10 +5,10 @@ export const aiThreadAgentName = "AIThread";
 export const userAIPathPrefix = "/user-ai";
 export const userAIBasePath = "user-ai";
 
-export const workspaceKernelAgentName = "WorkspaceKernel";
-export const workspaceKernelPathPrefix = "/workspace-kernel";
-export const workspaceKernelBasePath = "workspace-kernel";
-export const workspaceKernelRealtimeSegment = "realtime";
+export const workspaceRoomAgentName = "WorkspaceRoom";
+export const workspaceRoomPathPrefix = "/workspace-room";
+export const workspaceRoomBasePath = "workspace-room";
+export const workspaceRoomRealtimeSegment = "realtime";
 export const documentSessionPathPrefix = "/document-session";
 
 export interface DocumentSessionRouteParams {
@@ -20,20 +20,20 @@ export function isUserAIRequestPath(pathname: string) {
 	return matchesPathPrefix(pathname, userAIPathPrefix);
 }
 
-export function isWorkspaceKernelRequestPath(pathname: string) {
-	return pathname.startsWith(`${workspaceKernelPathPrefix}/`);
+export function isWorkspaceRoomRequestPath(pathname: string) {
+	return pathname.startsWith(`${workspaceRoomPathPrefix}/`);
 }
 
 export function isDocumentSessionRequestPath(pathname: string) {
 	return pathname.startsWith(`${documentSessionPathPrefix}/`);
 }
 
-export function getWorkspaceKernelRouteWorkspaceId(pathname: string) {
-	if (!isWorkspaceKernelRequestPath(pathname)) {
+export function getWorkspaceRoomRouteWorkspaceId(pathname: string) {
+	if (!isWorkspaceRoomRequestPath(pathname)) {
 		return null;
 	}
 
-	const [workspaceId] = pathname.slice(workspaceKernelPathPrefix.length + 1).split("/");
+	const [workspaceId] = pathname.slice(workspaceRoomPathPrefix.length + 1).split("/");
 
 	return workspaceId || null;
 }
@@ -55,8 +55,8 @@ export function getDocumentSessionRouteParams(pathname: string) {
 	} satisfies DocumentSessionRouteParams;
 }
 
-export function getWorkspaceKernelRealtimePath(workspaceId: string) {
-	return `${workspaceId}/${workspaceKernelRealtimeSegment}`;
+export function getWorkspaceRoomRealtimePath(workspaceId: string) {
+	return `${workspaceId}/${workspaceRoomRealtimeSegment}`;
 }
 
 export function getDocumentSessionRoomName(input: { itemId: string; workspaceId: string }) {

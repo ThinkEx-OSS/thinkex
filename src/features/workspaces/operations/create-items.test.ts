@@ -1,12 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const kernel = vi.hoisted(() => ({
-	createItem: vi.fn(),
-	resolvePaths: vi.fn(),
+const persistence = vi.hoisted(() => ({
+	createWorkspaceItem: vi.fn(),
+	resolveWorkspacePaths: vi.fn(),
 }));
 
 vi.mock("#/features/workspaces/operations/workspace-operation-context", () => ({
-	getAuthorizedWorkspaceKernel: vi.fn(async () => kernel),
+	authorizeWorkspaceOperation: vi.fn(async () => undefined),
+}));
+
+vi.mock("#/features/workspaces/persistence/workspace-items", () => ({
+	createWorkspaceItem: persistence.createWorkspaceItem,
+	resolveWorkspacePaths: persistence.resolveWorkspacePaths,
 }));
 
 import { createWorkspaceItemsOperation } from "#/features/workspaces/operations/create-items";
@@ -14,9 +19,9 @@ import { createWorkspaceAccessContext } from "#/features/workspaces/operations/w
 
 describe("createWorkspaceItemsOperation", () => {
 	beforeEach(() => {
-		kernel.createItem.mockReset();
-		kernel.resolvePaths.mockReset();
-		kernel.resolvePaths.mockResolvedValue([{ path: "/", status: "root" }]);
+		persistence.createWorkspaceItem.mockReset();
+		persistence.resolveWorkspacePaths.mockReset();
+		persistence.resolveWorkspacePaths.mockResolvedValue([{ path: "/", status: "root" }]);
 	});
 
 	it("returns widget syntax errors to the original create call without persisting", async () => {
@@ -50,6 +55,6 @@ describe("createWorkspaceItemsOperation", () => {
 			],
 			items: [],
 		});
-		expect(kernel.createItem).not.toHaveBeenCalled();
+		expect(persistence.createWorkspaceItem).not.toHaveBeenCalled();
 	});
 });

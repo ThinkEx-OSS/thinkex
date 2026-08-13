@@ -26,7 +26,7 @@ import { type WorkspaceItem, isWorkspaceItemContainer } from "#/features/workspa
 import {
 	useDeleteWorkspaceItemsMutation,
 	useRenameWorkspaceItemMutation,
-} from "#/features/workspaces/use-workspace-kernel-items";
+} from "#/features/workspaces/use-workspace-items";
 
 export function RenameWorkspaceItemDialog({
 	item,

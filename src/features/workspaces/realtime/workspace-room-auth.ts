@@ -2,24 +2,24 @@ import { getAgentByName } from "agents";
 
 import { createDbContext } from "#/db/server";
 import {
-	getWorkspaceKernelRouteWorkspaceId,
-	isWorkspaceKernelRequestPath,
-	workspaceKernelAgentName,
+	getWorkspaceRoomRouteWorkspaceId,
+	isWorkspaceRoomRequestPath,
+	workspaceRoomAgentName,
 } from "#/features/workspaces/agent-routes";
-import { setWorkspaceKernelUserHeaders } from "#/features/workspaces/kernel/workspace-kernel";
+import { setWorkspaceRoomUserHeaders } from "#/features/workspaces/realtime/workspace-room";
 import { canReadWorkspace, WorkspaceAuthError } from "#/features/workspaces/server/permissions";
 import { recordOperationalFailure } from "#/integrations/observability/operational-events";
 import { getTelemetryRequestDetails } from "#/integrations/posthog/server-context";
 import { getSessionFromRequest } from "#/lib/auth-queries.server";
 
-export async function routeWorkspaceKernelRequest(request: Request, env: Env) {
+export async function routeWorkspaceRoomRequest(request: Request, env: Env) {
 	const url = new URL(request.url);
 
-	if (!isWorkspaceKernelRequestPath(url.pathname)) {
+	if (!isWorkspaceRoomRequestPath(url.pathname)) {
 		return null;
 	}
 
-	const workspaceId = getWorkspaceKernelRouteWorkspaceId(url.pathname);
+	const workspaceId = getWorkspaceRoomRouteWorkspaceId(url.pathname);
 
 	if (!workspaceId) {
 		return new Response("Workspace not found", { status: 404 });
@@ -53,9 +53,9 @@ export async function routeWorkspaceKernelRequest(request: Request, env: Env) {
 			name: session.user.name,
 			image: session.user.image ?? null,
 		};
-		const kernel = await getAgentByName(env[workspaceKernelAgentName], workspaceId);
+		const room = await getAgentByName(env[workspaceRoomAgentName], workspaceId);
 
-		return kernel.fetch(setWorkspaceKernelUserHeaders(request, user));
+		return room.fetch(setWorkspaceRoomUserHeaders(request, user));
 	} catch (error) {
 		if (error instanceof WorkspaceAuthError) {
 			return new Response("Unauthorized", { status: 401 });
@@ -63,13 +63,13 @@ export async function routeWorkspaceKernelRequest(request: Request, env: Env) {
 
 		recordOperationalFailure({
 			error,
-			event: "workspace_kernel_route",
+			event: "workspace_room_route",
 			fields: {
 				status_code: 503,
 				workspace_id: workspaceId,
 			},
-			request: getTelemetryRequestDetails(request, "workspace_kernel_route"),
+			request: getTelemetryRequestDetails(request, "workspace_room_route"),
 		});
-		return new Response("Workspace kernel unavailable", { status: 503 });
+		return new Response("Workspace room unavailable", { status: 503 });
 	}
 }

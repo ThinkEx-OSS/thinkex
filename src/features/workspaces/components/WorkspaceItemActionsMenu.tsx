@@ -31,7 +31,7 @@ import {
 	getWorkspaceItemColorValue,
 	workspaceItemSupportsCustomColor,
 } from "#/features/workspaces/model/workspace-item-colors";
-import { useUpdateWorkspaceItemColorMutation } from "#/features/workspaces/use-workspace-kernel-items";
+import { useUpdateWorkspaceItemColorMutation } from "#/features/workspaces/use-workspace-items";
 
 const workspaceItemColorSubmenuTrigger = (
 	<>

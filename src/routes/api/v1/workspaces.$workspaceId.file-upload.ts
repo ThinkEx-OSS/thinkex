@@ -11,12 +11,10 @@ import {
 	getWorkspaceFilePreviewObjectKey,
 	getWorkspaceFileSourceObjectKey,
 } from "#/features/workspaces/files/workspace-file-object-keys";
-import {
-	createWorkspaceFileFromUpload,
-	getWorkspaceKernel,
-} from "#/features/workspaces/kernel/workspace-kernel-access";
-import { requireAppliedWorkspaceKernelMutation } from "#/features/workspaces/kernel/workspace-kernel-types";
+import { requireAppliedWorkspaceMutation } from "#/features/workspaces/persistence/workspace-persistence-types";
 import { WorkspaceFileUploadError } from "#/features/workspaces/model/workspace-file";
+import { createWorkspaceFileFromUpload } from "#/features/workspaces/persistence/workspace-files";
+import { createWorkspaceItem } from "#/features/workspaces/persistence/workspace-items";
 import {
 	assertCanMutateWorkspace,
 	WorkspaceForbiddenError,
@@ -183,7 +181,7 @@ async function finalizeWorkspaceFileUpload(
 		observation.plan = validation.plan.kind;
 
 		const uploadedObjectKey = getWorkspaceDirectUploadObjectKey(claims);
-		const uploadedObject = await env.WORKSPACE_KERNEL_FILES.get(uploadedObjectKey);
+		const uploadedObject = await env.WORKSPACE_FILES.get(uploadedObjectKey);
 
 		if (!uploadedObject || uploadedObject.size !== claims.fileSize) {
 			throw invalidUpload("Uploaded file size does not match the selected file.");
@@ -222,7 +220,7 @@ async function finalizeWorkspaceFileUpload(
 			observation.conversion = upload.source?.conversion;
 			observation.outputBytes = upload.fileSize;
 
-			command = await createWorkspaceFileFromUpload({
+			command = await createWorkspaceFileFromUpload(env, {
 				assetKind: upload.descriptor.assetKind,
 				contentType: upload.contentType,
 				fileName: upload.fileName,
@@ -232,7 +230,7 @@ async function finalizeWorkspaceFileUpload(
 				parentId: claims.parentId,
 				preview: upload.preview,
 				source: upload.source,
-				userId,
+				actorUserId: userId,
 				workspaceId,
 			});
 			fileItemCreated = true;
@@ -295,9 +293,9 @@ async function deleteUploadObjectBestEffort(input: {
 }) {
 	try {
 		if (input.prefix) {
-			await deleteR2Prefix(env.WORKSPACE_KERNEL_FILES, input.key);
+			await deleteR2Prefix(env.WORKSPACE_FILES, input.key);
 		} else {
-			await env.WORKSPACE_KERNEL_FILES.delete(input.key);
+			await env.WORKSPACE_FILES.delete(input.key);
 		}
 	} catch (error) {
 		recordOperationalFailure({
@@ -318,13 +316,10 @@ async function createWorkspaceDocumentFromUpload(input: {
 	file: File;
 	plan: Extract<WorkspaceUploadPlan, { kind: "document" }>;
 }) {
-	const [documentContent, kernel] = await Promise.all([
-		input.plan.importer.importFile(input.file),
-		getWorkspaceKernel(input.claims.workspaceId),
-	]);
+	const documentContent = await input.plan.importer.importFile(input.file);
 
-	return requireAppliedWorkspaceKernelMutation(
-		await kernel.createItem({
+	return requireAppliedWorkspaceMutation(
+		await createWorkspaceItem(env, {
 			id: input.claims.itemId,
 			actorUserId: input.claims.userId,
 			initialContent: documentContent.initialContent,
@@ -332,6 +327,7 @@ async function createWorkspaceDocumentFromUpload(input: {
 			name: documentContent.name,
 			parentId: input.claims.parentId,
 			type: "document",
+			workspaceId: input.claims.workspaceId,
 		}),
 	);
 }

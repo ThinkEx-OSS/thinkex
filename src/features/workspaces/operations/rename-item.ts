@@ -1,13 +1,17 @@
 import {
-	getAuthorizedWorkspaceKernel,
+	authorizeWorkspaceOperation,
 	resolveWorkspaceExistingItemPath,
 } from "#/features/workspaces/operations/workspace-operation-context";
+import {
+	renameWorkspaceItem,
+	resolveWorkspacePaths,
+} from "#/features/workspaces/persistence/workspace-items";
 import type { WorkspaceAccessContext } from "#/features/workspaces/operations/workspace-access-context";
 import type { WorkspaceItem } from "#/features/workspaces/contracts";
 import {
 	getParentWorkspacePath,
 	joinWorkspaceItemPath,
-} from "#/features/workspaces/kernel/workspace-kernel-paths";
+} from "#/features/workspaces/model/workspace-paths";
 
 export interface RenameWorkspaceItemOperationInput {
 	name: string;
@@ -36,13 +40,16 @@ export async function renameWorkspaceItemOperation(
 	accessContext: WorkspaceAccessContext,
 	input: RenameWorkspaceItemOperationInput,
 ): Promise<RenameWorkspaceItemOperationResult> {
-	const kernel = await getAuthorizedWorkspaceKernel({
+	await authorizeWorkspaceOperation({
 		access: "mutate",
 		context: accessContext,
 	});
-	const [pathResolution] = await kernel.resolvePaths({ paths: [input.path] });
+	const [pathResolution] = await resolveWorkspacePaths({
+		paths: [input.path],
+		workspaceId: accessContext.workspaceId,
+	});
 	if (!pathResolution) {
-		throw new Error("Workspace kernel did not resolve the requested rename path.");
+		throw new Error("Workspace persistence did not resolve the requested rename path.");
 	}
 	const resolution = resolveWorkspaceExistingItemPath({
 		resolution: pathResolution,
@@ -60,11 +67,13 @@ export async function renameWorkspaceItemOperation(
 		};
 	}
 
-	const outcome = await kernel.renameItem({
+	const { env } = await import("cloudflare:workers");
+	const outcome = await renameWorkspaceItem(env, {
 		itemId: resolution.item.id,
 		name: input.name,
 		onNameConflict: "error",
 		actorUserId: accessContext.actor.userId,
+		workspaceId: accessContext.workspaceId,
 	});
 
 	if (outcome.status === "conflict") {

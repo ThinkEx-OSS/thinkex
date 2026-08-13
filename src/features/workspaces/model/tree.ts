@@ -3,7 +3,7 @@ import {
 	getWorkspaceItemRegistryEntry,
 	isWorkspaceItemContainer,
 } from "#/features/workspaces/contracts";
-import { joinWorkspacePathSegment } from "#/features/workspaces/kernel/workspace-kernel-paths";
+import { joinWorkspacePathSegment } from "#/features/workspaces/model/workspace-paths";
 
 interface WorkspaceTreeItem {
 	id: string;

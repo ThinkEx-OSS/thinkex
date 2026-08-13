@@ -1,11 +1,15 @@
-import { getAuthorizedWorkspaceKernel } from "#/features/workspaces/operations/workspace-operation-context";
+import { authorizeWorkspaceOperation } from "#/features/workspaces/operations/workspace-operation-context";
+import {
+	createWorkspaceItem,
+	resolveWorkspacePaths,
+} from "#/features/workspaces/persistence/workspace-items";
 import {
 	resolveWorkspaceRelations,
 	type WorkspaceRelationInput,
 } from "#/features/workspaces/operations/relations";
 import { createWorkspaceItemsFailureCodes } from "#/features/workspaces/operations/workspace-operation-failure-codes";
 import type { WorkspaceAccessContext } from "#/features/workspaces/operations/workspace-access-context";
-import type { WorkspaceKernelPathResolution } from "#/features/workspaces/kernel/workspace-kernel-types";
+import type { WorkspacePathResolution } from "#/features/workspaces/persistence/workspace-persistence-types";
 import {
 	parseDocumentAiHtml,
 	WidgetScriptSyntaxError,
@@ -25,8 +29,8 @@ import {
 	getWorkspacePathName,
 	joinWorkspaceItemPath,
 	normalizeWorkspacePath,
-	WorkspaceKernelPathError,
-} from "#/features/workspaces/kernel/workspace-kernel-paths";
+	WorkspacePathError,
+} from "#/features/workspaces/model/workspace-paths";
 
 export interface CreateWorkspaceItemOperationInput {
 	type: "document" | "folder";
@@ -77,7 +81,7 @@ export async function createWorkspaceItemsOperation(
 	accessContext: WorkspaceAccessContext,
 	input: CreateWorkspaceItemsOperationInput,
 ): Promise<CreateWorkspaceItemsOperationResult> {
-	const kernel = await getAuthorizedWorkspaceKernel({
+	await authorizeWorkspaceOperation({
 		access: "mutate",
 		context: accessContext,
 	});
@@ -98,11 +102,12 @@ export async function createWorkspaceItemsOperation(
 			continue;
 		}
 
-		const [parentResolution, ...relationTargets] = await kernel.resolvePaths({
+		const [parentResolution, ...relationTargets] = await resolveWorkspacePaths({
+			workspaceId: accessContext.workspaceId,
 			paths: [path.parentPath, ...(itemInput.relations ?? []).map((relation) => relation.path)],
 		});
 		if (!parentResolution) {
-			throw new Error("Workspace kernel did not resolve the requested create parent.");
+			throw new Error("Workspace persistence did not resolve the requested create parent.");
 		}
 		const parent = resolveCreateWorkspaceItemParent(parentResolution);
 
@@ -153,8 +158,10 @@ export async function createWorkspaceItemsOperation(
 			continue;
 		}
 
-		const outcome = await kernel.createItem({
+		const { env } = await import("cloudflare:workers");
+		const outcome = await createWorkspaceItem(env, {
 			id,
+			workspaceId: accessContext.workspaceId,
 			parentId: parent.parentId,
 			type: itemInput.type,
 			name: path.name,
@@ -197,7 +204,7 @@ export async function createWorkspaceItemsOperation(
 	};
 }
 
-function resolveCreateWorkspaceItemParent(resolution: WorkspaceKernelPathResolution):
+function resolveCreateWorkspaceItemParent(resolution: WorkspacePathResolution):
 	| {
 			code: "path_not_folder" | "path_not_found";
 			status: "failed";
@@ -263,7 +270,7 @@ function resolveCreateWorkspaceItemPath(path: string): CreateWorkspaceItemPathRe
 			status: "ready",
 		};
 	} catch (error) {
-		if (error instanceof WorkspaceKernelPathError && error.code === "path_not_absolute") {
+		if (error instanceof WorkspacePathError && error.code === "path_not_absolute") {
 			return {
 				code: error.code,
 				path,

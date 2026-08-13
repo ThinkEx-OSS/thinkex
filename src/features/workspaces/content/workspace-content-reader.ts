@@ -17,9 +17,14 @@ import {
 	resolveWorkspaceProjectionReadiness,
 	type WorkspaceProjectionReadiness,
 } from "#/features/workspaces/extraction/workspace-projection-readiness";
-import type { WorkspaceKernelClient } from "#/features/workspaces/kernel/workspace-kernel-access";
 import { resolveWorkspaceFileTypeFromItem } from "#/features/workspaces/model/workspace-file";
 import { serializeWorkspaceRelations } from "#/features/workspaces/operations/relations";
+import {
+	getWorkspaceItemPaths,
+	listWorkspaceItemRelations,
+	resolveWorkspacePaths,
+} from "#/features/workspaces/persistence/workspace-items";
+import { readWorkspaceFileExtraction } from "#/features/workspaces/persistence/workspace-files";
 import { WorkspacePageSelectionError } from "#/features/workspaces/read-page-selection";
 import {
 	decodeWorkspaceContentCursor,
@@ -38,19 +43,20 @@ interface DocumentContentReader {
 interface PendingReadyResult {
 	item: WorkspaceItem;
 	read: Extract<WorkspaceContentReadResult, { status: "ready" }>;
-	relations: ReturnType<WorkspaceKernelClient["listItemRelations"]>;
+	relations: ReturnType<typeof listWorkspaceItemRelations>;
 }
 
 export async function readWorkspaceContent(input: {
 	bucket: R2Bucket;
 	getDocumentSession: (itemId: string) => DocumentContentReader | Promise<DocumentContentReader>;
-	kernel: WorkspaceKernelClient;
 	requests: WorkspaceContentReadRequest[];
+	workspaceId: string;
 }): Promise<WorkspaceContentReadResult[]> {
 	const { requests } = input;
 	const encoder = new TextEncoder();
-	const resolutions = await input.kernel.resolvePaths({
+	const resolutions = await resolveWorkspacePaths({
 		paths: requests.map((request) => request.path),
+		workspaceId: input.workspaceId,
 	});
 	const results: WorkspaceContentReadResult[] = [];
 	const readyResults: PendingReadyResult[] = [];
@@ -114,7 +120,10 @@ export async function readWorkspaceContent(input: {
 			const pending = {
 				item: resolution.item,
 				read,
-				relations: input.kernel.listItemRelations({ itemId: resolution.item.id }),
+				relations: listWorkspaceItemRelations({
+					itemId: resolution.item.id,
+					workspaceId: input.workspaceId,
+				}),
 			};
 			readyResults.push(pending);
 			results.push(read);
@@ -127,7 +136,7 @@ export async function readWorkspaceContent(input: {
 		}
 	}
 
-	await attachRelationPaths(input.kernel, readyResults);
+	await attachRelationPaths(input.workspaceId, readyResults);
 	return results;
 }
 
@@ -135,9 +144,9 @@ async function readWorkspaceItem(input: {
 	bucket: R2Bucket;
 	getDocumentSession: (itemId: string) => DocumentContentReader | Promise<DocumentContentReader>;
 	item: WorkspaceItem;
-	kernel: WorkspaceKernelClient;
 	path: string;
 	request: WorkspaceContentReadRequest;
+	workspaceId: string;
 }): Promise<WorkspaceContentReadResult> {
 	// Exhaustive on content kind, not on item type: a new item type that stores
 	// its body somewhere new must fail this switch rather than fall through to
@@ -193,6 +202,7 @@ async function readDocument(input: {
 	item: WorkspaceItem;
 	path: string;
 	request: WorkspaceContentReadRequest;
+	workspaceId: string;
 }): Promise<WorkspaceContentReadResult> {
 	if (input.request.mode === "pages") {
 		return { code: "invalid_selection", path: input.path, status: "failed" };
@@ -241,9 +251,9 @@ async function readDocument(input: {
 async function readFile(input: {
 	bucket: R2Bucket;
 	item: WorkspaceItem;
-	kernel: WorkspaceKernelClient;
 	path: string;
 	request: WorkspaceContentReadRequest;
+	workspaceId: string;
 }): Promise<WorkspaceContentReadResult> {
 	const fileType = resolveWorkspaceFileTypeFromItem(input.item);
 	if (!fileType) {
@@ -251,7 +261,10 @@ async function readFile(input: {
 	}
 
 	const projection = resolveWorkspaceProjectionReadiness(
-		await input.kernel.readFileExtraction({ itemId: input.item.id }),
+		await readWorkspaceFileExtraction({
+			itemId: input.item.id,
+			workspaceId: input.workspaceId,
+		}),
 		Date.now(),
 	);
 	if (projection.state !== "ready") {
@@ -270,7 +283,6 @@ async function readFile(input: {
 	try {
 		pageRead = await readWorkspacePageProjection({
 			itemId: input.item.id,
-			kernel: input.kernel,
 			pageCount: projection.pageCount,
 			pages:
 				cursor?.kind === "file"
@@ -278,6 +290,7 @@ async function readFile(input: {
 					: input.request.mode === "pages"
 						? input.request.range
 						: undefined,
+			workspaceId: input.workspaceId,
 		});
 	} catch (error) {
 		if (error instanceof WorkspacePageSelectionError) {
@@ -352,10 +365,7 @@ function describeUnreadableProjection(
 	return { code: "projection_failed", path, status: "failed", type: "file" };
 }
 
-async function attachRelationPaths(
-	kernel: WorkspaceKernelClient,
-	readyResults: PendingReadyResult[],
-) {
+async function attachRelationPaths(workspaceId: string, readyResults: PendingReadyResult[]) {
 	if (readyResults.length === 0) {
 		return;
 	}
@@ -373,7 +383,10 @@ async function attachRelationPaths(
 			relatedItemIds.add(relation.toItemId);
 		}
 	}
-	const itemPaths = await kernel.getItemPaths({ itemIds: Array.from(relatedItemIds) });
+	const itemPaths = await getWorkspaceItemPaths({
+		itemIds: Array.from(relatedItemIds),
+		workspaceId,
+	});
 	const pathsByItemId = new Map(itemPaths.map((item) => [item.itemId, item.path]));
 
 	for (const result of resolvedResults) {

@@ -1,33 +1,30 @@
 import { Agent, type Connection, type ConnectionContext } from "agents";
-import { getChatAttachmentWorkspacePrefix } from "#/features/workspaces/ai/chat-attachment-storage";
 import { getDocumentSessionStubFromEnv } from "#/features/workspaces/document-session-access";
-import { getWorkspaceFileItemObjectPrefix } from "#/features/workspaces/files/workspace-file-object-keys";
 import {
-	getWorkspaceKernelPresenceUsers,
-	getWorkspaceKernelUserFromHeaders,
-	setWorkspaceKernelUserHeaders,
-} from "#/features/workspaces/kernel/workspace-kernel-presence";
+	getWorkspaceRoomPresenceUsers,
+	getWorkspaceRoomUserFromHeaders,
+	setWorkspaceRoomUserHeaders,
+} from "#/features/workspaces/realtime/workspace-room-presence";
 import type { ResourcePurgeResult } from "#/features/workspaces/resource-purge-result";
+import {
+	purgeDeletedWorkspaceItems,
+	purgeWorkspaceStorage,
+} from "#/features/workspaces/realtime/workspace-cleanup";
 import type {
 	WorkspaceConnectionState,
 	WorkspacePageChange,
 	WorkspaceRealtimeServerMessage,
 } from "#/features/workspaces/realtime/messages";
 import { recordOperationalFailure } from "#/integrations/observability/operational-events";
-import { deleteR2Prefix } from "#/lib/r2";
 
 const workspacePurgeMaximumAttempts = 5;
 
-export { setWorkspaceKernelUserHeaders };
+export { setWorkspaceRoomUserHeaders };
 
-/**
- * The deployed class name is retained to avoid a destructive Durable Object
- * migration. Canonical workspace data lives in Postgres; this object is only a
- * live room for presence, workspace-page deltas, and retryable remote cleanup.
- */
-export class WorkspaceKernel extends Agent<Cloudflare.Env> {
+/** Workspace-scoped coordination for presence, tree deltas, and cleanup retries. */
+export class WorkspaceRoom extends Agent<Cloudflare.Env> {
 	onConnect(connection: Connection<WorkspaceConnectionState>, context: ConnectionContext) {
-		const user = getWorkspaceKernelUserFromHeaders(context.request);
+		const user = getWorkspaceRoomUserFromHeaders(context.request);
 
 		if (!user) {
 			connection.close(1008, "Unauthorized");
@@ -72,28 +69,19 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 		fileItemIds: string[];
 		attempt?: number;
 	}): Promise<void> {
-		const documentItemIds = Array.from(new Set(input.documentItemIds));
-		const fileItemIds = Array.from(new Set(input.fileItemIds));
-		if (documentItemIds.length === 0 && fileItemIds.length === 0) {
+		if (input.documentItemIds.length === 0 && input.fileItemIds.length === 0) {
 			return;
 		}
 
-		const results = await Promise.allSettled([
-			...documentItemIds.map((itemId) => this.purgeDocumentSession(itemId)),
-			...fileItemIds.map((itemId) =>
-				deleteR2Prefix(
-					this.env.WORKSPACE_KERNEL_FILES,
-					getWorkspaceFileItemObjectPrefix({ workspaceId: this.name, itemId }),
-				),
-			),
-		]);
-
-		const failed = results.filter((result) => result.status === "rejected").length;
-		if (failed > 0) {
+		const result = await purgeDeletedWorkspaceItems(this.env, {
+			...input,
+			workspaceId: this.name,
+		});
+		if (result.failed > 0) {
 			recordOperationalFailure({
 				error: new Error("Workspace item cleanup was incomplete."),
 				event: "workspace_item_cleanup_incomplete",
-				fields: { attempted: results.length, failed, workspace_id: this.name },
+				fields: { ...result, workspace_id: this.name },
 			});
 			this.scheduleCleanupRetry("purgeDeletedItems", input, input.attempt);
 		}
@@ -105,16 +93,12 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 			attempt?: number;
 		} = {},
 	): Promise<ResourcePurgeResult> {
-		const documentItemIds = Array.from(new Set(input.documentItemIds ?? []));
-		const results = await Promise.allSettled([
-			...documentItemIds.map((itemId) => this.purgeDocumentSession(itemId)),
-			deleteR2Prefix(this.env.WORKSPACE_KERNEL_FILES, getChatAttachmentWorkspacePrefix(this.name)),
-			deleteR2Prefix(this.env.WORKSPACE_KERNEL_FILES, `workspace_file_objects/${this.name}/`),
-			deleteR2Prefix(this.env.WORKSPACE_KERNEL_FILES, `workspace_file_uploads/${this.name}/`),
-		]);
-		const failed = results.filter((result) => result.status === "rejected").length;
+		const result = await purgeWorkspaceStorage(this.env, {
+			documentItemIds: input.documentItemIds ?? [],
+			workspaceId: this.name,
+		});
 
-		if (failed > 0) {
+		if (result.failed > 0) {
 			this.scheduleCleanupRetry("purgeForDeletion", input, input.attempt);
 		} else {
 			for (const connection of this.getConnections()) {
@@ -123,23 +107,7 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 			await this.ctx.storage.deleteAll();
 		}
 
-		return { attempted: results.length, failed };
-	}
-
-	private async purgeDocumentSession(itemId: string) {
-		try {
-			await getDocumentSessionStubFromEnv(this.env, {
-				workspaceId: this.name,
-				itemId,
-			}).purgeForDeletion();
-		} catch (error) {
-			recordOperationalFailure({
-				error,
-				event: "workspace_document_purge",
-				fields: { item_id: itemId, workspace_id: this.name },
-			});
-			throw error;
-		}
+		return result;
 	}
 
 	private scheduleCleanupRetry(
@@ -174,7 +142,7 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 		this.broadcastRealtimeMessage({
 			type: "presence.snapshot",
 			workspaceId: this.name,
-			users: getWorkspaceKernelPresenceUsers(this.getConnections<WorkspaceConnectionState>()),
+			users: getWorkspaceRoomPresenceUsers(this.getConnections<WorkspaceConnectionState>()),
 		});
 	}
 

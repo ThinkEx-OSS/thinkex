@@ -66,7 +66,7 @@ export async function finalizeWorkspaceFileUploadStorage(
 		}
 
 		const object = conversion
-			? await input.env.WORKSPACE_KERNEL_FILES.get(input.finalObjectKey)
+			? await input.env.WORKSPACE_FILES.get(input.finalObjectKey)
 			: input.uploadedObject;
 
 		if (!object) {
@@ -79,7 +79,7 @@ export async function finalizeWorkspaceFileUploadStorage(
 		};
 	} catch (error) {
 		if (conversion || error instanceof WorkspaceFileUploadError) {
-			await input.env.WORKSPACE_KERNEL_FILES.delete(input.finalObjectKey);
+			await input.env.WORKSPACE_FILES.delete(input.finalObjectKey);
 		}
 		throw error;
 	}
@@ -97,7 +97,7 @@ async function storeWorkspaceFileUploadPreview(
 		sizeBytes: object.size,
 	});
 	const stored = await putFixedLengthR2Object(
-		input.env.WORKSPACE_KERNEL_FILES,
+		input.env.WORKSPACE_FILES,
 		input.previewObjectKey,
 		preview,
 		{ httpMetadata: { contentType: WORKSPACE_FILE_PREVIEW_CONTENT_TYPE } },
@@ -145,7 +145,7 @@ async function convertAndStoreWorkspaceFileUpload(
 	const fileName = getWorkspaceConvertedFileName(input.fileName, conversion);
 	const descriptor = requireWorkspaceFileTypeFromHint({ fileName, contentType });
 	const stored = await putFixedLengthR2Object(
-		input.env.WORKSPACE_KERNEL_FILES,
+		input.env.WORKSPACE_FILES,
 		input.finalObjectKey,
 		response,
 		{ httpMetadata: { contentType } },

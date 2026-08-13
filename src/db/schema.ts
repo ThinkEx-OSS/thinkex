@@ -290,7 +290,7 @@ export const workspaceItems = pgTable(
 	],
 );
 
-export const workspaceDocumentCheckpoints = pgTable("workspace_document_checkpoints", {
+export const workspaceItemContents = pgTable("workspace_item_contents", {
 	itemId: text("item_id")
 		.primaryKey()
 		.references(() => workspaceItems.id, { onDelete: "cascade" }),

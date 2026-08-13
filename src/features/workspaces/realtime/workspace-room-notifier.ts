@@ -1,6 +1,6 @@
 import { getAgentByName } from "agents";
 
-import { workspaceKernelAgentName } from "#/features/workspaces/agent-routes";
+import { workspaceRoomAgentName } from "#/features/workspaces/agent-routes";
 import type { WorkspacePageChange } from "#/features/workspaces/realtime/messages";
 import { recordOperationalFailure } from "#/integrations/observability/operational-events";
 
@@ -76,5 +76,5 @@ export async function requestWorkspaceItemCleanup(
 }
 
 function getWorkspaceRoom(env: Cloudflare.Env, workspaceId: string) {
-	return getAgentByName(env[workspaceKernelAgentName], workspaceId);
+	return getAgentByName(env[workspaceRoomAgentName], workspaceId);
 }

@@ -49,9 +49,9 @@ import {
 	tiptapDocumentYjsField,
 } from "#/features/workspaces/documents/tiptap-schema";
 import {
-	getWorkspaceKernelFromEnv,
-	type WorkspaceKernelClient,
-} from "#/features/workspaces/kernel/workspace-kernel-access";
+	commitWorkspaceDocumentCheckpoint,
+	readWorkspaceDocumentCheckpoint,
+} from "#/features/workspaces/persistence/workspace-document-checkpoints";
 import { sha256Base64Url, sha256Base64UrlText } from "#/lib/binary";
 
 const persistedYDocUpdateKey = "document-session:yjs-update";
@@ -167,8 +167,7 @@ export class DocumentSession extends YServer {
 		}
 
 		const room = getDocumentSessionRoomNameParts(this.name);
-		const kernel = await this.getWorkspaceKernel(room.workspaceId);
-		const { content } = await kernel.readDocumentCheckpoint({ itemId: room.itemId });
+		const { content } = await readWorkspaceDocumentCheckpoint(room);
 		if (this.deleted) {
 			return;
 		}
@@ -193,7 +192,7 @@ export class DocumentSession extends YServer {
 		if (this.deleted) {
 			return;
 		}
-		await this.checkpointToKernel();
+		await this.checkpointDocument();
 	}
 
 	async readDocumentSnapshot() {
@@ -294,7 +293,7 @@ export class DocumentSession extends YServer {
 			]);
 		});
 		this.assertActive();
-		if (!(await this.checkpointToKernel())) {
+		if (!(await this.checkpointDocument())) {
 			return rejectedDocumentEditResult("path_not_found", input.edits.length);
 		}
 		this.assertActive();
@@ -347,7 +346,7 @@ export class DocumentSession extends YServer {
 			}
 		});
 
-		if (!(await this.checkpointToKernel())) {
+		if (!(await this.checkpointDocument())) {
 			return { status: "not_found" };
 		}
 
@@ -409,12 +408,12 @@ export class DocumentSession extends YServer {
 		await this.ctx.storage.deleteAll();
 	}
 
-	private async checkpointToKernel() {
+	private async checkpointDocument() {
 		const room = getDocumentSessionRoomNameParts(this.name);
 		const document = this.getCurrentTiptapDocument();
-		const kernel = await this.getWorkspaceKernel(room.workspaceId);
 
-		const outcome = await kernel.commitDocumentCheckpoint({
+		const outcome = await commitWorkspaceDocumentCheckpoint(this.env, {
+			workspaceId: room.workspaceId,
 			itemId: room.itemId,
 			content: stringifyTiptapDocumentJson(document),
 			actorUserId: null,
@@ -531,10 +530,6 @@ export class DocumentSession extends YServer {
 		if (this.deleted) {
 			throw new Error("Document session has been deleted.");
 		}
-	}
-
-	private async getWorkspaceKernel(workspaceId: string): Promise<WorkspaceKernelClient> {
-		return getWorkspaceKernelFromEnv(this.env, workspaceId);
 	}
 }
 

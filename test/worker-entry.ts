@@ -10,7 +10,7 @@ export {
 	UserAIStore,
 	WorkspaceFileExtractionWorkflow,
 	WorkspaceFileProcessor,
-	WorkspaceKernel,
+	WorkspaceRoom,
 } from "#/durable-objects";
 
 export default {

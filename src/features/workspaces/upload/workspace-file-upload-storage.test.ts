@@ -209,7 +209,7 @@ describe("workspace file upload storage", () => {
 });
 
 function createEnv(bucket: R2Bucket) {
-	return { WORKSPACE_KERNEL_FILES: bucket } as Cloudflare.Env;
+	return { WORKSPACE_FILES: bucket } as Cloudflare.Env;
 }
 
 function stream(bytes: Uint8Array) {

@@ -16,7 +16,7 @@ export function prepareDocumentItemMetadata(
 	return withDocumentPreviewMetadata(metadataJson, content);
 }
 
-/** Shared create-time content + metadata for kernel writes and optimistic UI. */
+/** Shared create-time content + metadata for persistence writes and optimistic UI. */
 export function buildWorkspaceItemCreateBootstrap(input: {
 	type: WorkspaceItemType;
 	metadataJson?: Record<string, JsonValue>;

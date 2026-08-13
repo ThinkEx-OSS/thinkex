@@ -10,7 +10,7 @@ export type WorkspaceItemType = z.infer<typeof workspaceItemTypeSchema>;
  * the same question: a future type can share `document` storage without being a
  * document, and `none` covers every item whose body is the tree itself.
  */
-export type WorkspaceItemContentKind = "document" | "file" | "none";
+type WorkspaceItemContentKind = "document" | "file" | "none";
 
 interface WorkspaceItemRegistryEntry {
 	color: "amber" | "emerald" | "rose" | "sky" | "violet";

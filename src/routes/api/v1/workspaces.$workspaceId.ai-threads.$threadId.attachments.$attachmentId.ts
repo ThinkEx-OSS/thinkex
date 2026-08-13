@@ -15,7 +15,7 @@ async function handleChatAttachmentContent(
 	}
 	const { requestId } = authorized;
 
-	const object = await env.WORKSPACE_KERNEL_FILES.get(
+	const object = await env.WORKSPACE_FILES.get(
 		getChatAttachmentObjectKey({ ...identity, userId: authorized.userId }),
 	);
 
@@ -42,7 +42,7 @@ async function handleChatAttachmentDelete(
 		return authorized;
 	}
 
-	await env.WORKSPACE_KERNEL_FILES.delete(
+	await env.WORKSPACE_FILES.delete(
 		getChatAttachmentObjectKey({ ...identity, userId: authorized.userId }),
 	);
 	return new Response(null, { status: 204 });

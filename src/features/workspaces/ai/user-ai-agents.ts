@@ -287,7 +287,7 @@ export class UserAIStore extends Agent<Cloudflare.Env, UserAIStoreState> {
 		deleteThreadMeta(this, threadId);
 		this._refreshState();
 		this.ctx.waitUntil(
-			deleteChatAttachmentsForThread(this.env.WORKSPACE_KERNEL_FILES, {
+			deleteChatAttachmentsForThread(this.env.WORKSPACE_FILES, {
 				threadId,
 				userId: this.name,
 				workspaceId: thread.workspace_id,
@@ -313,7 +313,7 @@ export class UserAIStore extends Agent<Cloudflare.Env, UserAIStoreState> {
 
 		for (const thread of threads) {
 			try {
-				await deleteChatAttachmentsForThread(this.env.WORKSPACE_KERNEL_FILES, {
+				await deleteChatAttachmentsForThread(this.env.WORKSPACE_FILES, {
 					threadId: thread.id,
 					userId: this.name,
 					workspaceId: thread.workspace_id,
@@ -357,7 +357,7 @@ export class UserAIStore extends Agent<Cloudflare.Env, UserAIStoreState> {
 			throw new AIThreadForbiddenError();
 		}
 
-		await this.env.WORKSPACE_KERNEL_FILES.put(
+		await this.env.WORKSPACE_FILES.put(
 			getChatAttachmentObjectKey({
 				attachmentId: input.attachmentId,
 				threadId: input.threadId,
@@ -581,7 +581,7 @@ export class UserAIStore extends Agent<Cloudflare.Env, UserAIStoreState> {
 		const now = Date.now();
 
 		try {
-			await copyChatAttachmentsForThread(this.env.WORKSPACE_KERNEL_FILES, attachmentTransfer);
+			await copyChatAttachmentsForThread(this.env.WORKSPACE_FILES, attachmentTransfer);
 			insertThreadMetaRow(this, {
 				...snapshot.meta,
 				archived_at: null,
@@ -609,7 +609,7 @@ export class UserAIStore extends Agent<Cloudflare.Env, UserAIStoreState> {
 		} catch (error) {
 			await this.deleteSubAgent(AIThread, threadId);
 			deleteThreadMeta(this, threadId);
-			await deleteChatAttachmentsForThread(this.env.WORKSPACE_KERNEL_FILES, {
+			await deleteChatAttachmentsForThread(this.env.WORKSPACE_FILES, {
 				threadId,
 				userId: this.name,
 				workspaceId: snapshot.meta.workspace_id,
@@ -617,7 +617,7 @@ export class UserAIStore extends Agent<Cloudflare.Env, UserAIStoreState> {
 			throw error;
 		}
 
-		await deleteChatAttachmentsForThread(this.env.WORKSPACE_KERNEL_FILES, {
+		await deleteChatAttachmentsForThread(this.env.WORKSPACE_FILES, {
 			threadId: snapshot.meta.id,
 			userId: input.sourceUserId,
 			workspaceId: snapshot.meta.workspace_id,
