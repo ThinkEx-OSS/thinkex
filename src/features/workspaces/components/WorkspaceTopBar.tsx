@@ -9,6 +9,7 @@ import { WorkspacePresence } from "#/features/workspaces/components/WorkspacePre
 import WorkspaceRootActionsMenu from "#/features/workspaces/components/WorkspaceRootActionsMenu";
 import WorkspaceTabBar from "#/features/workspaces/components/WorkspaceTabBar";
 import {
+	WorkspaceToolbarGroup,
 	WorkspaceToolbarIconButton,
 	WorkspaceToolbarTextButton,
 } from "#/features/workspaces/components/WorkspaceToolbar";
@@ -66,17 +67,20 @@ export default function WorkspaceTopBar({
 			actions={
 				<>
 					<WorkspacePresence status={presence.status} users={presence.users} />
-					<div className="flex items-center gap-1">
-						<WorkspaceRootActionsMenu
-							workspace={workspace}
-							align="end"
-							showShareButton
-							trigger={
-								<WorkspaceToolbarIconButton aria-label="Open workspace actions">
-									<Ellipsis />
-								</WorkspaceToolbarIconButton>
-							}
-						/>
+					{/* ponytail: Share/more keep the Search/New token; a little more space before the avatar so it reads as account, not a third toolbar icon. */}
+					<div className="flex items-center gap-1.5">
+						<WorkspaceToolbarGroup>
+							<WorkspaceRootActionsMenu
+								workspace={workspace}
+								align="end"
+								showShareButton
+								trigger={
+									<WorkspaceToolbarIconButton aria-label="Open workspace actions">
+										<Ellipsis />
+									</WorkspaceToolbarIconButton>
+								}
+							/>
+						</WorkspaceToolbarGroup>
 						<UserProfileDropdown />
 					</div>
 					{chatSurfaceMode === "hidden" ? (
