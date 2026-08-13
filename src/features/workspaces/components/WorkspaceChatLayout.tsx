@@ -95,7 +95,7 @@ export default function WorkspaceChatLayout({
 						</ResizableHandle>
 						<ResizablePanel
 							id={CHAT_PANEL_ID}
-							defaultSize="30rem"
+							defaultSize="34rem"
 							minSize="26rem"
 							maxSize="60%"
 							collapsible={true}
