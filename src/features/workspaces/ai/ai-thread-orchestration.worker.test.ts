@@ -143,6 +143,7 @@ describe("AI thread orchestration", () => {
 						applied: 1,
 						failed: [],
 						itemId: "document-1",
+						itemType: "document",
 						path: "/Notes",
 						__thinkexUi: { documentEditReceiptId: "receipt-secret" },
 					},
@@ -168,6 +169,34 @@ describe("AI thread orchestration", () => {
 		expect(JSON.stringify(modelOutput)).not.toContain("receipt-secret");
 		expect(JSON.stringify(modelOutput)).not.toContain('"action"');
 		expect(JSON.stringify(telemetryOutput)).not.toContain("receipt-secret");
+	});
+
+	it("does not turn flashcard edits into document review actions", () => {
+		const output = normalizeAIThreadOrchestrationOutput({
+			status: "completed",
+			executionId: "execution-flashcard-edit",
+			result: null,
+			calls: [
+				{
+					seq: 1,
+					connector: "tools",
+					method: "workspace_edit_item",
+					state: "applied",
+					requiresApproval: false,
+					args: { path: "/Biology", type: "flashcard" },
+					result: {
+						applied: 1,
+						failed: [],
+						itemId: "flashcard-1",
+						itemType: "flashcard",
+						path: "/Biology",
+						__thinkexUi: { documentEditReceiptId: "should-not-be-used" },
+					},
+				},
+			],
+		});
+
+		expect(output.calls[0]).not.toHaveProperty("action");
 	});
 
 	it("fails closed when a completed runtime result contains a malformed child call", () => {

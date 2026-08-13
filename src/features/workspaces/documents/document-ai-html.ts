@@ -68,6 +68,14 @@ export async function serializeTiptapDocumentToAiHtml(document: TiptapDocumentJs
 	).join("");
 }
 
+/** Serialize rich text without document edit refs for non-document surfaces. */
+export function serializeTiptapDocumentToHtml(document: TiptapDocumentJson) {
+	const node = getTiptapDocumentSchema().nodeFromJSON(document);
+	return Array.from({ length: node.childCount }, (_, index) =>
+		serializeTiptapNodeToEditableAiHtml(node.child(index)),
+	).join("");
+}
+
 export async function serializeTiptapNodeToAiHtml(node: ProseMirrorNode) {
 	// The editRef is hashed from the full node, so a widget source change still
 	// invalidates it. Only the serialized source is elided.

@@ -15,7 +15,6 @@ import {
 	workspaceDeleteItemsInputExamples,
 	workspaceDeleteItemsInputSchema,
 	workspaceDeleteItemsOutputSchema,
-	workspaceDocumentHtmlInstruction,
 	workspaceEditItemInputExamples,
 	workspaceEditItemInputSchema,
 	workspaceEditItemOutputSchema,
@@ -145,7 +144,7 @@ export const workspaceToolDefinitions = [
 		name: "workspace_read_items",
 		access: "read",
 		description:
-			"Read ThinkEx documents and extracted files by absolute path. Document chunks give each top-level block an editRef. Widgets come back as an empty placeholder, so read one with mode block to get its full content and current editRef before editing it. Files support explicit physical-page selections. Continue either kind with nextCursor. Uploaded files may still be extracting; each result carries any needed handling guidance.",
+			"Read ThinkEx documents, flashcard sets, and extracted files by absolute path. Document chunks give each top-level block an editRef. Flashcard reads return every card with its stable cardId and HTML front and back. Widgets come back as an empty placeholder, so read one with mode block to get its full content and current editRef before editing it. Files support physical-page selections. Continue documents or files with nextCursor.",
 		inputSchema: workspaceReadItemsInputSchema,
 		inputExamples: workspaceReadItemsInputExamples,
 		outputSchema: workspaceReadItemsOutputSchema,
@@ -192,7 +191,8 @@ export const workspaceToolDefinitions = [
 	defineWorkspaceTool({
 		name: "workspace_create_items",
 		access: "write",
-		description: `Create one or more folders or documents at exact absolute paths. If a path already exists, creation fails instead of renaming. ${workspaceDocumentHtmlInstruction}`,
+		description:
+			"Create folders, documents, or flashcard sets at exact absolute paths. Set type and follow that branch's recipe. If a path already exists, creation fails instead of renaming.",
 		inputSchema: workspaceCreateItemsInputSchema,
 		inputExamples: workspaceCreateItemsInputExamples,
 		outputSchema: workspaceCreateItemsOutputSchema,
@@ -222,17 +222,15 @@ export const workspaceToolDefinitions = [
 	defineWorkspaceTool({
 		name: "workspace_edit_item",
 		access: "write",
-		description: `Edit one actual ThinkEx workspace document by absolute path. Read it first, then target blocks with their exact editRef. A block read returns the exact content that replace_text matches. Only overwrite replaces the whole document, and only it works without a read. Use workspace_link_items to add relationships. ${workspaceDocumentHtmlInstruction}`,
+		description:
+			"Edit one document or flashcard set by absolute path. Set type to match the item and follow only that branch's recipe. Read the item first. Flashcard edits apply immediately; document edits retain their review flow. Use workspace_link_items for item-level relationships.",
 		inputSchema: workspaceEditItemInputSchema,
 		inputExamples: workspaceEditItemInputExamples,
 		outputSchema: workspaceEditItemOutputSchema,
 		summarizeResult: summarizeWorkspaceAppliedResult,
 		effects: { destructive: true, idempotent: false },
-		execute: async ({ path, edits }, context) => {
-			return await editWorkspaceItemOperation(context, {
-				path,
-				edits,
-			});
+		execute: async (input, context) => {
+			return await editWorkspaceItemOperation(context, input);
 		},
 	}),
 	defineWorkspaceTool({
