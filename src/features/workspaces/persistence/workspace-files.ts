@@ -35,7 +35,6 @@ import {
 	createCompatibleFileMetadata,
 	getActiveWorkspaceItemRow,
 	getNextWorkspaceSortOrder,
-	getWorkspaceItemCreateReplay,
 	lockWorkspaceForActor,
 	mapWorkspaceExtraction,
 	nextWorkspaceRevision,
@@ -67,13 +66,9 @@ export async function createWorkspaceFileFromUpload(
 
 	const command = await withWorkspaceTransaction(async (transaction) => {
 		await lockWorkspaceForActor(transaction, input.workspaceId, input.actorUserId);
-		const replay = await getWorkspaceItemCreateReplay(
-			transaction,
-			input.workspaceId,
-			input.id,
-			"file",
-		);
-		if (replay) return replay;
+		if (await getActiveWorkspaceItemRow(transaction, input.workspaceId, input.id)) {
+			throw new Error("Workspace item id already exists.");
+		}
 		const parentId = input.parentId ?? null;
 		await assertWorkspaceParentIsValid(transaction, input.workspaceId, parentId);
 		const descriptor = getWorkspaceUploadFamily(input.assetKind);

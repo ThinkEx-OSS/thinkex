@@ -46,9 +46,9 @@ import { assertCanReadWorkspace } from "#/features/workspaces/server/permissions
 import {
 	assertWorkspaceParentIsValid,
 	collectDescendants,
+	getActiveWorkspaceItemRow,
 	getActiveWorkspaceItemRows,
 	getNextWorkspaceSortOrder,
-	getWorkspaceItemCreateReplay,
 	getWorkspaceItemsByIds,
 	getWorkspaceRevision,
 	hasSelectedAncestor,
@@ -198,14 +198,8 @@ export async function createWorkspaceItem(
 
 	const outcome = await withWorkspaceTransaction(async (transaction) => {
 		await lockWorkspaceForActor(transaction, input.workspaceId, input.actorUserId);
-		const replay = await getWorkspaceItemCreateReplay(
-			transaction,
-			input.workspaceId,
-			input.id,
-			type,
-		);
-		if (replay) {
-			return { status: "applied" as const, command: replay };
+		if (await getActiveWorkspaceItemRow(transaction, input.workspaceId, input.id)) {
+			throw new Error("Workspace item id already exists.");
 		}
 		const parentId = input.parentId ?? null;
 		await assertWorkspaceParentIsValid(transaction, input.workspaceId, parentId);

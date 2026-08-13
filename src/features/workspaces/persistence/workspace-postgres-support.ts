@@ -108,21 +108,6 @@ export async function getActiveWorkspaceItemRow(
 	return row ?? null;
 }
 
-export async function getWorkspaceItemCreateReplay(
-	db: QueryExecutor,
-	workspaceId: string,
-	itemId: string,
-	type: WorkspaceItemType,
-) {
-	const row = await getActiveWorkspaceItemRow(db, workspaceId, itemId);
-	if (!row) return null;
-	if (row.type !== type) throw new Error("Workspace item id already exists with another type.");
-	return {
-		result: mapWorkspaceItem(row),
-		revision: await getWorkspaceRevision(db, workspaceId),
-	};
-}
-
 export async function requireActiveWorkspaceItemRow(
 	db: QueryExecutor,
 	workspaceId: string,
