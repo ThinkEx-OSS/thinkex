@@ -6,7 +6,13 @@ import {
 import type { ToolSet } from "ai";
 import { z } from "zod";
 import { defineAIThreadTool } from "#/features/workspaces/ai/ai-thread-tool";
-import { publicWebSearchResultSchema, searchPublicWeb } from "#/integrations/firecrawl/search";
+import {
+	publicWebSearchResultSchema,
+	searchPublicWeb,
+	webSearchCategoryValues,
+	webSearchFreshnessValues,
+	webSearchSourceValues,
+} from "#/integrations/firecrawl/search";
 import { assertPublicHttpUrl } from "#/features/workspaces/ai/web-access-policy";
 
 const MAX_BROWSER_RESULT_CHARS = 100_000;
@@ -17,6 +23,20 @@ const webSearchInputSchema = z.object({
 		.max(20)
 		.optional()
 		.describe("Optional hostnames to restrict results to. At most 20."),
+	freshness: z
+		.enum(webSearchFreshnessValues)
+		.optional()
+		.describe("Only results from the past day, week, or month."),
+	source: z
+		.enum(webSearchSourceValues)
+		.optional()
+		.describe("Use news for current events. Defaults to web."),
+	category: z
+		.enum(webSearchCategoryValues)
+		.optional()
+		.describe(
+			"Restrict to PDFs, GitHub, academic sites, or developer docs and issues. Use research_discover for papers.",
+		),
 });
 
 const browserPageInputSchema = z.object({
@@ -31,7 +51,7 @@ const webLinksOutputSchema = z.object({
 	truncated: z.boolean(),
 });
 
-const webSearchInputExamples = [
+const webSearchInputExamples: Array<{ input: z.infer<typeof webSearchInputSchema> }> = [
 	{
 		input: {
 			query: "best OCR libraries for PDFs",
@@ -41,6 +61,24 @@ const webSearchInputExamples = [
 		input: {
 			query: "thinkex pricing page",
 			include_domains: ["thinkex.app"],
+		},
+	},
+	{
+		input: {
+			query: "openai model release",
+			source: "news",
+		},
+	},
+	{
+		input: {
+			query: "transformer architecture survey",
+			category: "pdf",
+		},
+	},
+	{
+		input: {
+			query: "how do I configure retries",
+			category: "developer",
 		},
 	},
 ];
@@ -58,15 +96,19 @@ export function createAIThreadWebTools(env: Cloudflare.Env): ToolSet {
 
 	return {
 		web_search: defineAIThreadTool({
-			description: "Find relevant public web pages for a topic or question.",
+			description:
+				"Find relevant public web pages for a topic or question. Snippets are query-relevant passages.",
 			inputSchema: webSearchInputSchema,
 			inputExamples: webSearchInputExamples,
 			outputSchema: publicWebSearchResultSchema,
-			execute: async ({ query, include_domains }) =>
+			execute: async ({ query, include_domains, freshness, source, category }) =>
 				searchPublicWeb({
 					env,
 					query,
 					includeDomains: include_domains,
+					freshness,
+					source,
+					category,
 				}),
 		}),
 		web_markdown: defineAIThreadTool({

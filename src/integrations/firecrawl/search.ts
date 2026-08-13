@@ -10,6 +10,14 @@ import {
 
 const MAX_WEB_SEARCH_SNIPPET_CHARS = 600;
 const WEB_SEARCH_RESULT_LIMIT = 8;
+export const webSearchFreshnessValues = ["day", "week", "month"] as const;
+export const webSearchSourceValues = ["web", "news"] as const;
+export const webSearchCategoryValues = ["pdf", "github", "research", "developer"] as const;
+const webSearchFreshnessTbs = {
+	day: "qdr:d",
+	week: "qdr:w",
+	month: "qdr:m",
+} satisfies Record<(typeof webSearchFreshnessValues)[number], string>;
 
 export const publicWebSearchResultSchema = z.object({
 	results: z.array(
@@ -25,6 +33,9 @@ export async function searchPublicWeb(input: {
 	env: Cloudflare.Env;
 	query: string;
 	includeDomains?: string[];
+	freshness?: (typeof webSearchFreshnessValues)[number];
+	source?: (typeof webSearchSourceValues)[number];
+	category?: (typeof webSearchCategoryValues)[number];
 }): Promise<z.output<typeof publicWebSearchResultSchema>> {
 	const response = await firecrawlJsonRequest({
 		env: input.env,
@@ -37,16 +48,22 @@ export async function searchPublicWeb(input: {
 		body: JSON.stringify({
 			query: input.query,
 			limit: WEB_SEARCH_RESULT_LIMIT,
-			sources: [{ type: "web" }],
+			sources: [{ type: input.source ?? "web" }],
 			ignoreInvalidURLs: true,
 			includeDomains: normalizeHostnameList(input.includeDomains),
+			tbs: input.freshness ? webSearchFreshnessTbs[input.freshness] : undefined,
+			categories: input.category ? [{ type: input.category }] : undefined,
 		}),
 	});
 	const data = getRecordValue(response, "data");
-	const webResults = getRecordArrayValue(data, "web");
+	const hits = [
+		...getRecordArrayValue(data, "web"),
+		...getRecordArrayValue(data, "news"),
+		...getRecordArrayValue(data, "developer"),
+	];
 
 	return {
-		results: webResults
+		results: hits
 			.map((item) => ({
 				title:
 					getStringValue(item, "title") ??
