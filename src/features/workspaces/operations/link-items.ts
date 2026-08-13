@@ -6,9 +6,13 @@ import {
 import { linkWorkspaceItemsFailureCodes } from "#/features/workspaces/operations/workspace-operation-failure-codes";
 import type { WorkspaceAccessContext } from "#/features/workspaces/operations/workspace-access-context";
 import {
-	getAuthorizedWorkspaceKernel,
+	authorizeWorkspaceOperation,
 	resolveWorkspaceExistingItemPath,
 } from "#/features/workspaces/operations/workspace-operation-context";
+import {
+	linkWorkspaceItems,
+	resolveWorkspacePaths,
+} from "#/features/workspaces/persistence/workspace-items";
 
 export interface LinkWorkspaceItemsOperationInput {
 	path: string;
@@ -34,15 +38,16 @@ export async function linkWorkspaceItemsOperation(
 	accessContext: WorkspaceAccessContext,
 	input: LinkWorkspaceItemsOperationInput,
 ): Promise<LinkWorkspaceItemsOperationResult> {
-	const kernel = await getAuthorizedWorkspaceKernel({
+	await authorizeWorkspaceOperation({
 		access: "mutate",
 		context: accessContext,
 	});
-	const [pathResolution, ...relationTargets] = await kernel.resolvePaths({
+	const [pathResolution, ...relationTargets] = await resolveWorkspacePaths({
+		workspaceId: accessContext.workspaceId,
 		paths: [input.path, ...input.relations.map((relation) => relation.path)],
 	});
 	if (!pathResolution) {
-		throw new Error("Workspace kernel did not resolve the requested link source.");
+		throw new Error("Workspace persistence did not resolve the requested link source.");
 	}
 	const resolution = resolveWorkspaceExistingItemPath({
 		resolution: pathResolution,
@@ -78,9 +83,10 @@ export async function linkWorkspaceItemsOperation(
 		};
 	}
 
-	await kernel.linkItems({
+	await linkWorkspaceItems({
 		relations: relations.relations,
 		actorUserId: accessContext.actor.userId,
+		workspaceId: accessContext.workspaceId,
 	});
 
 	return {

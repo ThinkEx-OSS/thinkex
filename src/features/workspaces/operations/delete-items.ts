@@ -1,7 +1,11 @@
 import {
-	getAuthorizedWorkspaceKernel,
+	authorizeWorkspaceOperation,
 	resolveWorkspaceExistingItemPath,
 } from "#/features/workspaces/operations/workspace-operation-context";
+import {
+	deleteWorkspaceItems,
+	resolveWorkspacePaths,
+} from "#/features/workspaces/persistence/workspace-items";
 import type { WorkspaceAccessContext } from "#/features/workspaces/operations/workspace-access-context";
 import type { WorkspaceItem } from "#/features/workspaces/contracts";
 
@@ -31,7 +35,7 @@ export async function deleteWorkspaceItemsOperation(
 	accessContext: WorkspaceAccessContext,
 	input: DeleteWorkspaceItemsOperationInput,
 ): Promise<DeleteWorkspaceItemsOperationResult> {
-	const kernel = await getAuthorizedWorkspaceKernel({
+	await authorizeWorkspaceOperation({
 		access: "mutate",
 		context: accessContext,
 	});
@@ -40,7 +44,10 @@ export async function deleteWorkspaceItemsOperation(
 		item: WorkspaceItem;
 		path: string;
 	}> = [];
-	const resolutions = await kernel.resolvePaths({ paths: input.paths });
+	const resolutions = await resolveWorkspacePaths({
+		paths: input.paths,
+		workspaceId: accessContext.workspaceId,
+	});
 
 	for (const [index, pathResolution] of resolutions.entries()) {
 		const resolution = resolveWorkspaceExistingItemPath({
@@ -70,9 +77,11 @@ export async function deleteWorkspaceItemsOperation(
 		};
 	}
 
-	const command = await kernel.deleteItems({
+	const { env } = await import("cloudflare:workers");
+	const command = await deleteWorkspaceItems(env, {
 		itemIds: resolvedItems.map((resolved) => resolved.item.id),
 		actorUserId: accessContext.actor.userId,
+		workspaceId: accessContext.workspaceId,
 	});
 	const resolvedItemsById = new Map<string, (typeof resolvedItems)[number]>();
 

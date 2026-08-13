@@ -11,24 +11,24 @@ import type {
 } from "#/features/workspaces/model/workspace-file";
 import type { WorkspaceCommandResult } from "#/features/workspaces/realtime/messages";
 
-export interface CreateWorkspaceKernelRelationArgs {
+export interface CreateWorkspaceRelationArgs {
 	fromItemId: string;
 	kind: WorkspaceRelationKind;
 	note?: string | null;
 	toItemId: string;
 }
 
-export interface LinkWorkspaceKernelItemsArgs {
+export interface LinkWorkspaceItemsArgs {
 	actorUserId?: string | null;
-	relations: CreateWorkspaceKernelRelationArgs[];
+	relations: CreateWorkspaceRelationArgs[];
 }
 
-export interface ListWorkspaceKernelItemRelationsArgs {
+export interface ListWorkspaceItemRelationsArgs {
 	itemId: string;
 	limit?: number;
 }
 
-export interface WorkspaceKernelItemRelation {
+export interface WorkspaceItemRelation {
 	id: string;
 	fromItemId: string;
 	kind: WorkspaceRelationKind;
@@ -36,14 +36,14 @@ export interface WorkspaceKernelItemRelation {
 	toItemId: string;
 }
 
-export interface ListWorkspaceKernelItemsArgs {
+export interface ListWorkspaceItemsArgs {
 	limit?: number;
 	offset?: number;
 	path?: string;
 	recursive?: boolean;
 }
 
-export type WorkspaceKernelPathResolution =
+export type WorkspacePathResolution =
 	| {
 			code: "path_not_absolute";
 			path: string;
@@ -63,44 +63,39 @@ export type WorkspaceKernelPathResolution =
 			status: "item";
 	  };
 
-export interface ResolveWorkspaceKernelPathsArgs {
+export interface ResolveWorkspacePathsArgs {
 	paths: string[];
 }
 
-export interface GetWorkspaceKernelItemPathsArgs {
+export interface GetWorkspaceItemPathsArgs {
 	itemIds: string[];
 }
 
-export interface WorkspaceKernelItemPath {
-	itemId: string;
-	path: string;
-}
+export type WorkspaceNameConflictPolicy = "rename" | "error";
 
-export type WorkspaceKernelNameConflictPolicy = "rename" | "error";
-
-export interface WorkspaceKernelNameConflict {
+export interface WorkspaceNameConflict {
 	code: "name_conflict";
 	itemId: string | null;
 	requestedName: string | null;
 }
 
-export type WorkspaceKernelMutationOutcome<T> =
+export type WorkspaceMutationOutcome<T> =
 	| {
 			command: WorkspaceCommandResult<T>;
 			status: "applied";
 	  }
 	| {
-			conflict: WorkspaceKernelNameConflict;
+			conflict: WorkspaceNameConflict;
 			status: "conflict";
 	  };
 
-export type WorkspaceKernelPublishOutcome = "applied" | "discarded";
+export type WorkspacePublishOutcome = "applied" | "discarded";
 
-export function requireAppliedWorkspaceKernelMutation<T>(
-	outcome: WorkspaceKernelMutationOutcome<T>,
+export function requireAppliedWorkspaceMutation<T>(
+	outcome: WorkspaceMutationOutcome<T>,
 ): WorkspaceCommandResult<T> {
 	if (outcome.status === "conflict") {
-		throw new Error("Workspace kernel unexpectedly returned a name conflict.", {
+		throw new Error("Workspace persistence unexpectedly returned a name conflict.", {
 			cause: outcome.conflict,
 		});
 	}
@@ -108,63 +103,52 @@ export function requireAppliedWorkspaceKernelMutation<T>(
 	return outcome.command;
 }
 
-export interface CreateWorkspaceKernelItemArgs {
+export interface CreateWorkspaceItemArgs {
 	id: string;
 	parentId?: string | null;
 	type: WorkspaceItemType;
 	name?: string;
-	onNameConflict?: WorkspaceKernelNameConflictPolicy;
+	onNameConflict?: WorkspaceNameConflictPolicy;
 	color?: WorkspaceColor;
 	metadataJson?: Record<string, JsonValue>;
 	initialContent?: string;
-	initialRelations?: CreateWorkspaceKernelRelationArgs[];
+	initialRelations?: CreateWorkspaceRelationArgs[];
 	actorUserId?: string | null;
 }
 
-export interface RenameWorkspaceKernelItemArgs {
+export interface RenameWorkspaceItemArgs {
 	itemId: string;
 	name: string;
-	onNameConflict?: WorkspaceKernelNameConflictPolicy;
+	onNameConflict?: WorkspaceNameConflictPolicy;
 	actorUserId?: string | null;
 }
 
-export interface MoveWorkspaceKernelItemsArgs {
+export interface MoveWorkspaceItemsArgs {
 	items: Array<{
 		itemId: string;
 		sortOrder?: number;
 	}>;
 	parentId?: string | null;
-	onNameConflict?: WorkspaceKernelNameConflictPolicy;
+	onNameConflict?: WorkspaceNameConflictPolicy;
 	actorUserId?: string | null;
 }
 
-export type MoveWorkspaceKernelItemsResult = WorkspaceItem[];
+export type MoveWorkspaceItemsResult = WorkspaceItem[];
 
-export interface UpdateWorkspaceKernelItemColorArgs {
+export interface UpdateWorkspaceItemColorArgs {
 	itemId: string;
 	color: WorkspaceColor;
 	actorUserId?: string | null;
 }
 
-export interface DeleteWorkspaceKernelItemsArgs {
+export interface DeleteWorkspaceItemsArgs {
 	itemIds: string[];
 	actorUserId?: string | null;
 }
 
-export interface ReadWorkspaceDocumentCheckpointArgs {
-	itemId: string;
-}
-
-export interface ReadWorkspaceKernelFileSourceArgs {
+export interface ReadWorkspaceFileSourceArgs {
 	itemId: string;
 	userId?: string;
-}
-
-export interface WorkspaceKernelFileSource {
-	objectKey: string;
-	contentType: string;
-	fileName: string;
-	sizeBytes: number;
 }
 
 export type WorkspaceFileExtractionStatus = "processing" | "ready" | "failed";
@@ -184,17 +168,6 @@ export type UpdateWorkspaceFileExtractionArgs =
 			errorMessage: string;
 	  });
 
-export interface ReadWorkspaceKernelFilePreviewResult {
-	itemId: string;
-	status: WorkspaceFileExtractionStatus;
-	objectKey: string | null;
-	contentType: string;
-	sizeBytes: number | null;
-	sourceHash: string | null;
-	metadataJson: Record<string, JsonValue>;
-	updatedAt: string;
-}
-
 export interface ReadWorkspaceFileExtractionArgs {
 	itemId: string;
 }
@@ -210,7 +183,7 @@ export interface ReadWorkspaceFileExtractionResult {
 	updatedAt: string;
 }
 
-export interface CreateWorkspaceKernelFileFromUploadArgs {
+export interface CreateWorkspaceFileFromUploadArgs {
 	id: string;
 	parentId?: string | null;
 	fileName: string;
@@ -232,7 +205,7 @@ export interface CreateWorkspaceKernelFileFromUploadArgs {
 	actorUserId?: string | null;
 }
 
-export interface DeleteWorkspaceKernelItemsResult {
+export interface DeleteWorkspaceItemsResult {
 	itemIds: string[];
 	deletedItemIds: string[];
 }

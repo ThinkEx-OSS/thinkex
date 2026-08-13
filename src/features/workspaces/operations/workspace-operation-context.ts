@@ -1,9 +1,5 @@
 import { createDbContext } from "#/db/server";
-import {
-	getWorkspaceKernel,
-	type WorkspaceKernelClient,
-} from "#/features/workspaces/kernel/workspace-kernel-access";
-import type { WorkspaceKernelPathResolution } from "#/features/workspaces/kernel/workspace-kernel-types";
+import type { WorkspacePathResolution } from "#/features/workspaces/persistence/workspace-persistence-types";
 import {
 	assertCanMutateWorkspace,
 	assertCanReadWorkspace,
@@ -15,10 +11,10 @@ import {
 
 type WorkspaceOperationAccessMode = "read" | "mutate";
 
-export async function getAuthorizedWorkspaceKernel(input: {
+export async function authorizeWorkspaceOperation(input: {
 	access: WorkspaceOperationAccessMode;
 	context: WorkspaceAccessContext;
-}): Promise<WorkspaceKernelClient> {
+}): Promise<void> {
 	const dbContext = await createDbContext();
 	const workspaceUser = {
 		userId: input.context.actor.userId,
@@ -33,8 +29,6 @@ export async function getAuthorizedWorkspaceKernel(input: {
 			assertWorkspaceAccessScope(input.context, "workspace:write");
 			await assertCanMutateWorkspace(dbContext.db, workspaceUser);
 		}
-
-		return await getWorkspaceKernel(input.context.workspaceId);
 	} finally {
 		await dbContext.dispose();
 	}
@@ -49,13 +43,13 @@ export type WorkspaceExistingItemResolution<TRootCode extends string> =
 			status: "failed";
 	  }
 	| {
-			item: Extract<WorkspaceKernelPathResolution, { status: "item" }>["item"];
+			item: Extract<WorkspacePathResolution, { status: "item" }>["item"];
 			path: string;
 			status: "item";
 	  };
 
 export function resolveWorkspaceExistingItemPath<TRootCode extends string>(input: {
-	resolution: WorkspaceKernelPathResolution;
+	resolution: WorkspacePathResolution;
 	rootFailureCode: TRootCode;
 }): WorkspaceExistingItemResolution<TRootCode> {
 	const { resolution } = input;

@@ -9,7 +9,7 @@ import { recordWorkspaceFileReadOutcomes } from "#/features/workspaces/content/w
 import { createWorkspaceReadReferences } from "#/features/workspaces/content/workspace-read-references";
 import { getDocumentSessionFromEnv } from "#/features/workspaces/document-session-access";
 import type { WorkspaceAccessContext } from "#/features/workspaces/operations/workspace-access-context";
-import { getAuthorizedWorkspaceKernel } from "#/features/workspaces/operations/workspace-operation-context";
+import { authorizeWorkspaceOperation } from "#/features/workspaces/operations/workspace-operation-context";
 
 export interface ReadWorkspaceItemsOperationInput {
 	requests: WorkspaceContentReadRequest[];
@@ -19,19 +19,19 @@ export async function readWorkspaceItemsOperation(
 	accessContext: WorkspaceAccessContext,
 	input: ReadWorkspaceItemsOperationInput,
 ): Promise<WorkspaceReadItemsOutput> {
-	const kernel = await getAuthorizedWorkspaceKernel({
+	await authorizeWorkspaceOperation({
 		access: "read",
 		context: accessContext,
 	});
 	const results = await readWorkspaceContent({
-		bucket: env.WORKSPACE_KERNEL_FILES,
+		bucket: env.WORKSPACE_FILES,
 		getDocumentSession: (itemId) =>
 			getDocumentSessionFromEnv(env, {
 				itemId,
 				workspaceId: accessContext.workspaceId,
 			}),
-		kernel,
 		requests: input.requests,
+		workspaceId: accessContext.workspaceId,
 	});
 
 	recordWorkspaceFileReadOutcomes({

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { DocumentSession } from "#/features/workspaces/documents/document-session";
-import { WorkspaceKernel } from "#/features/workspaces/kernel/workspace-kernel";
+import { WorkspaceRoom } from "#/features/workspaces/realtime/workspace-room";
 
 describe("DocumentSession member revocation", () => {
 	it("closes every connection belonging to the revoked user", async () => {
@@ -29,7 +29,7 @@ describe("DocumentSession member revocation", () => {
 		const roomClose = vi.fn();
 		const disconnectDocumentMember = vi.fn();
 		const getByName = vi.fn(() => ({ disconnectMember: disconnectDocumentMember }));
-		const disconnectMember = Reflect.get(WorkspaceKernel.prototype, "disconnectMember");
+		const disconnectMember = Reflect.get(WorkspaceRoom.prototype, "disconnectMember");
 		const workspaceRoom = {
 			broadcast: vi.fn(),
 			broadcastPresenceSnapshot: vi.fn(),

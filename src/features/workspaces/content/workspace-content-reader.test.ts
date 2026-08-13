@@ -11,10 +11,21 @@ import {
 } from "#/features/workspaces/documents/document-ai-html";
 import { readDocumentHtmlChunk } from "#/features/workspaces/documents/document-html-chunk";
 import { getTiptapDocumentSchema } from "#/features/workspaces/documents/tiptap-schema";
-import type { WorkspaceKernelClient } from "#/features/workspaces/kernel/workspace-kernel-access";
-import type { WorkspaceKernelPathResolution } from "#/features/workspaces/kernel/workspace-kernel-types";
+import type { WorkspacePathResolution } from "#/features/workspaces/persistence/workspace-persistence-types";
 import { readWorkspaceContent } from "#/features/workspaces/content/workspace-content-reader";
 import { encodeWorkspaceContentCursor } from "#/features/workspaces/content/workspace-content-cursor";
+
+const persistence = vi.hoisted(() => ({
+	getWorkspaceItemPaths: vi.fn(),
+	listWorkspaceItemRelations: vi.fn(),
+	resolveWorkspacePaths: vi.fn(),
+}));
+
+vi.mock("#/features/workspaces/persistence/workspace-items", () => persistence);
+vi.mock("#/features/workspaces/persistence/workspace-files", () => ({
+	readWorkspaceFileExtraction: vi.fn(async () => null),
+	readWorkspaceFilePages: vi.fn(async () => []),
+}));
 
 const documentItem: WorkspaceItem = {
 	id: "document-1",
@@ -36,7 +47,6 @@ describe("WorkspaceContentReader", () => {
 		const read = createReader({
 			bucket: {} as R2Bucket,
 			getDocumentSession: () => session,
-			kernel: createKernel(),
 		});
 
 		const [first] = await read([{ mode: "start", path: "/Notes" }]);
@@ -83,7 +93,6 @@ describe("WorkspaceContentReader", () => {
 		const read = createReader({
 			bucket: {} as R2Bucket,
 			getDocumentSession: () => session,
-			kernel: createKernel(),
 		});
 		const [first] = await read([{ mode: "start", path: "/Notes" }]);
 		if (!first || first.status !== "ready" || first.type !== "document" || !first.nextCursor) {
@@ -101,7 +110,6 @@ describe("WorkspaceContentReader", () => {
 		const read = createReader({
 			bucket: {} as R2Bucket,
 			getDocumentSession: () => createDocumentSession({ html, revision: "revision-1" }),
-			kernel: createKernel(),
 		});
 
 		const contents: string[] = [];
@@ -131,7 +139,6 @@ describe("WorkspaceContentReader", () => {
 		const read = createReader({
 			bucket: {} as R2Bucket,
 			getDocumentSession: () => createDocumentSession({ html: "", revision: "revision-1" }),
-			kernel: createKernel(),
 		});
 		const cursor = encodeWorkspaceContentCursor({
 			kind: "document",
@@ -150,7 +157,6 @@ describe("WorkspaceContentReader", () => {
 		const read = createReader({
 			bucket: {} as R2Bucket,
 			getDocumentSession: () => createDocumentSession({ html: "", revision: "revision-1" }),
-			kernel: createKernel(),
 		});
 		const cursor = encodeWorkspaceContentCursor({
 			kind: "document",
@@ -173,7 +179,6 @@ describe("WorkspaceContentReader", () => {
 					html: `<p>${"😀".repeat(300_000)}</p>`,
 					revision: "revision-1",
 				}),
-			kernel: createKernel(),
 		});
 		const requests = Array.from({ length: 20 }, (_, index) => ({
 			mode: "start" as const,
@@ -201,7 +206,6 @@ describe("WorkspaceContentReader", () => {
 		const read = createReader({
 			bucket: {} as R2Bucket,
 			getDocumentSession: () => session,
-			kernel: createKernel(),
 		});
 
 		const [chunk] = await read([{ mode: "start", path: "/Notes" }]);
@@ -236,7 +240,7 @@ describe("WorkspaceContentReader", () => {
 		const read = createReader({
 			bucket: {} as R2Bucket,
 			getDocumentSession: () => createDocumentSession({ html: "", revision: "revision-1" }),
-			kernel: createKernel(fileItem),
+			item: fileItem,
 		});
 
 		await expect(
@@ -251,19 +255,17 @@ describe("WorkspaceContentReader", () => {
 	});
 
 	it("keeps one ordered result for every requested path", async () => {
-		const kernel = createKernel();
-		kernel.resolvePaths = vi.fn(
-			async () =>
-				[
-					{ code: "path_not_absolute", path: "Notes", status: "invalid_path" },
-					{ path: "/Missing", status: "not_found" },
-					{ path: "/", status: "root" },
-				] satisfies WorkspaceKernelPathResolution[],
-		);
 		const read = createReader({
 			bucket: {} as R2Bucket,
 			getDocumentSession: () => createDocumentSession({ html: "", revision: "revision-1" }),
-			kernel,
+			resolvePaths: vi.fn(
+				async () =>
+					[
+						{ code: "path_not_absolute", path: "Notes", status: "invalid_path" },
+						{ path: "/Missing", status: "not_found" },
+						{ path: "/", status: "root" },
+					] satisfies WorkspacePathResolution[],
+			),
 		});
 
 		await expect(
@@ -314,20 +316,26 @@ function createDocumentSession(input: { html: string; revision: string }) {
 	};
 }
 
-function createKernel(item: WorkspaceItem = documentItem) {
-	return {
-		resolvePaths: vi.fn(async ({ paths }: { paths: string[] }) =>
-			paths.map((path) => ({ item, path, status: "item" as const })),
-		),
-		listItemRelations: vi.fn(async () => []),
-		getItemPaths: vi.fn(async () => [{ itemId: item.id, path: `/${item.name}` }]),
-	} as unknown as WorkspaceKernelClient;
-}
-
 function createReader(input: {
 	bucket: R2Bucket;
 	getDocumentSession: (itemId: string) => ReturnType<typeof createDocumentSession>;
-	kernel: WorkspaceKernelClient;
+	item?: WorkspaceItem;
+	resolvePaths?: typeof persistence.resolveWorkspacePaths;
 }) {
-	return (requests: WorkspaceContentReadRequest[]) => readWorkspaceContent({ ...input, requests });
+	const item = input.item ?? documentItem;
+	persistence.resolveWorkspacePaths.mockImplementation(
+		input.resolvePaths ??
+			(async ({ paths }: { paths: string[] }) =>
+				paths.map((path) => ({ item, path, status: "item" as const }))),
+	);
+	persistence.listWorkspaceItemRelations.mockResolvedValue([]);
+	persistence.getWorkspaceItemPaths.mockResolvedValue([{ itemId: item.id, path: "/Notes" }]);
+
+	return (requests: WorkspaceContentReadRequest[]) =>
+		readWorkspaceContent({
+			bucket: input.bucket,
+			getDocumentSession: input.getDocumentSession,
+			requests,
+			workspaceId: "workspace-1",
+		});
 }

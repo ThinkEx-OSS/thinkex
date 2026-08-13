@@ -2,7 +2,7 @@ import handler from "@tanstack/react-start/server-entry";
 
 import { routeUserAIRequest } from "#/features/workspaces/ai/auth";
 import { routeDocumentSessionRequest } from "#/features/workspaces/documents/document-session-auth";
-import { routeWorkspaceKernelRequest } from "#/features/workspaces/kernel/workspace-kernel-auth";
+import { routeWorkspaceRoomRequest } from "#/features/workspaces/realtime/workspace-room-auth";
 import { routeMcpRequest } from "#/features/mcp/mcp-route";
 import { recordOperationalFailure } from "#/integrations/observability/operational-events";
 import { posthogHost, posthogHostOrigin, posthogProjectToken } from "#/integrations/posthog/config";
@@ -24,7 +24,7 @@ export {
 	UserAIStore,
 	WorkspaceFileExtractionWorkflow,
 	WorkspaceFileProcessor,
-	WorkspaceKernel,
+	WorkspaceRoom,
 } from "#/durable-objects";
 
 const isProduction = import.meta.env.PROD;
@@ -121,10 +121,10 @@ export default {
 				return documentSessionResponse;
 			}
 
-			const workspaceKernelResponse = await routeWorkspaceKernelRequest(request, env);
+			const workspaceResponse = await routeWorkspaceRoomRequest(request, env);
 
 			return withSecurityHeaders(
-				workspaceKernelResponse ??
+				workspaceResponse ??
 					(await fetchWithHtmlFallback(request, (appRequest) => handler.fetch(appRequest))),
 				env,
 				request,

@@ -1,6 +1,7 @@
-import { getAuthorizedWorkspaceKernel } from "#/features/workspaces/operations/workspace-operation-context";
+import { authorizeWorkspaceOperation } from "#/features/workspaces/operations/workspace-operation-context";
 import type { WorkspaceAccessContext } from "#/features/workspaces/operations/workspace-access-context";
-import type { ListWorkspaceKernelItemsResult } from "#/features/workspaces/kernel/workspace-kernel-list";
+import type { ListWorkspaceItemsResult } from "#/features/workspaces/model/workspace-tree-list";
+import { listWorkspaceTreeItems } from "#/features/workspaces/persistence/workspace-items";
 
 export interface ListWorkspaceItemsOperationInput {
 	offset?: number;
@@ -11,15 +12,16 @@ export interface ListWorkspaceItemsOperationInput {
 export async function listWorkspaceItemsOperation(
 	accessContext: WorkspaceAccessContext,
 	input: ListWorkspaceItemsOperationInput,
-): Promise<ListWorkspaceKernelItemsResult> {
-	const kernel = await getAuthorizedWorkspaceKernel({
+): Promise<ListWorkspaceItemsResult> {
+	await authorizeWorkspaceOperation({
 		access: "read",
 		context: accessContext,
 	});
 
-	return await kernel.listTreeItems({
+	return await listWorkspaceTreeItems({
 		offset: input.offset,
 		path: input.path,
 		recursive: input.recursive,
+		workspaceId: accessContext.workspaceId,
 	});
 }

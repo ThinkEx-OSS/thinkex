@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { workspaceExtractionStallThresholdMs } from "#/features/workspaces/extraction/workspace-extraction-budgets";
 import { resolveWorkspaceProjectionReadiness } from "#/features/workspaces/extraction/workspace-projection-readiness";
-import type { ReadWorkspaceFileExtractionResult } from "#/features/workspaces/kernel/workspace-kernel-types";
+import type { ReadWorkspaceFileExtractionResult } from "#/features/workspaces/persistence/workspace-persistence-types";
 
 const now = Date.parse("2026-07-29T12:00:00.000Z");
 

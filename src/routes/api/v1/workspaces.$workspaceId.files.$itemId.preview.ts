@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { createFileRoute } from "@tanstack/react-router";
 import { WORKSPACE_FILE_PREVIEW_CONTENT_TYPE } from "#/features/workspaces/files/workspace-file-preview.constants";
-import { readWorkspaceKernelFilePreview } from "#/features/workspaces/kernel/workspace-kernel-access";
+import { readWorkspaceFilePreview } from "#/features/workspaces/persistence/workspace-files";
 import { WorkspaceForbiddenError } from "#/features/workspaces/server/permissions";
 import { apiError, apiFailure, getRequestId } from "#/lib/api/http";
 import { getSessionFromRequest } from "#/lib/auth-queries.server";
@@ -21,7 +21,7 @@ async function handleWorkspaceFilePreview(request: Request, workspaceId: string,
 			);
 		}
 
-		const preview = await readWorkspaceKernelFilePreview({
+		const preview = await readWorkspaceFilePreview({
 			workspaceId,
 			userId: session.user.id,
 			itemId,
@@ -36,7 +36,7 @@ async function handleWorkspaceFilePreview(request: Request, workspaceId: string,
 			);
 		}
 
-		const object = await env.WORKSPACE_KERNEL_FILES.get(preview.objectKey);
+		const object = await env.WORKSPACE_FILES.get(preview.objectKey);
 
 		if (!object) {
 			return apiError(

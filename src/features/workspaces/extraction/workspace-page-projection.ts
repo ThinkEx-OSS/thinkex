@@ -1,6 +1,9 @@
 import type { JsonValue } from "#/features/workspaces/contracts";
 import type { MarkdownProjectionPage } from "#/features/workspaces/extraction/page-markdown-projection";
-import type { WorkspaceKernelClient } from "#/features/workspaces/kernel/workspace-kernel-access";
+import {
+	publishWorkspaceFilePages,
+	readWorkspaceFilePages,
+} from "#/features/workspaces/persistence/workspace-files";
 import {
 	parseWorkspacePageRange,
 	WorkspacePageSelectionError,
@@ -14,22 +17,23 @@ const maxProjectionMarkdownBytes = 16 * 1024 * 1024;
 export async function publishWorkspacePageProjection(input: {
 	actorUserId?: string | null;
 	itemId: string;
-	kernel: Pick<WorkspaceKernelClient, "publishPages">;
 	metadata?: Record<string, JsonValue>;
 	pages: AsyncIterable<MarkdownProjectionPage> | Iterable<MarkdownProjectionPage>;
 	provider: string;
 	providerMode: string;
 	sourceHash: string;
 	tier: "enhanced" | "fast";
+	workspaceId: string;
 }) {
 	const projection = await materializeWorkspacePageProjection(input.pages);
-	const status = await input.kernel.publishPages({
+	const status = await publishWorkspaceFilePages({
 		itemId: input.itemId,
 		pages: projection.pages,
 		provider: input.provider,
 		providerMode: input.providerMode,
 		sourceHash: input.sourceHash,
 		tier: input.tier,
+		workspaceId: input.workspaceId,
 		metadataJson: input.metadata,
 		actorUserId: input.actorUserId,
 	});
@@ -43,15 +47,16 @@ export async function publishWorkspacePageProjection(input: {
 
 export async function readWorkspacePageProjection(input: {
 	itemId: string;
-	kernel: Pick<WorkspaceKernelClient, "readPages">;
 	pageCount: number;
 	pages?: string;
+	workspaceId: string;
 }): Promise<{ content: string; emptyPages: number[]; pages: WorkspaceReadPages }> {
 	const requested = input.pages?.trim() || "1";
 	const selectedPageNumbers = parseWorkspacePageRange(requested, input.pageCount);
-	const pages = await input.kernel.readPages({
+	const pages = await readWorkspaceFilePages({
 		itemId: input.itemId,
 		pageNumbers: selectedPageNumbers,
+		workspaceId: input.workspaceId,
 	});
 	if (
 		pages.length !== selectedPageNumbers.length ||

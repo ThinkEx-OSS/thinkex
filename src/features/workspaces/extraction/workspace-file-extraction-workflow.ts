@@ -22,7 +22,7 @@ import type {
 } from "#/features/workspaces/model/workspace-file/types";
 import { getWorkspaceFileSourceObject } from "#/features/workspaces/extraction/workspace-file-source";
 import { publishWorkspacePageProjection } from "#/features/workspaces/extraction/workspace-page-projection";
-import { getWorkspaceKernelFromEnv } from "#/features/workspaces/kernel/workspace-kernel-access";
+import { updateWorkspaceFileExtraction } from "#/features/workspaces/persistence/workspace-files";
 import { getWorkspaceUploadFamily } from "#/features/workspaces/model/workspace-file";
 
 /**
@@ -42,9 +42,9 @@ export class WorkspaceFileExtractionWorkflow extends WorkflowEntrypoint<
 		const params = assertWorkflowParams(event.payload);
 
 		const processing = await step.do("mark extraction processing", async () => {
-			const kernel = await getWorkspaceKernelFromEnv(this.env, params.workspaceId);
-			return kernel.updateFileExtraction({
+			return updateWorkspaceFileExtraction({
 				itemId: params.itemId,
+				workspaceId: params.workspaceId,
 				status: "processing",
 				actorUserId: params.actorUserId,
 			});
@@ -68,9 +68,9 @@ export class WorkspaceFileExtractionWorkflow extends WorkflowEntrypoint<
 		// would wait on an extraction that is no longer running.
 		if (enhancement.outcome === "error" && liteParse.outcome !== "success") {
 			const failed = await step.do("mark extraction failed", async () => {
-				const kernel = await getWorkspaceKernelFromEnv(this.env, params.workspaceId);
-				return kernel.updateFileExtraction({
+				return updateWorkspaceFileExtraction({
 					itemId: params.itemId,
+					workspaceId: params.workspaceId,
 					status: "failed",
 					errorMessage: getErrorMessage(enhancement.error),
 					actorUserId: params.actorUserId,
@@ -144,11 +144,10 @@ export class WorkspaceFileExtractionWorkflow extends WorkflowEntrypoint<
 				"extract page markdown with provider",
 				getWorkspaceExtractionStepConfig(workspaceExtractionStepBudgets.extract),
 				async (): Promise<PublishedPageExtractionResult> => {
-					const kernel = await getWorkspaceKernelFromEnv(this.env, params.workspaceId);
 					const { object, source } = await getWorkspaceFileSourceObject({
 						env: this.env,
 						itemId: params.itemId,
-						kernel,
+						workspaceId: params.workspaceId,
 					});
 					const route = getWorkspaceUploadFamily(params.assetKind).extractionRoute;
 					const provider = createMarkdownExtractionProvider(route.provider, this.env);
@@ -165,8 +164,8 @@ export class WorkspaceFileExtractionWorkflow extends WorkflowEntrypoint<
 					creditsUsed = getExtractionCreditsUsed(extraction.metadata);
 
 					const projection = await publishWorkspacePageProjection({
-						kernel,
 						itemId: params.itemId,
+						workspaceId: params.workspaceId,
 						pages: extraction.pages,
 						provider: extraction.provider,
 						providerMode: extraction.providerMode,

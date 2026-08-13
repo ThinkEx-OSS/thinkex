@@ -3,7 +3,7 @@ import { FilePen } from "lucide-react";
 import type { AiChatDocumentEditGroup } from "#/features/workspaces/components/ai-chat/ai-chat-document-edit-actions";
 import { useDocumentEditReview } from "#/features/workspaces/documents/document-edit-review-context";
 import { useWorkspaceLocationActions } from "#/features/workspaces/locations/workspace-location-context";
-import { getWorkspacePathName } from "#/features/workspaces/kernel/workspace-kernel-paths";
+import { getWorkspacePathName } from "#/features/workspaces/model/workspace-paths";
 
 /**
  * Receipt for the documents the assistant changed in one turn: what it touched

@@ -123,7 +123,7 @@ async function executeChatAttachmentUpload(
 		);
 	} finally {
 		if (objectKey) {
-			await env.WORKSPACE_KERNEL_FILES.delete(objectKey);
+			await env.WORKSPACE_FILES.delete(objectKey);
 		}
 	}
 }

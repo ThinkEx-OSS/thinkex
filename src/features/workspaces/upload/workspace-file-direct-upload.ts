@@ -94,7 +94,7 @@ export async function claimWorkspaceDirectUploadCompletion(
 	claims: WorkspaceDirectUploadClaims,
 ) {
 	const objectKey = getWorkspaceFileUploadCompletionKey(claims);
-	const claim = await env.WORKSPACE_KERNEL_FILES.put(objectKey, "", {
+	const claim = await env.WORKSPACE_FILES.put(objectKey, "", {
 		onlyIf: { etagDoesNotMatch: "*" },
 	});
 

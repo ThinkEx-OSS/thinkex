@@ -2,7 +2,7 @@ import { documentAiEditFailureCodes } from "#/features/workspaces/documents/docu
 import { workspaceRelationFailureCodes } from "#/features/workspaces/operations/relations";
 
 // The failure-code vocabulary for each workspace operation. This is a pure leaf
-// (no operation impls, no kernel) so the model-facing schema + contract layer can
+// (no operation impls, no persistence imports) so the model-facing schema + contract layer can
 // depend on it without dragging the worker runtime — which also lets these run in
 // plain Node evals. Impls import their codes from here rather than owning them.
 

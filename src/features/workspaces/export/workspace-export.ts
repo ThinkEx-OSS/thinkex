@@ -8,7 +8,8 @@ import {
 } from "#/features/workspaces/documents/tiptap-document";
 import { createWorkspaceExportStream } from "#/features/workspaces/export/workspace-export-archive";
 import { canExportWorkspaceEstimate } from "#/features/workspaces/export/workspace-export-limit";
-import { getWorkspaceKernel } from "#/features/workspaces/kernel/workspace-kernel-access";
+import { readWorkspaceDocumentCheckpoint } from "#/features/workspaces/persistence/workspace-document-checkpoints";
+import { readWorkspaceFileSource } from "#/features/workspaces/persistence/workspace-files";
 import { WorkspaceForbiddenError } from "#/features/workspaces/server/permissions";
 import { getWorkspacePageForUser } from "#/features/workspaces/server/queries";
 import { getMetadataNumber } from "#/features/workspaces/model/workspace-file";
@@ -47,7 +48,7 @@ export async function createWorkspaceExport(input: { workspaceId: string; userId
 				if (!objectKey) {
 					throw new Error(`Workspace file was not prepared for ${item.name}.`);
 				}
-				const object = await env.WORKSPACE_KERNEL_FILES.get(objectKey);
+				const object = await env.WORKSPACE_FILES.get(objectKey);
 				if (!object) {
 					throw new Error(`Workspace file source is missing for ${item.name}.`);
 				}
@@ -84,7 +85,6 @@ async function prepareWorkspaceExport(input: { workspaceId: string; userId: stri
 		throw new WorkspaceForbiddenError();
 	}
 
-	const kernel = await getWorkspaceKernel(input.workspaceId);
 	const documents = new Map<string, TiptapDocumentJson>();
 	const fileObjectKeys = new Map<string, string>();
 	let estimatedBytes = page.items.length * 512;
@@ -93,14 +93,20 @@ async function prepareWorkspaceExport(input: { workspaceId: string; userId: stri
 	// bytes are sent, an error can only abort the download and leave a partial archive.
 	for (const item of page.items) {
 		if (getWorkspaceItemContentKind(item.type) === "document") {
-			const { content } = await kernel.readDocumentCheckpoint({ itemId: item.id });
+			const { content } = await readWorkspaceDocumentCheckpoint({
+				itemId: item.id,
+				workspaceId: input.workspaceId,
+			});
 			estimatedBytes += textEncoder.encode(content).byteLength;
 			documents.set(item.id, parseTiptapDocumentJson(content));
 			continue;
 		}
 		if (getWorkspaceItemContentKind(item.type) === "file") {
-			const source = await kernel.getFileSource({ itemId: item.id });
-			const object = await env.WORKSPACE_KERNEL_FILES.head(source.objectKey);
+			const source = await readWorkspaceFileSource({
+				itemId: item.id,
+				workspaceId: input.workspaceId,
+			});
+			const object = await env.WORKSPACE_FILES.head(source.objectKey);
 			if (!object) {
 				throw new Error(`Workspace file source is missing for ${item.name}.`);
 			}

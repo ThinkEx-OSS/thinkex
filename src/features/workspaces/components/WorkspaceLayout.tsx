@@ -47,7 +47,7 @@ import {
 import {
 	useCreateWorkspaceItemMutation,
 	useMoveWorkspaceItemsMutation,
-} from "#/features/workspaces/use-workspace-kernel-items";
+} from "#/features/workspaces/use-workspace-items";
 import { getWorkspaceMemberCapabilities } from "#/features/workspaces/workspace-member-capabilities";
 import { useAppHotkey } from "#/lib/hotkeys-core";
 import { isOpenPopupInteractionTarget } from "#/lib/keyboard-event-target";

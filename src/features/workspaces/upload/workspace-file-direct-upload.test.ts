@@ -132,7 +132,7 @@ describe("workspace direct upload sessions", () => {
 		let claimed = false;
 		const env = {
 			...createEnv(),
-			WORKSPACE_KERNEL_FILES: {
+			WORKSPACE_FILES: {
 				async put() {
 					if (claimed) {
 						return null;

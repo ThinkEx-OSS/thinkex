@@ -2,8 +2,8 @@ import { env } from "cloudflare:workers";
 
 import type { WorkspaceFileExtractionWorkflowParams } from "#/features/workspaces/extraction/types";
 import { getWorkspaceFileExtractionWorkflowId } from "#/features/workspaces/extraction/workspace-file-extraction-workflow-id";
-import { getWorkspaceKernel } from "#/features/workspaces/kernel/workspace-kernel-access";
 import type { WorkspaceFileAssetKind } from "#/features/workspaces/model/workspace-file";
+import { updateWorkspaceFileExtraction } from "#/features/workspaces/persistence/workspace-files";
 import { trackWorkspaceFileUploadUsage } from "#/integrations/autumn/workspace-file-usage";
 import { recordOperationalFailure } from "#/integrations/observability/operational-events";
 
@@ -60,10 +60,10 @@ export async function requestWorkspaceFileExtraction(input: {
 		});
 
 		try {
-			const kernel = await getWorkspaceKernel(input.workspaceId);
 			const errorMessage = error instanceof Error ? error.message : "Failed to queue extraction.";
-			await kernel.updateFileExtraction({
+			await updateWorkspaceFileExtraction({
 				itemId: input.itemId,
+				workspaceId: input.workspaceId,
 				status: "failed",
 				errorMessage,
 				actorUserId: input.actorUserId,

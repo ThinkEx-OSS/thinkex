@@ -2,9 +2,9 @@ import { useAgent } from "agents/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
-	getWorkspaceKernelRealtimePath,
-	workspaceKernelAgentName,
-	workspaceKernelBasePath,
+	getWorkspaceRoomRealtimePath,
+	workspaceRoomAgentName,
+	workspaceRoomBasePath,
 } from "#/features/workspaces/agent-routes";
 import {
 	parseWorkspaceRealtimeServerMessage,
@@ -115,9 +115,9 @@ export function useWorkspaceRealtime({
 	);
 
 	useAgent({
-		agent: workspaceKernelAgentName,
-		basePath: workspaceKernelBasePath,
-		path: getWorkspaceKernelRealtimePath(workspaceId),
+		agent: workspaceRoomAgentName,
+		basePath: workspaceRoomBasePath,
+		path: getWorkspaceRoomRealtimePath(workspaceId),
 		onClose: handleClose,
 		onError: handleError,
 		onMessage: handleMessage,

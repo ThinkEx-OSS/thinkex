@@ -6,7 +6,7 @@ import {
 } from "#/features/workspaces/clipboard/workspace-clipboard-intake";
 import { useWorkspaceFileIntake } from "#/features/workspaces/components/WorkspaceFileIntakeProvider";
 import { useWorkspacePaneRuntime } from "#/features/workspaces/components/WorkspacePaneRuntime";
-import { useCreateWorkspaceItemMutation } from "#/features/workspaces/use-workspace-kernel-items";
+import { useCreateWorkspaceItemMutation } from "#/features/workspaces/use-workspace-items";
 import { isEditableEventTarget, isOpenPopupInteractionTarget } from "#/lib/keyboard-event-target";
 
 export function useWorkspaceClipboardIntake({

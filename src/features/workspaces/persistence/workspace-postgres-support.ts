@@ -21,11 +21,11 @@ import {
 	WORKSPACE_ITEM_SORT_STEP,
 } from "#/features/workspaces/defaults";
 import type {
-	CreateWorkspaceKernelFileFromUploadArgs,
+	CreateWorkspaceFileFromUploadArgs,
 	ReadWorkspaceFileExtractionResult,
-	WorkspaceKernelNameConflict,
-	WorkspaceKernelNameConflictPolicy,
-} from "#/features/workspaces/kernel/workspace-kernel-types";
+	WorkspaceNameConflict,
+	WorkspaceNameConflictPolicy,
+} from "#/features/workspaces/persistence/workspace-persistence-types";
 import { assertCanMutateWorkspace } from "#/features/workspaces/server/permissions";
 
 export type Database = Awaited<ReturnType<typeof createDbContext>>["db"];
@@ -33,12 +33,8 @@ export type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
 export type QueryExecutor = Database | Transaction;
 export type ItemRow = typeof workspaceItems.$inferSelect;
 
-export async function withWorkspaceDatabase<T>(run: (db: Database) => Promise<T>) {
-	return await withDb(run);
-}
-
 export async function withWorkspaceTransaction<T>(run: (transaction: Transaction) => Promise<T>) {
-	return await withWorkspaceDatabase((db) => db.transaction(run));
+	return await withDb((db) => db.transaction(run));
 }
 
 export async function lockWorkspaceForActor(
@@ -182,12 +178,11 @@ export async function resolveWorkspaceItemName(
 		parentId: string | null;
 		requestedName?: string;
 		excludeItemId?: string;
-		onNameConflict?: WorkspaceKernelNameConflictPolicy;
+		onNameConflict?: WorkspaceNameConflictPolicy;
 		reservedNames?: string[];
 	},
 ): Promise<
-	| { name: string; status: "resolved" }
-	| { conflict: WorkspaceKernelNameConflict; status: "conflict" }
+	{ name: string; status: "resolved" } | { conflict: WorkspaceNameConflict; status: "conflict" }
 > {
 	const siblingCondition = input.parentId
 		? eq(workspaceItems.parentId, input.parentId)
@@ -287,11 +282,11 @@ function isJsonValue(value: unknown): value is JsonValue {
 }
 
 export function createCompatibleFileMetadata(input: {
-	assetKind: CreateWorkspaceKernelFileFromUploadArgs["assetKind"];
+	assetKind: CreateWorkspaceFileFromUploadArgs["assetKind"];
 	contentType: string;
 	originalName: string;
 	sizeBytes: number;
-	source?: CreateWorkspaceKernelFileFromUploadArgs["source"];
+	source?: CreateWorkspaceFileFromUploadArgs["source"];
 }): Record<string, JsonValue> {
 	return {
 		assetKind: input.assetKind,

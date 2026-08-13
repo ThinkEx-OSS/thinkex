@@ -3,7 +3,7 @@ import { and, eq } from "drizzle-orm";
 
 import { workspaceItems, workspaces } from "#/db/schema";
 import { createDbContext } from "#/db/server";
-import { userAIAgentName, workspaceKernelAgentName } from "#/features/workspaces/agent-routes";
+import { userAIAgentName, workspaceRoomAgentName } from "#/features/workspaces/agent-routes";
 import type { ResourcePurgeResult } from "#/features/workspaces/resource-purge-result";
 import {
 	recordOperationalFailure,
@@ -15,7 +15,7 @@ interface UserAIStoreLifecycleAgent {
 	purgeForDeletion(): Promise<ResourcePurgeResult>;
 }
 
-interface WorkspaceKernelLifecycleAgent {
+interface WorkspaceLifecycleAgent {
 	purgeForDeletion(input?: { documentItemIds?: string[] }): Promise<ResourcePurgeResult>;
 }
 
@@ -77,8 +77,8 @@ async function purgeWorkspaceResourcesResult(
 			documentItemIds.length > 0
 				? documentItemIds
 				: await listWorkspaceDocumentItemIds(workspaceId);
-		const kernel = await getWorkspaceKernelLifecycleAgent(env, workspaceId);
-		return await kernel.purgeForDeletion({ documentItemIds: itemIds });
+		const room = await getWorkspaceRoomLifecycleAgent(env, workspaceId);
+		return await room.purgeForDeletion({ documentItemIds: itemIds });
 	} catch (error) {
 		recordPurgeAgentFailure("workspace", workspaceId, error);
 		return { attempted: 1, failed: 1 };
@@ -155,9 +155,9 @@ async function getUserAIStoreLifecycleAgent(
 	return await getAgentByName(env[userAIAgentName], userId);
 }
 
-async function getWorkspaceKernelLifecycleAgent(
+async function getWorkspaceRoomLifecycleAgent(
 	env: Cloudflare.Env,
 	workspaceId: string,
-): Promise<WorkspaceKernelLifecycleAgent> {
-	return await getAgentByName(env[workspaceKernelAgentName], workspaceId);
+): Promise<WorkspaceLifecycleAgent> {
+	return await getAgentByName(env[workspaceRoomAgentName], workspaceId);
 }

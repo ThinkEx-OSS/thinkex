@@ -6,7 +6,6 @@ import {
 } from "#/features/workspaces/content/workspace-content-contract";
 import { createWorkspaceReadItemsModelOutput } from "#/features/workspaces/content/workspace-read-references";
 import { getWorkspaceFileSourceObject } from "#/features/workspaces/extraction/workspace-file-source";
-import { getWorkspaceKernelFromEnv } from "#/features/workspaces/kernel/workspace-kernel-access";
 
 const maxPendingPdfBytes = 3.5 * 1024 * 1024;
 type ModelToolOutput = Awaited<ReturnType<NonNullable<Tool["toModelOutput"]>>>;
@@ -39,11 +38,10 @@ export async function createPendingPdfModelOutput(input: {
 	}
 
 	try {
-		const kernel = await getWorkspaceKernelFromEnv(input.env, input.workspaceId);
 		const { object, source } = await getWorkspaceFileSourceObject({
 			env: input.env,
 			itemId: result.itemId,
-			kernel,
+			workspaceId: input.workspaceId,
 		});
 		if (source.contentType !== "application/pdf" || object.size > maxPendingPdfBytes) {
 			return null;

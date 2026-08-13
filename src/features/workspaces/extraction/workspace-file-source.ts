@@ -1,12 +1,15 @@
-import type { WorkspaceKernelClient } from "#/features/workspaces/kernel/workspace-kernel-access";
+import { readWorkspaceFileSource } from "#/features/workspaces/persistence/workspace-files";
 
 export async function getWorkspaceFileSourceObject(input: {
 	env: Cloudflare.Env;
 	itemId: string;
-	kernel: WorkspaceKernelClient;
+	workspaceId: string;
 }) {
-	const source = await input.kernel.getFileSource({ itemId: input.itemId });
-	const object = await input.env.WORKSPACE_KERNEL_FILES.get(source.objectKey);
+	const source = await readWorkspaceFileSource({
+		itemId: input.itemId,
+		workspaceId: input.workspaceId,
+	});
+	const object = await input.env.WORKSPACE_FILES.get(source.objectKey);
 
 	if (!object) {
 		throw new Error("Workspace file source object was not found.");

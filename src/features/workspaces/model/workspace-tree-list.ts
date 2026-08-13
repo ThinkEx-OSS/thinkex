@@ -1,69 +1,69 @@
 import type { WorkspaceItem, WorkspaceItemType } from "#/features/workspaces/contracts";
 import {
 	joinWorkspacePathSegment,
-	resolveWorkspaceKernelCwd,
-	WorkspaceKernelPathError,
-	type WorkspaceKernelTree,
-	type WorkspaceKernelPathErrorCode,
-} from "#/features/workspaces/kernel/workspace-kernel-paths";
+	resolveWorkspaceCwd,
+	WorkspacePathError,
+	type WorkspaceTree,
+	type WorkspacePathErrorCode,
+} from "#/features/workspaces/model/workspace-paths";
 import {
 	resolveWorkspaceFileTypeFromItem,
 	type WorkspaceFileAssetKind,
 } from "#/features/workspaces/model/workspace-file";
 
-export interface ListWorkspaceKernelItemsResult {
+export interface ListWorkspaceItemsResult {
 	path: string;
 	total: number;
 	nextOffset?: number;
-	items: ListWorkspaceKernelItem[];
-	failed: ListWorkspaceKernelItemsFailure[];
+	items: ListWorkspaceItem[];
+	failed: ListWorkspaceItemsFailure[];
 }
 
-export interface ListWorkspaceKernelItem {
+export interface ListWorkspaceItem {
 	modifiedAt: string;
 	path: string;
 	type: WorkspaceItemType | WorkspaceFileAssetKind;
 }
 
-export interface ListWorkspaceKernelItemsFailure {
-	code: WorkspaceKernelPathErrorCode;
+export interface ListWorkspaceItemsFailure {
+	code: WorkspacePathErrorCode;
 	path: string;
 }
 
-interface WorkspaceKernelListSelection {
-	failed: ListWorkspaceKernelItemsFailure[];
+interface WorkspaceListSelection {
+	failed: ListWorkspaceItemsFailure[];
 	path: string;
-	rows: WorkspaceKernelListRow[];
+	rows: WorkspaceListRow[];
 	total: number;
 	nextOffset?: number;
 }
 
-interface WorkspaceKernelListRow {
+interface WorkspaceListRow {
 	item: WorkspaceItem;
 	path: string;
 }
 
-export function listWorkspaceKernelTreeItems(input: {
-	tree: WorkspaceKernelTree;
+export function listWorkspaceTreeItems(input: {
+	tree: WorkspaceTree;
 	offset?: number;
 	path?: string;
 	recursive?: boolean;
 	limit?: number;
-}): ListWorkspaceKernelItemsResult {
-	return formatWorkspaceKernelListSelection(selectWorkspaceKernelTreeItems(input));
+}): ListWorkspaceItemsResult {
+	return formatWorkspaceListSelection(selectWorkspaceTreeItems(input));
 }
 
-function selectWorkspaceKernelTreeItems(input: {
-	tree: WorkspaceKernelTree;
+function selectWorkspaceTreeItems(input: {
+	tree: WorkspaceTree;
 	offset?: number;
 	path?: string;
 	recursive?: boolean;
 	limit?: number;
-}): WorkspaceKernelListSelection {
+}): WorkspaceListSelection {
 	try {
-		const cwd = resolveWorkspaceKernelCwd(input.path ?? "/", input.tree);
+		const cwd = resolveWorkspaceCwd(input.path ?? "/", input.tree);
 		const boundedLimit = clampWorkspaceListLimit(input.limit);
-		const listing = collectWorkspaceKernelListRows({
+		const listing = collectWorkspaceListRows({
 			offset: input.offset ?? 0,
 			parentId: cwd.parentId,
 			basePath: cwd.path,
@@ -80,7 +80,7 @@ function selectWorkspaceKernelTreeItems(input: {
 			failed: [],
 		};
 	} catch (error) {
-		if (error instanceof WorkspaceKernelPathError) {
+		if (error instanceof WorkspacePathError) {
 			const path = input.path?.trim() || "/";
 			return {
 				path,
@@ -99,13 +99,11 @@ function selectWorkspaceKernelTreeItems(input: {
 	}
 }
 
-function formatWorkspaceKernelListSelection(
-	selection: WorkspaceKernelListSelection,
-): ListWorkspaceKernelItemsResult {
+function formatWorkspaceListSelection(selection: WorkspaceListSelection): ListWorkspaceItemsResult {
 	return {
 		failed: selection.failed,
 		items: selection.rows.map((row) =>
-			formatWorkspaceKernelListItem({
+			formatWorkspaceListItem({
 				item: row.item,
 				path: row.path,
 			}),
@@ -116,7 +114,7 @@ function formatWorkspaceKernelListSelection(
 	};
 }
 
-function collectWorkspaceKernelListRows({
+function collectWorkspaceListRows({
 	offset,
 	parentId,
 	basePath,
@@ -130,8 +128,8 @@ function collectWorkspaceKernelListRows({
 	recursive: boolean;
 	limit: number;
 	childrenByParentId: Map<string | null, WorkspaceItem[]>;
-}): Pick<WorkspaceKernelListSelection, "nextOffset" | "rows" | "total"> {
-	const rows: WorkspaceKernelListRow[] = [];
+}): Pick<WorkspaceListSelection, "nextOffset" | "rows" | "total"> {
+	const rows: WorkspaceListRow[] = [];
 	const visitedIds = new Set<string>();
 
 	const visit = (currentParentId: string | null, relativeParentPath: string) => {
@@ -165,10 +163,7 @@ function collectWorkspaceKernelListRows({
 	};
 }
 
-function formatWorkspaceKernelListItem(input: {
-	item: WorkspaceItem;
-	path: string;
-}): ListWorkspaceKernelItem {
+function formatWorkspaceListItem(input: { item: WorkspaceItem; path: string }): ListWorkspaceItem {
 	return {
 		modifiedAt: input.item.updatedAt,
 		path: input.path,

@@ -5,7 +5,6 @@ import {
 	getWorkspaceItemRegistryEntry,
 	isWorkspaceItemContainer,
 	workspaceItemTypeSchema,
-	type WorkspaceItemContentKind,
 	type WorkspaceItemType,
 } from "#/features/workspaces/workspace-item-registry";
 
@@ -17,7 +16,7 @@ export {
 	isWorkspaceItemContainer,
 	workspaceItemTypeSchema,
 };
-export type { WorkspaceItemContentKind, WorkspaceItemType };
+export type { WorkspaceItemType };
 
 export const WORKSPACE_ITEM_NAME_MAX_LENGTH = 160;
 

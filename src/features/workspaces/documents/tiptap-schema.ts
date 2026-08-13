@@ -133,13 +133,13 @@ const DocumentAiRef = Extension.create({
 /**
  * Server-side code block extension. The editor swaps in `CodeBlockShiki`,
  * which extends the same `codeBlock` node spec, so JSON snapshots stay
- * compatible between kernel preview/session code and the live editor.
+ * compatible between server snapshots and session code and the live editor.
  */
-export const tiptapDocumentKernelCodeBlock = CodeBlock;
+export const tiptapDocumentServerCodeBlock = CodeBlock;
 
 export function getTiptapDocumentSchemaExtensions({
 	citation = Citation,
-	codeBlock = tiptapDocumentKernelCodeBlock,
+	codeBlock = tiptapDocumentServerCodeBlock,
 	widget = Widget,
 }: {
 	citation?: AnyExtension;

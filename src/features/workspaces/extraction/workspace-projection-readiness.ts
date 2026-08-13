@@ -1,5 +1,5 @@
 import { workspaceExtractionStallThresholdMs } from "#/features/workspaces/extraction/workspace-extraction-budgets";
-import type { ReadWorkspaceFileExtractionResult } from "#/features/workspaces/kernel/workspace-kernel-types";
+import type { ReadWorkspaceFileExtractionResult } from "#/features/workspaces/persistence/workspace-persistence-types";
 
 const minimumRetryAfterSeconds = 15;
 const maximumRetryAfterSeconds = 120;

@@ -34,7 +34,7 @@ export function stringifyTiptapDocumentJson(document: TiptapDocumentJson) {
 	return `${JSON.stringify(normalized)}\n`;
 }
 
-/** Canonical ingest for Tiptap JSON from markdown, Yjs, or kernel storage. */
+/** Canonical ingest for Tiptap JSON from markdown, Yjs, or stored checkpoints. */
 export function coerceTiptapDocumentJson(value: unknown): TiptapDocumentJson {
 	return coerceTiptapDocumentProjection(value).document;
 }

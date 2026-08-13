@@ -8,4 +8,4 @@ export { OfficePdfConverter } from "#/features/workspaces/conversion/office-pdf-
 export { DocumentSession } from "#/features/workspaces/documents/document-session";
 export { WorkspaceFileExtractionWorkflow } from "#/features/workspaces/extraction/workspace-file-extraction-workflow";
 export { WorkspaceFileProcessor } from "#/features/workspaces/files/workspace-file-processor";
-export { WorkspaceKernel } from "#/features/workspaces/kernel/workspace-kernel";
+export { WorkspaceRoom } from "#/features/workspaces/realtime/workspace-room";

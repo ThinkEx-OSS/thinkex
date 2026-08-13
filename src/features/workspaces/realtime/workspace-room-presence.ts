@@ -9,7 +9,7 @@ const USER_ID_HEADER = "x-thinkex-user-id";
 const USER_NAME_HEADER = "x-thinkex-user-name";
 const USER_IMAGE_HEADER = "x-thinkex-user-image";
 
-export function setWorkspaceKernelUserHeaders(
+export function setWorkspaceRoomUserHeaders(
 	request: Request,
 	user: Omit<WorkspacePresenceUser, "connectionId">,
 ) {
@@ -26,7 +26,7 @@ export function setWorkspaceKernelUserHeaders(
 	return new Request(request, { headers });
 }
 
-export function getWorkspaceKernelUserFromHeaders(request: Request) {
+export function getWorkspaceRoomUserFromHeaders(request: Request) {
 	const userId = request.headers.get(USER_ID_HEADER);
 	const name = request.headers.get(USER_NAME_HEADER);
 
@@ -41,7 +41,7 @@ export function getWorkspaceKernelUserFromHeaders(request: Request) {
 	};
 }
 
-export function getWorkspaceKernelPresenceUsers(
+export function getWorkspaceRoomPresenceUsers(
 	connections: Iterable<Connection<WorkspaceConnectionState>>,
 ) {
 	const usersByConnectionId = new Map<string, WorkspacePresenceUser>();

@@ -1,8 +1,9 @@
 import { getDocumentSessionFromEnv } from "#/features/workspaces/document-session-access";
 import {
-	getAuthorizedWorkspaceKernel,
+	authorizeWorkspaceOperation,
 	resolveWorkspaceExistingItemPath,
 } from "#/features/workspaces/operations/workspace-operation-context";
+import { resolveWorkspacePaths } from "#/features/workspaces/persistence/workspace-items";
 import type { WorkspaceAccessContext } from "#/features/workspaces/operations/workspace-access-context";
 import { type DocumentAiEdit } from "#/features/workspaces/documents/document-ai-edits";
 import { editWorkspaceItemFailureCodes } from "#/features/workspaces/operations/workspace-operation-failure-codes";
@@ -36,14 +37,17 @@ export async function editWorkspaceItemOperation(
 	input: EditWorkspaceItemOperationInput,
 ): Promise<EditWorkspaceItemOperationResult> {
 	const edits = input.edits;
-	const kernel = await getAuthorizedWorkspaceKernel({
+	await authorizeWorkspaceOperation({
 		access: "mutate",
 		context: accessContext,
 	});
 	const failureCount = Math.max(edits.length, 1);
-	const [pathResolution] = await kernel.resolvePaths({ paths: [input.path] });
+	const [pathResolution] = await resolveWorkspacePaths({
+		paths: [input.path],
+		workspaceId: accessContext.workspaceId,
+	});
 	if (!pathResolution) {
-		throw new Error("Workspace kernel did not resolve the requested edit path.");
+		throw new Error("Workspace persistence did not resolve the requested edit path.");
 	}
 	const resolution = resolveWorkspaceExistingItemPath({
 		resolution: pathResolution,

@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { env } from "cloudflare:workers";
 import { z } from "zod";
 
 import {
@@ -12,12 +13,13 @@ import {
 	updateWorkspaceItemColorInputSchema,
 } from "#/features/workspaces/contracts";
 import {
-	createWorkspaceKernelItem,
-	deleteWorkspaceKernelItems,
-	moveWorkspaceKernelItems,
-	renameWorkspaceKernelItem,
-	updateWorkspaceKernelItemColor,
-} from "#/features/workspaces/kernel/workspace-kernel-access";
+	createWorkspaceItem,
+	deleteWorkspaceItems,
+	moveWorkspaceItems,
+	renameWorkspaceItem,
+	updateWorkspaceItemColor,
+} from "#/features/workspaces/persistence/workspace-items";
+import { requireAppliedWorkspaceMutation } from "#/features/workspaces/persistence/workspace-persistence-types";
 import {
 	createWorkspaceForCurrentUser,
 	deleteWorkspaceForCurrentUser,
@@ -60,45 +62,55 @@ export const deleteWorkspaceFn = createServerFn({ method: "POST" })
 
 export const createWorkspaceItemFn = createServerFn({ method: "POST" })
 	.validator(createWorkspaceItemInputSchema)
-	.handler(async ({ data }) =>
-		createWorkspaceKernelItem({
-			...data,
-			userId: await getCurrentUserId(),
-		}),
-	);
+	.handler(async ({ data }) => {
+		return requireAppliedWorkspaceMutation(
+			await createWorkspaceItem(env, {
+				...data,
+				actorUserId: await getCurrentUserId(),
+			}),
+		);
+	});
 
 export const renameWorkspaceItemFn = createServerFn({ method: "POST" })
 	.validator(renameWorkspaceItemInputSchema)
-	.handler(async ({ data }) =>
-		renameWorkspaceKernelItem({
-			...data,
-			userId: await getCurrentUserId(),
-		}),
-	);
+	.handler(async ({ data }) => {
+		return requireAppliedWorkspaceMutation(
+			await renameWorkspaceItem(env, {
+				...data,
+				actorUserId: await getCurrentUserId(),
+			}),
+		);
+	});
 
 export const moveWorkspaceItemsFn = createServerFn({ method: "POST" })
 	.validator(moveWorkspaceItemsInputSchema)
-	.handler(async ({ data }) =>
-		moveWorkspaceKernelItems({
-			...data,
-			userId: await getCurrentUserId(),
-		}),
-	);
+	.handler(async ({ data }) => {
+		return requireAppliedWorkspaceMutation(
+			await moveWorkspaceItems(env, {
+				...data,
+				actorUserId: await getCurrentUserId(),
+			}),
+		);
+	});
 
 export const updateWorkspaceItemColorFn = createServerFn({ method: "POST" })
 	.validator(updateWorkspaceItemColorInputSchema)
 	.handler(async ({ data }) =>
-		updateWorkspaceKernelItemColor({
+		updateWorkspaceItemColor(env, {
 			...data,
-			userId: await getCurrentUserId(),
+			actorUserId: await getCurrentUserId(),
 		}),
 	);
 
 export const deleteWorkspaceItemsFn = createServerFn({ method: "POST" })
 	.validator(deleteWorkspaceItemsInputSchema)
-	.handler(async ({ data }) =>
-		deleteWorkspaceKernelItems({
+	.handler(async ({ data }) => {
+		const command = await deleteWorkspaceItems(env, {
 			...data,
-			userId: await getCurrentUserId(),
-		}),
-	);
+			actorUserId: await getCurrentUserId(),
+		});
+		return {
+			...command,
+			result: { ...command.result, workspaceId: data.workspaceId },
+		};
+	});

@@ -1,14 +1,18 @@
 import {
-	getAuthorizedWorkspaceKernel,
+	authorizeWorkspaceOperation,
 	resolveWorkspaceExistingItemPath,
 } from "#/features/workspaces/operations/workspace-operation-context";
+import {
+	moveWorkspaceItems,
+	resolveWorkspacePaths,
+} from "#/features/workspaces/persistence/workspace-items";
 import type { WorkspaceAccessContext } from "#/features/workspaces/operations/workspace-access-context";
 import { type WorkspaceItem, isWorkspaceItemContainer } from "#/features/workspaces/contracts";
 import {
 	getParentWorkspacePath,
 	joinWorkspaceItemPath,
-} from "#/features/workspaces/kernel/workspace-kernel-paths";
-import type { WorkspaceKernelPathResolution } from "#/features/workspaces/kernel/workspace-kernel-types";
+} from "#/features/workspaces/model/workspace-paths";
+import type { WorkspacePathResolution } from "#/features/workspaces/persistence/workspace-persistence-types";
 
 export interface MoveWorkspaceItemsOperationInput {
 	destinationPath: string;
@@ -46,15 +50,16 @@ export async function moveWorkspaceItemsOperation(
 	accessContext: WorkspaceAccessContext,
 	input: MoveWorkspaceItemsOperationInput,
 ): Promise<MoveWorkspaceItemsOperationResult> {
-	const kernel = await getAuthorizedWorkspaceKernel({
+	await authorizeWorkspaceOperation({
 		access: "mutate",
 		context: accessContext,
 	});
-	const [destinationResolution, ...itemResolutions] = await kernel.resolvePaths({
+	const [destinationResolution, ...itemResolutions] = await resolveWorkspacePaths({
+		workspaceId: accessContext.workspaceId,
 		paths: [input.destinationPath, ...input.paths],
 	});
 	if (!destinationResolution) {
-		throw new Error("Workspace kernel did not resolve the requested move destination.");
+		throw new Error("Workspace persistence did not resolve the requested move destination.");
 	}
 	const destination = resolveMoveWorkspaceDestination({
 		resolution: destinationResolution,
@@ -131,13 +136,15 @@ export async function moveWorkspaceItemsOperation(
 
 	const items: MovedWorkspaceItem[] = [];
 	const pendingItems = [...resolvedItems];
+	const { env } = await import("cloudflare:workers");
 
 	while (pendingItems.length > 0) {
-		const outcome = await kernel.moveItems({
+		const outcome = await moveWorkspaceItems(env, {
 			items: pendingItems.map((resolved) => ({ itemId: resolved.item.id })),
 			parentId: destination.parentId,
 			onNameConflict: "error",
 			actorUserId: accessContext.actor.userId,
+			workspaceId: accessContext.workspaceId,
 		});
 
 		if (outcome.status === "conflict") {
@@ -185,7 +192,7 @@ export async function moveWorkspaceItemsOperation(
 	};
 }
 
-function resolveMoveWorkspaceDestination(input: { resolution: WorkspaceKernelPathResolution }):
+function resolveMoveWorkspaceDestination(input: { resolution: WorkspacePathResolution }):
 	| {
 			failure: MoveWorkspaceDestinationFailure;
 			status: "failed";

@@ -303,7 +303,7 @@ export function createAIThreadClass(getUserAIStore: () => typeof UserAIStore) {
 				tools: activeTools,
 			});
 			const messages = await resolveChatAttachmentModelMessages({
-				bucket: this.env.WORKSPACE_KERNEL_FILES,
+				bucket: this.env.WORKSPACE_FILES,
 				messages: ctx.messages,
 				threadId: thread.id,
 				userId: thread.userId,

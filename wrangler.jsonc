@@ -85,7 +85,7 @@
 	],
 	"r2_buckets": [
 		{
-			"binding": "WORKSPACE_KERNEL_FILES",
+			"binding": "WORKSPACE_FILES",
 			"bucket_name": "thinkex-workspace-kernel-files-staging",
 			"remote": true,
 		},
@@ -141,8 +141,8 @@
 				"class_name": "UserAIStore",
 			},
 			{
-				"name": "WorkspaceKernel",
-				"class_name": "WorkspaceKernel",
+				"name": "WorkspaceRoom",
+				"class_name": "WorkspaceRoom",
 			},
 			{
 				"name": "DocumentSession",
@@ -203,6 +203,15 @@
 		{
 			"tag": "v10_remove_image_file_converter",
 			"deleted_classes": ["ImageFileConverter"],
+		},
+		{
+			"tag": "v11_workspace_room",
+			"renamed_classes": [
+				{
+					"from": "WorkspaceKernel",
+					"to": "WorkspaceRoom",
+				},
+			],
 		},
 	],
 	// Replace this placeholder with the ID returned by:
@@ -274,7 +283,7 @@
 			],
 			"r2_buckets": [
 				{
-					"binding": "WORKSPACE_KERNEL_FILES",
+					"binding": "WORKSPACE_FILES",
 					"bucket_name": "thinkex-workspace-kernel-files-staging",
 				},
 			],
@@ -311,8 +320,8 @@
 						"class_name": "UserAIStore",
 					},
 					{
-						"name": "WorkspaceKernel",
-						"class_name": "WorkspaceKernel",
+						"name": "WorkspaceRoom",
+						"class_name": "WorkspaceRoom",
 					},
 					{
 						"name": "DocumentSession",
@@ -397,7 +406,7 @@
 			],
 			"r2_buckets": [
 				{
-					"binding": "WORKSPACE_KERNEL_FILES",
+					"binding": "WORKSPACE_FILES",
 					"bucket_name": "thinkex-workspace-kernel-files",
 				},
 			],
@@ -435,8 +444,8 @@
 						"class_name": "UserAIStore",
 					},
 					{
-						"name": "WorkspaceKernel",
-						"class_name": "WorkspaceKernel",
+						"name": "WorkspaceRoom",
+						"class_name": "WorkspaceRoom",
 					},
 					{
 						"name": "DocumentSession",
