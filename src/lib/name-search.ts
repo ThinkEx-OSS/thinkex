@@ -1,12 +1,19 @@
 /**
  * In-memory name search for palettes and pickers.
  *
- * Compact form follows VS Code `prepareQuery` (spaces and punctuation do not
- * have to appear in the target). Spaces are AND-tokens like fzf. Ranking tiers
- * follow match-sorter: equal > prefix > contains > acronym > subsequence.
+ * Prepare like VS Code `prepareQuery`: `To Do` / `to-do` / `todo` share a
+ * compact form, camelCase splits into words, Unicode is NFKD-folded.
+ * Rank like match-sorter: equal > prefix > contains > acronym > subsequence.
+ * A later-word equal is demoted to prefix so "foo" still beats "foo bar".
+ * Spaces are AND-tokens (fzf, VS Code `scoreItemFuzzy`).
  *
- * The first field is the primary name (weight 1). Later string fields are
- * aliases (weight 0.6). Pass `{ text, weight }` to override.
+ * Fuzzy subsequence must start on a word, and a gap past 8 characters is
+ * not a match (fzf cancels its word-boundary bonus at that distance).
+ * Name palettes (Spotlight, Linear, Notion) do not show mid-word letter soup;
+ * this gate is that product rule, not a file-finder ranker.
+ *
+ * The first field is the name (weight 1). Later string fields are aliases
+ * (0.6): an exact alias cannot outrank a name prefix (7 * 0.6 < 6).
  */
 
 const equalRank = 7;
@@ -15,12 +22,16 @@ const containsRank = 4;
 const acronymRank = 3;
 const fuzzyRank = 1;
 const aliasWeight = 0.6;
+/** fzf: word-boundary bonus is cancelled once a gap grows past 8 characters. */
+const maxFuzzyGap = 8;
+const tokenStart = [0];
 
 export type NameSearchField = string | { text: string; weight?: number };
 
 interface PreparedName {
 	acronym: string;
 	compact: string;
+	starts: number[];
 	tokens: string[];
 }
 
@@ -45,7 +56,7 @@ export function scoreNameSearch(query: string, fields: readonly NameSearchField[
 
 	let best = 0;
 	for (const { haystack, weight } of haystacks) {
-		best = Math.max(best, rankString(haystack.compact, needle.compact) * weight);
+		best = Math.max(best, rankString(haystack.compact, needle.compact, haystack.starts) * weight);
 	}
 
 	let tokenTotal = 0;
@@ -55,7 +66,7 @@ export function scoreNameSearch(query: string, fields: readonly NameSearchField[
 			tokenBest = Math.max(tokenBest, scoreToken(haystack, token) * weight);
 		}
 		if (tokenBest === 0) {
-			return best;
+			return 0;
 		}
 		tokenTotal += tokenBest;
 	}
@@ -84,9 +95,9 @@ export function rankNameSearch<T>(
 }
 
 function scoreToken(haystack: PreparedName, token: string) {
-	let best = rankString(haystack.compact, token);
+	let best = rankString(haystack.compact, token, haystack.starts);
 	for (const hayToken of haystack.tokens) {
-		const rank = rankString(hayToken, token);
+		const rank = rankString(hayToken, token, tokenStart);
 		best = Math.max(best, rank === equalRank ? prefixRank : rank);
 	}
 	if (token.length >= 2 && haystack.acronym.startsWith(token)) {
@@ -95,7 +106,7 @@ function scoreToken(haystack: PreparedName, token: string) {
 	return best;
 }
 
-function rankString(haystack: string, needle: string) {
+function rankString(haystack: string, needle: string, wordStarts: readonly number[]) {
 	if (needle.length === 0 || needle.length > haystack.length) {
 		return 0;
 	}
@@ -108,32 +119,47 @@ function rankString(haystack: string, needle: string) {
 	if (haystack.includes(needle)) {
 		return containsRank;
 	}
-	return rankSubsequence(haystack, needle);
+	return rankSubsequence(haystack, needle, wordStarts);
 }
 
-function rankSubsequence(haystack: string, needle: string) {
-	let from = 0;
-	const first = haystack.indexOf(needle[0]!);
-	if (first === -1) {
-		return 0;
+function rankSubsequence(haystack: string, needle: string, wordStarts: readonly number[]) {
+	let best = 0;
+	for (const first of wordStarts) {
+		if (haystack[first] !== needle[0]) {
+			continue;
+		}
+		best = Math.max(best, scoreSubsequenceFrom(haystack, needle, first));
 	}
-	from = first + 1;
+	return best;
+}
+
+function scoreSubsequenceFrom(haystack: string, needle: string, first: number) {
+	let from = first + 1;
 	for (let index = 1; index < needle.length; index += 1) {
 		const at = haystack.indexOf(needle[index]!, from);
-		if (at === -1) {
+		if (at === -1 || at - from > maxFuzzyGap) {
 			return 0;
 		}
 		from = at + 1;
 	}
+
 	return fuzzyRank + needle.length / (from - first);
 }
 
 function prepareName(value: string): PreparedName {
 	const tokens =
 		foldName(value.replace(/([\p{Ll}\p{N}])(\p{Lu})/gu, "$1 $2")).match(/[\p{L}\p{N}]+/gu) ?? [];
+	const starts: number[] = [];
+	let offset = 0;
+	for (const token of tokens) {
+		starts.push(offset);
+		offset += token.length;
+	}
+
 	return {
 		acronym: tokens.map((token) => token[0]).join(""),
 		compact: tokens.join(""),
+		starts,
 		tokens,
 	};
 }

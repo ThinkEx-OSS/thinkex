@@ -144,6 +144,18 @@ export function getWorkspaceItemPath(
 	return `/${relativePath}`;
 }
 
+export function getWorkspaceItemParentPath(
+	item: WorkspaceItem,
+	itemsById: ReadonlyMap<string, WorkspaceItem>,
+) {
+	const parents = getWorkspaceBreadcrumbItems(item, itemsById).slice(0, -1);
+	if (parents.length === 0) {
+		return null;
+	}
+
+	return parents.map((parent) => parent.name).join(" / ");
+}
+
 export function getWorkspaceItemMeta(item: WorkspaceItem, allItems: WorkspaceItem[]) {
 	if (!isWorkspaceItemContainer(item.type)) {
 		return getWorkspaceItemRegistryEntry(item.type).menuLabel;

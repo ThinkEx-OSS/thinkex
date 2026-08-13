@@ -28,4 +28,34 @@ describe("name search", () => {
 		expect(ranked[0]).toBe("Meeting Notes");
 		expect(ranked).not.toContain("Unrelated");
 	});
+
+	it("requires every query token to match", () => {
+		expect(scoreNameSearch("todo zzzz", ["Product Todo"])).toBe(0);
+	});
+
+	it("does not match letters scattered across unrelated words", () => {
+		expect(scoreNameSearch("todo", ["complaints from notebooklm and other app users"])).toBe(0);
+	});
+
+	it("ranks a real todo name above other documents", () => {
+		const ranked = rankNameSearch(
+			"todo",
+			["complaints from notebooklm and other app users", "Product Todo", "Todo"],
+			(name) => [name],
+		);
+		expect(ranked).toEqual(["Todo", "Product Todo"]);
+	});
+
+	it("still matches a compact subsequence that starts on a word", () => {
+		expect(scoreNameSearch("wrep", ["Write Report"])).toBeGreaterThan(0);
+		expect(scoreNameSearch("wr", ["Write Report"])).toBeGreaterThan(0);
+	});
+
+	it("does not match a subsequence that starts mid-word", () => {
+		expect(scoreNameSearch("ato", ["Catalog"])).toBe(0);
+	});
+
+	it("does not match a word-start subsequence with a long gap", () => {
+		expect(scoreNameSearch("todo", ["Technical documentation"])).toBe(0);
+	});
 });

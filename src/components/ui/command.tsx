@@ -9,7 +9,7 @@ import {
 	DialogTitle,
 } from "#/components/ui/dialog.tsx";
 import { InputGroup, InputGroupAddon } from "#/components/ui/input-group.tsx";
-import { hasNameSearchQuery, scoreNameSearch } from "#/lib/name-search";
+import { hasNameSearchQuery } from "#/lib/name-search";
 import { cn } from "#/lib/utils.ts";
 
 type CommandContextValue = {
@@ -19,27 +19,25 @@ type CommandContextValue = {
 	visibleCount: number;
 };
 
-type CommandItemAction =
-	| { id: string; type: "unregister" }
-	| { id: string; type: "register"; visible: boolean };
+type CommandItemAction = { id: string; type: "unregister" } | { id: string; type: "register" };
 
-function commandItemsReducer(current: Map<string, boolean>, action: CommandItemAction) {
+function commandItemsReducer(current: Set<string>, action: CommandItemAction) {
 	if (action.type === "unregister") {
 		if (!current.has(action.id)) {
 			return current;
 		}
 
-		const next = new Map(current);
+		const next = new Set(current);
 		next.delete(action.id);
 		return next;
 	}
 
-	if (current.get(action.id) === action.visible) {
+	if (current.has(action.id)) {
 		return current;
 	}
 
-	const next = new Map(current);
-	next.set(action.id, action.visible);
+	const next = new Set(current);
+	next.add(action.id);
 	return next;
 }
 
@@ -53,15 +51,19 @@ function useCommandContext() {
 	return context;
 }
 
+function useCommandSearch() {
+	return useCommandContext().search;
+}
+
 function Command({ className, children, ...props }: React.ComponentProps<"div">) {
 	const [search, setSearch] = React.useState("");
-	const [items, dispatchItem] = React.useReducer(commandItemsReducer, new Map<string, boolean>());
+	const [items, dispatchItem] = React.useReducer(commandItemsReducer, new Set<string>());
 
 	const contextValue = {
 		dispatchItem,
 		search,
 		setSearch,
-		visibleCount: Array.from(items.values()).filter(Boolean).length,
+		visibleCount: items.size,
 	};
 
 	return (
@@ -69,7 +71,7 @@ function Command({ className, children, ...props }: React.ComponentProps<"div">)
 			inline
 			open
 			autoHighlight="always"
-			keepHighlight
+			keepHighlight={false}
 			mode="none"
 			value={search}
 			onValueChange={setSearch}
@@ -124,7 +126,7 @@ function CommandInput({ className, onChange, ...props }: React.ComponentProps<"i
 	const { search, setSearch } = useCommandContext();
 
 	return (
-		<div data-slot="command-input-wrapper" className="p-1 pb-0">
+		<div data-slot="command-input-wrapper" className="p-1">
 			<InputGroup className="h-8! rounded-lg! border-input/30 bg-input/30 shadow-none! *:data-[slot=input-group-addon]:pl-2!">
 				<AutocompletePrimitive.Input
 					data-slot="command-input"
@@ -163,7 +165,7 @@ function CommandList({ className, ...props }: React.ComponentProps<"div">) {
 function CommandEmpty({ className, ...props }: React.ComponentProps<"div">) {
 	const { search, visibleCount } = useCommandContext();
 
-	if (!search || visibleCount > 0) {
+	if (!hasNameSearchQuery(search) || visibleCount > 0) {
 		return null;
 	}
 
@@ -209,31 +211,23 @@ function CommandSeparator({ className, ...props }: React.ComponentProps<"div">) 
 function CommandItem({
 	className,
 	children,
-	keywords,
 	onClick,
 	onKeyDown,
 	onSelect,
 	value,
 	...props
 }: Omit<React.ComponentProps<"div">, "onSelect"> & {
-	keywords?: readonly string[];
 	onSelect?: (value: string) => void;
 	value?: string;
 }) {
 	const id = React.useId();
-	const { dispatchItem, search } = useCommandContext();
+	const { dispatchItem } = useCommandContext();
 	const itemValue = value ?? (typeof children === "string" ? children : "");
-	const searching = hasNameSearchQuery(search);
-	const visible = !searching || scoreNameSearch(search, [itemValue, ...(keywords ?? [])]) > 0;
 
 	React.useEffect(() => {
-		dispatchItem({ id, type: "register", visible });
+		dispatchItem({ id, type: "register" });
 		return () => dispatchItem({ id, type: "unregister" });
-	}, [dispatchItem, id, visible]);
-
-	if (!visible) {
-		return null;
-	}
+	}, [dispatchItem, id]);
 
 	const selectItem = () => {
 		onSelect?.(itemValue);
@@ -280,7 +274,7 @@ function CommandFooter({ className, children, ...props }: React.ComponentProps<"
 		<div
 			data-slot="command-footer"
 			className={cn(
-				"flex items-center justify-between gap-3 border-t px-3 py-2 text-xs text-muted-foreground",
+				"-mx-1 -mb-1 flex items-center justify-between gap-3 border-t px-3 py-2 text-xs text-muted-foreground",
 				className,
 			)}
 			{...props}
@@ -317,4 +311,5 @@ export {
 	CommandList,
 	CommandSeparator,
 	CommandShortcut,
+	useCommandSearch,
 };
