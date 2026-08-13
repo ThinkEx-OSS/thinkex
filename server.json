@@ -7,6 +7,11 @@
 	"websiteUrl": "https://thinkex.app",
 	"icons": [
 		{
+			"src": "https://thinkex.app/favicon.svg",
+			"mimeType": "image/svg+xml",
+			"sizes": ["any"]
+		},
+		{
 			"src": "https://thinkex.app/apple-touch-icon.png",
 			"mimeType": "image/png",
 			"sizes": ["180x180"]
