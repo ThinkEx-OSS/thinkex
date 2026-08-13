@@ -1,5 +1,3 @@
-import { env } from "cloudflare:workers";
-
 import { authorizeWorkspaceOperation } from "#/features/workspaces/operations/workspace-operation-context";
 import {
 	createWorkspaceItem,
@@ -160,6 +158,7 @@ export async function createWorkspaceItemsOperation(
 			continue;
 		}
 
+		const { env } = await import("cloudflare:workers");
 		const outcome = await createWorkspaceItem(env, {
 			id,
 			workspaceId: accessContext.workspaceId,
