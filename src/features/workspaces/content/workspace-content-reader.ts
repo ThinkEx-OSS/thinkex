@@ -30,6 +30,10 @@ import {
 	decodeWorkspaceContentCursor,
 	encodeWorkspaceContentCursor,
 } from "#/features/workspaces/content/workspace-content-cursor";
+import {
+	serializeFlashcardSetToHtml,
+	type FlashcardSetContent,
+} from "#/features/workspaces/flashcards/flashcard-content";
 
 const maxWorkspaceContentBatchBytes = 2 * 1024 * 1024 + 64 * 1024;
 
@@ -49,6 +53,7 @@ interface PendingReadyResult {
 export async function readWorkspaceContent(input: {
 	bucket: R2Bucket;
 	getDocumentSession: (itemId: string) => DocumentContentReader | Promise<DocumentContentReader>;
+	readFlashcardSet: (itemId: string) => FlashcardSetContent | Promise<FlashcardSetContent>;
 	requests: WorkspaceContentReadRequest[];
 	workspaceId: string;
 }): Promise<WorkspaceContentReadResult[]> {
@@ -109,7 +114,9 @@ export async function readWorkspaceContent(input: {
 				results.push(read);
 				continue;
 			}
-			const contentBytes = encoder.encode(read.content).byteLength;
+			const contentBytes = encoder.encode(
+				"content" in read ? read.content : JSON.stringify(read.cards),
+			).byteLength;
 			if (returnedContentBytes + contentBytes > maxWorkspaceContentBatchBytes) {
 				readBudgetExhausted = true;
 				results.push(readBudgetFailure);
@@ -143,6 +150,7 @@ export async function readWorkspaceContent(input: {
 async function readWorkspaceItem(input: {
 	bucket: R2Bucket;
 	getDocumentSession: (itemId: string) => DocumentContentReader | Promise<DocumentContentReader>;
+	readFlashcardSet: (itemId: string) => FlashcardSetContent | Promise<FlashcardSetContent>;
 	item: WorkspaceItem;
 	path: string;
 	request: WorkspaceContentReadRequest;
@@ -162,7 +170,35 @@ async function readWorkspaceItem(input: {
 				: readFile(input);
 		case "none":
 			return { code: "unsupported_item_type", path: input.path, status: "failed" };
+		case "structured":
+			return readFlashcards(input);
 	}
+}
+
+async function readFlashcards(input: {
+	item: WorkspaceItem;
+	path: string;
+	readFlashcardSet: (itemId: string) => FlashcardSetContent | Promise<FlashcardSetContent>;
+	request: WorkspaceContentReadRequest;
+	workspaceId: string;
+}): Promise<WorkspaceContentReadResult> {
+	if (input.item.type !== "flashcard" || input.request.mode !== "start") {
+		return { code: "invalid_selection", path: input.path, status: "failed" };
+	}
+
+	const content = await input.readFlashcardSet(input.item.id);
+	return {
+		cards: serializeFlashcardSetToHtml(content).map((card) => ({
+			cardId: card.id,
+			front: card.front,
+			back: card.back,
+		})),
+		format: "html",
+		itemId: input.item.id,
+		path: input.path,
+		status: "ready",
+		type: "flashcard",
+	};
 }
 
 /**

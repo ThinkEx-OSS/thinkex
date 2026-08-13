@@ -14,6 +14,7 @@ import { getTiptapDocumentSchema } from "#/features/workspaces/documents/tiptap-
 import type { WorkspacePathResolution } from "#/features/workspaces/persistence/workspace-persistence-types";
 import { readWorkspaceContent } from "#/features/workspaces/content/workspace-content-reader";
 import { encodeWorkspaceContentCursor } from "#/features/workspaces/content/workspace-content-cursor";
+import { createFlashcardSetFromHtml } from "#/features/workspaces/flashcards/flashcard-content";
 
 const persistence = vi.hoisted(() => ({
 	getWorkspaceItemPaths: vi.fn(),
@@ -40,7 +41,33 @@ const documentItem: WorkspaceItem = {
 	updatedAt: "2026-01-01T00:00:00.000Z",
 };
 
+const flashcardItem: WorkspaceItem = {
+	...documentItem,
+	id: "flashcard-1",
+	type: "flashcard",
+	name: "Biology cards",
+};
+
 describe("WorkspaceContentReader", () => {
+	it("reads a complete flashcard set with stable card IDs", async () => {
+		const set = createFlashcardSetFromHtml([{ front: "<p>Question</p>", back: "<p>Answer</p>" }]);
+		const read = createReader({
+			bucket: {} as R2Bucket,
+			getDocumentSession: () => createDocumentSession({ html: "<p />", revision: "unused" }),
+			item: flashcardItem,
+			readFlashcardSet: async () => set,
+		});
+
+		await expect(read([{ mode: "start", path: "/Biology cards" }])).resolves.toMatchObject([
+			{
+				cards: [{ cardId: set.cards[0]!.id, front: "<p>Question</p>", back: "<p>Answer</p>" }],
+				format: "html",
+				status: "ready",
+				type: "flashcard",
+			},
+		]);
+	});
+
 	it("continues a large live document with a revision-guarded cursor", async () => {
 		const html = Array.from({ length: 20_000 }, (_, index) => `<p>line ${index + 1}</p>`).join("");
 		const session = createDocumentSession({ html, revision: "revision-1" });
@@ -320,6 +347,9 @@ function createReader(input: {
 	bucket: R2Bucket;
 	getDocumentSession: (itemId: string) => ReturnType<typeof createDocumentSession>;
 	item?: WorkspaceItem;
+	readFlashcardSet?: () =>
+		| ReturnType<typeof createFlashcardSetFromHtml>
+		| Promise<ReturnType<typeof createFlashcardSetFromHtml>>;
 	resolvePaths?: typeof persistence.resolveWorkspacePaths;
 }) {
 	const item = input.item ?? documentItem;
@@ -335,6 +365,7 @@ function createReader(input: {
 		readWorkspaceContent({
 			bucket: input.bucket,
 			getDocumentSession: input.getDocumentSession,
+			readFlashcardSet: input.readFlashcardSet ?? (async () => ({ version: 1, cards: [] })),
 			requests,
 			workspaceId: "workspace-1",
 		});

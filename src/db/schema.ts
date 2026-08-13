@@ -14,11 +14,11 @@ import {
 	unique,
 	uniqueIndex,
 } from "drizzle-orm/pg-core";
+import { WORKSPACE_ITEM_TYPES } from "#/features/workspaces/workspace-item-registry";
 
 const WORKSPACE_ROLES = ["owner", "admin", "editor", "viewer"] as const;
 const WORKSPACE_INVITE_TYPES = ["email", "link"] as const;
 const WORKSPACE_INVITE_STATUSES = ["pending", "accepted", "revoked", "expired"] as const;
-const WORKSPACE_ITEM_TYPES = ["folder", "document", "file"] as const;
 const WORKSPACE_RELATION_KINDS = ["derived_from", "references"] as const;
 const WORKSPACE_EXTRACTION_STATUSES = ["processing", "ready", "failed"] as const;
 const WORKSPACE_EXTRACTION_TIERS = ["fast", "enhanced"] as const;
@@ -296,6 +296,21 @@ export const workspaceItemContents = pgTable("workspace_item_contents", {
 		.references(() => workspaceItems.id, { onDelete: "cascade" }),
 	content: text("content").notNull(),
 });
+
+export const workspaceItemUserStates = pgTable(
+	"workspace_item_user_states",
+	{
+		userId: text("user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		itemId: text("item_id")
+			.notNull()
+			.references(() => workspaceItems.id, { onDelete: "cascade" }),
+		state: jsonb("state").$type<Record<string, unknown>>().notNull(),
+		updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [primaryKey({ columns: [table.userId, table.itemId] })],
+);
 
 export const workspaceFileAssets = pgTable("workspace_file_assets", {
 	itemId: text("item_id")

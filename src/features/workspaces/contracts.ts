@@ -382,13 +382,22 @@ export const createWorkspaceItemInputSchema = z
 		initialContent: z.string().optional(),
 	})
 	.superRefine((input, context) => {
+		const contentKind = getWorkspaceItemContentKind(input.type);
 		if (
 			input.initialContent !== undefined &&
-			getWorkspaceItemContentKind(input.type) !== "document"
+			contentKind !== "document" &&
+			contentKind !== "structured"
 		) {
 			context.addIssue({
 				code: "custom",
-				message: "Initial content can only be provided for documents.",
+				message: "Initial content can only be provided for content-backed items.",
+				path: ["initialContent"],
+			});
+		}
+		if (contentKind === "structured" && input.initialContent === undefined) {
+			context.addIssue({
+				code: "custom",
+				message: "Initial content is required for structured items.",
 				path: ["initialContent"],
 			});
 		}

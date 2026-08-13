@@ -54,6 +54,43 @@ describe("workspace read references", () => {
 		expect(JSON.stringify(modelOutput)).not.toContain("file-1");
 	});
 
+	it("gives every flashcard side its own navigable ref", () => {
+		const results = [flashcardResult()] satisfies WorkspaceContentReadResult[];
+		const references = createWorkspaceReadReferences(results);
+		const modelOutput = createWorkspaceReadItemsModelOutput({ references, results });
+
+		expect(references.map(({ location }) => location)).toEqual([
+			{
+				cardId: "f67080f9-0158-4565-86a9-4c90ed6809d2",
+				itemId: "flashcard-1",
+				kind: "flashcard-side",
+				side: "front",
+				version: 1,
+			},
+			{
+				cardId: "f67080f9-0158-4565-86a9-4c90ed6809d2",
+				itemId: "flashcard-1",
+				kind: "flashcard-side",
+				side: "back",
+				version: 1,
+			},
+		]);
+		expect(modelOutput.results[0]).toMatchObject({
+			cards: [
+				{
+					back: "<p>Paris</p>",
+					backReference: expect.stringMatching(/^wr_[0-9A-Za-z]{8}$/),
+					cardId: "f67080f9-0158-4565-86a9-4c90ed6809d2",
+					front: "<p>Capital of France?</p>",
+					frontReference: expect.stringMatching(/^wr_[0-9A-Za-z]{8}$/),
+				},
+			],
+			path: "/Geography",
+			type: "flashcard",
+		});
+		expect(JSON.stringify(modelOutput)).not.toContain("flashcard-1");
+	});
+
 	it("deduplicates repeated reads of the same durable location in one result", () => {
 		const references = createWorkspaceReadReferences([
 			documentResult(),
@@ -203,5 +240,25 @@ function fileResult(): Extract<WorkspaceContentReadResult, { status: "ready"; ty
 		path: "/Book.pdf",
 		status: "ready",
 		type: "file",
+	};
+}
+
+function flashcardResult(): Extract<
+	WorkspaceContentReadResult,
+	{ status: "ready"; type: "flashcard" }
+> {
+	return {
+		cards: [
+			{
+				back: "<p>Paris</p>",
+				cardId: "f67080f9-0158-4565-86a9-4c90ed6809d2",
+				front: "<p>Capital of France?</p>",
+			},
+		],
+		format: "html",
+		itemId: "flashcard-1",
+		path: "/Geography",
+		status: "ready",
+		type: "flashcard",
 	};
 }

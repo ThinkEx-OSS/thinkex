@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-const workspaceItemTypes = ["folder", "document", "file"] as const;
-export const workspaceItemTypeSchema = z.enum(workspaceItemTypes);
+export const WORKSPACE_ITEM_TYPES = ["folder", "document", "flashcard", "file"] as const;
+export const workspaceItemTypeSchema = z.enum(WORKSPACE_ITEM_TYPES);
 export type WorkspaceItemType = z.infer<typeof workspaceItemTypeSchema>;
 
 /**
@@ -10,7 +10,7 @@ export type WorkspaceItemType = z.infer<typeof workspaceItemTypeSchema>;
  * the same question: a future type can share `document` storage without being a
  * document, and `none` covers every item whose body is the tree itself.
  */
-type WorkspaceItemContentKind = "document" | "file" | "none";
+type WorkspaceItemContentKind = "document" | "file" | "none" | "structured";
 
 interface WorkspaceItemRegistryEntry {
 	color: "amber" | "emerald" | "rose" | "sky" | "violet";
@@ -42,6 +42,14 @@ const workspaceItemRegistry = {
 		isContainer: false,
 		label: "Document",
 		menuLabel: "Document",
+	},
+	flashcard: {
+		color: "violet",
+		contentKind: "structured",
+		defaultName: "New flashcards",
+		isContainer: false,
+		label: "Flashcards",
+		menuLabel: "Flashcards",
 	},
 	file: {
 		color: "rose",

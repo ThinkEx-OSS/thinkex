@@ -166,8 +166,10 @@ export function getFinishedToolReceipt(input: {
 			return summarizeWorkspaceBatch(input.output, {
 				failureVerb: "create",
 				successVerb: "Created",
-				typeFromItem: (item) =>
-					getString(asRecord(item).type) === "folder" ? "folder" : "document",
+				typeFromItem: (item) => {
+					const type = getString(asRecord(item).type);
+					return type === "folder" ? "folder" : type === "flashcard" ? "flashcard set" : "document";
+				},
 			});
 		case "workspace_delete_items":
 			return summarizeWorkspaceBatch(input.output, {

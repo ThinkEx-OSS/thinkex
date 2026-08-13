@@ -1,4 +1,4 @@
-import { FilePen, Folder, Paperclip, Upload } from "lucide-react";
+import { FilePen, Folder, Layers3, Paperclip, Upload } from "lucide-react";
 
 import {
 	type WorkspaceItem,
@@ -13,6 +13,7 @@ import { getWorkspaceItemPalette } from "#/features/workspaces/model/workspace-i
 const workspaceItemIcons = {
 	document: FilePen,
 	file: Paperclip,
+	flashcard: Layers3,
 	folder: Folder,
 } satisfies Record<WorkspaceItemType, typeof FilePen>;
 
@@ -46,12 +47,12 @@ export function getWorkspaceItemDisplay(item: WorkspaceItem) {
 	};
 }
 
-const workspaceItemPrimaryCreateActionOrder = ["document", "folder"] as const;
+const workspaceItemPrimaryCreateActionOrder = ["document", "flashcard", "folder"] as const;
 
 export const workspaceItemPrimaryCreateActions =
 	workspaceItemPrimaryCreateActionOrder.map(createWorkspaceItemAction);
 
-function createWorkspaceItemAction(type: "document" | "folder") {
+function createWorkspaceItemAction(type: "document" | "flashcard" | "folder") {
 	const display = getWorkspaceItemTypeDisplay(type);
 	return {
 		type,

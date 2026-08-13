@@ -49,7 +49,7 @@ const workspaceCreateItemsResultAdapter = defineWorkspaceToolResultAdapter({
 			z.object({
 				itemId: z.string(),
 				path: z.string(),
-				type: z.enum(["document", "folder"]),
+				type: z.enum(["document", "flashcard", "folder"]),
 			}),
 		),
 		references: z.array(workspaceReferenceRecordSchema),

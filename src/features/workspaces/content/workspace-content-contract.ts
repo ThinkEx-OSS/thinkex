@@ -102,6 +102,21 @@ const workspaceContentReadResultSchema = z.union([
 		type: z.literal("document"),
 	}),
 	z.object({
+		cards: z.array(
+			z.object({
+				cardId: z.uuid(),
+				front: z.string(),
+				back: z.string(),
+			}),
+		),
+		format: z.literal("html"),
+		itemId: z.string().min(1),
+		path: workspacePathSchema,
+		relations: workspaceReadRelationsSchema.optional(),
+		status: z.literal("ready"),
+		type: z.literal("flashcard"),
+	}),
+	z.object({
 		assetKind: workspaceFileAssetKindSchema,
 		content: z.string(),
 		emptyPages: z
