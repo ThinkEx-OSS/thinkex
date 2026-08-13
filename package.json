@@ -161,7 +161,7 @@
 		"@tailwindcss/vite": "^4.3.3",
 		"@tanstack/devtools-event-client": "0.5.0",
 		"@tanstack/devtools-vite": "0.8.3",
-		"@tanstack/react-devtools": "0.10.10",
+		"@tanstack/react-devtools": "0.10.9",
 		"@tanstack/react-query-devtools": "5.101.4",
 		"@tanstack/router-plugin": "^1.168.30",
 		"@tiptap/y-tiptap": "^3.0.8",
