@@ -39,7 +39,6 @@ interface FlashcardSessionState {
 	flipped: boolean;
 	mode: FlashcardStudyMode;
 	ratingFeedback: FlashcardStudyRating | null;
-	settling: boolean;
 	shuffled: boolean;
 }
 
@@ -93,7 +92,6 @@ function FlashcardStudySession({
 		flipped: false,
 		mode: "all",
 		ratingFeedback: null,
-		settling: false,
 		shuffled: false,
 	}));
 	const {
@@ -102,9 +100,9 @@ function FlashcardStudySession({
 		flipped,
 		mode,
 		ratingFeedback,
-		settling,
 		shuffled,
 	} = session;
+	const settling = ratingFeedback !== null;
 	const cardsById = useMemo(() => new Map(cards.map((card) => [card.id, card])), [cards]);
 	const studyCards = useMemo(
 		() => getStudyCards(studyCardIds, cardsById),
@@ -151,7 +149,6 @@ function FlashcardStudySession({
 				flipped: false,
 				mode: nextMode,
 				ratingFeedback: null,
-				settling: false,
 				shuffled: nextShuffled,
 			});
 		},
@@ -230,7 +227,6 @@ function FlashcardStudySession({
 					flipped: revealRequest.location.side === "back",
 					mode: nextCardIds === studyCardIds ? mode : "all",
 					ratingFeedback: null,
-					settling: false,
 				}));
 			}
 			consumeRevealRequest(revealRequest);
@@ -285,7 +281,6 @@ function FlashcardStudySession({
 			currentIndex: nextIndex,
 			flipped: false,
 			ratingFeedback: null,
-			settling: false,
 		}));
 	};
 
@@ -295,7 +290,6 @@ function FlashcardStudySession({
 		setSession((current) => ({
 			...current,
 			ratingFeedback: rating,
-			settling: true,
 		}));
 	};
 	const finishRatingAnimation = () => {
@@ -307,7 +301,6 @@ function FlashcardStudySession({
 				currentIndex: hasNextCard ? current.currentIndex + 1 : current.currentIndex,
 				flipped: false,
 				ratingFeedback: null,
-				settling: false,
 			};
 		});
 	};
@@ -329,7 +322,6 @@ function FlashcardStudySession({
 			onRate={rate}
 			onRatingAnimationComplete={finishRatingAnimation}
 			ratingFeedback={ratingFeedback}
-			settling={settling}
 			studyCards={studyCards}
 			studyState={studyState}
 		/>
@@ -349,7 +341,6 @@ function FlashcardStudySurface({
 	onRate,
 	onRatingAnimationComplete,
 	ratingFeedback,
-	settling,
 	studyCards,
 	studyState,
 }: {
@@ -365,10 +356,10 @@ function FlashcardStudySurface({
 	onRate: (rating: FlashcardStudyRating) => void;
 	onRatingAnimationComplete: () => void;
 	ratingFeedback: FlashcardStudyRating | null;
-	settling: boolean;
 	studyCards: Flashcard[];
 	studyState: FlashcardStudyState;
 }) {
+	const settling = ratingFeedback !== null;
 	const nextCard = ratingFeedback ? studyCards[currentIndex + 1] : undefined;
 	const ratingDirection = ratingFeedback === "again" ? -1 : 1;
 	const ratingAnimation = ratingFeedback
@@ -409,7 +400,7 @@ function FlashcardStudySurface({
 			tabIndex={0}
 		>
 			<div className="mx-auto flex min-h-0 w-full max-w-4xl flex-1 flex-col gap-4">
-				<div className="workspace-flashcard-stack relative min-h-72 flex-1 rounded-2xl sm:min-h-96">
+				<div className="relative min-h-72 flex-1 rounded-2xl sm:min-h-96">
 					{nextCard ? (
 						<motion.div
 							aria-hidden="true"
@@ -422,10 +413,7 @@ function FlashcardStudySurface({
 								bounce: 0.05,
 							}}
 						>
-							<div className="workspace-flashcard-inner">
-								<FlashcardFace label="Front" content={nextCard.front} action={null} />
-								<FlashcardFace back label="Back" content={nextCard.back} action={null} />
-							</div>
+							<FlashcardFace label="Front" content={nextCard.front} action={null} />
 						</motion.div>
 					) : null}
 					<motion.div
@@ -457,9 +445,15 @@ function FlashcardStudySurface({
 								: { duration: 0 }
 						}
 						style={{ transformOrigin: ratingDirection < 0 ? "bottom left" : "bottom right" }}
-						onAnimationComplete={
-							ratingFeedback ? onRatingAnimationComplete : undefined
-						}
+						onUpdate={(latest) => {
+							if (
+								ratingFeedback &&
+								typeof latest.opacity === "number" &&
+								latest.opacity <= 0.08
+							) {
+								onRatingAnimationComplete();
+							}
+						}}
 						onClick={(event) => {
 							if ((event.target as HTMLElement).closest("button, a")) return;
 							onFlip();
@@ -777,10 +771,23 @@ function countFlashcardText(value: unknown): number {
 
 function FlashcardViewerSkeleton() {
 	return (
-		<div className="flex h-full flex-col gap-4 p-6 sm:p-8">
-			<Skeleton className="h-7 w-48" />
-			<Skeleton className="mx-auto min-h-72 w-full max-w-4xl flex-1 rounded-2xl" />
-			<Skeleton className="mx-auto h-10 w-48" />
+		<div className="flex h-full min-h-0 flex-col px-4 py-5 sm:px-8 sm:py-7">
+			<div className="mx-auto flex min-h-0 w-full max-w-4xl flex-1 flex-col gap-4">
+				<Skeleton className="min-h-72 flex-1 rounded-2xl sm:min-h-96" />
+				<div className="space-y-3">
+					<Skeleton className="h-2 w-full rounded-full" />
+					<div className="grid min-h-10 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
+						<Skeleton className="h-4 w-20 justify-self-start" />
+						<div className="col-start-2 flex items-center justify-center gap-1 sm:gap-2">
+							<Skeleton className="size-11 rounded-xl sm:size-12" />
+							<Skeleton className="h-11 w-20 rounded-xl sm:h-12 sm:w-24" />
+							<Skeleton className="h-11 w-20 rounded-xl sm:h-12 sm:w-24" />
+							<Skeleton className="size-11 rounded-xl sm:size-12" />
+						</div>
+						<Skeleton className="col-start-3 h-4 w-14 justify-self-end" />
+					</div>
+				</div>
+			</div>
 		</div>
 	);
 }
