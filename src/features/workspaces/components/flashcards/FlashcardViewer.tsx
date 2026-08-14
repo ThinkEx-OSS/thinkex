@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { JSONContent } from "@tiptap/core";
 import { EditorContent, useEditor } from "@tiptap/react";
 import { Check, ChevronLeft, ChevronRight, Lightbulb, X } from "lucide-react";
-import { MotionConfig, motion } from "motion/react";
+import { domAnimation, LazyMotion, m, MotionConfig } from "motion/react";
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 
 import { Button } from "#/components/ui/button";
@@ -380,8 +380,9 @@ function FlashcardStudySurface({
 			: "inset 0 0 0 5px color-mix(in srgb, var(--color-emerald-500) 62%, transparent)";
 
 	return (
-		<MotionConfig reducedMotion="user">
-		<section
+		<LazyMotion features={domAnimation}>
+			<MotionConfig reducedMotion="user">
+				<section
 			className="flex h-full min-h-0 flex-col bg-background px-4 py-5 sm:px-8 sm:py-7"
 			aria-label={`${item.name} study session`}
 			onKeyDown={(event) => {
@@ -402,7 +403,7 @@ function FlashcardStudySurface({
 			<div className="mx-auto flex min-h-0 w-full max-w-4xl flex-1 flex-col gap-4">
 				<div className="relative min-h-72 flex-1 rounded-2xl sm:min-h-96">
 					{nextCard ? (
-						<motion.div
+						<m.div
 							aria-hidden="true"
 							className="workspace-flashcard absolute inset-0 rounded-2xl"
 							initial={{ y: 8, scale: 0.96 }}
@@ -414,9 +415,9 @@ function FlashcardStudySurface({
 							}}
 						>
 							<FlashcardFace label="Front" content={nextCard.front} action={null} />
-						</motion.div>
+						</m.div>
 					) : null}
-					<motion.div
+					<m.div
 						key={currentCard.id}
 						className="workspace-flashcard group absolute inset-0 z-[1] cursor-pointer rounded-2xl"
 						initial={false}
@@ -459,7 +460,7 @@ function FlashcardStudySurface({
 							onFlip();
 						}}
 					>
-						<motion.div
+						<m.div
 							className="absolute inset-0"
 							initial={false}
 							animate={ratingAnticipation}
@@ -470,7 +471,7 @@ function FlashcardStudySurface({
 							}
 							style={{ transformOrigin: "center" }}
 						>
-						<motion.div
+						<m.div
 							aria-hidden="true"
 							className="pointer-events-none absolute inset-0 z-10 rounded-2xl"
 							initial={false}
@@ -481,7 +482,7 @@ function FlashcardStudySurface({
 							}}
 							style={{ boxShadow: ratingRing }}
 						/>
-						<motion.div
+						<m.div
 							className={cn("workspace-flashcard-inner", flipped && "is-flipped")}
 							initial={false}
 							animate={{ rotateY: flipped ? 180 : 0 }}
@@ -520,9 +521,9 @@ function FlashcardStudySurface({
 									/>
 								}
 							/>
-						</motion.div>
-						</motion.div>
-					</motion.div>
+						</m.div>
+						</m.div>
+					</m.div>
 				</div>
 
 				<div className="space-y-3">
@@ -598,8 +599,9 @@ function FlashcardStudySurface({
 					</div>
 				</div>
 			</div>
-		</section>
-		</MotionConfig>
+				</section>
+			</MotionConfig>
+		</LazyMotion>
 	);
 }
 
