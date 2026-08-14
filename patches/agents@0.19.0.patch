@@ -45,36 +45,37 @@ index 8d5b57034f927298d207d8a2bcbac927614780f5..9cf49a4471b9da862ddde11b818fd1ee
  				const merged = {
  					...part,
  					state: server.state
-@@ -1999,7 +2003,22 @@ function reconcileAssistantIds(incoming, serverMessages, sanitize) {
+@@ -1999,7 +2003,23 @@ function reconcileAssistantIds(incoming, serverMessages, sanitize) {
  	}
  	return incoming.map((incomingMessage, incomingIdx) => {
  		if (exactMatchMap.has(incomingIdx)) return incomingMessage;
 -		if (incomingMessage.role !== "assistant" || hasToolCallPart(incomingMessage)) return incomingMessage;
 +		if (incomingMessage.role !== "assistant") return incomingMessage;
-+		const incomingToolCallIds = getToolCallIds(incomingMessage);
-+		if (incomingToolCallIds.size > 0) {
++		const incomingToolCalls = getToolCalls(incomingMessage);
++		if (incomingToolCalls.length > 0) {
++			const matchingServerIndices = [];
 +			for (let i = 0; i < serverMessages.length; i++) {
 +				if (claimedServerIndices.has(i)) continue;
 +				const serverMessage = serverMessages[i];
-+				if (serverMessage.role === "assistant" && serverMessage.parts.some((part) => "toolCallId" in part && typeof part.toolCallId === "string" && incomingToolCallIds.has(part.toolCallId))) {
-+					claimedServerIndices.add(i);
-+					return {
-+						...incomingMessage,
-+						id: serverMessage.id
-+					};
-+				}
++				if (serverMessage.role === "assistant" && incomingToolCalls.some((incomingPart) => serverMessage.parts.some((serverPart) => "toolCallId" in serverPart && serverPart.toolCallId === incomingPart.toolCallId && JSON.stringify(serverPart.input) === JSON.stringify(incomingPart.input)))) matchingServerIndices.push(i);
 +			}
-+			return incomingMessage;
++			if (matchingServerIndices.length !== 1) return incomingMessage;
++			const serverIndex = matchingServerIndices[0];
++			claimedServerIndices.add(serverIndex);
++			return {
++				...incomingMessage,
++				id: serverMessages[serverIndex].id
++			};
 +		}
  		const incomingKey = assistantContentKey(incomingMessage, sanitize);
  		if (!incomingKey) return incomingMessage;
  		for (let i = 0; i < serverMessages.length; i++) {
-@@ -2020,6 +2039,9 @@ function reconcileAssistantIds(incoming, serverMessages, sanitize) {
+@@ -2020,6 +2040,9 @@ function reconcileAssistantIds(incoming, serverMessages, sanitize) {
  function hasToolCallPart(message) {
  	return message.parts.some((part) => "toolCallId" in part);
  }
-+function getToolCallIds(message) {
-+	return new Set(message.parts.flatMap((part) => "toolCallId" in part && typeof part.toolCallId === "string" ? [part.toolCallId] : []));
++function getToolCalls(message) {
++	return message.parts.filter((part) => "toolCallId" in part && typeof part.toolCallId === "string");
 +}
  function findMessageByToolCallId(messages, toolCallId) {
  	for (const msg of messages) {
