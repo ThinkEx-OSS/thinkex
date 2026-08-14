@@ -74,11 +74,7 @@ export interface DocumentSessionApplyEditsResult {
 	 * receipt states what the edit did rather than what is left of it later. */
 	lineChanges?: DocumentEditLineChanges;
 	failures: {
-		code:
-			| DocumentAiEditFailureCode
-			| "content_changed"
-			| "operation_id_conflict"
-			| "path_not_found";
+		code: DocumentAiEditFailureCode | "content_changed" | "operation_id_conflict";
 		detail?: string;
 		index: number;
 	}[];
@@ -291,12 +287,10 @@ export class DocumentSession extends YServer {
 					: []),
 			]);
 		});
-		this.assertActive();
-		if (!(await this.checkpointDocument())) {
-			return rejectedDocumentEditResult("path_not_found", input.edits.length);
-		}
-		this.assertActive();
-
+		// The Postgres checkpoint takes a contended workspace row lock. Awaiting it
+		// here held these storage writes open across that round trip and reset the
+		// object under load, failing the edit. The reconcile above already schedules
+		// the debounced onSave, which checkpoints off this turn.
 		return result;
 	}
 
@@ -345,10 +339,8 @@ export class DocumentSession extends YServer {
 			}
 		});
 
-		if (!(await this.checkpointDocument())) {
-			return { status: "not_found" };
-		}
-
+		// The reconcile above schedules the debounced onSave, which checkpoints to
+		// Postgres off this turn — see applyEdits for why the checkpoint is deferred.
 		return { status: "undone" };
 	}
 
