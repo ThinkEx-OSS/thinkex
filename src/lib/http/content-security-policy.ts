@@ -8,7 +8,6 @@ interface ContentSecurityPolicyOptions {
 
 const cloudflareInsightsScriptOrigin = "https://static.cloudflareinsights.com";
 const cloudflareInsightsConnectOrigin = "https://cloudflareinsights.com";
-const cloudflareBrowserLiveViewOrigin = "https://live.browser.run";
 const cloudflareAccountIdPattern = /^[a-f\d]{32}$/i;
 
 export function buildContentSecurityPolicy(options: ContentSecurityPolicyOptions) {
@@ -46,7 +45,6 @@ export function buildContentSecurityPolicy(options: ContentSecurityPolicyOptions
 		"base-uri 'self'",
 		"object-src 'none'",
 		"frame-ancestors 'none'",
-		`frame-src ${cloudflareBrowserLiveViewOrigin}`,
 		"form-action 'self'",
 		"manifest-src 'self'",
 		"img-src 'self' data: blob: https:",

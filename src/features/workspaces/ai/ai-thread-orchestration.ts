@@ -6,7 +6,6 @@ import type { Tool, ToolSet } from "ai";
 import { z } from "zod";
 
 import { generateAIThreadCodemodeTypes } from "#/features/workspaces/ai/ai-codemode-types";
-import { createAIThreadBrowserConnector } from "#/features/workspaces/ai/ai-thread-browser";
 import {
 	getAIThreadOrchestrationModelOutput,
 	normalizeAIThreadOrchestrationOutput,
@@ -42,7 +41,6 @@ export type { AIThreadOrchestrationOutput } from "#/features/workspaces/ai/ai-th
 interface CreateAIThreadOrchestrationToolInput {
 	ctx: DurableObjectState;
 	description: string;
-	browser: Cloudflare.Env["BROWSER"];
 	loader: WorkerLoader;
 	name: string;
 	onRuntime?: (runtime: AIThreadOrchestrationRuntime) => void;
@@ -60,10 +58,7 @@ export function createAIThreadOrchestrationTool(input: CreateAIThreadOrchestrati
 		ctx: input.ctx,
 		loader: input.loader,
 		state: input.state,
-		connectors: [
-			new AIThreadToolSetConnector(input.ctx, input.tools),
-			createAIThreadBrowserConnector(input.ctx, input.browser),
-		],
+		connectors: [new AIThreadToolSetConnector(input.ctx, input.tools)],
 		name: input.name,
 		description: input.description,
 	});
@@ -119,6 +114,10 @@ class AIThreadToolSetConnector extends CodemodeConnector {
 						description: typeof aiTool.description === "function" ? undefined : aiTool.description,
 						inputSchema: await runtime.inputSchema.jsonSchema,
 						outputSchema: await runtime.outputSchema.jsonSchema,
+						// No tool sets `needsApproval` today, so nothing arms this and a run
+						// can never come back `paused` — Code Mode pauses only to await an
+						// approval. The pause handling downstream is kept as the landing
+						// pad for the next tool that does want a gate.
 						...(aiTool.needsApproval !== undefined && aiTool.needsApproval !== false
 							? { requiresApproval: true }
 							: {}),

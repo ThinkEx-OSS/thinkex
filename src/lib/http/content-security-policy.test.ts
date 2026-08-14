@@ -21,7 +21,8 @@ describe("content security policy", () => {
 		expect(policy).not.toContain("*.r2.cloudflarestorage.com");
 		expect(policy).not.toContain("connect-src https:");
 		expect(policy).not.toContain("'unsafe-eval'");
-		expect(policy).toContain("frame-src https://live.browser.run");
+		// No frame-src at all, so embedded frames fall back to `default-src 'self'`.
+		expect(policy).not.toContain("frame-src");
 		expect(policy).toContain("report-uri https://h.thinkex.app/report/?token=test");
 	});
 

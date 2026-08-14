@@ -17,17 +17,8 @@ import type {
 } from "@cloudflare/think";
 import { Think } from "@cloudflare/think";
 import bundledSkills from "agents:skills";
-import { callable } from "agents";
 import { generateText, type LanguageModel, type ToolSet } from "ai";
 
-import {
-	createAIThreadBrowserConnector,
-	getAIThreadBrowserHandoff,
-	getAIThreadBrowserPresence,
-	getAIThreadBrowserLiveView,
-	type AIThreadBrowserLiveView,
-	type AIThreadBrowserState,
-} from "#/features/workspaces/ai/ai-thread-browser";
 import {
 	AI_THREAD_COMPACTION_SYSTEM_PROMPT,
 	AI_THREAD_COMPACTION_TOKEN_THRESHOLD,
@@ -180,40 +171,6 @@ export function createAIThreadClass(getUserAIStore: () => typeof UserAIStore) {
 			});
 		}
 
-		/**
-		 * Everything the chat's browser card polls for, in one call: the card
-		 * needs presence and handoff together to decide what it shows, and
-		 * narrowing the handoff here keeps every other pending action's raw
-		 * arguments off the wire.
-		 */
-		@callable()
-		async getBrowserState(): Promise<AIThreadBrowserState> {
-			const [handoff, presence] = await Promise.all([
-				this._getBrowserHandoff(),
-				getAIThreadBrowserPresence(this.ctx.storage),
-			]);
-			return { handoff, presence };
-		}
-
-		@callable()
-		async getBrowserLiveView(): Promise<AIThreadBrowserLiveView | null> {
-			return getAIThreadBrowserLiveView(this._browserConnector());
-		}
-
-		@callable()
-		async resolveBrowserHandoff(executionId: string, approved: boolean): Promise<void> {
-			await this._resolveBrowserHandoff(
-				executionId,
-				approved,
-				"The user could not complete the requested browser handoff.",
-			);
-		}
-
-		@callable()
-		async stopBrowserSession(): Promise<void> {
-			await this._endBrowserSession("Browser handoff was stopped by the user.");
-		}
-
 		async beforeTurn(ctx: TurnContext): Promise<TurnConfig | undefined> {
 			// Consent travels in the chat body because the DO can't see the browser cookie.
 			this.telemetry.setConsent({
@@ -346,18 +303,12 @@ export function createAIThreadClass(getUserAIStore: () => typeof UserAIStore) {
 				return;
 			}
 
-			if (result.status !== "completed") {
-				await this._cleanupBrowserSession(
-					result.status === "aborted" ? "turn_aborted" : "turn_failed",
-				);
-			}
 			await this._settleActiveRun({ kind: "finished", result });
 		}
 
 		override onChatError(error: unknown, ctx?: ChatErrorContext) {
 			this.telemetry.recordTurnError(error, ctx);
 			void this.keepAliveWhile(async () => {
-				await this._cleanupBrowserSession("turn_failed");
 				await this._settleActiveRun({
 					error,
 					errorClassification: ctx?.classification,
@@ -407,80 +358,6 @@ export function createAIThreadClass(getUserAIStore: () => typeof UserAIStore) {
 				resolveWorkspaceReferences: (refs) => this._resolveWorkspaceReferences(refs),
 				timeZone,
 			});
-		}
-
-		private async _ensureOrchestrationRuntime() {
-			if (this.codemode) {
-				return;
-			}
-
-			const thread = await this._getThreadContext();
-			if (!thread) {
-				throw new Error("Chat thread not found");
-			}
-
-			this._createTurnToolConfig(thread);
-		}
-
-		private async _getBrowserHandoff(executionId?: string) {
-			await this._ensureOrchestrationRuntime();
-			return getAIThreadBrowserHandoff(await super.pendingExecutions(executionId));
-		}
-
-		private async _resolveBrowserHandoff(
-			executionId: string,
-			approved: boolean,
-			rejectionReason: string,
-		) {
-			const handoff = await this._getBrowserHandoff(executionId);
-			if (!handoff || handoff.executionId !== executionId) {
-				throw new Error("The browser handoff is no longer waiting for input.");
-			}
-
-			const result = approved
-				? await super.approveExecution(executionId)
-				: await super.rejectExecution(executionId, rejectionReason);
-			assertAIThreadExecutionResolved(result);
-		}
-
-		private _browserConnector() {
-			return createAIThreadBrowserConnector(this.ctx, this.env.BROWSER);
-		}
-
-		/**
-		 * Ending a session always resolves whatever handoff it parked. Leaving one
-		 * pending keeps the chat polling and offering "Done, continue" for a run
-		 * whose browser is already gone, and the agent is the only party that can
-		 * name the pending execution without racing its own poll.
-		 */
-		private async _endBrowserSession(rejectionReason: string) {
-			try {
-				const handoff = await this._getBrowserHandoff();
-				if (handoff) {
-					await this._resolveBrowserHandoff(handoff.executionId, false, rejectionReason);
-				}
-			} finally {
-				await this._browserConnector().closeSession();
-			}
-		}
-
-		private async _cleanupBrowserSession(reason: "turn_aborted" | "turn_failed") {
-			try {
-				await this._endBrowserSession(
-					reason === "turn_aborted"
-						? "The run was stopped before the browser handoff could be completed."
-						: "The run failed before the browser handoff could be completed.",
-				);
-			} catch (error) {
-				recordOperationalFailure({
-					error,
-					event: "ai_browser_cleanup",
-					fields: {
-						reason,
-						thread_id: this.name,
-					},
-				});
-			}
 		}
 
 		private _shouldSettleRunAfterResponse(result: ChatResponseResult) {
@@ -773,14 +650,6 @@ export function createAIThreadClass(getUserAIStore: () => typeof UserAIStore) {
 			});
 		}
 	};
-}
-
-function assertAIThreadExecutionResolved(result: unknown) {
-	if (result && typeof result === "object" && "status" in result && result.status === "error") {
-		const message =
-			"error" in result && typeof result.error === "string" ? result.error : undefined;
-		throw new Error(message ?? "The browser handoff could not be resolved.");
-	}
 }
 
 function filterToolSetByNames(tools: ToolSet, activeToolNames: string[] | undefined): ToolSet {

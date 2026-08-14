@@ -30,11 +30,6 @@ import {
 	type resolveWorkspaceAiChatModelId,
 } from "#/features/workspaces/ai/models";
 import { createAIThreadCodeRunTools } from "#/features/workspaces/ai/code-run-tools";
-import {
-	AI_THREAD_BROWSER_POLICY,
-	createAIThreadBrowserHandoffTool,
-	AI_THREAD_BROWSER_HANDOFF_TOOL_NAME,
-} from "#/features/workspaces/ai/ai-thread-browser";
 import { createAIThreadOrchestrationTool } from "#/features/workspaces/ai/ai-thread-orchestration";
 import { createAIThreadResearchTools } from "#/features/workspaces/ai/research-tools";
 import { createAIThreadTimeTools } from "#/features/workspaces/ai/time-tools";
@@ -112,16 +107,12 @@ export function createAIThreadTurnToolConfig(input: {
 	const state = workspaceFs ? createWorkspaceStateBackend(workspaceFs) : undefined;
 	const hasState = workspaceFs !== undefined;
 	const activeToolNames = toolCatalog.getActiveToolNames(input.canMutate);
-	const codemodeTools = {
-		...toolCatalog.getCodemodeTools(input.canMutate),
-		[AI_THREAD_BROWSER_HANDOFF_TOOL_NAME]: createAIThreadBrowserHandoffTool(),
-	} satisfies ToolSet;
+	const codemodeTools = toolCatalog.getCodemodeTools(input.canMutate);
 
 	return {
 		activeTools: activeToolNames,
 		tools: {
 			orchestrate: createAIThreadOrchestrationTool({
-				browser: input.env.BROWSER,
 				ctx: input.ctx,
 				loader: input.env.LOADER,
 				state,
@@ -235,8 +226,8 @@ function getAIThreadOrchestrateDescription(hasState: boolean) {
 		? "3. Call the method shown by the docs, for example `await tools.workspace_list_items(args)` or `await state.readFile(args)`."
 		: "3. Call the method shown by the docs, for example `await tools.workspace_list_items(args)`.";
 	const globalsLine = hasState
-		? "- The only globals are `state`, `tools`, `cdp`, and `codemode` plus standard JavaScript. There is no `host`, `fs`, `require`, `process`, or Node.js API."
-		: "- The only globals are `tools`, `cdp`, and `codemode` plus standard JavaScript. There is no `host`, `fs`, `require`, `process`, or Node.js API.";
+		? "- The only globals are `state`, `tools`, and `codemode` plus standard JavaScript. There is no `host`, `fs`, `require`, `process`, or Node.js API."
+		: "- The only globals are `tools` and `codemode` plus standard JavaScript. There is no `host`, `fs`, `require`, `process`, or Node.js API.";
 
 	return [
 		"Orchestrate multi-step work by running JavaScript in a private assistant sandbox with access to ThinkEx connector SDKs.",
@@ -246,7 +237,6 @@ function getAIThreadOrchestrateDescription(hasState: boolean) {
 		stateLine,
 		"- `tools.*` exposes ThinkEx workspace reads and mutations plus web, research, and time operations.",
 		"- `tools.compute` executes private Python for calculations, data analysis, and charts.",
-		"- `cdp.*` controls one task-scoped browser session through the Chrome DevTools Protocol.",
 		"",
 		"## Workflow",
 		"",
@@ -260,14 +250,11 @@ function getAIThreadOrchestrateDescription(hasState: boolean) {
 		"- Never guess method names. If you have not used a connector method in this conversation, run a discovery pass first.",
 		'- `codemode.describe("tools.workspace_list_items")` or the path returned by search gives TypeScript type declarations.',
 		"- Use `codemode.step(name, fn)` for nondeterministic work outside connector calls.",
-		"- Some methods may require approval. If the run pauses, tell the user what is pending and wait. Do not re-issue the code.",
 		"- Keep non-connector logic deterministic so resume can replay it.",
-		...AI_THREAD_BROWSER_POLICY.map((instruction) => `- ${instruction}`),
 		"- Do not use `fetch`. Use connector SDKs.",
 		"",
 		"## Snippets",
 		"",
-		'- Browser navigation: `const created = await cdp.send({ method: "Target.createTarget", params: { url } }); const { sessionId } = await cdp.attachToTarget({ targetId: created.targetId }); const page = await cdp.send({ method: "Runtime.evaluate", params: { expression: "({ readyState: document.readyState, title: document.title, url: location.href })", returnByValue: true }, sessionId });`',
 		'- `codemode.run("name", input)` runs a saved snippet.',
 		"- If a script may be reused later, write it as `async (input) => { ... }`.",
 	].join("\n");

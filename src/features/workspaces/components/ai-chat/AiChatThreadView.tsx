@@ -38,7 +38,6 @@ export default function AiChatThreadView({
 	const chat = useWorkspaceAiChat({ modelId, threadId });
 	const [sentMessageAnimationId, setSentMessageAnimationId] = useState<string | null>(null);
 	const {
-		browser,
 		canSend,
 		connectionError,
 		inputStatus,
@@ -72,13 +71,6 @@ export default function AiChatThreadView({
 		hasConnectionError: Boolean(connectionError),
 		threadSummary,
 	});
-	const stopChatAndBrowser = () => {
-		void stop();
-		if (browser.hasSession || browser.handoff) {
-			void browser.stopBrowser().catch(() => undefined);
-		}
-	};
-
 	const sendMessage = (message: PromptInputMessage, clearDraft = true) => {
 		const chatMessage = getChatMessageFromPrompt(message, generateId());
 
@@ -127,13 +119,11 @@ export default function AiChatThreadView({
 		<div className="relative flex min-h-0 flex-1 flex-col">
 			<AiChatMessageList
 				assistantError={assistantError}
-				browser={browser}
 				messages={messages}
 				presentation={presentation}
 				sentMessageAnimationId={sentMessageAnimationId}
 				workspaceId={context.workspaceId}
 				onRegenerateLastResponse={regenerate}
-				onStopBrowser={stopChatAndBrowser}
 			/>
 
 			<div className="px-3 pb-3">
@@ -147,7 +137,7 @@ export default function AiChatThreadView({
 						onModelChange={onModelChange}
 						onSubmit={(message) => sendMessage(message)}
 						onStop={() => {
-							stopChatAndBrowser();
+							void stop();
 						}}
 					/>
 				</div>

@@ -7,7 +7,6 @@ import {
 	getAIToolOutputOutcome,
 	type AIToolOutcome,
 } from "#/features/workspaces/ai/ai-tool-outcome";
-import { summarizeAIThreadBrowserActivity } from "#/features/workspaces/ai/ai-thread-browser-activity";
 import {
 	getDocumentEditReceiptMetadata,
 	stripAIThreadToolUiMetadata,
@@ -137,7 +136,7 @@ export function normalizeAIThreadOrchestrationOutput(output: unknown): AIThreadO
 		return invalidOrchestrationOutput(output);
 	}
 
-	const calls = normalizeCalls(parsed.data.calls);
+	const calls = parsed.data.calls.map(normalizeCall);
 	const childOutcome = aggregateAIToolOutcomes(calls.map((call) => call.outcome));
 
 	if (parsed.data.status === "completed") {
@@ -279,92 +278,6 @@ function getDocumentEditAction(call: z.output<typeof rawOrchestrationCallSchema>
 				receiptId,
 			}
 		: undefined;
-}
-
-/**
- * Collapse each *contiguous* run of CDP traffic into one browser receipt.
- *
- * Grouping every CDP call in the execution instead would reorder the
- * transcript: a tool call made between two browser stretches would render
- * after browsing that actually happened later, and two unrelated visits would
- * merge into a single row.
- */
-function normalizeCalls(rawCalls: z.output<typeof rawOrchestrationCallSchema>[]) {
-	const calls: ReturnType<typeof normalizeCall>[] = [];
-	let browserRun: z.output<typeof rawOrchestrationCallSchema>[] = [];
-
-	const flushBrowserRun = () => {
-		if (browserRun.length === 0) {
-			return;
-		}
-
-		const browserCall = normalizeBrowserCalls(browserRun);
-		if (browserCall) {
-			calls.push(browserCall);
-		}
-		browserRun = [];
-	};
-
-	for (const call of rawCalls) {
-		if (call.connector === "cdp") {
-			browserRun.push(call);
-			continue;
-		}
-
-		flushBrowserRun();
-		calls.push(normalizeCall(call));
-	}
-	flushBrowserRun();
-
-	return calls;
-}
-
-function normalizeBrowserCalls(calls: z.output<typeof rawOrchestrationCallSchema>[]) {
-	const state = getBrowserCallState(calls);
-	// One row, one verdict: the outcome follows the same "where did the run end
-	// up" rule as the state. Aggregating every call instead would report
-	// `codemode_tool_error` for a reset-and-retry that already recovered, and
-	// would count an in-flight call — which has no result yet, and which
-	// getOrchestrationCallOutcome reads as a failure — as a failure.
-	const decidingCall = state === "executing" ? undefined : calls.at(-1);
-	const outcome: AIToolOutcome = decidingCall
-		? getOrchestrationCallOutcome("browser_execute", decidingCall.state, decidingCall.result)
-		: { failureCodes: [], failedCount: 0, status: "success" };
-	const status =
-		state === "executing" ? ("running" as const) : getOrchestrationCallStatus(state, outcome);
-	const summary = summarizeAIThreadBrowserActivity(calls, status);
-	if (!summary) {
-		return undefined;
-	}
-
-	return {
-		id: `${calls[0]?.seq ?? 0}:cdp:browser_execute`,
-		toolName: "browser_execute",
-		state,
-		status,
-		requiresApproval: false,
-		outcome,
-		summary,
-	};
-}
-
-/**
- * The browser guidance tells the model to call `cdp.resetSession()` once and
- * retry when a reused session has gone away, so a failed call followed by a
- * successful one is the *supported* recovery path, not a failure. The durable
- * log keeps the original error forever, so the group has to be judged by where
- * the run ended up: anything still in flight reads as running, and an error
- * counts only when nothing after it succeeded.
- */
-function getBrowserCallState(
-	calls: z.output<typeof rawOrchestrationCallSchema>[],
-): z.output<typeof orchestrationCallStateSchema> {
-	if (calls.some((call) => call.state === "executing" || call.state === "pending")) {
-		return "executing";
-	}
-
-	const lastSettled = calls.at(-1);
-	return lastSettled?.state === "error" || lastSettled?.state === "reverted" ? "error" : "applied";
 }
 
 function getOrchestrationCallStatus(

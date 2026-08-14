@@ -18,8 +18,8 @@ interface AiToolDefinition {
 	model: AiToolModelPolicy;
 	/**
 	 * True when the entry exists only to label activity in the transcript and
-	 * has no tool factory behind it — `browser_execute` is the receipt for a
-	 * stretch of collapsed CDP traffic, not something the model can call.
+	 * has no tool factory behind it — the skill entries below are receipts the
+	 * runtime emits, not tools the model calls through this registry.
 	 */
 	presentationOnly: boolean;
 	ui: {
@@ -44,8 +44,6 @@ export const AI_TOOL_REGISTRY = defineAiToolRegistry({
 	}),
 	sandbox_bash: readTool({ icon: "code", title: "Sandbox", visibility: "hidden" }, false),
 	orchestrate: readTool({ icon: "work", title: "Work through task" }, false),
-	browser_execute: activityTool({ icon: "web", title: "Browse web" }),
-	browser_handoff: readTool({ icon: "web", title: "Browser handoff", visibility: "hidden" }),
 	compute: readTool({ icon: "code", title: "Run Python" }),
 	web_search: readTool({ icon: "search", title: "Search web" }),
 	web_fetch: readTool({ icon: "web", title: "Read URL" }, false),

@@ -59,7 +59,7 @@ ThinkEx is a full-stack TypeScript app hosted on Cloudflare. The frontend is Rea
 - **Workers AI** and **AI Gateway** for model access.
 - **Images** for image transforms and conversion.
 - **Worker Loaders** for dynamic code execution behind Codemode.
-- **Browser Run** for page reads, agent-driven CDP sessions, Live View, and human handoff.
+- **Browser Run** for page reads and document PDF export.
 - **Email** for workspace invites.
 - **Observability** for logs, traces, and source maps.
 - **Wrangler**, **Cloudflare Vite plugin**, and **Workers Vitest pool** for local runtime, deploys, types, and tests.
