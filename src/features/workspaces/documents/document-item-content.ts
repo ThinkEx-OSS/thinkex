@@ -1,42 +1,9 @@
-import {
-	type JsonValue,
-	type WorkspaceItemType,
-	getWorkspaceItemContentKind,
-} from "#/features/workspaces/contracts";
+import { type JsonValue } from "#/features/workspaces/contracts";
 import { withDocumentPreviewMetadata } from "#/features/workspaces/documents/document-preview-text";
-import {
-	createInitialTiptapDocumentJson,
-	stringifyTiptapDocumentJson,
-} from "#/features/workspaces/documents/tiptap-document";
 
 export function prepareDocumentItemMetadata(
 	metadataJson: Record<string, JsonValue>,
 	content: string,
 ) {
 	return withDocumentPreviewMetadata(metadataJson, content);
-}
-
-/** Shared create-time content + metadata for persistence writes and optimistic UI. */
-export function buildWorkspaceItemCreateBootstrap(input: {
-	type: WorkspaceItemType;
-	metadataJson?: Record<string, JsonValue>;
-	initialContent?: string;
-}) {
-	const initialContent = input.initialContent ?? getInitialWorkspaceContent(input.type);
-	const metadataJson =
-		getWorkspaceItemContentKind(input.type) === "document"
-			? prepareDocumentItemMetadata(input.metadataJson ?? {}, initialContent)
-			: (input.metadataJson ?? {});
-
-	return { initialContent, metadataJson };
-}
-
-function getInitialWorkspaceContent(type: WorkspaceItemType) {
-	switch (getWorkspaceItemContentKind(type)) {
-		case "document":
-			return stringifyTiptapDocumentJson(createInitialTiptapDocumentJson());
-		case "file":
-		case "none":
-			return "";
-	}
 }

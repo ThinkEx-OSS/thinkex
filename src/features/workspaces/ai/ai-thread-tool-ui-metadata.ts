@@ -7,7 +7,7 @@ interface AIThreadToolUiMetadata {
 }
 
 export function attachDocumentEditReceiptMetadata(output: unknown, receiptId: string) {
-	if (!isRecord(output)) {
+	if (!isRecord(output) || output.itemType !== "document") {
 		return output;
 	}
 

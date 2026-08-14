@@ -18,20 +18,22 @@ type StageComposerQuoteOptions = {
 	revealChat?: boolean;
 };
 
-/**
- * Drop editable text into the AI composer from anywhere in the workspace (e.g.
- * an item viewer's "Ask AI to fix" button) and reveal the chat.
- * The text is staged as an editable draft — it is never auto-sent, so the user
- * can review or amend it before sending. Reusable across item types.
- */
-export function stageComposerPrompt(workspaceId: string, text: string) {
+/** Send a generated action prompt in the current thread without touching its draft. */
+export function sendComposerPrompt(workspaceId: string, text: string) {
 	const trimmed = text.trim();
 	if (!trimmed) {
-		return;
+		return false;
 	}
 
-	useWorkspaceAiComposerDraftStore.getState().stageText(getComposerThreadId(workspaceId), trimmed);
+	const queued = useWorkspaceAiComposerDraftStore
+		.getState()
+		.queueDirectPrompt(getComposerThreadId(workspaceId), trimmed);
+	if (!queued) {
+		toast.info("Another AI action is already starting.");
+		return false;
+	}
 	revealComposer(workspaceId);
+	return true;
 }
 
 export function stageComposerQuote(

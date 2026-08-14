@@ -8,7 +8,7 @@ import {
 	workspaceItemTypeSchema,
 	workspaceRelationKindSchema,
 } from "#/features/workspaces/contracts";
-import { buildWorkspaceItemCreateBootstrap } from "#/features/workspaces/documents/document-item-content";
+import { buildWorkspaceItemCreateBootstrap } from "#/features/workspaces/model/workspace-item-create-bootstrap";
 import { getWorkspaceItemNameKey, WORKSPACE_ITEM_SORT_STEP } from "#/features/workspaces/defaults";
 import { listWorkspaceTreeItems as formatWorkspaceTreeItems } from "#/features/workspaces/model/workspace-tree-list";
 import {
@@ -232,7 +232,11 @@ export async function createWorkspaceItem(
 			metadata: bootstrap.metadataJson,
 			sortOrder: await getNextWorkspaceSortOrder(transaction, input.workspaceId, parentId),
 		});
-		if (getWorkspaceItemContentKind(type) === "document") {
+		const contentKind = getWorkspaceItemContentKind(type);
+		if (contentKind === "document" || contentKind === "structured") {
+			if (!bootstrap.initialContent) {
+				throw new Error("Workspace item content is required.");
+			}
 			await transaction.insert(workspaceItemContents).values({
 				itemId: input.id,
 				content: bootstrap.initialContent,

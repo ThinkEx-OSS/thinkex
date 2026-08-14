@@ -13,6 +13,7 @@ describe("workspace read tool schemas", () => {
 				requests: [
 					{ mode: "start", path: "/Notes" },
 					{ mode: "pages", path: "/Book.pdf", range: "1-3" },
+					{ mode: "cards", path: "/Biology", range: "1-3" },
 					{ cursor: "opaque", mode: "continue", path: "/Notes" },
 					{
 						editRef: "b_abcdefghijkl.r_0123456789",
@@ -42,6 +43,7 @@ describe("workspace read tool schemas", () => {
 					items: {
 						anyOf: [
 							{ additionalProperties: false, required: ["path", "mode"] },
+							{ additionalProperties: false, required: ["path", "mode", "range"] },
 							{ additionalProperties: false, required: ["path", "mode", "range"] },
 							{ additionalProperties: false, required: ["path", "cursor", "mode"] },
 							{ additionalProperties: false, required: ["path", "editRef", "mode"] },

@@ -1,5 +1,5 @@
 import { generateId } from "ai";
-import { useEffect, useState } from "react";
+import { useEffect, useEffectEvent, useState } from "react";
 
 import type { PromptInputMessage } from "#/features/workspaces/components/ai-chat/ai-chat-prompt-input";
 import type { AIThreadSummary } from "#/features/workspaces/ai/user-ai-agents";
@@ -12,9 +12,13 @@ import type {
 	AiChatSendMessage,
 } from "#/features/workspaces/components/ai-chat/types";
 import { useWorkspaceAiChat } from "#/features/workspaces/components/ai-chat/useWorkspaceAiChat";
+import { useWorkspaceAiAllowance } from "#/features/workspaces/ai/use-workspace-ai-allowance";
 import type { WorkspaceAiContextScope } from "#/features/workspaces/model/workspace-ai-context-types";
 import { buildWorkspaceAiContextSnapshot } from "#/features/workspaces/model/workspace-ai-context-snapshot";
-import { useWorkspaceAiComposerDraftStore } from "#/features/workspaces/state/workspace-ai-composer-draft-store";
+import {
+	useWorkspaceAiComposerDraftStore,
+	useWorkspaceAiDirectPrompt,
+} from "#/features/workspaces/state/workspace-ai-composer-draft-store";
 
 export default function AiChatThreadView({
 	context,
@@ -47,6 +51,10 @@ export default function AiChatThreadView({
 	const clearDraftArtifacts = useWorkspaceAiComposerDraftStore(
 		(state) => state.clearDraftArtifacts,
 	);
+	const directPrompt = useWorkspaceAiDirectPrompt(threadId);
+	const setDraftText = useWorkspaceAiComposerDraftStore((state) => state.setText);
+	const takeDirectPrompt = useWorkspaceAiComposerDraftStore((state) => state.takeDirectPrompt);
+	const { isBlocked } = useWorkspaceAiAllowance(modelId);
 
 	useEffect(() => {
 		onRecoveringChange?.(presentation.isRecovering);
@@ -71,7 +79,7 @@ export default function AiChatThreadView({
 		}
 	};
 
-	const sendMessage = (message: PromptInputMessage) => {
+	const sendMessage = (message: PromptInputMessage, clearDraft = true) => {
 		const chatMessage = getChatMessageFromPrompt(message, generateId());
 
 		if (!chatMessage) {
@@ -84,8 +92,35 @@ export default function AiChatThreadView({
 			},
 		});
 		setSentMessageAnimationId(chatMessage.id);
-		clearDraftArtifacts(context.workspaceId, threadId);
+		if (clearDraft) clearDraftArtifacts(context.workspaceId, threadId);
 	};
+	const sendDirectPrompt = useEffectEvent((text: string) => {
+		sendMessage({ files: [], text }, false);
+	});
+	useEffect(() => {
+		if (!directPrompt) return;
+		if (isBlocked || connectionError) {
+			const text = takeDirectPrompt(threadId, directPrompt.id);
+			if (text) {
+				queueMicrotask(() =>
+					setDraftText(threadId, (current) => (current.trim() ? `${current}\n\n${text}` : text)),
+				);
+			}
+			return;
+		}
+		if (!canSend || inputStatus !== "ready") return;
+		const text = takeDirectPrompt(threadId, directPrompt.id);
+		if (text) queueMicrotask(() => sendDirectPrompt(text));
+	}, [
+		canSend,
+		connectionError,
+		directPrompt,
+		inputStatus,
+		isBlocked,
+		setDraftText,
+		takeDirectPrompt,
+		threadId,
+	]);
 
 	return (
 		<div className="relative flex min-h-0 flex-1 flex-col">
@@ -109,7 +144,7 @@ export default function AiChatThreadView({
 						modelId={modelId}
 						status={inputStatus}
 						onModelChange={onModelChange}
-						onSubmit={sendMessage}
+						onSubmit={(message) => sendMessage(message)}
 						onStop={() => {
 							stopChatAndBrowser();
 						}}

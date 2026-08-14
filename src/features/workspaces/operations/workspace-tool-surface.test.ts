@@ -43,4 +43,22 @@ describe("workspace tool surface", () => {
 			expect(z.toJSONSchema(schema)).toMatchSnapshot();
 		});
 	}
+
+	it("keeps document and flashcard edit recipes unambiguous", () => {
+		const cardId = "f67080f9-0158-4565-86a9-4c90ed6809d2";
+		expect(
+			workspaceEditItemInputSchema.safeParse({
+				type: "flashcard",
+				path: "/Biology",
+				edits: [{ op: "delete_card", cardId }],
+			}).success,
+		).toBe(true);
+		expect(
+			workspaceEditItemInputSchema.safeParse({
+				type: "document",
+				path: "/Biology",
+				edits: [{ op: "delete_card", cardId }],
+			}).success,
+		).toBe(false);
+	});
 });

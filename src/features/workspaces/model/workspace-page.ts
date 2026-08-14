@@ -8,7 +8,7 @@ import {
 	getAvailableWorkspaceItemName,
 	WORKSPACE_ITEM_SORT_STEP,
 } from "#/features/workspaces/defaults";
-import { buildWorkspaceItemCreateBootstrap } from "#/features/workspaces/documents/document-item-content";
+import { buildWorkspaceItemCreateBootstrap } from "#/features/workspaces/model/workspace-item-create-bootstrap";
 import {
 	getWorkspaceRootItems,
 	getWorkspaceSubtreeItemIds,

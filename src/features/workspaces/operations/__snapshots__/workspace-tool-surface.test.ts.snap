@@ -45,9 +45,9 @@ exports[`workspace tool surface > workspace_create_items input schema is stable 
   "additionalProperties": false,
   "properties": {
     "items": {
-      "description": "One or more folders or documents to create in order, at most 20. Parent folders must already exist or be created earlier in the same request.",
+      "description": "One or more folders, documents, or flashcard sets to create in order, at most 20. Parent folders must already exist or be created earlier in the same request.",
       "items": {
-        "anyOf": [
+        "oneOf": [
           {
             "additionalProperties": false,
             "properties": {
@@ -102,9 +102,10 @@ exports[`workspace tool surface > workspace_create_items input schema is stable 
           },
           {
             "additionalProperties": false,
+            "description": "Document creation recipe.",
             "properties": {
               "initialContent": {
-                "description": "Optional initial HTML content for the document.",
+                "description": "Optional initial HTML content. Use semantic HTML with paragraphs, h1-h4, blockquotes, lists, code blocks, horizontal rules, tables, links, and standard text marks. This is HTML, so math is markup rather than delimiters: use <span data-type="inline-math" data-latex="..."></span> or <div data-type="block-math" data-latex="..."></div>, and keep dollar signs out of the data-latex value. Put every subscript and superscript (exponents like 10^8, indices like x_1) inside math rather than <sub>/<sup> tags. Chemistry renders with \\ce{...} (e.g. \\ce{CH4 + 2 O2 -> CO2 + 2 H2O}) and quantities with units render with \\pu{...} (e.g. \\pu{9.81 m/s^2}), both inside data-latex. Write literal money as plain text ($30, never \\$30) — a backslash before a dollar sign shows on screen in HTML. For checkboxes, use <ul data-type="taskList"><li data-type="taskItem" data-checked="false"><label><input type="checkbox"><span></span></label><div><p>Item</p></div></li></ul>. Documents cannot hold images: never use <img> or <figure>, and describe the visual in words instead. Cite workspace sources in documents exactly as in a chat reply, with <citation ref="wr_7Kp2Qa9x"></citation> placed after the claim it supports. A widget is one interactive block inside a document. Use one when the user explicitly asks for a widget, asks for interaction or live computation, or wants a document visual that ordinary blocks cannot express. Keep ordinary content in ordinary blocks. Before authoring or editing widget source, activate the "widget-authoring" skill and follow its HTML, sandbox, layout, and editing contract. Serialize the result as <div data-type="widget" title="Short title">…HTML-escaped fragment…</div>.",
                 "maxLength": 512000,
                 "type": "string",
               },
@@ -157,6 +158,88 @@ exports[`workspace tool surface > workspace_create_items input schema is stable 
             ],
             "type": "object",
           },
+          {
+            "additionalProperties": false,
+            "description": "Flashcard creation recipe.",
+            "properties": {
+              "cards": {
+                "description": "Ordered cards. Flashcard fronts and backs are HTML. Keep each side concise. Use paragraphs, lists, links, code blocks, and standard text marks only. This is HTML, so math is markup rather than delimiters: use <span data-type="inline-math" data-latex="..."></span> or <div data-type="block-math" data-latex="..."></div>, and keep dollar signs out of the data-latex value. Put every subscript and superscript (exponents like 10^8, indices like x_1) inside math rather than <sub>/<sup> tags. Chemistry renders with \\ce{...} (e.g. \\ce{CH4 + 2 O2 -> CO2 + 2 H2O}) and quantities with units render with \\pu{...} (e.g. \\pu{9.81 m/s^2}), both inside data-latex. Write literal money as plain text ($30, never \\$30) — a backslash before a dollar sign shows on screen in HTML. Do not use headings, tables, images, widgets, task lists, or citations inside a card. Use item-level relations for sources.",
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "back": {
+                      "description": "HTML shown after the card flips.",
+                      "maxLength": 8000,
+                      "minLength": 1,
+                      "type": "string",
+                    },
+                    "front": {
+                      "description": "HTML shown before the card flips.",
+                      "maxLength": 8000,
+                      "minLength": 1,
+                      "type": "string",
+                    },
+                  },
+                  "required": [
+                    "front",
+                    "back",
+                  ],
+                  "type": "object",
+                },
+                "maxItems": 100,
+                "minItems": 1,
+                "type": "array",
+              },
+              "path": {
+                "description": "Final absolute path for the flashcard set.",
+                "minLength": 1,
+                "type": "string",
+              },
+              "relations": {
+                "description": "Optional relationships from this set to source items, at most 20.",
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "kind": {
+                      "description": "\`derived_from\` means this item was created or materially changed from the linked item. \`references\` means this item cites or points to the linked item.",
+                      "enum": [
+                        "derived_from",
+                        "references",
+                      ],
+                      "type": "string",
+                    },
+                    "note": {
+                      "description": "Optional short source detail, like pages 12-14 or section on photosynthesis.",
+                      "maxLength": 240,
+                      "type": "string",
+                    },
+                    "path": {
+                      "description": "Absolute path of the related ThinkEx workspace item.",
+                      "minLength": 1,
+                      "type": "string",
+                    },
+                  },
+                  "required": [
+                    "kind",
+                    "path",
+                  ],
+                  "type": "object",
+                },
+                "maxItems": 20,
+                "type": "array",
+              },
+              "type": {
+                "const": "flashcard",
+                "type": "string",
+              },
+            },
+            "required": [
+              "type",
+              "path",
+              "cards",
+            ],
+            "type": "object",
+          },
         ],
       },
       "maxItems": 20,
@@ -197,131 +280,284 @@ exports[`workspace tool surface > workspace_delete_items input schema is stable 
 exports[`workspace tool surface > workspace_edit_item input schema is stable 1`] = `
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "additionalProperties": false,
-  "properties": {
-    "edits": {
-      "description": "Ordered edits, at most 40. Target a block with the exact editRef from a document or block read. A block read returns the exact content that replace_text matches. Use overwrite only to discard the entire document and write a new one.",
-      "items": {
-        "anyOf": [
-          {
-            "additionalProperties": false,
-            "properties": {
-              "editRef": {
-                "description": "Exact editRef from a recent document or block read.",
-                "maxLength": 64,
-                "minLength": 1,
-                "type": "string",
+  "oneOf": [
+    {
+      "additionalProperties": false,
+      "description": "Document edit recipe.",
+      "properties": {
+        "edits": {
+          "description": "Ordered document edits. Target blocks with exact editRefs from a read. Use overwrite only to replace the whole document. Use semantic HTML with paragraphs, h1-h4, blockquotes, lists, code blocks, horizontal rules, tables, links, and standard text marks. This is HTML, so math is markup rather than delimiters: use <span data-type="inline-math" data-latex="..."></span> or <div data-type="block-math" data-latex="..."></div>, and keep dollar signs out of the data-latex value. Put every subscript and superscript (exponents like 10^8, indices like x_1) inside math rather than <sub>/<sup> tags. Chemistry renders with \\ce{...} (e.g. \\ce{CH4 + 2 O2 -> CO2 + 2 H2O}) and quantities with units render with \\pu{...} (e.g. \\pu{9.81 m/s^2}), both inside data-latex. Write literal money as plain text ($30, never \\$30) — a backslash before a dollar sign shows on screen in HTML. For checkboxes, use <ul data-type="taskList"><li data-type="taskItem" data-checked="false"><label><input type="checkbox"><span></span></label><div><p>Item</p></div></li></ul>. Documents cannot hold images: never use <img> or <figure>, and describe the visual in words instead. Cite workspace sources in documents exactly as in a chat reply, with <citation ref="wr_7Kp2Qa9x"></citation> placed after the claim it supports. A widget is one interactive block inside a document. Use one when the user explicitly asks for a widget, asks for interaction or live computation, or wants a document visual that ordinary blocks cannot express. Keep ordinary content in ordinary blocks. Before authoring or editing widget source, activate the "widget-authoring" skill and follow its HTML, sandbox, layout, and editing contract. Serialize the result as <div data-type="widget" title="Short title">…HTML-escaped fragment…</div>.",
+          "items": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "editRef": {
+                    "description": "Exact editRef from a recent document or block read.",
+                    "maxLength": 64,
+                    "minLength": 1,
+                    "type": "string",
+                  },
+                  "html": {
+                    "description": "Schema-constrained HTML fragment. Model-supplied data-edit-ref attributes are ignored.",
+                    "maxLength": 512000,
+                    "type": "string",
+                  },
+                  "op": {
+                    "enum": [
+                      "insert_after",
+                      "insert_before",
+                      "replace",
+                    ],
+                    "type": "string",
+                  },
+                },
+                "required": [
+                  "editRef",
+                  "html",
+                  "op",
+                ],
+                "type": "object",
               },
-              "html": {
-                "description": "Schema-constrained HTML fragment. Model-supplied data-edit-ref attributes are ignored.",
-                "maxLength": 512000,
-                "type": "string",
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "editRef": {
+                    "description": "Exact editRef from a recent document or block read.",
+                    "maxLength": 64,
+                    "minLength": 1,
+                    "type": "string",
+                  },
+                  "op": {
+                    "const": "delete",
+                    "type": "string",
+                  },
+                },
+                "required": [
+                  "editRef",
+                  "op",
+                ],
+                "type": "object",
               },
-              "op": {
-                "enum": [
-                  "insert_after",
-                  "insert_before",
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "html": {
+                    "description": "Schema-constrained HTML fragment. Model-supplied data-edit-ref attributes are ignored.",
+                    "maxLength": 512000,
+                    "type": "string",
+                  },
+                  "op": {
+                    "const": "overwrite",
+                    "type": "string",
+                  },
+                },
+                "required": [
+                  "html",
+                  "op",
+                ],
+                "type": "object",
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "editRef": {
+                    "description": "Exact editRef from a recent document or block read.",
+                    "maxLength": 64,
+                    "minLength": 1,
+                    "type": "string",
+                  },
+                  "find": {
+                    "description": "Exact text to replace inside the target block, copied from a read. It must appear exactly once in that block; if it matches more than once the edit fails instead of replacing every occurrence.",
+                    "maxLength": 512000,
+                    "minLength": 1,
+                    "type": "string",
+                  },
+                  "op": {
+                    "const": "replace_text",
+                    "type": "string",
+                  },
+                  "replace": {
+                    "description": "Replacement text. May be empty to delete the matched text.",
+                    "maxLength": 512000,
+                    "type": "string",
+                  },
+                },
+                "required": [
+                  "editRef",
+                  "find",
+                  "op",
                   "replace",
                 ],
-                "type": "string",
+                "type": "object",
               },
-            },
-            "required": [
-              "editRef",
-              "html",
-              "op",
             ],
-            "type": "object",
           },
-          {
-            "additionalProperties": false,
-            "properties": {
-              "editRef": {
-                "description": "Exact editRef from a recent document or block read.",
-                "maxLength": 64,
-                "minLength": 1,
-                "type": "string",
-              },
-              "op": {
-                "const": "delete",
-                "type": "string",
-              },
-            },
-            "required": [
-              "editRef",
-              "op",
-            ],
-            "type": "object",
-          },
-          {
-            "additionalProperties": false,
-            "properties": {
-              "html": {
-                "description": "Schema-constrained HTML fragment. Model-supplied data-edit-ref attributes are ignored.",
-                "maxLength": 512000,
-                "type": "string",
-              },
-              "op": {
-                "const": "overwrite",
-                "type": "string",
-              },
-            },
-            "required": [
-              "html",
-              "op",
-            ],
-            "type": "object",
-          },
-          {
-            "additionalProperties": false,
-            "properties": {
-              "editRef": {
-                "description": "Exact editRef from a recent document or block read.",
-                "maxLength": 64,
-                "minLength": 1,
-                "type": "string",
-              },
-              "find": {
-                "description": "Exact text to replace inside the target block, copied from a read. It must appear exactly once in that block; if it matches more than once the edit fails instead of replacing every occurrence.",
-                "maxLength": 512000,
-                "minLength": 1,
-                "type": "string",
-              },
-              "op": {
-                "const": "replace_text",
-                "type": "string",
-              },
-              "replace": {
-                "description": "Replacement text. May be empty to delete the matched text.",
-                "maxLength": 512000,
-                "type": "string",
-              },
-            },
-            "required": [
-              "editRef",
-              "find",
-              "op",
-              "replace",
-            ],
-            "type": "object",
-          },
-        ],
+          "maxItems": 40,
+          "minItems": 1,
+          "type": "array",
+        },
+        "path": {
+          "description": "Absolute path of one actual ThinkEx document to edit.",
+          "minLength": 1,
+          "type": "string",
+        },
+        "type": {
+          "const": "document",
+          "type": "string",
+        },
       },
-      "maxItems": 40,
-      "minItems": 1,
-      "type": "array",
+      "required": [
+        "type",
+        "path",
+        "edits",
+      ],
+      "type": "object",
     },
-    "path": {
-      "description": "Absolute path of one actual ThinkEx workspace item to edit.",
-      "minLength": 1,
-      "type": "string",
+    {
+      "additionalProperties": false,
+      "description": "Flashcard edit recipe.",
+      "properties": {
+        "edits": {
+          "description": "Ordered flashcard edits. Use stable card IDs from a read. Omit beforeCardId and afterCardId to place a card at the end. Flashcard fronts and backs are HTML. Keep each side concise. Use paragraphs, lists, links, code blocks, and standard text marks only. This is HTML, so math is markup rather than delimiters: use <span data-type="inline-math" data-latex="..."></span> or <div data-type="block-math" data-latex="..."></div>, and keep dollar signs out of the data-latex value. Put every subscript and superscript (exponents like 10^8, indices like x_1) inside math rather than <sub>/<sup> tags. Chemistry renders with \\ce{...} (e.g. \\ce{CH4 + 2 O2 -> CO2 + 2 H2O}) and quantities with units render with \\pu{...} (e.g. \\pu{9.81 m/s^2}), both inside data-latex. Write literal money as plain text ($30, never \\$30) — a backslash before a dollar sign shows on screen in HTML. Do not use headings, tables, images, widgets, task lists, or citations inside a card. Use item-level relations for sources.",
+          "items": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "afterCardId": {
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                    "type": "string",
+                  },
+                  "back": {
+                    "maxLength": 8000,
+                    "minLength": 1,
+                    "type": "string",
+                  },
+                  "beforeCardId": {
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                    "type": "string",
+                  },
+                  "front": {
+                    "maxLength": 8000,
+                    "minLength": 1,
+                    "type": "string",
+                  },
+                  "op": {
+                    "const": "insert_card",
+                    "type": "string",
+                  },
+                },
+                "required": [
+                  "op",
+                  "front",
+                  "back",
+                ],
+                "type": "object",
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "back": {
+                    "maxLength": 8000,
+                    "minLength": 1,
+                    "type": "string",
+                  },
+                  "cardId": {
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                    "type": "string",
+                  },
+                  "front": {
+                    "maxLength": 8000,
+                    "minLength": 1,
+                    "type": "string",
+                  },
+                  "op": {
+                    "const": "update_card",
+                    "type": "string",
+                  },
+                },
+                "required": [
+                  "op",
+                  "cardId",
+                ],
+                "type": "object",
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "afterCardId": {
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                    "type": "string",
+                  },
+                  "beforeCardId": {
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                    "type": "string",
+                  },
+                  "cardId": {
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                    "type": "string",
+                  },
+                  "op": {
+                    "const": "move_card",
+                    "type": "string",
+                  },
+                },
+                "required": [
+                  "op",
+                  "cardId",
+                ],
+                "type": "object",
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "cardId": {
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                    "type": "string",
+                  },
+                  "op": {
+                    "const": "delete_card",
+                    "type": "string",
+                  },
+                },
+                "required": [
+                  "op",
+                  "cardId",
+                ],
+                "type": "object",
+              },
+            ],
+          },
+          "maxItems": 100,
+          "minItems": 1,
+          "type": "array",
+        },
+        "path": {
+          "description": "Absolute path of one actual ThinkEx flashcard set to edit.",
+          "minLength": 1,
+          "type": "string",
+        },
+        "type": {
+          "const": "flashcard",
+          "type": "string",
+        },
+      },
+      "required": [
+        "type",
+        "path",
+        "edits",
+      ],
+      "type": "object",
     },
-  },
-  "required": [
-    "path",
-    "edits",
   ],
-  "type": "object",
 }
 `;
 
@@ -474,6 +710,32 @@ exports[`workspace tool surface > workspace_read_items input schema is stable 1`
               },
               "range": {
                 "description": "Up to 20 physical pages from an extracted file, like 1, 3, 5-7, or 1,4-6. Defaults to page 1.",
+                "minLength": 1,
+                "pattern": "^\\d+(?:\\s*-\\s*\\d+)?(?:\\s*,\\s*\\d+(?:\\s*-\\s*\\d+)?)*$",
+                "type": "string",
+              },
+            },
+            "required": [
+              "path",
+              "mode",
+              "range",
+            ],
+            "type": "object",
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "mode": {
+                "const": "cards",
+                "type": "string",
+              },
+              "path": {
+                "description": "Absolute path of the workspace item to read.",
+                "minLength": 1,
+                "type": "string",
+              },
+              "range": {
+                "description": "Up to 20 card numbers from a flashcard set, like 1, 3, 5-7, or 1,4-6.",
                 "minLength": 1,
                 "pattern": "^\\d+(?:\\s*-\\s*\\d+)?(?:\\s*,\\s*\\d+(?:\\s*-\\s*\\d+)?)*$",
                 "type": "string",

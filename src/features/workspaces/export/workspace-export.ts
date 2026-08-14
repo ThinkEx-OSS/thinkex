@@ -7,8 +7,10 @@ import {
 	type TiptapDocumentJson,
 } from "#/features/workspaces/documents/tiptap-document";
 import { createWorkspaceExportStream } from "#/features/workspaces/export/workspace-export-archive";
+import { type FlashcardSetContent } from "#/features/workspaces/flashcards/flashcard-content";
 import { canExportWorkspaceEstimate } from "#/features/workspaces/export/workspace-export-limit";
 import { readWorkspaceDocumentCheckpoint } from "#/features/workspaces/persistence/workspace-document-checkpoints";
+import { readFlashcardSet } from "#/features/workspaces/flashcards/flashcard-persistence";
 import { readWorkspaceFileSource } from "#/features/workspaces/persistence/workspace-files";
 import { WorkspaceForbiddenError } from "#/features/workspaces/server/permissions";
 import { getWorkspacePageForUser } from "#/features/workspaces/server/queries";
@@ -25,6 +27,7 @@ export class WorkspaceExportTooLargeError extends Error {
 
 interface PreparedWorkspaceExport {
 	documents: Map<string, TiptapDocumentJson>;
+	flashcards: Map<string, FlashcardSetContent>;
 	fileName: string;
 	fileObjectKeys: Map<string, string>;
 	items: WorkspaceItem[];
@@ -42,6 +45,11 @@ export async function createWorkspaceExport(input: { workspaceId: string; userId
 					throw new Error(`Workspace document was not prepared for ${item.name}.`);
 				}
 				return document;
+			},
+			readFlashcards: (item) => {
+				const set = prepared.flashcards.get(item.id);
+				if (!set) throw new Error(`Workspace flashcards were not prepared for ${item.name}.`);
+				return set;
 			},
 			readFile: async (item) => {
 				const objectKey = prepared.fileObjectKeys.get(item.id);
@@ -86,6 +94,7 @@ async function prepareWorkspaceExport(input: { workspaceId: string; userId: stri
 	}
 
 	const documents = new Map<string, TiptapDocumentJson>();
+	const flashcards = new Map<string, FlashcardSetContent>();
 	const fileObjectKeys = new Map<string, string>();
 	let estimatedBytes = page.items.length * 512;
 
@@ -112,6 +121,13 @@ async function prepareWorkspaceExport(input: { workspaceId: string; userId: stri
 			}
 			estimatedBytes += object.size;
 			fileObjectKeys.set(item.id, source.objectKey);
+			continue;
+		}
+		if (item.type === "flashcard") {
+			const set = await readFlashcardSet({ itemId: item.id, workspaceId: input.workspaceId });
+			const serialized = JSON.stringify(set);
+			estimatedBytes += textEncoder.encode(serialized).byteLength;
+			flashcards.set(item.id, set);
 		}
 	}
 
@@ -121,6 +137,7 @@ async function prepareWorkspaceExport(input: { workspaceId: string; userId: stri
 
 	return {
 		documents,
+		flashcards,
 		fileName: `${normalizeWorkspaceItemName(page.workspace.name, "Workspace")}-${new Date().toISOString().slice(0, 10)}.zip`,
 		fileObjectKeys,
 		items: page.items,

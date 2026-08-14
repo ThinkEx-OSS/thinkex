@@ -2,13 +2,14 @@ import Collaboration from "@tiptap/extension-collaboration";
 import CollaborationCaret from "@tiptap/extension-collaboration-caret";
 import { EditorContent, useEditor } from "@tiptap/react";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { Skeleton } from "#/components/ui/skeleton";
-import { stageComposerPrompt } from "#/features/workspaces/composer/workspace-composer-actions";
+import { sendComposerPrompt } from "#/features/workspaces/composer/workspace-composer-actions";
 import { DocumentAskSelectionMenu } from "#/features/workspaces/components/document-editor/DocumentAskSelectionMenu";
+import { DocumentToolbar } from "#/features/workspaces/components/document-editor/DocumentToolbar";
 import { DocumentWordCount } from "#/features/workspaces/components/document-editor/DocumentWordCount";
-import { useDocumentEditorToolbar } from "#/features/workspaces/components/WorkspaceItemToolbarSlot";
+import { useWorkspaceItemToolbar } from "#/features/workspaces/components/WorkspaceItemToolbarSlot";
 import { useWorkspacePaneRuntime } from "#/features/workspaces/components/WorkspacePaneRuntime";
 import { useWorkspaceMutationAccess } from "#/features/workspaces/components/workspace-mutation-access";
 import { DocumentEditReviewExtension } from "#/features/workspaces/documents/document-edit-review-extension";
@@ -107,14 +108,19 @@ function DocumentEditorInstance({
 		},
 	});
 
-	useDocumentEditorToolbar({
-		canEdit: capabilities.canMutateContent,
-		documentPath,
-		editor: capabilities.canMutateContent ? editor : null,
-		itemId: item.id,
-		slotId: viewInstanceId,
-		workspaceId,
-	});
+	const toolbar = useMemo(
+		() => (
+			<DocumentToolbar
+				canEdit={capabilities.canMutateContent}
+				documentPath={documentPath}
+				editor={capabilities.canMutateContent ? editor : null}
+				itemId={item.id}
+				workspaceId={workspaceId}
+			/>
+		),
+		[capabilities.canMutateContent, documentPath, editor, item.id, workspaceId],
+	);
+	useWorkspaceItemToolbar(viewInstanceId, toolbar);
 	useDocumentEditReviewOverlay({
 		canEdit: capabilities.canMutateContent,
 		editor,
@@ -135,7 +141,7 @@ function DocumentEditorInstance({
 						onAskAiToFix={
 							capabilities.canMutateContent
 								? (error) =>
-										stageComposerPrompt(
+										sendComposerPrompt(
 											workspaceId,
 											`A widget in ${documentPath} hit this error. Please fix it:\n\n${error}`,
 										)

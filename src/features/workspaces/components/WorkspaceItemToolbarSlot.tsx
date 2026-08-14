@@ -1,4 +1,3 @@
-import type { Editor } from "@tiptap/react";
 import {
 	createContext,
 	type Dispatch,
@@ -6,33 +5,16 @@ import {
 	type SetStateAction,
 	use,
 	useEffect,
+	useMemo,
 	useState,
 } from "react";
 
 import { TooltipProvider } from "#/components/ui/tooltip";
-import { DocumentToolbar } from "#/features/workspaces/components/document-editor/DocumentToolbar";
-import { WorkspaceFileToolbar } from "#/features/workspaces/components/WorkspaceFileToolbar";
 
-type WorkspaceItemToolbarRegistration =
-	| {
-			canEdit: boolean;
-			documentPath: string;
-			editor: Editor | null;
-			itemId: string;
-			kind: "document";
-			slotId: string;
-			workspaceId: string;
-	  }
-	| {
-			capture?: {
-				isActive: boolean;
-				onToggle: () => void;
-			};
-			fileName: string;
-			fileUrl: string;
-			kind: "file";
-			slotId: string;
-	  };
+interface WorkspaceItemToolbarRegistration {
+	content: ReactNode;
+	slotId: string;
+}
 
 interface WorkspaceItemToolbarContextValue {
 	registrationsBySlotId: Record<string, WorkspaceItemToolbarRegistration>;
@@ -53,141 +35,29 @@ export function WorkspaceItemToolbarProvider({ children }: { children: ReactNode
 	);
 }
 
-export function useDocumentEditorToolbar({
-	canEdit,
-	documentPath,
-	editor,
-	itemId,
-	slotId,
-	workspaceId,
-}: {
-	canEdit: boolean;
-	documentPath: string;
-	editor: Editor | null;
-	itemId: string;
-	slotId: string;
-	workspaceId: string;
-}) {
+export function useWorkspaceItemToolbar(slotId: string, content: ReactNode) {
+	const registration = useMemo(() => ({ content, slotId }), [content, slotId]);
 	const context = use(WorkspaceItemToolbarContext);
 	const setRegistration = context?.setRegistration;
 
 	useEffect(() => {
-		if (!setRegistration) {
-			return;
-		}
+		if (!setRegistration) return;
 
-		const registration = {
-			canEdit,
-			documentPath,
-			editor,
-			itemId,
-			kind: "document" as const,
-			slotId,
-			workspaceId,
-		};
-		setRegistration((current) => {
-			const existing = current[slotId];
-			if (
-				existing?.kind === "document" &&
-				existing.canEdit === canEdit &&
-				existing.documentPath === documentPath &&
-				existing.editor === editor &&
-				existing.itemId === itemId &&
-				existing.slotId === slotId &&
-				existing.workspaceId === workspaceId
-			) {
-				return current;
-			}
-
-			return {
-				...current,
-				[slotId]: registration,
-			};
-		});
+		setRegistration((current) =>
+			current[registration.slotId] === registration
+				? current
+				: { ...current, [registration.slotId]: registration },
+		);
 
 		return () => {
 			setRegistration((current) => {
-				if (current[slotId] !== registration) {
-					return current;
-				}
-
+				if (current[registration.slotId] !== registration) return current;
 				const next = { ...current };
-				delete next[slotId];
-
+				delete next[registration.slotId];
 				return next;
 			});
 		};
-	}, [canEdit, documentPath, editor, itemId, slotId, workspaceId, setRegistration]);
-}
-
-export function useFileItemToolbar({
-	capture,
-	fileName,
-	fileUrl,
-	slotId,
-}: {
-	capture?: {
-		isActive: boolean;
-		onToggle: () => void;
-	};
-	fileName: string;
-	fileUrl: string;
-	slotId: string;
-}) {
-	const context = use(WorkspaceItemToolbarContext);
-	const setRegistration = context?.setRegistration;
-	const captureIsActive = capture?.isActive;
-	const captureOnToggle = capture?.onToggle;
-
-	useEffect(() => {
-		if (!setRegistration) {
-			return;
-		}
-
-		const registeredCapture = captureOnToggle
-			? {
-					isActive: Boolean(captureIsActive),
-					onToggle: captureOnToggle,
-				}
-			: undefined;
-		const registration = {
-			capture: registeredCapture,
-			fileName,
-			fileUrl,
-			kind: "file" as const,
-			slotId,
-		};
-		setRegistration((current) => {
-			const existing = current[slotId];
-			if (
-				existing?.kind === "file" &&
-				existing.fileName === fileName &&
-				existing.fileUrl === fileUrl &&
-				existing.capture?.isActive === registeredCapture?.isActive &&
-				existing.capture?.onToggle === registeredCapture?.onToggle
-			) {
-				return current;
-			}
-
-			return {
-				...current,
-				[slotId]: registration,
-			};
-		});
-
-		return () => {
-			setRegistration((current) => {
-				if (current[slotId] !== registration) {
-					return current;
-				}
-
-				const next = { ...current };
-				delete next[slotId];
-
-				return next;
-			});
-		};
-	}, [captureIsActive, captureOnToggle, fileName, fileUrl, slotId, setRegistration]);
+	}, [registration, setRegistration]);
 }
 
 export function WorkspaceItemToolbarSlot({
@@ -200,29 +70,11 @@ export function WorkspaceItemToolbarSlot({
 		? context?.registrationsBySlotId[activeToolbarSlotId]
 		: null;
 
-	if (!activeToolbarSlotId || !registration) {
-		return null;
-	}
+	if (!registration) return null;
 
 	return (
 		<div className="flex min-w-0 shrink-0 items-center overflow-hidden">
-			<TooltipProvider>
-				{registration.kind === "document" ? (
-					<DocumentToolbar
-						canEdit={registration.canEdit}
-						documentPath={registration.documentPath}
-						editor={registration.editor}
-						itemId={registration.itemId}
-						workspaceId={registration.workspaceId}
-					/>
-				) : (
-					<WorkspaceFileToolbar
-						capture={registration.capture}
-						fileName={registration.fileName}
-						fileUrl={registration.fileUrl}
-					/>
-				)}
-			</TooltipProvider>
+			<TooltipProvider>{registration.content}</TooltipProvider>
 		</div>
 	);
 }

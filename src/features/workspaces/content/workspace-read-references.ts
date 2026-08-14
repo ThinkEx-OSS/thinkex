@@ -14,7 +14,7 @@ import type {
  * Allocates durable-location records for every ready workspace read.
  *
  * Documents and images receive one item-level ref. PDFs receive one ref per
- * physical page so the model never has to cite an imprecise page range.
+ * physical page, and flashcards one per side, so citations remain exact.
  *
  * @param results - Ordered workspace read results.
  * @returns Deduplicated reference records for the rich tool result.
@@ -26,6 +26,27 @@ export function createWorkspaceReadReferences(
 
 	for (const result of results) {
 		if (result.status !== "ready") {
+			continue;
+		}
+		if (result.type === "flashcard") {
+			for (const card of result.cards) {
+				locations.push(
+					{
+						itemId: result.itemId,
+						kind: "flashcard-side",
+						cardId: card.cardId,
+						side: "front",
+						version: 1,
+					},
+					{
+						itemId: result.itemId,
+						kind: "flashcard-side",
+						cardId: card.cardId,
+						side: "back",
+						version: 1,
+					},
+				);
+			}
 			continue;
 		}
 
@@ -134,6 +155,32 @@ export function createWorkspaceReadItemsModelOutput(output: WorkspaceReadItemsOu
 
 			if (result.status === "failed") {
 				return result;
+			}
+			if (result.type === "flashcard") {
+				return {
+					...omitWorkspaceReadItemId(result),
+					cards: result.cards.map((card) => ({
+						...card,
+						frontReference: refsByLocation.get(
+							getWorkspaceLocationKey({
+								itemId: result.itemId,
+								kind: "flashcard-side",
+								cardId: card.cardId,
+								side: "front",
+								version: 1,
+							}),
+						),
+						backReference: refsByLocation.get(
+							getWorkspaceLocationKey({
+								itemId: result.itemId,
+								kind: "flashcard-side",
+								cardId: card.cardId,
+								side: "back",
+								version: 1,
+							}),
+						),
+					})),
+				};
 			}
 
 			if (result.type !== "file" || result.assetKind !== "pdf") {

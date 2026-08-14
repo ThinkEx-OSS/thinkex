@@ -29,6 +29,13 @@ export const workspaceLocationSchema = z.discriminatedUnion("kind", [
 		pageNumber: z.number().int().positive(),
 		version: z.literal(1),
 	}),
+	z.strictObject({
+		itemId: workspaceLocationItemIdSchema,
+		kind: z.literal("flashcard-side"),
+		cardId: z.uuid(),
+		side: z.enum(["front", "back"]),
+		version: z.literal(1),
+	}),
 ]);
 
 /** A parsed durable workspace location. */
@@ -64,6 +71,8 @@ export function getWorkspaceLocationKey(location: WorkspaceLocation) {
 			return `1:item:${location.itemId}`;
 		case "pdf-page":
 			return `1:pdf-page:${location.itemId}:${location.pageNumber}`;
+		case "flashcard-side":
+			return `1:flashcard-side:${location.itemId}:${location.cardId}:${location.side}`;
 	}
 }
 

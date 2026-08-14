@@ -8,6 +8,7 @@ import type {
 	WorkspaceAiContextSnapshotSelectedQuote,
 	WorkspaceAiContextTabReference,
 } from "./workspace-ai-context-types";
+import { isWorkspaceAiContextItemViewState } from "./workspace-item-view-state";
 import { isRecord } from "#/lib/record";
 
 export function isWorkspaceAiContextSnapshot(value: unknown): value is WorkspaceAiContextSnapshot {
@@ -90,7 +91,7 @@ function isWorkspaceAiContextOutlineItem(value: unknown) {
 	);
 }
 
-function isNonNegativeInteger(value: unknown) {
+function isNonNegativeInteger(value: unknown): value is number {
 	return typeof value === "number" && Number.isInteger(value) && value >= 0;
 }
 
@@ -207,15 +208,6 @@ function isWorkspaceAiContextItemReference(
 			isWorkspaceAiContextItemViewState(value.state.viewState)) &&
 		Array.isArray(value.state.openInTabs) &&
 		value.state.openInTabs.every((tabTitle) => typeof tabTitle === "string")
-	);
-}
-
-function isWorkspaceAiContextItemViewState(value: unknown) {
-	return (
-		isRecord(value) &&
-		value.kind === "pdf-page" &&
-		typeof value.pageNumber === "number" &&
-		Number.isInteger(value.pageNumber)
 	);
 }
 

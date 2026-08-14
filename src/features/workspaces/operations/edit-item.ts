@@ -5,18 +5,21 @@ import {
 } from "#/features/workspaces/operations/workspace-operation-context";
 import { resolveWorkspacePaths } from "#/features/workspaces/persistence/workspace-items";
 import type { WorkspaceAccessContext } from "#/features/workspaces/operations/workspace-access-context";
-import { type DocumentAiEdit } from "#/features/workspaces/documents/document-ai-edits";
+import type { DocumentAiEdit } from "#/features/workspaces/documents/document-ai-edits";
 import { editWorkspaceItemFailureCodes } from "#/features/workspaces/operations/workspace-operation-failure-codes";
 import type { DocumentEditLineChanges } from "#/features/workspaces/documents/document-edit-receipt";
 import { resolveDocumentCitations } from "#/features/workspaces/operations/document-citations";
-import { getWorkspaceItemContentKind } from "#/features/workspaces/contracts";
+import {
+	applyFlashcardEdits,
+	type FlashcardEdit,
+} from "#/features/workspaces/flashcards/flashcard-edits";
+import { updateFlashcardSet } from "#/features/workspaces/flashcards/flashcard-persistence";
 
 type EditWorkspaceItemFailureCode = (typeof editWorkspaceItemFailureCodes)[number];
 
-export interface EditWorkspaceItemOperationInput {
-	edits: DocumentAiEdit[];
-	path: string;
-}
+export type EditWorkspaceItemOperationInput =
+	| { edits: DocumentAiEdit[]; path: string; type: "document" }
+	| { edits: FlashcardEdit[]; path: string; type: "flashcard" };
 
 interface EditWorkspaceItemFailure {
 	code: EditWorkspaceItemFailureCode;
@@ -28,6 +31,7 @@ export interface EditWorkspaceItemOperationResult {
 	applied: number;
 	failed: EditWorkspaceItemFailure[];
 	itemId?: string;
+	itemType?: "document" | "flashcard";
 	lineChanges?: DocumentEditLineChanges;
 	path: string;
 }
@@ -60,11 +64,33 @@ export async function editWorkspaceItemOperation(
 			...failedWorkspaceEditResult(resolution.failure.code, failureCount),
 		};
 	}
-
-	if (getWorkspaceItemContentKind(resolution.item.type) !== "document") {
+	if (resolution.item.type !== input.type) {
 		return {
 			path: resolution.path,
 			...failedWorkspaceEditResult("unsupported_item_type", edits.length),
+		};
+	}
+
+	if (input.type === "flashcard") {
+		const { env } = await import("cloudflare:workers");
+		const result = await updateFlashcardSet(
+			env,
+			{
+				actorUserId: accessContext.actor.userId,
+				itemId: resolution.item.id,
+				workspaceId: accessContext.workspaceId,
+			},
+			(content) => {
+				const applied = applyFlashcardEdits(content, input.edits);
+				return { changed: applied.applied > 0, content: applied.content, result: applied };
+			},
+		);
+		return {
+			applied: result.applied,
+			failed: result.failed,
+			itemId: resolution.item.id,
+			itemType: "flashcard",
+			path: resolution.path,
 		};
 	}
 
@@ -75,7 +101,7 @@ export async function editWorkspaceItemOperation(
 
 	const result = await documentSession.applyEdits({
 		edits: await Promise.all(
-			edits.map(async (edit) =>
+			input.edits.map(async (edit) =>
 				"html" in edit
 					? {
 							...edit,
@@ -94,6 +120,7 @@ export async function editWorkspaceItemOperation(
 		applied: result.applied,
 		failed: result.failures,
 		itemId: resolution.item.id,
+		itemType: "document",
 		...(result.lineChanges ? { lineChanges: result.lineChanges } : {}),
 		path: resolution.path,
 	};

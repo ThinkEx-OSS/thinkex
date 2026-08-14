@@ -1,0 +1,73 @@
+@layer components {
+	.workspace-flashcard {
+		perspective: 1200px;
+	}
+
+	.workspace-flashcard-inner {
+		position: relative;
+		width: 100%;
+		height: 100%;
+		min-height: inherit;
+		transform: translateZ(0);
+		transform-style: preserve-3d;
+		-webkit-transform-style: preserve-3d;
+		will-change: transform;
+	}
+
+	.workspace-flashcard-face {
+		position: absolute;
+		inset: 0;
+		display: flex;
+		align-items: safe center;
+		justify-content: center;
+		overflow: auto;
+		border: 1px solid var(--border);
+		border-radius: 1rem;
+		background: var(--card);
+		padding: 3.5rem 2rem 2rem;
+		opacity: 1;
+		backface-visibility: hidden;
+		-webkit-backface-visibility: hidden;
+		transform: rotateY(0deg) translateZ(1px);
+		transition: opacity 180ms ease-in-out;
+	}
+
+	.workspace-flashcard-back {
+		opacity: 0;
+		transform: rotateY(180deg) translateZ(1px);
+	}
+
+	.workspace-flashcard-inner.is-flipped .workspace-flashcard-face:not(.workspace-flashcard-back) {
+		opacity: 0;
+	}
+
+	.workspace-flashcard-inner.is-flipped .workspace-flashcard-back {
+		opacity: 1;
+	}
+
+	.workspace-flashcard-prose {
+		max-width: 42rem;
+		font-size: clamp(1.4rem, 3vw, 2rem);
+		text-align: center;
+	}
+
+	.workspace-flashcard-prose.is-dense {
+		font-size: clamp(1.1rem, 2.2vw, 1.5rem);
+	}
+
+	.workspace-flashcard-prose.is-very-dense {
+		font-size: clamp(0.95rem, 1.7vw, 1.2rem);
+	}
+
+	.workspace-flashcard-prose ul,
+	.workspace-flashcard-prose ol {
+		display: inline-block;
+		text-align: left;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.workspace-flashcard-face {
+			transition-duration: 1ms;
+		}
+	}
+}

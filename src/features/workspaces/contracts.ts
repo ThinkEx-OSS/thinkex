@@ -382,10 +382,7 @@ export const createWorkspaceItemInputSchema = z
 		initialContent: z.string().optional(),
 	})
 	.superRefine((input, context) => {
-		if (
-			input.initialContent !== undefined &&
-			getWorkspaceItemContentKind(input.type) !== "document"
-		) {
+		if (input.initialContent !== undefined && input.type !== "document") {
 			context.addIssue({
 				code: "custom",
 				message: "Initial content can only be provided for documents.",

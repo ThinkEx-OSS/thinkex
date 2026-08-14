@@ -28,6 +28,8 @@ export const editWorkspaceItemFailureCodes = [
 	"path_not_absolute",
 	"path_not_found",
 	"unsupported_item_type",
+	"card_not_found",
+	"invalid_card_content",
 	...documentAiEditFailureCodes,
 	"content_changed",
 	"operation_id_conflict",

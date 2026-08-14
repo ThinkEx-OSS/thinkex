@@ -1,5 +1,6 @@
 import type { WorkspaceTab } from "#/features/workspaces/model/tab-types";
 import { getWorkspaceItemPath } from "#/features/workspaces/model/tree";
+import { getActiveWorkspaceViewInstanceId } from "#/features/workspaces/model/workspace-ui";
 import { type WorkspaceItem, getWorkspaceItemRegistryEntry } from "#/features/workspaces/contracts";
 import { getWorkspaceAiContextItemViewState } from "#/features/workspaces/model/workspace-item-view-state";
 import type { WorkspacePane } from "#/features/workspaces/state/workspace-ui-store";
@@ -13,10 +14,14 @@ export function getWorkspaceAiContextItemReference(input: {
 	context: WorkspaceAiContextScope;
 	item: WorkspaceItem;
 	openTabItemIds: ReadonlyMap<string, string[]>;
+	viewInstanceId?: string;
 	visibleItemIds: ReadonlySet<string>;
 }): WorkspaceAiContextItemReference {
-	const { context, item, openTabItemIds, visibleItemIds } = input;
+	const { context, item, openTabItemIds, viewInstanceId, visibleItemIds } = input;
 	const isVisible = visibleItemIds.has(item.id);
+	const viewState = isVisible
+		? getWorkspaceItemViewState(context, item.id, viewInstanceId)
+		: undefined;
 
 	return {
 		name: item.name,
@@ -24,15 +29,39 @@ export function getWorkspaceAiContextItemReference(input: {
 		type: getWorkspaceItemRegistryEntry(item.type).menuLabel,
 		state: {
 			activeVisible: isVisible,
-			viewState: isVisible
+			viewState: viewState
 				? getWorkspaceAiContextItemViewState({
-						viewState: context.itemViewStatesByItemId[item.id],
+						viewState,
 						itemId: item.id,
 					})
 				: undefined,
 			openInTabs: openTabItemIds.get(item.id) ?? [],
 		},
 	};
+}
+
+function getWorkspaceItemViewState(
+	context: WorkspaceAiContextScope,
+	itemId: string,
+	viewInstanceId?: string,
+) {
+	if (viewInstanceId) {
+		const state = context.itemViewStatesByViewInstanceId[viewInstanceId];
+		return state?.itemId === itemId ? state : undefined;
+	}
+
+	const activeViewInstanceId = getActiveWorkspaceViewInstanceId(
+		context.presentation,
+		context.activeTabId,
+	);
+	const activeState = activeViewInstanceId
+		? context.itemViewStatesByViewInstanceId[activeViewInstanceId]
+		: undefined;
+	if (activeState?.itemId === itemId) return activeState;
+
+	return Object.values(context.itemViewStatesByViewInstanceId).find(
+		(state) => state?.itemId === itemId,
+	);
 }
 
 export function getWorkspaceAiContextVisibleItemIds(context: WorkspaceAiContextScope) {

@@ -23,6 +23,8 @@ import {
 	documentAiHtmlSchema,
 } from "#/features/workspaces/documents/document-ai-edits";
 import { workspaceFileAssetKindSchema } from "#/features/workspaces/model/workspace-file";
+import { flashcardEditSchema } from "#/features/workspaces/flashcards/flashcard-edits";
+import { flashcardSideHtmlSchema } from "#/features/workspaces/flashcards/flashcard-content";
 
 export { workspaceReadItemsInputSchema, workspaceReadItemsOutputSchema };
 
@@ -41,6 +43,8 @@ const workspaceHtmlMathInstruction =
 const workspaceWidgetHtmlInstruction = `A widget is one interactive block inside a document. Use one when the user explicitly asks for a widget, asks for interaction or live computation, or wants a document visual that ordinary blocks cannot express. Keep ordinary content in ordinary blocks. Before authoring or editing widget source, activate the "widget-authoring" skill and follow its HTML, sandbox, layout, and editing contract. Serialize the result as <div data-type="widget" title="Short title">…HTML-escaped fragment…</div>.`;
 
 export const workspaceDocumentHtmlInstruction = `Use semantic HTML with paragraphs, h1-h4, blockquotes, lists, code blocks, horizontal rules, tables, links, and standard text marks. ${workspaceHtmlMathInstruction} For checkboxes, use <ul data-type="taskList"><li data-type="taskItem" data-checked="false"><label><input type="checkbox"><span></span></label><div><p>Item</p></div></li></ul>. Documents cannot hold images: never use <img> or <figure>, and describe the visual in words instead. Cite workspace sources in documents exactly as in a chat reply, with <citation ref="wr_7Kp2Qa9x"></citation> placed after the claim it supports. ${workspaceWidgetHtmlInstruction}`;
+
+export const workspaceFlashcardHtmlInstruction = `Flashcard fronts and backs are HTML. Keep each side concise. Use paragraphs, lists, links, code blocks, and standard text marks only. ${workspaceHtmlMathInstruction} Do not use headings, tables, images, widgets, task lists, or citations inside a card. Use item-level relations for sources.`;
 
 const workspacePathSchema = z.string().min(1);
 const workspaceIndexSchema = z.number().int().nonnegative();
@@ -120,16 +124,37 @@ export const workspaceListItemsInputSchema = z.object({
 		.describe("Include nested descendants. Defaults to false for immediate children only."),
 });
 
-export const workspaceEditItemInputSchema = z.object({
-	path: z.string().min(1).describe("Absolute path of one actual ThinkEx workspace item to edit."),
-	edits: z
-		.array(documentAiEditSchema)
-		.min(1)
-		.max(40)
-		.describe(
-			"Ordered edits, at most 40. Target a block with the exact editRef from a document or block read. A block read returns the exact content that replace_text matches. Use overwrite only to discard the entire document and write a new one.",
-		),
-});
+export const workspaceEditItemInputSchema = z.discriminatedUnion("type", [
+	z
+		.object({
+			type: z.literal("document"),
+			path: z.string().min(1).describe("Absolute path of one actual ThinkEx document to edit."),
+			edits: z
+				.array(documentAiEditSchema)
+				.min(1)
+				.max(40)
+				.describe(
+					`Ordered document edits. Target blocks with exact editRefs from a read. Use overwrite only to replace the whole document. ${workspaceDocumentHtmlInstruction}`,
+				),
+		})
+		.describe("Document edit recipe."),
+	z
+		.object({
+			type: z.literal("flashcard"),
+			path: z
+				.string()
+				.min(1)
+				.describe("Absolute path of one actual ThinkEx flashcard set to edit."),
+			edits: z
+				.array(flashcardEditSchema)
+				.min(1)
+				.max(100)
+				.describe(
+					`Ordered flashcard edits. Use stable card IDs from a read. Omit beforeCardId and afterCardId to place a card at the end. ${workspaceFlashcardHtmlInstruction}`,
+				),
+		})
+		.describe("Flashcard edit recipe."),
+]);
 
 export const workspaceLinkItemsInputSchema = z.object({
 	path: z.string().min(1).describe("Absolute path of the workspace item to link from."),
@@ -165,7 +190,7 @@ export const workspaceMoveItemsInputSchema = z.object({
 export const workspaceCreateItemsInputSchema = z.object({
 	items: z
 		.array(
-			z.union([
+			z.discriminatedUnion("type", [
 				z.object({
 					type: z.literal("folder"),
 					path: z.string().min(1).describe("Final absolute path for the folder to create."),
@@ -177,28 +202,49 @@ export const workspaceCreateItemsInputSchema = z.object({
 							"Optional relationships from this new folder to other workspace items, at most 20.",
 						),
 				}),
-				z.object({
-					type: z.literal("document"),
-					path: z.string().min(1).describe("Final absolute path for the document to create."),
-					relations: z
-						.array(workspaceRelationInputSchema)
-						.max(20)
-						.optional()
-						.describe(
-							"Optional relationships from this new document to other workspace items, at most 20.",
-						),
-					initialContent: documentAiHtmlSchema
-						// Doc HTML rules live in the create tool description (see
-						// workspace-tool-definitions), so they are not repeated here.
-						.describe("Optional initial HTML content for the document.")
-						.optional(),
-				}),
+				z
+					.object({
+						type: z.literal("document"),
+						path: z.string().min(1).describe("Final absolute path for the document to create."),
+						relations: z
+							.array(workspaceRelationInputSchema)
+							.max(20)
+							.optional()
+							.describe(
+								"Optional relationships from this new document to other workspace items, at most 20.",
+							),
+						initialContent: documentAiHtmlSchema
+							.describe(`Optional initial HTML content. ${workspaceDocumentHtmlInstruction}`)
+							.optional(),
+					})
+					.describe("Document creation recipe."),
+				z
+					.object({
+						type: z.literal("flashcard"),
+						path: z.string().min(1).describe("Final absolute path for the flashcard set."),
+						cards: z
+							.array(
+								z.object({
+									front: flashcardSideHtmlSchema.describe("HTML shown before the card flips."),
+									back: flashcardSideHtmlSchema.describe("HTML shown after the card flips."),
+								}),
+							)
+							.min(1)
+							.max(100)
+							.describe(`Ordered cards. ${workspaceFlashcardHtmlInstruction}`),
+						relations: z
+							.array(workspaceRelationInputSchema)
+							.max(20)
+							.optional()
+							.describe("Optional relationships from this set to source items, at most 20."),
+					})
+					.describe("Flashcard creation recipe."),
 			]),
 		)
 		.min(1)
 		.max(20)
 		.describe(
-			"One or more folders or documents to create in order, at most 20. Parent folders must already exist or be created earlier in the same request.",
+			"One or more folders, documents, or flashcard sets to create in order, at most 20. Parent folders must already exist or be created earlier in the same request.",
 		),
 });
 
@@ -224,6 +270,12 @@ export const workspaceReadItemsInputExamples = createInputExamples<
 >(
 	{
 		requests: [{ mode: "start", path: "/Demo Folder/Demo Document" }],
+	},
+	{
+		requests: [{ mode: "start", path: "/Demo Folder/Demo Flashcards" }],
+	},
+	{
+		requests: [{ mode: "cards", path: "/Demo Folder/Demo Flashcards", range: "1-3" }],
 	},
 	{
 		requests: [
@@ -280,6 +332,11 @@ export const workspaceCreateItemsInputExamples = createInputExamples<
 				},
 			],
 		},
+		{
+			type: "flashcard",
+			path: "/Demo Folder/Demo Flashcards",
+			cards: [{ front: "<p>What is ATP?</p>", back: "<p>The cell's main energy carrier.</p>" }],
+		},
 	],
 });
 
@@ -293,6 +350,7 @@ export const workspaceEditItemInputExamples = createInputExamples<
 	z.input<typeof workspaceEditItemInputSchema>
 >(
 	{
+		type: "document",
 		path: "/Demo Folder/Demo Document",
 		edits: [
 			{
@@ -303,6 +361,7 @@ export const workspaceEditItemInputExamples = createInputExamples<
 		],
 	},
 	{
+		type: "document",
 		path: "/Demo Folder/Demo Document",
 		edits: [
 			{
@@ -312,6 +371,7 @@ export const workspaceEditItemInputExamples = createInputExamples<
 		],
 	},
 	{
+		type: "document",
 		path: "/Demo Folder/Demo Document",
 		edits: [
 			{
@@ -319,6 +379,17 @@ export const workspaceEditItemInputExamples = createInputExamples<
 				op: "replace_text",
 				find: "gravity = 9.8",
 				replace: "gravity = 3.7",
+			},
+		],
+	},
+	{
+		type: "flashcard",
+		path: "/Demo Folder/Demo Flashcards",
+		edits: [
+			{
+				op: "update_card",
+				cardId: "f67080f9-0158-4565-86a9-4c90ed6809d2",
+				back: "<p>The cell's main energy carrier.</p>",
 			},
 		],
 	},
@@ -352,9 +423,7 @@ export const workspaceListItemsOutputSchema = z.object({
 export const workspaceCreateItemsOutputSchema = createWorkspaceItemsResultSchema({
 	itemSchema: workspacePathItemSchema.extend({
 		itemId: z.string().min(1),
-		// Creation makes these two and nothing else; the shared item type covers
-		// files and study items this tool cannot produce.
-		type: z.enum(["document", "folder"]),
+		type: z.enum(["document", "flashcard", "folder"]),
 	}),
 	failureSchema: createFailureSchema(createWorkspaceItemsFailureCodes).extend({
 		detail: z.string().optional().describe("Why this item was refused, when the reason is known."),
@@ -386,6 +455,7 @@ export const workspaceEditItemOutputSchema = z.object({
 	path: workspacePathSchema,
 	applied: z.number().int().min(0),
 	itemId: z.string().optional(),
+	itemType: z.enum(["document", "flashcard"]).optional(),
 	lineChanges: z
 		.object({ added: z.number().int().min(0), removed: z.number().int().min(0) })
 		.optional(),

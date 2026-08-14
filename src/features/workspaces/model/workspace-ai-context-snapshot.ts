@@ -1,4 +1,5 @@
 import type { WorkspaceTab } from "#/features/workspaces/model/tab-types";
+import { getActiveWorkspaceViewInstanceId } from "#/features/workspaces/model/workspace-ui";
 import type {
 	WorkspacePane,
 	WorkspacePresentation,
@@ -47,6 +48,10 @@ export function buildWorkspaceAiContextSnapshot(
 				? getWorkspaceAiContextItemReference({
 						...buildContext,
 						item: activeItem,
+						viewInstanceId: getActiveWorkspaceViewInstanceId(
+							context.presentation,
+							context.activeTabId,
+						),
 					})
 				: undefined,
 			activeTab: getOptionalWorkspaceAiContextTabReference(
@@ -188,6 +193,7 @@ function getWorkspaceAiContextTabView(
 		item: getWorkspaceAiContextItemReference({
 			...buildContext,
 			item,
+			viewInstanceId: tab.id,
 		}),
 	};
 }
@@ -240,6 +246,7 @@ function getCurrentWorkspacePaneReference(
 		item: getWorkspaceAiContextItemReference({
 			...buildContext,
 			item: context.activeItem,
+			viewInstanceId: context.activeTabId,
 		}),
 	};
 }
@@ -265,6 +272,7 @@ function getWorkspaceAiContextPaneReference(
 		item: getWorkspaceAiContextItemReference({
 			...buildContext,
 			item,
+			viewInstanceId: pane.id,
 		}),
 	};
 }

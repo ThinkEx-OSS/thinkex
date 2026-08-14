@@ -17,6 +17,13 @@ const workspaceContentCursorSchema = z.discriminatedUnion("kind", [
 		sourceHash: z.string().min(1),
 		version: z.literal(2),
 	}),
+	z.object({
+		kind: z.literal("flashcard"),
+		offset: z.number().int().nonnegative(),
+		path: z.string().min(1),
+		revision: z.string().min(1),
+		version: z.literal(1),
+	}),
 ]);
 
 type WorkspaceContentCursor = z.infer<typeof workspaceContentCursorSchema>;

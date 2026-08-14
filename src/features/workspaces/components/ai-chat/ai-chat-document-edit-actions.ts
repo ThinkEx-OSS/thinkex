@@ -44,10 +44,12 @@ export function getAiChatDocumentEditGroups(
 		const path = typeof output.path === "string" ? output.path : null;
 		const itemId = typeof output.itemId === "string" ? output.itemId : null;
 		const applied = typeof output.applied === "number" ? output.applied : 0;
-		if (itemId && path && applied > 0) {
+		const lineChanges = readLineChanges(output.lineChanges);
+		const isDocument = output.itemType === "document";
+		if (isDocument && itemId && path && applied > 0) {
 			addToGroup(groupsByItemId, seenReceiptIds, {
 				itemId,
-				lineChanges: readLineChanges(output.lineChanges),
+				lineChanges,
 				path,
 				receiptId: part.toolCallId,
 			});

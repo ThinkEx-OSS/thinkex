@@ -10,6 +10,7 @@ import {
 	EmptyTitle,
 } from "#/components/ui/empty";
 import { DocumentEditorSurface } from "#/features/workspaces/components/document-editor/DocumentEditorSurface";
+import { FlashcardViewer } from "#/features/workspaces/components/flashcards/FlashcardViewer";
 import { WorkspaceClipboardIntakeDialog } from "#/features/workspaces/components/WorkspaceClipboardIntakeDialog";
 import WorkspaceClickableEmptyState from "#/features/workspaces/components/WorkspaceClickableEmptyState";
 import { useWorkspaceClipboardIntake } from "#/features/workspaces/components/useWorkspaceClipboardIntake";
@@ -42,7 +43,6 @@ import {
 	type WorkspaceItem,
 	type WorkspaceItemType,
 	type WorkspaceSummary,
-	getWorkspaceItemContentKind,
 } from "#/features/workspaces/contracts";
 import { getWorkspaceItemDisplay } from "#/features/workspaces/model/item-display";
 import {
@@ -500,7 +500,7 @@ function WorkspaceItemView({
 }) {
 	const viewCapabilities = useWorkspaceViewCapabilities();
 
-	if (getWorkspaceItemContentKind(item.type) === "document") {
+	if (item.type === "document") {
 		return (
 			<DocumentEditorSurface
 				documentPath={documentPath}
@@ -511,7 +511,7 @@ function WorkspaceItemView({
 		);
 	}
 
-	if (getWorkspaceItemContentKind(item.type) === "file") {
+	if (item.type === "file") {
 		return (
 			<WorkspaceFileViewer
 				item={item}
@@ -522,6 +522,10 @@ function WorkspaceItemView({
 				onDeleteItem={onDeleteItem}
 			/>
 		);
+	}
+
+	if (item.type === "flashcard") {
+		return <FlashcardViewer item={item} viewInstanceId={viewInstanceId} />;
 	}
 
 	const { Icon: ItemIcon, iconClassName, surfaceClassName } = getWorkspaceItemDisplay(item);

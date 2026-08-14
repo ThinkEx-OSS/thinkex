@@ -8,6 +8,7 @@ import { readWorkspaceContent } from "#/features/workspaces/content/workspace-co
 import { recordWorkspaceFileReadOutcomes } from "#/features/workspaces/content/workspace-read-observability";
 import { createWorkspaceReadReferences } from "#/features/workspaces/content/workspace-read-references";
 import { getDocumentSessionFromEnv } from "#/features/workspaces/document-session-access";
+import { readFlashcardViewer } from "#/features/workspaces/flashcards/flashcard-study-persistence";
 import type { WorkspaceAccessContext } from "#/features/workspaces/operations/workspace-access-context";
 import { authorizeWorkspaceOperation } from "#/features/workspaces/operations/workspace-operation-context";
 
@@ -28,6 +29,12 @@ export async function readWorkspaceItemsOperation(
 		getDocumentSession: (itemId) =>
 			getDocumentSessionFromEnv(env, {
 				itemId,
+				workspaceId: accessContext.workspaceId,
+			}),
+		readFlashcardItem: (itemId) =>
+			readFlashcardViewer({
+				itemId,
+				userId: accessContext.actor.userId,
 				workspaceId: accessContext.workspaceId,
 			}),
 		requests: input.requests,
