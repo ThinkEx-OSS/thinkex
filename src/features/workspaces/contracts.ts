@@ -394,7 +394,7 @@ export const createWorkspaceItemInputSchema = z
 				path: ["initialContent"],
 			});
 		}
-		if (contentKind === "structured" && input.initialContent === undefined) {
+		if (contentKind === "structured" && !input.initialContent?.trim()) {
 			context.addIssue({
 				code: "custom",
 				message: "Initial content is required for structured items.",

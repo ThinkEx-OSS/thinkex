@@ -21,8 +21,8 @@ export function createEmptyFlashcardStudyState(): FlashcardStudyState {
 }
 
 export function parseFlashcardStudyState(value: unknown): FlashcardStudyState {
-	const parsed = flashcardStudyStateSchema.safeParse(value);
-	return parsed.success ? parsed.data : createEmptyFlashcardStudyState();
+	if (value === null || value === undefined) return createEmptyFlashcardStudyState();
+	return flashcardStudyStateSchema.parse(value);
 }
 
 export function applyFlashcardStudyRating(

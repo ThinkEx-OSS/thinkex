@@ -33,4 +33,18 @@ describe("applyFlashcardEdits", () => {
 		expect(result.applied).toBe(1);
 		expect(result.failed).toMatchObject([{ code: "card_not_found", index: 0 }]);
 	});
+
+	it("keeps one card and ignores edits that do not change content", () => {
+		const set = createFlashcardSetFromHtml([{ front: "<p>A</p>", back: "<p>1</p>" }]);
+		const card = set.cards[0]!;
+		const result = applyFlashcardEdits(set, [
+			{ op: "update_card", cardId: card.id, front: "<p>A</p>" },
+			{ op: "move_card", cardId: card.id },
+			{ op: "delete_card", cardId: card.id },
+		]);
+
+		expect(result.applied).toBe(0);
+		expect(result.failed).toMatchObject([{ code: "invalid_card_content", index: 2 }]);
+		expect(result.content.cards).toEqual(set.cards);
+	});
 });

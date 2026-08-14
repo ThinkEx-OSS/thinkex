@@ -5,7 +5,7 @@ import {
 	serializeTiptapDocumentToHtml,
 } from "#/features/workspaces/documents/document-ai-html";
 import {
-	coerceTiptapDocumentJson,
+	coerceTiptapDocumentProjection,
 	type TiptapDocumentJson,
 } from "#/features/workspaces/documents/tiptap-document";
 import { isRecord } from "#/lib/record";
@@ -73,6 +73,9 @@ export function parseFlashcardSetContent(content: string | null): FlashcardSetCo
 	if (!isRecord(value) || value.version !== FLASHCARD_SET_VERSION || !Array.isArray(value.cards)) {
 		throw new Error("Flashcard content has an unsupported format.");
 	}
+	if (value.cards.length === 0) {
+		throw new Error("A flashcard set needs at least one card.");
+	}
 
 	const seenIds = new Set<string>();
 	const cards = value.cards.map((card) => {
@@ -88,14 +91,22 @@ export function parseFlashcardSetContent(content: string | null): FlashcardSetCo
 		}
 		seenIds.add(cardId.data);
 
-		const front = coerceTiptapDocumentJson(card.front);
-		const back = coerceTiptapDocumentJson(card.back);
+		const front = parseStoredFlashcardSide(card.front);
+		const back = parseStoredFlashcardSide(card.back);
 		assertFlashcardRichText(front);
 		assertFlashcardRichText(back);
 		return { id: cardId.data, front, back };
 	});
 
 	return { version: FLASHCARD_SET_VERSION, cards };
+}
+
+function parseStoredFlashcardSide(value: unknown) {
+	const projection = coerceTiptapDocumentProjection(value);
+	if (projection.warnings.length > 0) {
+		throw new Error("Flashcard content contains invalid rich text.");
+	}
+	return projection.document;
 }
 
 export function stringifyFlashcardSetContent(content: FlashcardSetContent) {

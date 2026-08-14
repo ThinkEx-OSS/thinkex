@@ -27,4 +27,16 @@ describe("flashcard content", () => {
 			createFlashcardSetFromHtml([{ front: "<h2>Heading</h2>", back: "<p>A</p>" }]),
 		).toThrow("Flashcards do not support heading content yet.");
 	});
+
+	it("rejects empty sets and malformed stored rich text", () => {
+		expect(() => parseFlashcardSetContent('{"version":1,"cards":[]}')).toThrow(
+			"A flashcard set needs at least one card.",
+		);
+
+		const set = createFlashcardSetFromHtml([{ front: "<p>A</p>", back: "<p>1</p>" }]);
+		set.cards[0]!.front = { type: "doc", content: [{ type: "unknown" }] };
+		expect(() => parseFlashcardSetContent(stringifyFlashcardSetContent(set))).toThrow(
+			"Flashcard content contains invalid rich text.",
+		);
+	});
 });

@@ -52,6 +52,7 @@ export function applyFlashcardEdits(content: FlashcardSetContent, edits: Flashca
 
 	for (const [index, edit] of edits.entries()) {
 		try {
+			const before = JSON.stringify(cards);
 			if (edit.op === "insert_card") {
 				const insertionIndex = getPlacementIndex(cards, edit);
 				if (insertionIndex === null) throw new CardNotFoundError();
@@ -72,6 +73,7 @@ export function applyFlashcardEdits(content: FlashcardSetContent, edits: Flashca
 			} else if (edit.op === "delete_card") {
 				const cardIndex = cards.findIndex((card) => card.id === edit.cardId);
 				if (cardIndex < 0) throw new CardNotFoundError();
+				if (cards.length === 1) throw new Error("A flashcard set needs at least one card.");
 				cards.splice(cardIndex, 1);
 			} else {
 				const cardIndex = cards.findIndex((card) => card.id === edit.cardId);
@@ -85,7 +87,7 @@ export function applyFlashcardEdits(content: FlashcardSetContent, edits: Flashca
 				if (!card || insertionIndex === null) throw new CardNotFoundError();
 				cards.splice(insertionIndex, 0, card);
 			}
-			applied += 1;
+			if (JSON.stringify(cards) !== before) applied += 1;
 		} catch (error) {
 			failed.push({
 				code: error instanceof CardNotFoundError ? "card_not_found" : "invalid_card_content",

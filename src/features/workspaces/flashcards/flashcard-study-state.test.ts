@@ -23,10 +23,9 @@ describe("flashcard study state", () => {
 		expect(parseFlashcardStudyState(state)).toEqual(state);
 	});
 
-	it("treats unknown future or damaged state as empty", () => {
-		expect(parseFlashcardStudyState({ kind: "quiz", cards: {} })).toEqual(
-			createEmptyFlashcardStudyState(),
-		);
+	it("starts empty but rejects damaged persisted state", () => {
+		expect(parseFlashcardStudyState(null)).toEqual(createEmptyFlashcardStudyState());
+		expect(() => parseFlashcardStudyState({ kind: "quiz", cards: {} })).toThrow();
 	});
 
 	it("records the latest rating and increments the review count", () => {

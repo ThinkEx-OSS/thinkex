@@ -1905,7 +1905,23 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "workspace_item_user_states_item_id_idx": {
+          "name": "workspace_item_user_states_item_id_idx",
+          "columns": [
+            {
+              "expression": "item_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "workspace_item_user_states_user_id_user_id_fk": {
           "name": "workspace_item_user_states_user_id_user_id_fk",

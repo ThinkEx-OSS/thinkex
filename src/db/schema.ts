@@ -309,7 +309,10 @@ export const workspaceItemUserStates = pgTable(
 		state: jsonb("state").$type<Record<string, unknown>>().notNull(),
 		updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 	},
-	(table) => [primaryKey({ columns: [table.userId, table.itemId] })],
+	(table) => [
+		primaryKey({ columns: [table.userId, table.itemId] }),
+		index("workspace_item_user_states_item_id_idx").on(table.itemId),
+	],
 );
 
 export const workspaceFileAssets = pgTable("workspace_file_assets", {
