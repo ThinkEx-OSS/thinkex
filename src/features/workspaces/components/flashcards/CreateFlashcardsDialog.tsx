@@ -43,7 +43,7 @@ export function CreateFlashcardsDialog({
 							if (
 								!sendComposerPrompt(
 									workspaceId,
-									`Create a flashcard set with about ${count} cards ${describeFlashcardLocation(parentPath)}. Cover: ${topic}`,
+									`Create a flashcard set with exactly ${count} cards ${describeFlashcardLocation(parentPath)}. Cover: ${topic}`,
 								)
 							)
 								return;

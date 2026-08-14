@@ -52,6 +52,7 @@ export default function AiChatThreadView({
 		(state) => state.clearDraftArtifacts,
 	);
 	const directPrompt = useWorkspaceAiDirectPrompt(threadId);
+	const setDraftText = useWorkspaceAiComposerDraftStore((state) => state.setText);
 	const takeDirectPrompt = useWorkspaceAiComposerDraftStore((state) => state.takeDirectPrompt);
 	const { isBlocked } = useWorkspaceAiAllowance(modelId);
 
@@ -96,12 +97,30 @@ export default function AiChatThreadView({
 	const sendDirectPrompt = useEffectEvent((text: string) => {
 		sendMessage({ files: [], text }, false);
 	});
-
 	useEffect(() => {
-		if (!directPrompt || !canSend || inputStatus !== "ready" || isBlocked) return;
+		if (!directPrompt) return;
+		if (isBlocked || connectionError) {
+			const text = takeDirectPrompt(threadId, directPrompt.id);
+			if (text) {
+				queueMicrotask(() =>
+					setDraftText(threadId, (current) => (current.trim() ? `${current}\n\n${text}` : text)),
+				);
+			}
+			return;
+		}
+		if (!canSend || inputStatus !== "ready") return;
 		const text = takeDirectPrompt(threadId, directPrompt.id);
 		if (text) queueMicrotask(() => sendDirectPrompt(text));
-	}, [canSend, directPrompt, inputStatus, isBlocked, takeDirectPrompt, threadId]);
+	}, [
+		canSend,
+		connectionError,
+		directPrompt,
+		inputStatus,
+		isBlocked,
+		setDraftText,
+		takeDirectPrompt,
+		threadId,
+	]);
 
 	return (
 		<div className="relative flex min-h-0 flex-1 flex-col">

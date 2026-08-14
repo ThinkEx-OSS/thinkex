@@ -115,7 +115,15 @@ export async function readWorkspaceContent(input: {
 				continue;
 			}
 			const contentBytes = encoder.encode(
-				"content" in read ? read.content : JSON.stringify(read.cards),
+				"content" in read
+					? read.content
+					: JSON.stringify(
+							read.cards.map((card) => ({
+								...card,
+								backReference: "wr_00000000",
+								frontReference: "wr_00000000",
+							})),
+						),
 			).byteLength;
 			if (returnedContentBytes + contentBytes > maxWorkspaceContentBatchBytes) {
 				readBudgetExhausted = true;

@@ -299,6 +299,7 @@ export function WorkspaceShell({
 		</WorkspaceFileUploadProvider>
 	);
 	const flashcardParent = flashcardParentId ? itemsById.get(flashcardParentId) : undefined;
+	const flashcardDialogOpen = flashcardParentId === null || flashcardParent !== undefined;
 	const flashcardParentPath = flashcardParent
 		? getWorkspaceItemPath(flashcardParent, itemsById)
 		: "/";
@@ -311,7 +312,7 @@ export function WorkspaceShell({
 						{workspaceInteractionContent}
 					</WorkspacePdfEngineProvider>
 					<CreateFlashcardsDialog
-						open={flashcardParentId !== undefined}
+						open={flashcardDialogOpen}
 						parentPath={flashcardParentPath}
 						workspaceId={workspace.id}
 						onOpenChange={(open) => {
