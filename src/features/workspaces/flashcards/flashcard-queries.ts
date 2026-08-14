@@ -12,13 +12,15 @@ import {
 	type FlashcardStudyRating,
 } from "#/features/workspaces/flashcards/flashcard-study-state";
 
+type FlashcardViewerData = Awaited<ReturnType<typeof getFlashcardViewerFn>>;
+
 export function flashcardViewerQueryOptions(input: {
 	itemId: string;
 	updatedAt: string;
 	workspaceId: string;
 }) {
 	return queryOptions({
-		queryKey: ["workspace-flashcards", input.workspaceId, input.itemId, input.updatedAt],
+		queryKey: [...flashcardViewerItemQueryKey(input), input.updatedAt],
 		queryFn: () =>
 			getFlashcardViewerFn({
 				data: { itemId: input.itemId, workspaceId: input.workspaceId },
@@ -33,6 +35,7 @@ export function useResetFlashcardStudyProgress(input: {
 }) {
 	const queryClient = useQueryClient();
 	const viewerQuery = flashcardViewerQueryOptions(input);
+	const itemQueryKey = flashcardViewerItemQueryKey(input);
 	return useMutation({
 		scope: { id: `flashcard-study:${input.itemId}` },
 		mutationFn: () =>
@@ -40,20 +43,21 @@ export function useResetFlashcardStudyProgress(input: {
 				data: { itemId: input.itemId, workspaceId: input.workspaceId },
 			}),
 		onMutate: async () => {
-			await queryClient.cancelQueries({ queryKey: viewerQuery.queryKey });
+			await queryClient.cancelQueries({ queryKey: itemQueryKey });
 			const previous = queryClient.getQueryData(viewerQuery.queryKey);
-			queryClient.setQueryData(viewerQuery.queryKey, (current) =>
+			queryClient.setQueriesData<FlashcardViewerData>({ queryKey: itemQueryKey }, (current) =>
 				current ? { ...current, studyState: createEmptyFlashcardStudyState() } : current,
 			);
 			return { previous };
 		},
 		onSuccess: (studyState) => {
-			queryClient.setQueryData(viewerQuery.queryKey, (current) =>
+			queryClient.setQueriesData<FlashcardViewerData>({ queryKey: itemQueryKey }, (current) =>
 				current ? { ...current, studyState } : current,
 			);
 		},
 		onError: (_error, _variables, context) => {
 			queryClient.setQueryData(viewerQuery.queryKey, context?.previous);
+			void queryClient.invalidateQueries({ queryKey: itemQueryKey });
 			toast.error("Your study progress could not be reset.");
 		},
 	});
@@ -66,6 +70,7 @@ export function useRecordFlashcardStudyRating(input: {
 }) {
 	const queryClient = useQueryClient();
 	const viewerQuery = flashcardViewerQueryOptions(input);
+	const itemQueryKey = flashcardViewerItemQueryKey(input);
 	return useMutation({
 		scope: { id: `flashcard-study:${input.itemId}` },
 		mutationFn: (rating: { cardId: string; rating: FlashcardStudyRating }) =>
@@ -73,9 +78,9 @@ export function useRecordFlashcardStudyRating(input: {
 				data: { itemId: input.itemId, workspaceId: input.workspaceId, ...rating },
 			}),
 		onMutate: async (rating) => {
-			await queryClient.cancelQueries({ queryKey: viewerQuery.queryKey });
+			await queryClient.cancelQueries({ queryKey: itemQueryKey });
 			const previous = queryClient.getQueryData(viewerQuery.queryKey);
-			queryClient.setQueryData(viewerQuery.queryKey, (current) =>
+			queryClient.setQueriesData<FlashcardViewerData>({ queryKey: itemQueryKey }, (current) =>
 				current
 					? {
 							...current,
@@ -89,13 +94,18 @@ export function useRecordFlashcardStudyRating(input: {
 			return { previous };
 		},
 		onSuccess: (studyState) => {
-			queryClient.setQueryData(viewerQuery.queryKey, (current) =>
+			queryClient.setQueriesData<FlashcardViewerData>({ queryKey: itemQueryKey }, (current) =>
 				current ? { ...current, studyState } : current,
 			);
 		},
 		onError: (_error, _rating, context) => {
 			queryClient.setQueryData(viewerQuery.queryKey, context?.previous);
+			void queryClient.invalidateQueries({ queryKey: itemQueryKey });
 			toast.error("Your study progress could not be saved.");
 		},
 	});
+}
+
+function flashcardViewerItemQueryKey(input: { itemId: string; workspaceId: string }) {
+	return ["workspace-flashcards", input.workspaceId, input.itemId] as const;
 }

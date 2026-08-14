@@ -60,7 +60,7 @@ import { WorkspacePdfPageControl } from "#/features/workspaces/components/Worksp
 import { useWorkspaceViewCapabilities } from "#/features/workspaces/components/workspace-view-policy";
 import { createCaptureAttachmentFile } from "#/features/workspaces/components/workspace-region-capture";
 import { stageCaptureAttachmentToComposerWithFeedback } from "#/features/workspaces/composer/workspace-composer-actions";
-import { useWorkspacePdfPageRevealRequest } from "#/features/workspaces/locations/workspace-location-context";
+import { useWorkspaceRevealRequest } from "#/features/workspaces/locations/workspace-location-context";
 import type { WorkspaceItem } from "#/features/workspaces/contracts";
 import { getWorkspaceFileContentUrl } from "#/features/workspaces/model/workspace-file";
 import {
@@ -203,7 +203,7 @@ function WorkspacePdfDocumentLoader({
 	const { provides: documentManager } = useDocumentManagerCapability();
 	const { provides: scrollCapability } = useScrollCapability();
 	const paneRuntime = useWorkspacePaneRuntime();
-	const { consume, request } = useWorkspacePdfPageRevealRequest(viewInstanceId);
+	const { complete, request } = useWorkspaceRevealRequest(viewInstanceId, "pdf-page");
 	const [openError, setOpenError] = useState<{
 		documentId: string;
 		message: string;
@@ -261,7 +261,7 @@ function WorkspacePdfDocumentLoader({
 		}
 
 		if (currentOpenError || request.location.itemId !== documentId) {
-			consume(request);
+			complete(request, false);
 			return;
 		}
 
@@ -277,17 +277,18 @@ function WorkspacePdfDocumentLoader({
 			}
 
 			handled = true;
-			if (request.location.pageNumber <= event.totalPages) {
+			const pageExists = request.location.pageNumber <= event.totalPages;
+			if (pageExists) {
 				scrollCapability.forDocument(documentId).scrollToPage({
 					behavior: "instant",
 					pageNumber: request.location.pageNumber,
 				});
 			}
-			consume(request);
+			complete(request, pageExists);
 		});
 	}, [
 		activeDocumentId,
-		consume,
+		complete,
 		currentOpenError,
 		documentId,
 		isActive,

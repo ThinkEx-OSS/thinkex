@@ -2,16 +2,18 @@
 
 import { act, useEffect } from "react";
 import { createRoot } from "react-dom/client";
-import { afterEach, describe, expect, it } from "vitest";
+import { toast } from "sonner";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { WorkspaceItem } from "#/features/workspaces/contracts";
 import {
 	useWorkspaceLocationActions,
-	useWorkspacePdfPageRevealRequest,
+	useWorkspaceRevealRequest,
 	WorkspaceLocationProvider,
 } from "#/features/workspaces/locations/workspace-location-context";
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
+vi.mock("sonner", () => ({ toast: { error: vi.fn() } }));
 
 describe("WorkspaceLocationProvider", () => {
 	const containers: HTMLDivElement[] = [];
@@ -20,7 +22,7 @@ describe("WorkspaceLocationProvider", () => {
 		for (const container of containers.splice(0)) container.remove();
 	});
 
-	it("consumes the same reveal request object that the provider stored", async () => {
+	it("completes the stored reveal request and reports an unavailable target", async () => {
 		const item = {
 			id: "file-1",
 			workspaceId: "workspace-1",
@@ -34,10 +36,10 @@ describe("WorkspaceLocationProvider", () => {
 			updatedAt: "2026-08-13T00:00:00.000Z",
 		} satisfies WorkspaceItem;
 		let actions: ReturnType<typeof useWorkspaceLocationActions> | undefined;
-		let pageRequest: ReturnType<typeof useWorkspacePdfPageRevealRequest> | undefined;
+		let pageRequest: ReturnType<typeof useWorkspaceRevealRequest<"pdf-page">> | undefined;
 		function Probe() {
 			const nextActions = useWorkspaceLocationActions();
-			const nextPageRequest = useWorkspacePdfPageRevealRequest("view-1");
+			const nextPageRequest = useWorkspaceRevealRequest("view-1", "pdf-page");
 			useEffect(() => {
 				actions = nextActions;
 				pageRequest = nextPageRequest;
@@ -63,9 +65,10 @@ describe("WorkspaceLocationProvider", () => {
 		expect(request?.location.pageNumber).toBe(4);
 
 		act(() => {
-			if (request) pageRequest?.consume(request);
+			if (request) pageRequest?.complete(request, false);
 		});
 		expect(pageRequest?.request).toBeNull();
+		expect(toast.error).toHaveBeenCalledWith("This source is no longer available.");
 
 		await act(async () => root.unmount());
 	});

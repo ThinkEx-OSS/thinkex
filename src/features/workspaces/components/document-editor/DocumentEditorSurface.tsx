@@ -2,7 +2,7 @@ import Collaboration from "@tiptap/extension-collaboration";
 import CollaborationCaret from "@tiptap/extension-collaboration-caret";
 import { EditorContent, useEditor } from "@tiptap/react";
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Skeleton } from "#/components/ui/skeleton";
 import { sendComposerPrompt } from "#/features/workspaces/composer/workspace-composer-actions";
@@ -26,6 +26,7 @@ import { useDocumentEditReviewOverlay } from "#/features/workspaces/documents/us
 import type { WorkspaceItem } from "#/features/workspaces/contracts";
 import { DEFAULT_COLLABORATION_COLOR } from "#/lib/design-system-colors";
 import { getAuthSessionQueryOptions } from "#/lib/session-query";
+import { useWorkspaceRevealRequest } from "#/features/workspaces/locations/workspace-location-context";
 
 export function DocumentEditorSurface({
 	documentPath,
@@ -107,6 +108,18 @@ function DocumentEditorInstance({
 			},
 		},
 	});
+	const { complete: completeRevealRequest, request: revealRequest } = useWorkspaceRevealRequest(
+		viewInstanceId,
+		"document-block",
+	);
+	useEffect(() => {
+		if (!editor || !revealRequest) return;
+		const target = editor.view.dom.querySelector<HTMLElement>(
+			`[data-ref="${revealRequest.location.blockId}"]`,
+		);
+		target?.scrollIntoView({ block: "center" });
+		completeRevealRequest(revealRequest, Boolean(target));
+	}, [completeRevealRequest, editor, revealRequest]);
 
 	const toolbar = useMemo(
 		() => (

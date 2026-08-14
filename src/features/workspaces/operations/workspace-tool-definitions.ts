@@ -192,7 +192,7 @@ export const workspaceToolDefinitions = [
 		name: "workspace_create_items",
 		access: "write",
 		description:
-			"Create folders, documents, or flashcard sets at exact absolute paths. Set type and provide that branch's fields. If a path already exists, creation fails instead of renaming.",
+			"Create folders, documents, or flashcard sets at exact absolute paths. A slash separates folders, so use another character inside an item name. Set type and provide that branch's fields. If a path already exists, creation fails instead of renaming.",
 		inputSchema: workspaceCreateItemsInputSchema,
 		inputExamples: workspaceCreateItemsInputExamples,
 		outputSchema: workspaceCreateItemsOutputSchema,

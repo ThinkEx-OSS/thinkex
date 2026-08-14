@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import type { Flashcard } from "#/features/workspaces/flashcards/flashcard-content";
-import { createFlashcardStudyQueue } from "#/features/workspaces/flashcards/flashcard-study-session";
+import {
+	createFlashcardStudyQueue,
+	getFlashcardStudyViewState,
+} from "#/features/workspaces/flashcards/flashcard-study-session";
 import type { FlashcardStudyState } from "#/features/workspaces/flashcards/flashcard-study-state";
 
 const cards = [
@@ -48,5 +51,30 @@ describe("flashcard study queue", () => {
 
 		expect(queue).toEqual([authoredOrder[1], authoredOrder[2], authoredOrder[0]]);
 		expect(cards.map((card) => card.id)).toEqual(authoredOrder);
+	});
+
+	it("identifies the authored card separately from its filtered-session position", () => {
+		expect(
+			getFlashcardStudyViewState({
+				currentRating: "again",
+				flipped: false,
+				mode: "missed",
+				progress: {
+					gotItCount: 1,
+					missedCount: 1,
+					reviewedCount: 2,
+					totalCards: 5,
+					unreviewedCount: 3,
+				},
+				sessionPosition: 1,
+				sessionTotal: 1,
+				shuffled: false,
+				sourceCardNumber: 3,
+			}),
+		).toEqual({
+			label: "card 3",
+			detail:
+				"card 3 of 5, front shown, set progress: 2 of 5 reviewed (1 got it, 1 missed), session: missed cards, position 1 of 1, original order, marked no",
+		});
 	});
 });

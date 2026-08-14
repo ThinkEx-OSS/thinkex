@@ -24,11 +24,12 @@ import {
 } from "#/features/workspaces/flashcards/flashcard-study-state";
 import {
 	createFlashcardStudyQueue,
+	getFlashcardStudyViewState,
 	type FlashcardStudyMode,
 } from "#/features/workspaces/flashcards/flashcard-study-session";
 import type { Flashcard } from "#/features/workspaces/flashcards/flashcard-content";
 import type { WorkspaceItem } from "#/features/workspaces/contracts";
-import { useWorkspaceFlashcardRevealRequest } from "#/features/workspaces/locations/workspace-location-context";
+import { useWorkspaceRevealRequest } from "#/features/workspaces/locations/workspace-location-context";
 import { useWorkspaceUiStore } from "#/features/workspaces/state/workspace-ui-store";
 import { isRecord } from "#/lib/record";
 import { cn } from "#/lib/utils";
@@ -131,8 +132,10 @@ function FlashcardStudySession({
 	const currentRating = currentCard ? studyState.cards[currentCard.id]?.lastRating : undefined;
 	const clearItemViewState = useWorkspaceUiStore((state) => state.clearItemViewState);
 	const setItemViewState = useWorkspaceUiStore((state) => state.setItemViewState);
-	const { consume: consumeRevealRequest, request: revealRequest } =
-		useWorkspaceFlashcardRevealRequest(viewInstanceId);
+	const { complete: completeRevealRequest, request: revealRequest } = useWorkspaceRevealRequest(
+		viewInstanceId,
+		"flashcard",
+	);
 	const recordRating = useRecordFlashcardStudyRating({
 		itemId: item.id,
 		updatedAt: item.updatedAt,
@@ -202,15 +205,15 @@ function FlashcardStudySession({
 		if (!currentCard) return;
 		setItemViewState(item.workspaceId, viewInstanceId, {
 			itemId: item.id,
-			label: `card ${currentIndex + 1}`,
-			detail: getFlashcardViewStateDetail({
-				cardNumber: currentIndex + 1,
+			...getFlashcardStudyViewState({
 				currentRating,
 				flipped,
 				mode,
+				progress: studyProgress,
+				sessionPosition: currentIndex + 1,
+				sessionTotal: studyCards.length,
 				shuffled,
-				studyProgress,
-				totalCards: studyCards.length,
+				sourceCardNumber,
 			}),
 		});
 	}, [
@@ -223,6 +226,7 @@ function FlashcardStudySession({
 		mode,
 		setItemViewState,
 		shuffled,
+		sourceCardNumber,
 		studyProgress,
 		studyCards.length,
 		viewInstanceId,
@@ -252,7 +256,7 @@ function FlashcardStudySession({
 					ratingFeedback: null,
 				}));
 			}
-			consumeRevealRequest(revealRequest);
+			completeRevealRequest(revealRequest, cardIndex >= 0);
 		});
 		return () => {
 			cancelled = true;
@@ -260,7 +264,7 @@ function FlashcardStudySession({
 	}, [
 		cards,
 		cardsById,
-		consumeRevealRequest,
+		completeRevealRequest,
 		revealRequest,
 		shuffled,
 		studyCardIds,
@@ -757,24 +761,6 @@ function getFlashcardRatingLabel(rating: FlashcardStudyRating | undefined): stri
 		default:
 			return "Not reviewed";
 	}
-}
-
-function getFlashcardViewStateDetail(input: {
-	cardNumber: number;
-	currentRating?: FlashcardStudyRating;
-	flipped: boolean;
-	mode: FlashcardStudyMode;
-	shuffled: boolean;
-	studyProgress: ReturnType<typeof summarizeFlashcardStudyProgress>;
-	totalCards: number;
-}) {
-	const side = input.flipped ? "back shown" : "front shown";
-	const order = input.shuffled ? "shuffled" : "original order";
-	const mode = input.mode === "missed" ? "missed cards" : "all cards";
-	const rating = input.currentRating
-		? `, marked ${input.currentRating === "again" ? "no" : input.currentRating === "good" ? "yes" : input.currentRating}`
-		: "";
-	return `card ${input.cardNumber} of ${input.totalCards} in the current session, ${side}, set progress: ${input.studyProgress.reviewedCount} of ${input.studyProgress.totalCards} reviewed (${input.studyProgress.gotItCount} got it, ${input.studyProgress.missedCount} missed), session: ${mode}, ${order}${rating}`;
 }
 
 function FlashcardFace({

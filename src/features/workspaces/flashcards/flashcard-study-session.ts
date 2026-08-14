@@ -1,7 +1,33 @@
 import type { Flashcard } from "#/features/workspaces/flashcards/flashcard-content";
-import type { FlashcardStudyState } from "#/features/workspaces/flashcards/flashcard-study-state";
+import type {
+	FlashcardStudyProgress,
+	FlashcardStudyRating,
+	FlashcardStudyState,
+} from "#/features/workspaces/flashcards/flashcard-study-state";
 
 export type FlashcardStudyMode = "all" | "missed";
+
+export function getFlashcardStudyViewState(input: {
+	currentRating?: FlashcardStudyRating;
+	flipped: boolean;
+	mode: FlashcardStudyMode;
+	progress: FlashcardStudyProgress;
+	sessionPosition: number;
+	sessionTotal: number;
+	shuffled: boolean;
+	sourceCardNumber: number;
+}) {
+	const side = input.flipped ? "back shown" : "front shown";
+	const order = input.shuffled ? "shuffled" : "original order";
+	const mode = input.mode === "missed" ? "missed cards" : "all cards";
+	const rating = input.currentRating
+		? `, marked ${input.currentRating === "again" ? "no" : input.currentRating === "good" ? "yes" : input.currentRating}`
+		: "";
+	return {
+		label: `card ${input.sourceCardNumber}`,
+		detail: `card ${input.sourceCardNumber} of ${input.progress.totalCards}, ${side}, set progress: ${input.progress.reviewedCount} of ${input.progress.totalCards} reviewed (${input.progress.gotItCount} got it, ${input.progress.missedCount} missed), session: ${mode}, position ${input.sessionPosition} of ${input.sessionTotal}, ${order}${rating}`,
+	};
+}
 
 /** Builds one stable study queue without changing the set's authored order. */
 export function createFlashcardStudyQueue(

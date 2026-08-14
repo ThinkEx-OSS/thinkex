@@ -1,12 +1,12 @@
 import { FileQuestion, type LucideIcon } from "lucide-react";
 import { createContext, type ReactNode, use, useCallback, useState } from "react";
+import { toast } from "sonner";
 
 import type { WorkspaceLocation } from "#/features/workspaces/locations/workspace-location";
 import { getWorkspaceItemDisplay } from "#/features/workspaces/model/item-display";
 import type { WorkspaceItem } from "#/features/workspaces/contracts";
 
-type WorkspacePdfPageLocation = Extract<WorkspaceLocation, { kind: "pdf-page" }>;
-type WorkspaceFlashcardLocation = Extract<WorkspaceLocation, { kind: "flashcard" }>;
+type WorkspaceRevealLocation = Exclude<WorkspaceLocation, { kind: "item" }>;
 
 type WorkspaceLocationPresentation = {
 	Icon: LucideIcon;
@@ -16,12 +16,12 @@ type WorkspaceLocationPresentation = {
 };
 
 type WorkspaceLocationRevealRequest = {
-	location: WorkspacePdfPageLocation | WorkspaceFlashcardLocation;
+	location: WorkspaceRevealLocation;
 	viewInstanceId: string;
 };
 
 type WorkspaceLocationContextValue = {
-	consumeRevealRequest: (request: WorkspaceLocationRevealRequest) => void;
+	completeRevealRequest: (request: WorkspaceLocationRevealRequest, revealed: boolean) => void;
 	getPresentation: (location: WorkspaceLocation) => WorkspaceLocationPresentation;
 	hasItem: (itemId: string) => boolean;
 	reveal: (location: WorkspaceLocation) => boolean;
@@ -43,11 +43,16 @@ export function WorkspaceLocationProvider({
 	readonly navigate: (location: WorkspaceLocation) => string | undefined;
 }) {
 	const [revealRequest, setRevealRequest] = useState<WorkspaceLocationRevealRequest | null>(null);
-	const consumeRevealRequest = useCallback((request: WorkspaceLocationRevealRequest) => {
-		setRevealRequest((current) => (current === request ? null : current));
-	}, []);
+	const completeRevealRequest = useCallback(
+		(request: WorkspaceLocationRevealRequest, revealed: boolean) => {
+			if (revealRequest !== request) return;
+			if (!revealed) toast.error("This source is no longer available.");
+			setRevealRequest(null);
+		},
+		[revealRequest],
+	);
 	const value: WorkspaceLocationContextValue = {
-		consumeRevealRequest,
+		completeRevealRequest,
 		getPresentation(location) {
 			const item = itemsById.get(location.itemId);
 			const itemName = item?.name ?? "Source unavailable";
@@ -72,9 +77,7 @@ export function WorkspaceLocationProvider({
 			const viewInstanceId = navigate(location);
 
 			setRevealRequest(
-				viewInstanceId && (location.kind === "pdf-page" || location.kind === "flashcard")
-					? { location, viewInstanceId }
-					: null,
+				viewInstanceId && location.kind !== "item" ? { location, viewInstanceId } : null,
 			);
 			return Boolean(viewInstanceId);
 		},
@@ -108,33 +111,18 @@ export function useWorkspaceLocationActions() {
 	return value;
 }
 
-/**
- * Returns the latest PDF-page reveal request when it targets this mounted view.
- */
-export function useWorkspacePdfPageRevealRequest(viewInstanceId: string) {
-	const { consumeRevealRequest, revealRequest } = useWorkspaceLocationActions();
+export function useWorkspaceRevealRequest<TKind extends WorkspaceRevealLocation["kind"]>(
+	viewInstanceId: string,
+	kind: TKind,
+) {
+	const { completeRevealRequest, revealRequest } = useWorkspaceLocationActions();
 
 	return {
-		consume: consumeRevealRequest,
+		complete: completeRevealRequest,
 		request:
-			revealRequest?.viewInstanceId === viewInstanceId && revealRequest.location.kind === "pdf-page"
+			revealRequest?.viewInstanceId === viewInstanceId && revealRequest.location.kind === kind
 				? (revealRequest as WorkspaceLocationRevealRequest & {
-						location: WorkspacePdfPageLocation;
-					})
-				: null,
-	};
-}
-
-export function useWorkspaceFlashcardRevealRequest(viewInstanceId: string) {
-	const { consumeRevealRequest, revealRequest } = useWorkspaceLocationActions();
-
-	return {
-		consume: consumeRevealRequest,
-		request:
-			revealRequest?.viewInstanceId === viewInstanceId &&
-			revealRequest.location.kind === "flashcard"
-				? (revealRequest as WorkspaceLocationRevealRequest & {
-						location: WorkspaceFlashcardLocation;
+						location: Extract<WorkspaceRevealLocation, { kind: TKind }>;
 					})
 				: null,
 	};

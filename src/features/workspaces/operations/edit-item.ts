@@ -109,18 +109,19 @@ export async function editWorkspaceItemOperation(
 			path: resolution.path,
 		};
 	}
-	const targets = await resolveEditTargets(accessContext, input.edits, (record) =>
-		record.location.kind === "document-block" &&
-		record.location.itemId === resolution.item.id &&
-		record.revision
-			? `${record.location.blockId}.r_${record.revision}`
-			: undefined,
-	);
-
-	const documentSession = await getDocumentSession({
-		itemId: resolution.item.id,
-		workspaceId: accessContext.workspaceId,
-	});
+	const [targets, documentSession] = await Promise.all([
+		resolveEditTargets(accessContext, input.edits, (record) =>
+			record.location.kind === "document-block" &&
+			record.location.itemId === resolution.item.id &&
+			record.revision
+				? `${record.location.blockId}.r_${record.revision}`
+				: undefined,
+		),
+		getDocumentSession({
+			itemId: resolution.item.id,
+			workspaceId: accessContext.workspaceId,
+		}),
+	]);
 
 	const result = await documentSession.applyEdits({
 		edits: await Promise.all(
