@@ -183,7 +183,7 @@ export function WorkspaceShell({
 	}
 
 	const aiContextScope = {
-		activeItem: isWorkspaceItemView(activeItem) ? activeItem : undefined,
+		activeItem,
 		activeTabId: activeTab.id,
 		itemViewStatesByViewInstanceId,
 		itemsById,
