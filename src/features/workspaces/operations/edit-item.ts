@@ -1,4 +1,5 @@
 import { getDocumentSessionFromEnv } from "#/features/workspaces/document-session-access";
+import { retryOnTransientDocumentSessionReset } from "#/features/workspaces/documents/document-session-transient";
 import {
 	authorizeWorkspaceOperation,
 	resolveWorkspaceExistingItemPath,
@@ -109,36 +110,39 @@ export async function editWorkspaceItemOperation(
 			path: resolution.path,
 		};
 	}
-	const [targets, documentSession] = await Promise.all([
-		resolveEditTargets(accessContext, input.edits, (record) =>
-			record.location.kind === "document-block" &&
-			record.location.itemId === resolution.item.id &&
-			record.revision
-				? `${record.location.blockId}.r_${record.revision}`
-				: undefined,
-		),
-		getDocumentSession({
+	const targets = await resolveEditTargets(accessContext, input.edits, (record) =>
+		record.location.kind === "document-block" &&
+		record.location.itemId === resolution.item.id &&
+		record.revision
+			? `${record.location.blockId}.r_${record.revision}`
+			: undefined,
+	);
+	const resolvedEdits: DocumentAiEdit[] = await Promise.all(
+		input.edits.map(async (edit) => {
+			const contentEdit = replacePublicRefs(edit, targets);
+			return "html" in contentEdit
+				? {
+						...contentEdit,
+						html: await resolveDocumentCitations({
+							context: accessContext,
+							html: contentEdit.html,
+						}),
+					}
+				: contentEdit;
+		}),
+	);
+
+	// A reset object drops the turn, not the persisted document, so a fresh stub
+	// replays the edit; the operation id keeps the replay from applying twice.
+	const result = await retryOnTransientDocumentSessionReset(async () => {
+		const documentSession = await getDocumentSession({
 			itemId: resolution.item.id,
 			workspaceId: accessContext.workspaceId,
-		}),
-	]);
-
-	const result = await documentSession.applyEdits({
-		edits: await Promise.all(
-			input.edits.map(async (edit) => {
-				const contentEdit = replacePublicRefs(edit, targets);
-				return "html" in contentEdit
-					? {
-							...contentEdit,
-							html: await resolveDocumentCitations({
-								context: accessContext,
-								html: contentEdit.html,
-							}),
-						}
-					: contentEdit;
-			}),
-		),
-		operationId: accessContext.operationId,
+		});
+		return documentSession.applyEdits({
+			edits: resolvedEdits,
+			operationId: accessContext.operationId,
+		});
 	});
 
 	return {
