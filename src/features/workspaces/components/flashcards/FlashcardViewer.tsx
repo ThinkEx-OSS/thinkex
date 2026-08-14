@@ -94,14 +94,7 @@ function FlashcardStudySession({
 		ratingFeedback: null,
 		shuffled: false,
 	}));
-	const {
-		cardIds: studyCardIds,
-		currentIndex,
-		flipped,
-		mode,
-		ratingFeedback,
-		shuffled,
-	} = session;
+	const { cardIds: studyCardIds, currentIndex, flipped, mode, ratingFeedback, shuffled } = session;
 	const settling = ratingFeedback !== null;
 	const cardsById = useMemo(() => new Map(cards.map((card) => [card.id, card])), [cards]);
 	const studyCards = useMemo(
@@ -383,222 +376,224 @@ function FlashcardStudySurface({
 		<LazyMotion features={domAnimation}>
 			<MotionConfig reducedMotion="user">
 				<section
-			className="flex h-full min-h-0 flex-col bg-background px-4 py-5 sm:px-8 sm:py-7"
-			aria-label={`${item.name} study session`}
-			onKeyDown={(event) => {
-				const isTypingTarget = Boolean(
-					(event.target as HTMLElement).closest("input, textarea, select"),
-				);
-				if (isTypingTarget) return;
-				if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
-					event.preventDefault();
-					onGoTo(currentIndex + (event.key === "ArrowLeft" ? -1 : 1));
-				} else if (event.key === " " && !(event.target as HTMLElement).closest("button, a")) {
-					event.preventDefault();
-					onFlip();
-				}
-			}}
-			tabIndex={0}
-		>
-			<div className="mx-auto flex min-h-0 w-full max-w-4xl flex-1 flex-col gap-4">
-				<div className="relative min-h-72 flex-1 rounded-2xl sm:min-h-96">
-					{nextCard ? (
-						<m.div
-							aria-hidden="true"
-							className="workspace-flashcard absolute inset-0 rounded-2xl"
-							initial={{ y: 8, scale: 0.96 }}
-							animate={{ y: 0, scale: 1 }}
-							transition={{
-								type: "spring",
-								visualDuration: 0.5,
-								bounce: 0.05,
-							}}
-						>
-							<FlashcardFace label="Front" content={nextCard.front} action={null} />
-						</m.div>
-					) : null}
-					<m.div
-						key={currentCard.id}
-						className="workspace-flashcard group absolute inset-0 z-[1] cursor-pointer rounded-2xl"
-						initial={false}
-						animate={ratingAnimation}
-						transition={
-							ratingFeedback
-								? {
-										type: "spring",
-										visualDuration: 0.58,
-										bounce: 0.05,
-										delay: 0.28,
-										rotate: {
-											type: "spring",
-											visualDuration: 0.4,
-											bounce: 0.06,
-											delay: 0.28,
-										},
-										scale: {
-											type: "spring",
-											visualDuration: 0.32,
-											bounce: 0.02,
-											delay: 0.28,
-										},
-										opacity: { type: "tween", duration: 0.36, delay: 0.4, ease: "easeOut" },
-									}
-								: { duration: 0 }
-						}
-						style={{ transformOrigin: ratingDirection < 0 ? "bottom left" : "bottom right" }}
-						onUpdate={(latest) => {
-							if (
-								ratingFeedback &&
-								typeof latest.opacity === "number" &&
-								latest.opacity <= 0.08
-							) {
-								onRatingAnimationComplete();
-							}
-						}}
-						onClick={(event) => {
-							if ((event.target as HTMLElement).closest("button, a")) return;
+					className="flex h-full min-h-0 flex-col bg-background px-4 py-5 sm:px-8 sm:py-7"
+					aria-label={`${item.name} study session`}
+					onKeyDown={(event) => {
+						const isTypingTarget = Boolean(
+							(event.target as HTMLElement).closest("input, textarea, select"),
+						);
+						if (isTypingTarget) return;
+						if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+							event.preventDefault();
+							onGoTo(currentIndex + (event.key === "ArrowLeft" ? -1 : 1));
+						} else if (event.key === " " && !(event.target as HTMLElement).closest("button, a")) {
+							event.preventDefault();
 							onFlip();
-						}}
-					>
-						<m.div
-							className="absolute inset-0"
-							initial={false}
-							animate={ratingAnticipation}
-							transition={
-								ratingFeedback
-									? { type: "spring", visualDuration: 0.22, bounce: 0.1 }
-									: { duration: 0 }
-							}
-							style={{ transformOrigin: "center" }}
-						>
-						<m.div
-							aria-hidden="true"
-							className="pointer-events-none absolute inset-0 z-10 rounded-2xl"
-							initial={false}
-							animate={{ opacity: ratingFeedback ? 0.8 : 0 }}
-							transition={{
-								duration: ratingFeedback ? 0.16 : 0,
-								ease: "easeOut",
-							}}
-							style={{ boxShadow: ratingRing }}
-						/>
-						<m.div
-							className={cn("workspace-flashcard-inner", flipped && "is-flipped")}
-							initial={false}
-							animate={{ rotateY: flipped ? 180 : 0 }}
-							transition={{ type: "spring", visualDuration: 0.4, bounce: 0.08 }}
-						>
-							<FlashcardFace
-								label="Front"
-								content={currentCard.front}
-								action={
-									<FlashcardAiAction
-										active={!flipped}
-										label="Hint"
-										onSend={() =>
-											sendComposerPrompt(
-												item.workspaceId,
-												"Give me a helpful hint for the current flashcard without revealing the answer.",
-											)
-										}
-									/>
+						}
+					}}
+					tabIndex={0}
+				>
+					<div className="mx-auto flex min-h-0 w-full max-w-4xl flex-1 flex-col gap-4">
+						<div className="relative min-h-72 flex-1 rounded-2xl sm:min-h-96">
+							{nextCard ? (
+								<m.div
+									aria-hidden="true"
+									className="workspace-flashcard absolute inset-0 rounded-2xl"
+									initial={{ y: 8, scale: 0.96 }}
+									animate={{ y: 0, scale: 1 }}
+									transition={{
+										type: "spring",
+										visualDuration: 0.5,
+										bounce: 0.05,
+									}}
+								>
+									<FlashcardFace label="Front" content={nextCard.front} action={null} />
+								</m.div>
+							) : null}
+							<m.div
+								key={currentCard.id}
+								className="workspace-flashcard group absolute inset-0 z-[1] cursor-pointer rounded-2xl"
+								initial={false}
+								animate={ratingAnimation}
+								transition={
+									ratingFeedback
+										? {
+												type: "spring",
+												visualDuration: 0.58,
+												bounce: 0.05,
+												delay: 0.28,
+												rotate: {
+													type: "spring",
+													visualDuration: 0.4,
+													bounce: 0.06,
+													delay: 0.28,
+												},
+												scale: {
+													type: "spring",
+													visualDuration: 0.32,
+													bounce: 0.02,
+													delay: 0.28,
+												},
+												opacity: { type: "tween", duration: 0.36, delay: 0.4, ease: "easeOut" },
+											}
+										: { duration: 0 }
 								}
-							/>
-							<FlashcardFace
-								back
-								label="Back"
-								content={currentCard.back}
-								action={
-									<FlashcardAiAction
-										active={flipped}
-										label="Explain"
-										onSend={() =>
-											sendComposerPrompt(
-												item.workspaceId,
-												"Explain the answer to the current flashcard clearly and concisely.",
-											)
-										}
+								style={{ transformOrigin: ratingDirection < 0 ? "bottom left" : "bottom right" }}
+								onUpdate={(latest) => {
+									if (
+										ratingFeedback &&
+										typeof latest.opacity === "number" &&
+										latest.opacity <= 0.08
+									) {
+										onRatingAnimationComplete();
+									}
+								}}
+								onClick={(event) => {
+									if ((event.target as HTMLElement).closest("button, a")) return;
+									onFlip();
+								}}
+							>
+								<m.div
+									className="absolute inset-0"
+									initial={false}
+									animate={ratingAnticipation}
+									transition={
+										ratingFeedback
+											? { type: "spring", visualDuration: 0.22, bounce: 0.1 }
+											: { duration: 0 }
+									}
+									style={{ transformOrigin: "center" }}
+								>
+									<m.div
+										aria-hidden="true"
+										className="pointer-events-none absolute inset-0 z-10 rounded-2xl"
+										initial={false}
+										animate={{ opacity: ratingFeedback ? 0.8 : 0 }}
+										transition={{
+											duration: ratingFeedback ? 0.16 : 0,
+											ease: "easeOut",
+										}}
+										style={{ boxShadow: ratingRing }}
 									/>
-								}
-							/>
-						</m.div>
-						</m.div>
-					</m.div>
-				</div>
-
-				<div className="space-y-3">
-					<FlashcardStatusStrip
-						cards={studyCards}
-						currentIndex={currentIndex}
-						gotItCount={gotItCount}
-						missedCount={missedCount}
-						onSelect={onGoTo}
-						reviewsByCardId={studyState.cards}
-					/>
-					<div className="grid min-h-10 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
-						<span className="justify-self-start text-xs text-muted-foreground tabular-nums sm:text-sm">
-							{gotItCount + missedCount} reviewed
-						</span>
-						<div className="col-start-2 flex items-center justify-center gap-1 sm:gap-2">
-							<Button
-								variant="ghost"
-								size="icon-lg"
-								aria-label="Previous card"
-								title="Previous card (Left arrow)"
-								disabled={settling || currentIndex === 0}
-								className="size-11 rounded-xl [&_svg]:size-4.5 sm:size-12 sm:[&_svg]:size-5"
-								onClick={() => onGoTo(currentIndex - 1)}
-							>
-								<ChevronLeft />
-							</Button>
-							<Button
-								variant="outline"
-								aria-label="Review again"
-								aria-pressed={currentRating === "again"}
-								title="Review again"
-								disabled={settling}
-								className={cn(
-									"h-11 gap-2 rounded-xl px-5 text-sm font-medium [&_svg]:size-4.5 sm:h-12 sm:px-6 sm:text-base sm:[&_svg]:size-5",
-									"border-red-500/30 text-red-600 hover:border-red-500/50 hover:bg-red-500/10 hover:text-red-700 dark:text-red-400",
-									currentRating === "again" && "bg-red-500/10",
-								)}
-								onClick={() => onRate("again")}
-							>
-								<X /> No
-							</Button>
-							<Button
-								variant="outline"
-								aria-label="Got it"
-								aria-pressed={currentRating !== undefined && currentRating !== "again"}
-								title="Got it"
-								disabled={settling}
-								className={cn(
-									"h-11 gap-2 rounded-xl px-5 text-sm font-medium [&_svg]:size-4.5 sm:h-12 sm:px-6 sm:text-base sm:[&_svg]:size-5",
-									"border-emerald-500/30 text-emerald-600 hover:border-emerald-500/50 hover:bg-emerald-500/10 hover:text-emerald-700 dark:text-emerald-400",
-									currentRating !== undefined && currentRating !== "again" && "bg-emerald-500/10",
-								)}
-								onClick={() => onRate("good")}
-							>
-								<Check /> Yes
-							</Button>
-							<Button
-								variant="ghost"
-								size="icon-lg"
-								aria-label="Next card"
-								title="Next card (Right arrow)"
-								disabled={settling || currentIndex === studyCards.length - 1}
-								className="size-11 rounded-xl [&_svg]:size-4.5 sm:size-12 sm:[&_svg]:size-5"
-								onClick={() => onGoTo(currentIndex + 1)}
-							>
-								<ChevronRight />
-							</Button>
+									<m.div
+										className={cn("workspace-flashcard-inner", flipped && "is-flipped")}
+										initial={false}
+										animate={{ rotateY: flipped ? 180 : 0 }}
+										transition={{ type: "spring", visualDuration: 0.4, bounce: 0.08 }}
+									>
+										<FlashcardFace
+											label="Front"
+											content={currentCard.front}
+											action={
+												<FlashcardAiAction
+													active={!flipped}
+													label="Hint"
+													onSend={() =>
+														sendComposerPrompt(
+															item.workspaceId,
+															"Give me a helpful hint for the current flashcard without revealing the answer.",
+														)
+													}
+												/>
+											}
+										/>
+										<FlashcardFace
+											back
+											label="Back"
+											content={currentCard.back}
+											action={
+												<FlashcardAiAction
+													active={flipped}
+													label="Explain"
+													onSend={() =>
+														sendComposerPrompt(
+															item.workspaceId,
+															"Explain the answer to the current flashcard clearly and concisely.",
+														)
+													}
+												/>
+											}
+										/>
+									</m.div>
+								</m.div>
+							</m.div>
 						</div>
-						<span className="col-start-3 justify-self-end text-xs text-muted-foreground tabular-nums sm:text-sm">
-							{currentIndex + 1} of {studyCards.length}
-						</span>
+
+						<div className="space-y-3">
+							<FlashcardStatusStrip
+								cards={studyCards}
+								currentIndex={currentIndex}
+								gotItCount={gotItCount}
+								missedCount={missedCount}
+								onSelect={onGoTo}
+								reviewsByCardId={studyState.cards}
+							/>
+							<div className="grid min-h-10 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
+								<span className="justify-self-start text-xs text-muted-foreground tabular-nums sm:text-sm">
+									{gotItCount + missedCount} reviewed
+								</span>
+								<div className="col-start-2 flex items-center justify-center gap-1 sm:gap-2">
+									<Button
+										variant="ghost"
+										size="icon-lg"
+										aria-label="Previous card"
+										title="Previous card (Left arrow)"
+										disabled={settling || currentIndex === 0}
+										className="size-11 rounded-xl [&_svg]:size-4.5 sm:size-12 sm:[&_svg]:size-5"
+										onClick={() => onGoTo(currentIndex - 1)}
+									>
+										<ChevronLeft />
+									</Button>
+									<Button
+										variant="outline"
+										aria-label="Review again"
+										aria-pressed={currentRating === "again"}
+										title="Review again"
+										disabled={settling}
+										className={cn(
+											"h-11 gap-2 rounded-xl px-5 text-sm font-medium [&_svg]:size-4.5 sm:h-12 sm:px-6 sm:text-base sm:[&_svg]:size-5",
+											"border-red-500/30 text-red-600 hover:border-red-500/50 hover:bg-red-500/10 hover:text-red-700 dark:text-red-400",
+											currentRating === "again" && "bg-red-500/10",
+										)}
+										onClick={() => onRate("again")}
+									>
+										<X /> No
+									</Button>
+									<Button
+										variant="outline"
+										aria-label="Got it"
+										aria-pressed={currentRating !== undefined && currentRating !== "again"}
+										title="Got it"
+										disabled={settling}
+										className={cn(
+											"h-11 gap-2 rounded-xl px-5 text-sm font-medium [&_svg]:size-4.5 sm:h-12 sm:px-6 sm:text-base sm:[&_svg]:size-5",
+											"border-emerald-500/30 text-emerald-600 hover:border-emerald-500/50 hover:bg-emerald-500/10 hover:text-emerald-700 dark:text-emerald-400",
+											currentRating !== undefined &&
+												currentRating !== "again" &&
+												"bg-emerald-500/10",
+										)}
+										onClick={() => onRate("good")}
+									>
+										<Check /> Yes
+									</Button>
+									<Button
+										variant="ghost"
+										size="icon-lg"
+										aria-label="Next card"
+										title="Next card (Right arrow)"
+										disabled={settling || currentIndex === studyCards.length - 1}
+										className="size-11 rounded-xl [&_svg]:size-4.5 sm:size-12 sm:[&_svg]:size-5"
+										onClick={() => onGoTo(currentIndex + 1)}
+									>
+										<ChevronRight />
+									</Button>
+								</div>
+								<span className="col-start-3 justify-self-end text-xs text-muted-foreground tabular-nums sm:text-sm">
+									{currentIndex + 1} of {studyCards.length}
+								</span>
+							</div>
+						</div>
 					</div>
-				</div>
-			</div>
 				</section>
 			</MotionConfig>
 		</LazyMotion>

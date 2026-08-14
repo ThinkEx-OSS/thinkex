@@ -50,10 +50,7 @@ describe("WorkspaceLocationProvider", () => {
 		const root = createRoot(container);
 		await act(async () =>
 			root.render(
-				<WorkspaceLocationProvider
-					itemsById={new Map([[item.id, item]])}
-					navigate={() => "view-1"}
-				>
+				<WorkspaceLocationProvider itemsById={new Map([[item.id, item]])} navigate={() => "view-1"}>
 					<Probe />
 				</WorkspaceLocationProvider>,
 			),
