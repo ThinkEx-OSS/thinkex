@@ -120,7 +120,9 @@ function continuationBaseline() {
 		},
 		{
 			id: "assistant-1",
+			metadata: { phase: "before-continuation" },
 			parts: [
+				{ text: "already ", type: "text" },
 				{
 					input: { query: "topic" },
 					output: { result: "found" },
@@ -313,8 +315,11 @@ describe("agents useAgentChat observer", () => {
 			dispatchContinuation(target, "continuation-1", "text-1");
 		});
 		await vi.waitFor(() => {
-			expect(assistantText(chat()?.messages)).toBe("already streamed");
+			expect(assistantText(chat()?.messages)).toBe("already already streamed");
 			expect(assistantHasTool(chat()?.messages)).toBe(true);
+			expect(lastAssistant(chat()?.messages)?.metadata).toEqual({
+				phase: "before-continuation",
+			});
 		});
 
 		await act(async () => {
@@ -339,7 +344,7 @@ describe("agents useAgentChat observer", () => {
 		});
 
 		await vi.waitFor(() => {
-			expect(assistantText(chat()?.messages)).toBe("already streamed");
+			expect(assistantText(chat()?.messages)).toBe("already already streamed");
 		});
 	});
 
@@ -365,7 +370,7 @@ describe("agents useAgentChat observer", () => {
 			dispatchContinuation(target, "continuation-2", "text-2");
 		});
 		await vi.waitFor(() => {
-			expect(assistantText(chat()?.messages)).toBe("already streamed");
+			expect(assistantText(chat()?.messages)).toBe("already already streamed");
 			expect(assistantHasTool(chat()?.messages)).toBe(true);
 		});
 
@@ -388,7 +393,7 @@ describe("agents useAgentChat observer", () => {
 		});
 
 		await vi.waitFor(() => {
-			expect(assistantText(chat()?.messages)).toBe("already streamed");
+			expect(assistantText(chat()?.messages)).toBe("already already streamed");
 		});
 	});
 });

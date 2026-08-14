@@ -6,11 +6,12 @@ function toolMessage(
 	id: string,
 	toolCallId: string,
 	state: "input-available" | "output-available",
+	input: Record<string, string> = { query: id },
 ): UIMessage {
 	const part: DynamicToolUIPart =
 		state === "output-available"
 			? {
-					input: { query: id },
+					input,
 					output: { answer: id },
 					state,
 					toolCallId,
@@ -18,7 +19,7 @@ function toolMessage(
 					type: "dynamic-tool",
 				}
 			: {
-					input: { query: id },
+					input,
 					state,
 					toolCallId,
 					toolName: "search",
@@ -47,5 +48,19 @@ describe("agents message reconciliation", () => {
 			toolCallId: "call-reused",
 		});
 		expect(secondPart).not.toHaveProperty("output");
+	});
+
+	it("preserves a resolved result on a stale duplicate of the same tool call", () => {
+		const input = { query: "same" };
+		const first = toolMessage("assistant-first", "call-1", "output-available", input);
+		const duplicate = toolMessage("assistant-duplicate", "call-1", "input-available", input);
+
+		const reconciled = reconcileMessages([first, duplicate], [structuredClone(first)]);
+
+		expect(reconciled[1].parts[0]).toMatchObject({
+			output: { answer: "assistant-first" },
+			state: "output-available",
+			toolCallId: "call-1",
+		});
 	});
 });

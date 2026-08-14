@@ -11,19 +11,23 @@ index 8d5b57034f927298d207d8a2bcbac927614780f5..9cf49a4471b9da862ddde11b818fd1ee
  }
  /**
  * For a single message, resolve its ID by matching toolCallId against server state.
-@@ -1948,17 +1948,21 @@ function assistantContentKey(message, sanitize) {
+@@ -1948,23 +1948,31 @@ function assistantContentKey(message, sanitize) {
  	return JSON.stringify(sanitized.parts);
  }
  function mergeServerToolOutputs(incoming, serverMessages) {
 -	const serverResolvedParts = /* @__PURE__ */ new Map();
 +	const serverResolvedPartsByMessage = /* @__PURE__ */ new Map();
++	const resolvedByToolCallId = /* @__PURE__ */ new Map();
  	for (const msg of serverMessages) {
  		if (msg.role !== "assistant") continue;
 +		const resolvedParts = /* @__PURE__ */ new Map();
  		for (const part of msg.parts) {
  			const record = part;
 -			if ("toolCallId" in record && "state" in record && (record.state === "output-available" || record.state === "output-error" || record.state === "output-denied")) serverResolvedParts.set(record.toolCallId, record);
-+			if ("toolCallId" in record && "state" in record && (record.state === "output-available" || record.state === "output-error" || record.state === "output-denied")) resolvedParts.set(record.toolCallId, record);
++			if (isResolvedToolPart(record)) {
++				resolvedParts.set(record.toolCallId, record);
++				resolvedByToolCallId.set(record.toolCallId, resolvedByToolCallId.has(record.toolCallId) ? null : record);
++			}
  		}
 +		if (resolvedParts.size > 0) serverResolvedPartsByMessage.set(msg.id, resolvedParts);
  	}
@@ -31,12 +35,21 @@ index 8d5b57034f927298d207d8a2bcbac927614780f5..9cf49a4471b9da862ddde11b818fd1ee
 +	if (serverResolvedPartsByMessage.size === 0) return incoming;
  	return incoming.map((msg) => {
  		if (msg.role !== "assistant") return msg;
-+		const serverResolvedParts = serverResolvedPartsByMessage.get(msg.id);
-+		if (!serverResolvedParts) return msg;
++		const ownResolvedParts = serverResolvedPartsByMessage.get(msg.id);
  		let hasChanges = false;
  		const updatedParts = msg.parts.map((part) => {
  			const record = part;
-@@ -1999,7 +2003,22 @@ function reconcileAssistantIds(incoming, serverMessages, sanitize) {
+-			if ("toolCallId" in record && "state" in record && (record.state === "input-available" || record.state === "approval-requested" || record.state === "approval-responded") && serverResolvedParts.has(record.toolCallId)) {
+-				hasChanges = true;
+-				const server = serverResolvedParts.get(record.toolCallId);
++			if (!isPendingToolPart(record)) return part;
++			const server = ownResolvedParts?.get(record.toolCallId) ?? fallbackResolvedPart(resolvedByToolCallId, record);
++			if (server) {
++				hasChanges = true;
+ 				const merged = {
+ 					...part,
+ 					state: server.state
+@@ -1999,7 +2007,22 @@ function reconcileAssistantIds(incoming, serverMessages, sanitize) {
  	}
  	return incoming.map((incomingMessage, incomingIdx) => {
  		if (exactMatchMap.has(incomingIdx)) return incomingMessage;
@@ -60,12 +73,28 @@ index 8d5b57034f927298d207d8a2bcbac927614780f5..9cf49a4471b9da862ddde11b818fd1ee
  		const incomingKey = assistantContentKey(incomingMessage, sanitize);
  		if (!incomingKey) return incomingMessage;
  		for (let i = 0; i < serverMessages.length; i++) {
-@@ -2020,6 +2039,9 @@ function reconcileAssistantIds(incoming, serverMessages, sanitize) {
+@@ -2020,6 +2043,25 @@ function reconcileAssistantIds(incoming, serverMessages, sanitize) {
  function hasToolCallPart(message) {
  	return message.parts.some((part) => "toolCallId" in part);
  }
 +function getToolCallIds(message) {
 +	return new Set(message.parts.flatMap((part) => "toolCallId" in part && typeof part.toolCallId === "string" ? [part.toolCallId] : []));
++}
++function isResolvedToolPart(record) {
++	return "toolCallId" in record && "state" in record && (record.state === "output-available" || record.state === "output-error" || record.state === "output-denied");
++}
++function isPendingToolPart(record) {
++	return "toolCallId" in record && "state" in record && (record.state === "input-available" || record.state === "approval-requested" || record.state === "approval-responded");
++}
++function fallbackResolvedPart(resolvedByToolCallId, record) {
++	const server = resolvedByToolCallId.get(record.toolCallId);
++	if (!server) return;
++	return sameToolInput(record.input, server.input) ? server : void 0;
++}
++function sameToolInput(left, right) {
++	if (left === void 0 && right === void 0) return true;
++	if (left === void 0 || right === void 0) return false;
++	return JSON.stringify(left) === JSON.stringify(right);
 +}
  function findMessageByToolCallId(messages, toolCallId) {
  	for (const msg of messages) {
@@ -83,10 +112,33 @@ index 51c24ed62b48d43a64a093b5d08e6ccb3aafcbf9..44059d63d10b5f1ae192eb7a6e63f0df
  				};
  				agent.addEventListener("message", onMessage, { signal: abortController.signal });
  				agent.addEventListener("close", onClose, { signal: abortController.signal });
-@@ -720,0 +721,23 @@ function prependMissingHydratedMessages(hydratedMessages, currentMessages) {
+@@ -470,7 +470,7 @@ var WebSocketChatTransport = class {
+ 						if (data.done) finish(() => controller.close());
+ 					} catch {}
+ 				};
+-				const onClose = () => finish(() => controller.close());
++				const onClose = () => finish(() => requestId === null ? controller.close() : controller.error(new Error("Chat connection interrupted")));
+ 				agent.addEventListener("message", onMessage, { signal: streamController.signal });
+ 				agent.addEventListener("close", onClose, { signal: streamController.signal });
+ 				retryResumeProbe();
+@@ -540,7 +540,7 @@ var WebSocketChatTransport = class {
+ 					} catch {}
+ 				};
+ 				const onClose = () => {
+-					finish(() => controller.close(), false, false);
++					finish(() => controller.error(new Error("Chat connection interrupted")), false, false);
+ 				};
+ 				agent.addEventListener("message", onMessage, { signal: chunkController.signal });
+ 				agent.addEventListener("close", onClose, { signal: chunkController.signal });
+@@ -716,9 +716,35 @@ function prependMissingHydratedMessages(hydratedMessages, currentMessages) {
+ 	const missingHydratedMessages = hydratedMessages.filter((message) => !currentMessageIds.has(message.id));
+ 	if (missingHydratedMessages.length === 0) return currentMessages;
+ 	return [...missingHydratedMessages, ...currentMessages];
+ }
 +function continuationPartsOverlap(left, right) {
 +	if (left.type !== right.type) return false;
 +	if ("toolCallId" in left || "toolCallId" in right) return left.toolCallId === right.toolCallId;
++	if ("id" in left && "id" in right && typeof left.id === "string" && typeof right.id === "string") return left.id === right.id;
 +	if ((left.type === "text" || left.type === "reasoning") && "text" in left && "text" in right) return left.text.startsWith(right.text) || right.text.startsWith(left.text);
 +	return JSON.stringify(left) === JSON.stringify(right);
 +}
@@ -96,7 +148,9 @@ index 51c24ed62b48d43a64a093b5d08e6ccb3aafcbf9..44059d63d10b5f1ae192eb7a6e63f0df
 +	const assistantIndex = messages.findIndex((message) => message.id === baselineAssistant.id);
 +	if (assistantIndex < 0) return messages;
 +	const assistant = messages[assistantIndex];
-+	const missingParts = baselineAssistant.parts.filter((baselinePart) => !assistant.parts.some((part) => continuationPartsOverlap(baselinePart, part)));
++	let overlapLength = Math.min(baselineAssistant.parts.length, assistant.parts.length);
++	while (overlapLength > 0 && !baselineAssistant.parts.slice(-overlapLength).every((part, index) => continuationPartsOverlap(part, assistant.parts[index]))) overlapLength--;
++	const missingParts = baselineAssistant.parts.slice(0, baselineAssistant.parts.length - overlapLength);
 +	const missingMetadata = assistant.metadata == null && baselineAssistant.metadata != null;
 +	if (missingParts.length === 0 && !missingMetadata) return messages;
 +	const next = [...messages];
@@ -107,6 +161,11 @@ index 51c24ed62b48d43a64a093b5d08e6ccb3aafcbf9..44059d63d10b5f1ae192eb7a6e63f0df
 +	};
 +	return next;
 +}
+ /**
+ * React hook for building AI chat interfaces using an Agent
+ * @param options Chat options including the agent connection
+ * @returns Chat interface controls and state with added clearHistory method
+ */
 @@ -967,6 +990,25 @@ function useAgentChat(options) {
  	const [clientToolResults, setClientToolResults] = useState(/* @__PURE__ */ new Map());
  	const messagesRef = useRef(chatMessages);
@@ -250,9 +309,16 @@ index 51c24ed62b48d43a64a093b5d08e6ccb3aafcbf9..44059d63d10b5f1ae192eb7a6e63f0df
  						setIsRecovering(false);
  					}
  					const completedObservedToolContinuation = data.done && observedToolContinuationRequestIdRef.current === data.id;
-@@ -1496,0 +1585,2 @@ function useAgentChat(options) {
+@@ -1493,7 +1585,9 @@ function useAgentChat(options) {
+ 			streamStateRef.current = { status: "idle" };
+ 			setIsServerStreaming(false);
+ 			setIsRecovering(false);
 +			transportContinuationRequestIdRef.current = null;
 +			completedTransportContinuationRequestIdRef.current = null;
+ 			protectedStreamingAssistantRef.current = null;
+ 			localResponseIds.clear();
+ 			customTransport.resetResumeState();
+ 			invalidateResumeGeneration();
 diff --git a/dist/wire-types-CU9rLoeS.js b/dist/wire-types-CU9rLoeS.js
 index a0f027305b8594ea5cec3edcbf4273cf878319e5..d565dbb7c92d0ac7ca0e4a14c51a2820834a07d0 100644
 --- a/dist/wire-types-CU9rLoeS.js
