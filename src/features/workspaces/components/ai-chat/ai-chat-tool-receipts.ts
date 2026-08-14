@@ -128,9 +128,7 @@ export function getRunningToolReceipt(input: {
 				? receipt.running("Renaming ", ...name(oldName), " → ", ...name(newName))
 				: receipt.running("Renaming ", ...name(oldName));
 		}
-		case "web_links":
-			return receipt.running("Finding links on ", { name: formatUrl(getString(toolInput.url)) });
-		case "web_markdown":
+		case "web_fetch":
 			return receipt.running("Reading ", {
 				name: formatUrlWithPath(getString(toolInput.url)),
 			});
@@ -190,12 +188,8 @@ export function getFinishedToolReceipt(input: {
 			return summarizeWorkspaceRead(input.output);
 		case "web_search":
 			return summarizeWebSearch(input.output, input.toolInput);
-		case "web_markdown":
-			return receipt.completed("Read ", {
-				name: formatUrlWithPath(getString(asRecord(input.toolInput).url)),
-			});
-		case "web_links":
-			return summarizeWebLinks(input.output, input.toolInput);
+		case "web_fetch":
+			return summarizeWebFetch(input.output, input.toolInput);
 		case "research_discover":
 			return summarizeResearchDiscover(input.output, input.toolInput);
 		case "research_deepen":
@@ -400,18 +394,20 @@ function formatPageRange(range: string | undefined) {
 
 function summarizeWebSearch(output: unknown, toolInput: unknown): AiChatToolReceipt {
 	const results = getArray(asRecord(output).results);
-	const subject = getString(asRecord(toolInput).query);
-	const base: ReceiptPart[] = [`Found ${formatCount(results.length, "source")}`];
+	const input = asRecord(toolInput);
+	const subject = getString(input.query);
+	const noun = getString(input.source) === "images" ? "image" : "source";
+	const base: ReceiptPart[] = [`Found ${formatCount(results.length, noun)}`];
 	return subject
 		? receipt.completed(...base, " for ", ...name(subject))
 		: receipt.completed(...base);
 }
 
-function summarizeWebLinks(output: unknown, toolInput: unknown): AiChatToolReceipt {
-	const items = getArray(asRecord(output).items);
-	return receipt.completed(`Found ${formatCount(items.length, "link")} on `, {
-		name: formatUrl(getString(asRecord(toolInput).url)),
-	});
+function summarizeWebFetch(output: unknown, toolInput: unknown): AiChatToolReceipt {
+	const kind = getString(asRecord(output).kind);
+	const target = { name: formatUrlWithPath(getString(asRecord(toolInput).url)) };
+	if (kind === "unsupported") return receipt.completed("Couldn’t read ", target);
+	return receipt.completed(kind === "image" ? "Inspected " : "Read ", target);
 }
 
 function summarizeResearchDiscover(output: unknown, toolInput: unknown): AiChatToolReceipt {
@@ -575,15 +571,6 @@ function getBaseName(path: string | undefined) {
 
 function getPathFromToolInput(input: unknown) {
 	return getString(asRecord(input).path);
-}
-
-function formatUrl(url: string | undefined) {
-	if (!url) return "page";
-	try {
-		return new URL(url).hostname.replace(/^www\./, "");
-	} catch {
-		return url;
-	}
 }
 
 function formatUrlWithPath(url: string | undefined) {

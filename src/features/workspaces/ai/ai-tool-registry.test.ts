@@ -12,6 +12,10 @@ describe("AI tool registry", () => {
 			model: { access: "read", codemode: true },
 			ui: { icon: "code", visibility: "visible" },
 		});
+		expect(AI_TOOL_REGISTRY.web_fetch).toMatchObject({
+			model: { access: "read", codemode: false },
+			ui: { icon: "web", visibility: "visible" },
+		});
 	});
 
 	it("exposes mutations to Code Mode so replays resolve against the durable log", () => {

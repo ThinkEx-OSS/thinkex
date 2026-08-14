@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { assertPublicHttpUrl } from "#/features/workspaces/ai/web-access-policy";
+import {
+	assertPublicHttpUrl,
+	parsePublicHttpUrl,
+} from "#/features/workspaces/ai/web-access-policy";
 
 describe("web access policy", () => {
 	it("accepts public HTTP URLs and strips fragments", () => {
@@ -22,5 +25,15 @@ describe("web access policy", () => {
 		expect(() => assertPublicHttpUrl("https://127.0.0.1")).toThrow(
 			"Only public domain-name URLs are supported.",
 		);
+	});
+
+	it("parses untrusted public URLs without throwing", () => {
+		expect(parsePublicHttpUrl(" https://Example.com/image.png#fragment ")?.toString()).toBe(
+			"https://example.com/image.png",
+		);
+		expect(parsePublicHttpUrl("data:image/png;base64,abc")).toBeNull();
+		expect(parsePublicHttpUrl("http://127.0.0.1/image.png")).toBeNull();
+		expect(parsePublicHttpUrl("not a URL")).toBeNull();
+		expect(parsePublicHttpUrl(null)).toBeNull();
 	});
 });

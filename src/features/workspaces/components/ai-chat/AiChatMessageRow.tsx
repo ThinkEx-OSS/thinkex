@@ -218,15 +218,19 @@ function AssistantMessageBody({
 	workspaceCitationLocations: ReturnType<typeof getWorkspaceCitationLocations>;
 }) {
 	if (display.kind === "content") {
-		return display.parts.map((part, index) => (
-			<AiChatMessagePartView
-				key={getMessagePartKey(message.id, part, index)}
-				interruptUnfinishedTools={display.interruptUnfinishedTools}
-				isStreaming={isStreaming}
-				part={part}
-				workspaceCitationLocations={workspaceCitationLocations}
-			/>
-		));
+		return (
+			<div data-slot="assistant-parts" className="flex flex-col gap-3">
+				{display.parts.map((part, index) => (
+					<AiChatMessagePartView
+						key={getMessagePartKey(message.id, part, index)}
+						interruptUnfinishedTools={display.interruptUnfinishedTools}
+						isStreaming={isStreaming}
+						part={part}
+						workspaceCitationLocations={workspaceCitationLocations}
+					/>
+				))}
+			</div>
+		);
 	}
 
 	if (display.kind === "empty-terminal") {

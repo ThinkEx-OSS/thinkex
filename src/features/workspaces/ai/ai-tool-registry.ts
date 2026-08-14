@@ -48,8 +48,7 @@ export const AI_TOOL_REGISTRY = defineAiToolRegistry({
 	browser_handoff: readTool({ icon: "web", title: "Browser handoff", visibility: "hidden" }),
 	compute: readTool({ icon: "code", title: "Run Python" }),
 	web_search: readTool({ icon: "search", title: "Search web" }),
-	web_markdown: readTool({ icon: "web", title: "Read webpage" }),
-	web_links: readTool({ icon: "web", title: "Find links" }),
+	web_fetch: readTool({ icon: "web", title: "Read URL" }, false),
 	research_discover: readTool({
 		icon: "search",
 		title: "Discover research",

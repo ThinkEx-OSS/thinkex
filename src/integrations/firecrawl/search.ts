@@ -1,8 +1,11 @@
 import { z } from "zod";
 
+import { parsePublicHttpUrl } from "#/features/workspaces/ai/web-access-policy";
+
 import {
 	firecrawlJsonRequest,
 	getRecordArrayValue,
+	getNumberValue,
 	getRecordValue,
 	getStringValue,
 	truncateFirecrawlText,
@@ -11,7 +14,7 @@ import {
 const MAX_WEB_SEARCH_SNIPPET_CHARS = 600;
 const WEB_SEARCH_RESULT_LIMIT = 8;
 export const webSearchFreshnessValues = ["day", "week", "month"] as const;
-export const webSearchSourceValues = ["web", "news"] as const;
+export const webSearchSourceValues = ["web", "news", "images"] as const;
 export const webSearchCategoryValues = ["pdf", "github", "research", "developer"] as const;
 const webSearchFreshnessTbs = {
 	day: "qdr:d",
@@ -21,11 +24,23 @@ const webSearchFreshnessTbs = {
 
 export const publicWebSearchResultSchema = z.object({
 	results: z.array(
-		z.object({
-			title: z.string().nullable(),
-			url: z.string().nullable(),
-			snippet: z.string().nullable(),
-		}),
+		z.discriminatedUnion("type", [
+			z.object({
+				type: z.literal("page"),
+				title: z.string().nullable(),
+				url: z.string(),
+				snippet: z.string().nullable(),
+			}),
+			z.object({
+				type: z.literal("image"),
+				title: z.string().nullable(),
+				url: z.string(),
+				imageUrl: z.string(),
+				imageWidth: z.number().int().positive().nullable(),
+				imageHeight: z.number().int().positive().nullable(),
+				position: z.number().int().positive().nullable(),
+			}),
+		]),
 	),
 });
 
@@ -37,6 +52,10 @@ export async function searchPublicWeb(input: {
 	source?: (typeof webSearchSourceValues)[number];
 	category?: (typeof webSearchCategoryValues)[number];
 }): Promise<z.output<typeof publicWebSearchResultSchema>> {
+	if (input.source === "images" && input.category) {
+		throw new Error("Image search cannot be combined with a search category.");
+	}
+
 	const response = await firecrawlJsonRequest({
 		env: input.env,
 		path: "/v2/search",
@@ -56,6 +75,28 @@ export async function searchPublicWeb(input: {
 		}),
 	});
 	const data = getRecordValue(response, "data");
+	if (input.source === "images") {
+		return {
+			results: getRecordArrayValue(data, "images").flatMap((item) => {
+				const imageUrl = parsePublicHttpUrl(getStringValue(item, "imageUrl"));
+				const sourceUrl = parsePublicHttpUrl(getStringValue(item, "url"));
+				if (!imageUrl || !sourceUrl) return [];
+
+				return [
+					{
+						type: "image" as const,
+						title: getStringValue(item, "title"),
+						url: sourceUrl.toString(),
+						imageUrl: imageUrl.toString(),
+						imageWidth: positiveIntegerOrNull(getNumberValue(item, "imageWidth")),
+						imageHeight: positiveIntegerOrNull(getNumberValue(item, "imageHeight")),
+						position: positiveIntegerOrNull(getNumberValue(item, "position")),
+					},
+				];
+			}),
+		};
+	}
+
 	const hits = [
 		...getRecordArrayValue(data, "web"),
 		...getRecordArrayValue(data, "news"),
@@ -63,24 +104,35 @@ export async function searchPublicWeb(input: {
 	];
 
 	return {
-		results: hits
-			.map((item) => ({
-				title:
-					getStringValue(item, "title") ??
-					getStringValue(getRecordValue(item, "metadata"), "title"),
-				url:
-					getStringValue(item, "url") ??
+		results: hits.flatMap((item) => {
+			const url = parsePublicHttpUrl(
+				getStringValue(item, "url") ??
 					getStringValue(getRecordValue(item, "metadata"), "sourceURL") ??
 					getStringValue(getRecordValue(item, "metadata"), "url"),
-				snippet: truncateFirecrawlText(
-					getStringValue(item, "description") ??
-						getStringValue(item, "snippet") ??
-						getStringValue(getRecordValue(item, "metadata"), "description"),
-					MAX_WEB_SEARCH_SNIPPET_CHARS,
-				),
-			}))
-			.filter((item) => item.title && item.url),
+			);
+			if (!url) return [];
+
+			return [
+				{
+					type: "page" as const,
+					title:
+						getStringValue(item, "title") ??
+						getStringValue(getRecordValue(item, "metadata"), "title"),
+					url: url.toString(),
+					snippet: truncateFirecrawlText(
+						getStringValue(item, "description") ??
+							getStringValue(item, "snippet") ??
+							getStringValue(getRecordValue(item, "metadata"), "description"),
+						MAX_WEB_SEARCH_SNIPPET_CHARS,
+					),
+				},
+			];
+		}),
 	};
+}
+
+function positiveIntegerOrNull(value: number | null) {
+	return value !== null && Number.isInteger(value) && value > 0 ? value : null;
 }
 
 function normalizeHostnameList(value: string[] | undefined) {
