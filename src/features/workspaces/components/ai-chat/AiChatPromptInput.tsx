@@ -1,5 +1,5 @@
 import { Mic, Paperclip } from "lucide-react";
-import { type SetStateAction, useCallback, useEffect, useRef } from "react";
+import { type SetStateAction, useCallback, useRef } from "react";
 
 import {
 	type AttachmentsContext,
@@ -41,7 +41,6 @@ import {
 	useWorkspaceAiComposerDraftFiles,
 	useWorkspaceAiComposerDraftStore,
 	useWorkspaceAiComposerDraftText,
-	useWorkspaceAiComposerFocusRequest,
 } from "#/features/workspaces/state/workspace-ai-composer-draft-store";
 import { cn } from "#/lib/utils";
 
@@ -98,8 +97,6 @@ export default function AiChatPromptInput({
 		(value: SetStateAction<string>) => setDraftText(activeThreadId, value),
 		[activeThreadId, setDraftText],
 	);
-	const focusRequest = useWorkspaceAiComposerFocusRequest(activeThreadId);
-	const clearFocusRequest = useWorkspaceAiComposerDraftStore((state) => state.clearFocusRequest);
 	const dictation = useAiChatDictation({ input, setInput });
 	const draftFiles = useWorkspaceAiComposerDraftFiles(activeThreadId);
 	const attachmentsReady =
@@ -130,26 +127,6 @@ export default function AiChatPromptInput({
 		setInput,
 		textareaRef,
 	});
-	useEffect(() => {
-		if (focusRequest === 0) {
-			return;
-		}
-
-		const frame = requestAnimationFrame(() => {
-			const textarea = textareaRef.current;
-			if (!textarea) {
-				return;
-			}
-
-			textarea.focus();
-			const caret = textarea.value.length;
-			textarea.setSelectionRange(caret, caret);
-			clearFocusRequest(activeThreadId, focusRequest);
-		});
-
-		return () => cancelAnimationFrame(frame);
-	}, [activeThreadId, clearFocusRequest, focusRequest]);
-
 	const attachments: Omit<AttachmentsContext, "openFileDialog"> = {
 		add: addFiles,
 		composerReady: canType,

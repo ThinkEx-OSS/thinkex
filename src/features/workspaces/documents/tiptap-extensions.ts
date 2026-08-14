@@ -4,13 +4,13 @@ import "katex/dist/katex.min.css";
 // Extends the shared KaTeX instance with \ce{} chemistry and \pu{} units.
 import "katex/contrib/mhchem";
 
+import { WorkspaceCitationNode } from "#/features/workspaces/components/WorkspaceCitationNode";
 import { CodeBlockShiki } from "#/features/workspaces/documents/code-block-shiki";
-import { DocumentWidget } from "#/features/workspaces/documents/document-widget-extension";
-import { DocumentCitation } from "#/features/workspaces/documents/document-citation-node";
 import {
 	getTiptapDocumentSchemaExtensions,
 	tiptapDocumentYjsField,
 } from "#/features/workspaces/documents/tiptap-schema";
+import { DocumentWidget } from "#/features/workspaces/documents/document-widget-extension";
 
 export { tiptapDocumentYjsField };
 
@@ -18,7 +18,7 @@ export function getTiptapDocumentBaseExtensions() {
 	return [
 		...getTiptapDocumentSchemaExtensions({
 			// All three extend the node spec the server uses, adding only how it draws.
-			citation: DocumentCitation,
+			citation: WorkspaceCitationNode,
 			codeBlock: CodeBlockShiki,
 			widget: DocumentWidget,
 		}),

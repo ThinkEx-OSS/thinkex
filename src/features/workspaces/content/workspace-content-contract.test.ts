@@ -13,10 +13,11 @@ describe("workspace read tool schemas", () => {
 				requests: [
 					{ mode: "start", path: "/Notes" },
 					{ mode: "pages", path: "/Book.pdf", range: "1-3" },
+					{ mode: "cards", path: "/Biology", range: "1-3" },
 					{ cursor: "opaque", mode: "continue", path: "/Notes" },
 					{
-						editRef: "b_abcdefghijkl.r_0123456789",
-						mode: "block",
+						ref: "wr_AAAAAAAA",
+						mode: "ref",
 						path: "/Notes",
 					},
 				],
@@ -43,8 +44,13 @@ describe("workspace read tool schemas", () => {
 						anyOf: [
 							{ additionalProperties: false, required: ["path", "mode"] },
 							{ additionalProperties: false, required: ["path", "mode", "range"] },
+							{
+								additionalProperties: false,
+								properties: { mode: { const: "cards" } },
+								required: ["path", "mode", "range"],
+							},
 							{ additionalProperties: false, required: ["path", "cursor", "mode"] },
-							{ additionalProperties: false, required: ["path", "editRef", "mode"] },
+							{ additionalProperties: false, required: ["path", "ref", "mode"] },
 						],
 					},
 				},
@@ -60,7 +66,7 @@ describe("workspace read tool schemas", () => {
 				references: [],
 				results: [
 					{
-						content: '<h1 data-edit-ref="b_abcdefghijkl.r_0123456789">Notes</h1>',
+						content: '<h1 data-ref="b_abcdefghijkl.r_0123456789">Notes</h1>',
 						format: "html",
 						itemId: "notes",
 						location: { endBlock: 1, kind: "blocks", startBlock: 1, totalBlocks: 1 },

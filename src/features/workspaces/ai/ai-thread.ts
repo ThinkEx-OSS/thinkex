@@ -35,8 +35,8 @@ import {
 } from "#/features/workspaces/ai/ai-compaction";
 import {
 	collectWorkspaceReferenceRecords,
-	reconcileWorkspaceMessageCitations,
-} from "#/features/workspaces/ai/workspace-citations";
+	reconcileWorkspaceMessageReferences,
+} from "#/features/workspaces/ai/workspace-references";
 import { resolveChatAttachmentModelMessages } from "#/features/workspaces/ai/chat-attachment-model";
 import { classifyAIThreadChatError } from "#/features/workspaces/ai/chat-error-classification";
 import type { AIThreadContext } from "#/features/workspaces/ai/ai-thread-metadata";
@@ -339,7 +339,7 @@ export function createAIThreadClass(getUserAIStore: () => typeof UserAIStore) {
 			this.telemetry.recordTurnFinished(result);
 			this._trackCompletedMessageUsage(result);
 			if (result.status === "completed") {
-				await this._reconcileWorkspaceCitations(result.message);
+				await this._reconcileWorkspaceReferences(result.message);
 			}
 			if (!this._shouldSettleRunAfterResponse(result)) {
 				await this._refreshSessionPromptIfNeeded();
@@ -404,6 +404,7 @@ export function createAIThreadClass(getUserAIStore: () => typeof UserAIStore) {
 				onWorkspaceReferences: (records) => {
 					this._recordWorkspaceReferences(records);
 				},
+				resolveWorkspaceReferences: (refs) => this._resolveWorkspaceReferences(refs),
 				timeZone,
 			});
 		}
@@ -566,13 +567,14 @@ export function createAIThreadClass(getUserAIStore: () => typeof UserAIStore) {
 			return records.filter((record) => wanted.has(record.ref));
 		}
 
-		private async _reconcileWorkspaceCitations(message: ChatResponseResult["message"]) {
+		private async _reconcileWorkspaceReferences(message: ChatResponseResult["message"]) {
 			try {
 				const transcriptReferences = collectWorkspaceReferenceRecords(await this.getMessages());
-				const reconciled = reconcileWorkspaceMessageCitations(message, [
-					...transcriptReferences,
-					...this.activeWorkspaceReferences,
-				]);
+				const reconciled = reconcileWorkspaceMessageReferences(
+					message,
+					[...transcriptReferences, ...this.activeWorkspaceReferences],
+					this.activeWorkspaceReferences,
+				);
 
 				if (reconciled !== message) {
 					await this.addMessages([reconciled], { mode: "upsert" });

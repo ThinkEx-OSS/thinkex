@@ -267,7 +267,8 @@ function getDocumentEditAction(call: z.output<typeof rawOrchestrationCallSchema>
 	const receiptId = getDocumentEditReceiptMetadata(call.result);
 
 	const lineChanges = asRecord(result.lineChanges);
-	return itemId && path && applied > 0 && receiptId
+	const isDocument = result.itemType === "document";
+	return isDocument && itemId && path && applied > 0 && receiptId
 		? {
 				itemId,
 				kind: "document-edit" as const,

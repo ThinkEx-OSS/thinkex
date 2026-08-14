@@ -16,10 +16,11 @@ import {
 } from "#/features/workspaces/documents/document-ai-html";
 import { resolveDocumentCitations } from "#/features/workspaces/operations/document-citations";
 import { stringifyTiptapDocumentJson } from "#/features/workspaces/documents/tiptap-document";
+import { isWorkspaceItemContainer } from "#/features/workspaces/contracts";
 import {
-	getWorkspaceItemContentKind,
-	isWorkspaceItemContainer,
-} from "#/features/workspaces/contracts";
+	createFlashcardSetFromHtml,
+	stringifyFlashcardSetContent,
+} from "#/features/workspaces/flashcards/flashcard-content";
 import {
 	createWorkspaceReferenceRecords,
 	type WorkspaceReferenceRecord,
@@ -32,12 +33,20 @@ import {
 	WorkspacePathError,
 } from "#/features/workspaces/model/workspace-paths";
 
-export interface CreateWorkspaceItemOperationInput {
-	type: "document" | "folder";
-	path: string;
-	initialContent?: string;
-	relations?: WorkspaceRelationInput[];
-}
+export type CreateWorkspaceItemOperationInput =
+	| { type: "folder"; path: string; relations?: WorkspaceRelationInput[] }
+	| {
+			type: "document";
+			path: string;
+			initialContent?: string;
+			relations?: WorkspaceRelationInput[];
+	  }
+	| {
+			type: "flashcard";
+			path: string;
+			cards: Array<{ front: string; back: string }>;
+			relations?: WorkspaceRelationInput[];
+	  };
 
 export interface CreateWorkspaceItemsOperationInput {
 	items: CreateWorkspaceItemOperationInput[];
@@ -55,7 +64,7 @@ export interface CreateWorkspaceItemsFailure {
 export interface CreatedWorkspaceItem {
 	itemId: string;
 	path: string;
-	type: "document" | "folder";
+	type: "document" | "flashcard" | "folder";
 }
 
 export interface CreateWorkspaceItemsOperationResult {
@@ -121,8 +130,7 @@ export async function createWorkspaceItemsOperation(
 		}
 
 		const initialContent = getCreateWorkspaceItemInitialContent(
-			getWorkspaceItemContentKind(itemInput.type) === "document" &&
-				itemInput.initialContent !== undefined
+			itemInput.type === "document" && itemInput.initialContent !== undefined
 				? {
 						...itemInput,
 						initialContent: await resolveDocumentCitations({
@@ -292,10 +300,22 @@ function getCreateWorkspaceItemInitialContent(input: CreateWorkspaceItemOperatio
 			detail?: string;
 			status: "failed";
 	  } {
-	if (
-		getWorkspaceItemContentKind(input.type) !== "document" ||
-		input.initialContent === undefined
-	) {
+	if (input.type === "flashcard") {
+		try {
+			return {
+				content: stringifyFlashcardSetContent(createFlashcardSetFromHtml(input.cards)),
+				status: "ready",
+			};
+		} catch (error) {
+			return {
+				code: "invalid_initial_content",
+				...(error instanceof Error && error.message ? { detail: error.message } : {}),
+				status: "failed",
+			};
+		}
+	}
+
+	if (input.type !== "document" || input.initialContent === undefined) {
 		return { status: "ready" };
 	}
 

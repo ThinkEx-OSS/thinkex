@@ -10,7 +10,7 @@ import {
 	scoreToolInputsValid,
 } from "./support/scorers";
 
-const STANDUP_LIST_REF = "b_standupList1.r_bullet0001";
+const STANDUP_LIST_REF = "wr_AAAAAAAA";
 const STANDUP_PATH = "/Notes/Standup.md";
 
 describe("workspace eval scorers", () => {
@@ -28,18 +28,18 @@ describe("workspace eval scorers", () => {
 			readPath: STANDUP_PATH,
 			refs: [STANDUP_LIST_REF],
 		},
-	])("requires an editRef read from the edited path", ({ editPath, expected, readPath, refs }) => {
+	])("requires a ref read from the edited path", ({ editPath, expected, readPath, refs }) => {
 		const output: WorkspaceAgentOutput = {
 			text: "",
 			toolCalls: [
 				{
 					input: {
-						edits: [{ editRef: STANDUP_LIST_REF, op: "insert_after" }],
+						edits: [{ ref: STANDUP_LIST_REF, op: "insert_after" }],
 						path: editPath,
 					},
 					issues: [],
 					name: "workspace_edit_item",
-					priorReadEditRefsByPath: { [readPath]: refs },
+					priorReadRefsByPath: { [readPath]: refs },
 					valid: true,
 				},
 			],

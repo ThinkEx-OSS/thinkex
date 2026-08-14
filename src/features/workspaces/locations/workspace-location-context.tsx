@@ -1,11 +1,12 @@
 import { FileQuestion, type LucideIcon } from "lucide-react";
 import { createContext, type ReactNode, use, useCallback, useState } from "react";
+import { toast } from "sonner";
 
 import type { WorkspaceLocation } from "#/features/workspaces/locations/workspace-location";
 import { getWorkspaceItemDisplay } from "#/features/workspaces/model/item-display";
 import type { WorkspaceItem } from "#/features/workspaces/contracts";
 
-type WorkspacePdfPageLocation = Extract<WorkspaceLocation, { kind: "pdf-page" }>;
+type WorkspaceRevealLocation = Exclude<WorkspaceLocation, { kind: "item" }>;
 
 type WorkspaceLocationPresentation = {
 	Icon: LucideIcon;
@@ -14,17 +15,17 @@ type WorkspaceLocationPresentation = {
 	locatorLabel?: string;
 };
 
-type WorkspacePdfPageRevealRequest = {
-	location: WorkspacePdfPageLocation;
+type WorkspaceLocationRevealRequest = {
+	location: WorkspaceRevealLocation;
 	viewInstanceId: string;
 };
 
 type WorkspaceLocationContextValue = {
-	consumeRevealRequest: (request: WorkspacePdfPageRevealRequest) => void;
+	completeRevealRequest: (request: WorkspaceLocationRevealRequest, revealed: boolean) => void;
 	getPresentation: (location: WorkspaceLocation) => WorkspaceLocationPresentation;
 	hasItem: (itemId: string) => boolean;
 	reveal: (location: WorkspaceLocation) => boolean;
-	revealRequest: WorkspacePdfPageRevealRequest | null;
+	revealRequest: WorkspaceLocationRevealRequest | null;
 };
 
 const WorkspaceLocationContext = createContext<WorkspaceLocationContextValue | null>(null);
@@ -41,16 +42,21 @@ export function WorkspaceLocationProvider({
 	readonly itemsById: ReadonlyMap<string, WorkspaceItem>;
 	readonly navigate: (location: WorkspaceLocation) => string | undefined;
 }) {
-	const [revealRequest, setRevealRequest] = useState<WorkspacePdfPageRevealRequest | null>(null);
-	const consumeRevealRequest = useCallback((request: WorkspacePdfPageRevealRequest) => {
-		setRevealRequest((current) => (current === request ? null : current));
-	}, []);
+	const [revealRequest, setRevealRequest] = useState<WorkspaceLocationRevealRequest | null>(null);
+	const completeRevealRequest = useCallback(
+		(request: WorkspaceLocationRevealRequest, revealed: boolean) => {
+			if (revealRequest !== request) return;
+			if (!revealed) toast.error("This source is no longer available.");
+			setRevealRequest(null);
+		},
+		[revealRequest],
+	);
 	const value: WorkspaceLocationContextValue = {
-		consumeRevealRequest,
+		completeRevealRequest,
 		getPresentation(location) {
 			const item = itemsById.get(location.itemId);
 			const itemName = item?.name ?? "Source unavailable";
-			const locatorLabel = location.kind === "pdf-page" ? `p. ${location.pageNumber}` : undefined;
+			const locatorLabel = getWorkspaceLocatorLabel(location);
 
 			if (!item) {
 				return {
@@ -71,7 +77,7 @@ export function WorkspaceLocationProvider({
 			const viewInstanceId = navigate(location);
 
 			setRevealRequest(
-				viewInstanceId && location.kind === "pdf-page" ? { location, viewInstanceId } : null,
+				viewInstanceId && location.kind !== "item" ? { location, viewInstanceId } : null,
 			);
 			return Boolean(viewInstanceId);
 		},
@@ -79,6 +85,18 @@ export function WorkspaceLocationProvider({
 	};
 
 	return <WorkspaceLocationContext value={value}>{children}</WorkspaceLocationContext>;
+}
+
+function getWorkspaceLocatorLabel(location: WorkspaceLocation) {
+	switch (location.kind) {
+		case "item":
+			return undefined;
+		case "pdf-page":
+			return `p. ${location.pageNumber}`;
+		case "document-block":
+		case "flashcard":
+			return undefined;
+	}
 }
 
 /**
@@ -93,14 +111,19 @@ export function useWorkspaceLocationActions() {
 	return value;
 }
 
-/**
- * Returns the latest PDF-page reveal request when it targets this mounted view.
- */
-export function useWorkspacePdfPageRevealRequest(viewInstanceId: string) {
-	const { consumeRevealRequest, revealRequest } = useWorkspaceLocationActions();
+export function useWorkspaceRevealRequest<TKind extends WorkspaceRevealLocation["kind"]>(
+	viewInstanceId: string,
+	kind: TKind,
+) {
+	const { completeRevealRequest, revealRequest } = useWorkspaceLocationActions();
 
 	return {
-		consume: consumeRevealRequest,
-		request: revealRequest?.viewInstanceId === viewInstanceId ? revealRequest : null,
+		complete: completeRevealRequest,
+		request:
+			revealRequest?.viewInstanceId === viewInstanceId && revealRequest.location.kind === kind
+				? (revealRequest as WorkspaceLocationRevealRequest & {
+						location: Extract<WorkspaceRevealLocation, { kind: TKind }>;
+					})
+				: null,
 	};
 }

@@ -12,7 +12,7 @@ import {
 } from "#/features/workspaces/locations/workspace-location";
 import { MarkdownCodeBlock } from "#/features/workspaces/components/ai-chat/ai-chat-code-block";
 import { normalizeLlmMarkdown } from "#/features/workspaces/components/ai-chat/normalize-llm-markdown";
-import { WorkspaceCitation } from "#/features/workspaces/components/ai-chat/WorkspaceCitation";
+import { WorkspaceCitation } from "#/features/workspaces/components/WorkspaceCitation";
 import { cn } from "#/lib/utils";
 
 type AiChatMessageResponseProps = Omit<

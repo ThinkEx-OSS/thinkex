@@ -3,10 +3,11 @@ import { z } from "zod";
 
 import { workspaceReadItemsOutputSchema } from "#/features/workspaces/content/workspace-content-contract";
 import { createWorkspaceReadItemsModelOutput } from "#/features/workspaces/content/workspace-read-references";
+import type { WorkspaceReferenceRecord } from "#/features/workspaces/locations/workspace-location";
 import {
-	workspaceReferenceRecordSchema,
-	type WorkspaceReferenceRecord,
-} from "#/features/workspaces/locations/workspace-location";
+	workspaceCreateItemsOutputSchema,
+	workspaceEditItemOutputSchema,
+} from "#/features/workspaces/operations/workspace-tool-schemas";
 
 function defineWorkspaceToolResultAdapter<TSchema extends z.ZodTypeAny>(input: {
 	collectReferences?: (output: z.output<TSchema>) => readonly WorkspaceReferenceRecord[];
@@ -18,12 +19,8 @@ function defineWorkspaceToolResultAdapter<TSchema extends z.ZodTypeAny>(input: {
 			const parsed = input.outputSchema.safeParse(output);
 			return parsed.success ? (input.collectReferences?.(parsed.data) ?? []) : [];
 		},
-		// Also runs when history is replayed, on results shaped by older versions
-		// of this schema. Execution already validated them, so projection is
-		// presentation only: project what parses, pass through what does not.
 		projectOutput: (output: unknown) => {
-			const parsed = input.outputSchema.safeParse(output);
-			return (parsed.success ? input.projectOutput(parsed.data) : output) as JSONValue;
+			return input.projectOutput(input.outputSchema.parse(output)) as JSONValue;
 		},
 	};
 }
@@ -36,24 +33,7 @@ const workspaceReadItemsResultAdapter = defineWorkspaceToolResultAdapter({
 
 const workspaceCreateItemsResultAdapter = defineWorkspaceToolResultAdapter({
 	collectReferences: (output) => output.references,
-	outputSchema: z.object({
-		failed: z.array(
-			z.object({
-				code: z.string(),
-				detail: z.string().optional(),
-				index: z.number(),
-				path: z.string(),
-			}),
-		),
-		items: z.array(
-			z.object({
-				itemId: z.string(),
-				path: z.string(),
-				type: z.enum(["document", "folder"]),
-			}),
-		),
-		references: z.array(workspaceReferenceRecordSchema),
-	}),
+	outputSchema: workspaceCreateItemsOutputSchema,
 	projectOutput: (output) => {
 		const refsByItemId = new Map(
 			output.references.flatMap((record) =>
@@ -64,9 +44,9 @@ const workspaceCreateItemsResultAdapter = defineWorkspaceToolResultAdapter({
 		return {
 			failed: output.failed,
 			items: output.items.map(({ itemId, path, type }) => {
-				const reference = refsByItemId.get(itemId);
+				const ref = refsByItemId.get(itemId);
 
-				return { path, ...(reference ? { reference } : {}), type };
+				return { path, ...(ref ? { ref } : {}), type };
 			}),
 		};
 	},
@@ -75,14 +55,8 @@ const workspaceCreateItemsResultAdapter = defineWorkspaceToolResultAdapter({
 // The operation output also carries the durable item id used by the app's
 // review controls. Keep the model-facing receipt limited to actionable counts.
 const workspaceEditItemResultAdapter = defineWorkspaceToolResultAdapter({
-	outputSchema: z.object({
-		applied: z.number(),
-		failed: z.array(
-			z.object({ code: z.string(), detail: z.string().optional(), index: z.number() }),
-		),
-		path: z.string(),
-	}),
-	projectOutput: (output) => output,
+	outputSchema: workspaceEditItemOutputSchema,
+	projectOutput: ({ applied, failed, path }) => ({ applied, failed, path }),
 });
 
 const workspaceToolResultAdapters = {

@@ -43,4 +43,56 @@ describe("workspace tool surface", () => {
 			expect(z.toJSONSchema(schema)).toMatchSnapshot();
 		});
 	}
+
+	it("gives documents and flashcards the same edit verbs and ref protocol", () => {
+		const documentRef = "wr_AAAAAAAA";
+		const otherDocumentRef = "wr_BBBBBBBB";
+		const flashcardRef = "wr_CCCCCCCC";
+		const otherFlashcardRef = "wr_DDDDDDDD";
+		const sharedVerbs = [
+			"insert_before",
+			"insert_after",
+			"update",
+			"replace",
+			"replace_text",
+			"move",
+			"delete",
+		];
+		const documentEdits = [
+			{ op: "insert_before", ref: documentRef, html: "<p>New</p>" },
+			{ op: "insert_after", ref: documentRef, html: "<p>New</p>" },
+			{ op: "update", ref: documentRef, html: "<p>New</p>" },
+			{ op: "replace", ref: documentRef, html: "<p>New</p>" },
+			{ op: "replace_text", ref: documentRef, find: "old", replace: "new" },
+			{ op: "move", ref: documentRef, afterRef: otherDocumentRef },
+			{ op: "delete", ref: documentRef },
+		];
+		const flashcardEdits = [
+			{ op: "insert_before", ref: flashcardRef, front: "<p>Q</p>", back: "<p>A</p>" },
+			{ op: "insert_after", ref: flashcardRef, front: "<p>Q</p>", back: "<p>A</p>" },
+			{ op: "update", ref: flashcardRef, front: "<p>Q</p>" },
+			{ op: "replace", ref: flashcardRef, front: "<p>Q</p>", back: "<p>A</p>" },
+			{ op: "replace_text", ref: flashcardRef, side: "front", find: "Q", replace: "R" },
+			{ op: "move", ref: flashcardRef, afterRef: otherFlashcardRef },
+			{ op: "delete", ref: flashcardRef },
+		];
+
+		expect(documentEdits.map((edit) => edit.op)).toEqual(sharedVerbs);
+		expect(flashcardEdits.map((edit) => edit.op)).toEqual(sharedVerbs);
+		for (const [type, edits] of [
+			["document", documentEdits],
+			["flashcard", flashcardEdits],
+		] as const) {
+			expect(
+				workspaceEditItemInputSchema.safeParse({ type, path: "/Biology", edits }).success,
+			).toBe(true);
+		}
+		expect(
+			workspaceEditItemInputSchema.safeParse({
+				type: "document",
+				path: "/Biology",
+				edits: [{ op: "overwrite", html: "<p>Old API</p>" }],
+			}).success,
+		).toBe(false);
+	});
 });

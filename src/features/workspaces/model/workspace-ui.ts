@@ -21,6 +21,15 @@ export const defaultWorkspaceUiSession: WorkspaceUiSession = {
 	presentation: standardPresentation,
 };
 
+export function getActiveWorkspaceViewInstanceId(
+	presentation: WorkspacePresentation,
+	activeTabId?: string,
+) {
+	if (presentation.mode === "standard") return activeTabId;
+	if (presentation.mode === "maximized") return presentation.pane.id;
+	return presentation.activePaneId;
+}
+
 export function getWorkspaceUiSession(session: WorkspaceUiSession | undefined) {
 	if (!session) {
 		return defaultWorkspaceUiSession;

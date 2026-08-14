@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { WorkspaceItem } from "#/features/workspaces/contracts";
 import { createWorkspaceExportStream } from "#/features/workspaces/export/workspace-export-archive";
+import { createFlashcardSetFromHtml } from "#/features/workspaces/flashcards/flashcard-content";
 
 const baseItem = {
 	workspaceId: "workspace-1",
@@ -22,6 +23,13 @@ describe("workspace export archive", () => {
 				parentId: null,
 				type: "folder",
 				name: "Research",
+			},
+			{
+				...baseItem,
+				id: "flashcards",
+				parentId: "folder",
+				type: "flashcard",
+				name: "Key terms",
 			},
 			{
 				...baseItem,
@@ -46,6 +54,11 @@ describe("workspace export archive", () => {
 					content: [{ type: "paragraph", content: [{ type: "text", text: "Hello" }] }],
 				}),
 				readFile: vi.fn().mockResolvedValue(new Blob(["PDF bytes"]).stream()),
+				readFlashcards: vi
+					.fn()
+					.mockReturnValue(
+						createFlashcardSetFromHtml([{ front: "<p>Term</p>", back: "<p>Definition</p>" }]),
+					),
 			}),
 		).arrayBuffer();
 		const files = unzipSync(new Uint8Array(archive));
@@ -53,10 +66,12 @@ describe("workspace export archive", () => {
 		expect(Object.keys(files).sort()).toEqual([
 			"Empty/",
 			"Research/",
+			"Research/Key terms.md",
 			"Research/Notes.md",
 			"Research/source.pdf",
 		]);
 		expect(strFromU8(files["Research/Notes.md"]!)).toBe("Hello\n");
+		expect(strFromU8(files["Research/Key terms.md"]!)).toContain("## Card 1\n\nTerm");
 		expect(strFromU8(files["Research/source.pdf"]!)).toBe("PDF bytes");
 	});
 
@@ -88,6 +103,7 @@ describe("workspace export archive", () => {
 			createWorkspaceExportStream(items, {
 				readDocument: vi.fn().mockReturnValue({ type: "doc" }),
 				readFile: vi.fn().mockResolvedValue(new Blob(["file"]).stream()),
+				readFlashcards: vi.fn(),
 			}),
 		).arrayBuffer();
 

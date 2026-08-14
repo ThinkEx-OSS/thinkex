@@ -13,7 +13,7 @@ describe("document AI HTML in Workers", () => {
 		).document;
 
 		expect(await serializeTiptapDocumentToAiHtml(document)).toMatch(
-			/^<h2 data-edit-ref="b_[A-Za-z0-9_-]{12}\.r_[A-Za-z0-9_-]{10}">Worker<\/h2><p data-edit-ref="b_[A-Za-z0-9_-]{12}\.r_[A-Za-z0-9_-]{10}">Schema-safe HTML<\/p>$/,
+			/^<h2 data-ref="b_[A-Za-z0-9_-]{12}\.r_[A-Za-z0-9_-]{10}">Worker<\/h2><p data-ref="b_[A-Za-z0-9_-]{12}\.r_[A-Za-z0-9_-]{10}">Schema-safe HTML<\/p>$/,
 		);
 	});
 });

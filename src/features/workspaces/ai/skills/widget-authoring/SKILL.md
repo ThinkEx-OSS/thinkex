@@ -42,9 +42,9 @@ Use the document tool's HTML math markup. The runtime renders matching math elem
 
 ## Edit
 
-1. Read the document to locate the widget placeholder and its `data-edit-ref`.
-2. Read that exact block with `{ mode: "block", path, editRef }` to obtain the current source and current `editRef`.
+1. Read the document to locate the widget placeholder and its `data-ref`.
+2. Read that exact content with `{ mode: "ref", path, ref }` to obtain the current source and current `ref`.
 3. For a focused change, use `replace_text` with a `find` string copied exactly from the block read. Include enough surrounding text to make the match unique.
-4. For a ground-up rebuild, read `references/starter.md`, then use `replace` on the widget's current `editRef`. Never use `overwrite`, which replaces the entire document.
+4. For a ground-up rebuild, read `references/starter.md`, then use `replace` on the widget's current `ref`.
 
-Complete the operation only when the source follows the contract, the main interaction or visual is immediately clear, the widget has no duplicate host chrome or unintended overflow, every visible control works, both themes remain readable, runtime failures remain reportable, and an edit changes only the intended widget using the latest block read's exact `editRef`.
+Complete the operation only when the source follows the contract, the main interaction or visual is immediately clear, the widget has no duplicate host chrome or unintended overflow, every visible control works, both themes remain readable, runtime failures remain reportable, and an edit changes only the intended widget using the latest block read's exact `ref`.

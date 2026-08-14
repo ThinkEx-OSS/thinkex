@@ -2,6 +2,7 @@ import {
 	applyDocumentCitationLocations,
 	readDocumentCitationRefs,
 } from "#/features/workspaces/documents/document-ai-html";
+import { indexWorkspaceReferenceRecords } from "#/features/workspaces/locations/workspace-location";
 import type { WorkspaceAccessContext } from "#/features/workspaces/operations/workspace-access-context";
 
 /**
@@ -23,9 +24,11 @@ export async function resolveDocumentCitations(input: {
 	}
 
 	const records = await input.context.resolveWorkspaceReferences(refs);
-
-	return applyDocumentCitationLocations(
-		input.html,
-		new Map(records.map((record) => [record.ref, record.location])),
+	const locations = new Map(
+		[...indexWorkspaceReferenceRecords(records)].flatMap(([ref, record]) =>
+			record ? [[ref, record.location] as const] : [],
+		),
 	);
+
+	return applyDocumentCitationLocations(input.html, locations);
 }

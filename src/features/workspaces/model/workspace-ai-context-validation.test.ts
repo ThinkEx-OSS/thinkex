@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { isWorkspaceAiContextSnapshot } from "#/features/workspaces/model/workspace-ai-context-validation";
+import { formatWorkspaceAiContextForPrompt } from "#/features/workspaces/model/workspace-ai-context-prompt";
 
 const minimalSnapshot = {
 	contentIncluded: false,
@@ -24,6 +25,51 @@ describe("workspace AI context validation", () => {
 			isWorkspaceAiContextSnapshot({
 				...minimalSnapshot,
 				view: { activeItem: {}, presentation: { mode: "standard" } },
+			}),
+		).toBe(false);
+	});
+
+	it("includes lightweight live flashcard state without embedding card content", () => {
+		const snapshot = {
+			...minimalSnapshot,
+			selectedItems: [
+				{
+					availableToAi: true,
+					name: "Biology",
+					order: 1,
+					path: "/Biology",
+					selectedForAiContext: true,
+					state: {
+						activeVisible: true,
+						openInTabs: ["Study"],
+						viewState: {
+							detail:
+								"card 3 of 15 in the current session, back shown, set progress: 5 of 15 reviewed (3 got it, 2 missed), session: all cards, shuffled, marked yes",
+							label: "card 3",
+						},
+					},
+					type: "Flashcards",
+				},
+			],
+		};
+
+		expect(isWorkspaceAiContextSnapshot(snapshot)).toBe(true);
+		expect(formatWorkspaceAiContextForPrompt(snapshot)).toContain(
+			"card 3 of 15 in the current session, back shown, set progress: 5 of 15 reviewed (3 got it, 2 missed), session: all cards, shuffled, marked yes",
+		);
+		expect(formatWorkspaceAiContextForPrompt(snapshot)).not.toContain("front");
+		expect(
+			isWorkspaceAiContextSnapshot({
+				...snapshot,
+				selectedItems: [
+					{
+						...snapshot.selectedItems[0],
+						state: {
+							...snapshot.selectedItems[0]!.state,
+							viewState: { label: "x".repeat(81) },
+						},
+					},
+				],
 			}),
 		).toBe(false);
 	});

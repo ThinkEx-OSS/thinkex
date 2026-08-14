@@ -104,6 +104,7 @@ export function createAIThreadTurnToolConfig(input: {
 	canMutate: boolean;
 	onOrchestrationRuntime?: Parameters<typeof createAIThreadOrchestrationTool>[0]["onRuntime"];
 	onWorkspaceReferences?: (records: readonly WorkspaceReferenceRecord[]) => void;
+	resolveWorkspaceReferences?: (refs: readonly string[]) => Promise<WorkspaceReferenceRecord[]>;
 	timeZone?: string;
 }) {
 	const toolCatalog = createAIThreadToolCatalog(input);

@@ -2,11 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import {
 	DocumentAiHtmlError,
+	applyDocumentCitationLocations,
 	ensureTiptapDocumentBlockIds,
 	parseDocumentAiHtml,
 	serializeTiptapDocumentToAiHtml,
 	WidgetScriptSyntaxError,
 } from "#/features/workspaces/documents/document-ai-html";
+import type { WorkspaceLocation } from "#/features/workspaces/locations/workspace-location";
 
 describe("document AI HTML", () => {
 	it("round-trips supported rich content through the Tiptap schema", async () => {
@@ -17,9 +19,7 @@ describe("document AI HTML", () => {
 		).document;
 		const html = await serializeTiptapDocumentToAiHtml(document);
 
-		expect(html).toMatch(
-			/^<h1 data-edit-ref="b_[A-Za-z0-9_-]{12}\.r_[A-Za-z0-9_-]{10}">Notes<\/h1>/,
-		);
+		expect(html).toMatch(/^<h1 data-ref="b_[A-Za-z0-9_-]{12}\.r_[A-Za-z0-9_-]{10}">Notes<\/h1>/);
 		expect(html).toContain("<strong>bold</strong>");
 		expect(html).toContain('data-type="inline-math"');
 		expect(html).toContain('data-type="taskItem"');
@@ -40,15 +40,14 @@ describe("document AI HTML", () => {
 		expect(html).not.toContain("<sub>");
 	});
 
-	it("ignores editRefs supplied in model-authored HTML", async () => {
+	it("ignores refs supplied in model-authored HTML", async () => {
 		const html = await serializeTiptapDocumentToAiHtml(
-			ensureTiptapDocumentBlockIds(
-				parseDocumentAiHtml('<p data-edit-ref="b_modelchosen1">Hello</p>'),
-			).document,
+			ensureTiptapDocumentBlockIds(parseDocumentAiHtml('<p data-ref="b_modelchosen1">Hello</p>'))
+				.document,
 		);
 
 		expect(html).not.toContain("b_modelchosen1");
-		expect(html).toMatch(/data-edit-ref="b_[A-Za-z0-9_-]{12}\.r_[A-Za-z0-9_-]{10}"/);
+		expect(html).toMatch(/data-ref="b_[A-Za-z0-9_-]{12}\.r_[A-Za-z0-9_-]{10}"/);
 	});
 
 	it("normalizes malformed but recoverable HTML", () => {
@@ -61,6 +60,42 @@ describe("document AI HTML", () => {
 			],
 			type: "doc",
 		});
+	});
+
+	it("retains exact source locations in document citations", async () => {
+		const html = applyDocumentCitationLocations(
+			'<p>Cards <citation ref="wr_AAAAAAAA"></citation> and notes <citation ref="wr_BBBBBBBB"></citation>.</p>',
+			new Map<string, WorkspaceLocation>([
+				[
+					"wr_AAAAAAAA",
+					{
+						cardId: "f67080f9-0158-4565-86a9-4c90ed6809d2",
+						itemId: "flashcard-1",
+						kind: "flashcard",
+						version: 1,
+					},
+				],
+				[
+					"wr_BBBBBBBB",
+					{
+						blockId: "b_abcdefghijkl",
+						itemId: "document-1",
+						kind: "document-block",
+						version: 1,
+					},
+				],
+			]),
+		);
+		const roundTrip = await serializeTiptapDocumentToAiHtml(
+			ensureTiptapDocumentBlockIds(parseDocumentAiHtml(html)).document,
+		);
+
+		expect(roundTrip).toContain(
+			'<citation data-card-id="f67080f9-0158-4565-86a9-4c90ed6809d2" data-item-id="flashcard-1"></citation>',
+		);
+		expect(roundTrip).toContain(
+			'<citation data-block-id="b_abcdefghijkl" data-item-id="document-1"></citation>',
+		);
 	});
 
 	it("keeps only schema-supported attributes and safe links", async () => {

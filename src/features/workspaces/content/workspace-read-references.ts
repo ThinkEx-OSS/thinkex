@@ -5,6 +5,11 @@ import {
 	type WorkspaceReference,
 	type WorkspaceReferenceRecord,
 } from "#/features/workspaces/locations/workspace-location";
+import {
+	parseDocumentAiRef,
+	readDocumentAiRefs,
+	readDocumentAiRefRevision,
+} from "#/features/workspaces/documents/document-ai-html";
 import type {
 	WorkspaceContentReadResult,
 	WorkspaceReadItemsOutput,
@@ -13,8 +18,8 @@ import type {
 /**
  * Allocates durable-location records for every ready workspace read.
  *
- * Documents and images receive one item-level ref. PDFs receive one ref per
- * physical page so the model never has to cite an imprecise page range.
+ * Editable blocks and cards retain a revision with their durable location.
+ * PDFs receive one location per physical page; other files use the item.
  *
  * @param results - Ordered workspace read results.
  * @returns Deduplicated reference records for the rich tool result.
@@ -22,15 +27,44 @@ import type {
 export function createWorkspaceReadReferences(
 	results: readonly WorkspaceContentReadResult[],
 ): WorkspaceReferenceRecord[] {
-	const locations: WorkspaceLocation[] = [];
+	const targets: Array<WorkspaceLocation | { location: WorkspaceLocation; revision: string }> = [];
 
 	for (const result of results) {
 		if (result.status !== "ready") {
 			continue;
 		}
+		if (result.type === "flashcard") {
+			for (const card of result.cards) {
+				targets.push({
+					location: {
+						itemId: result.itemId,
+						kind: "flashcard",
+						cardId: card.cardId,
+						version: 1,
+					},
+					revision: card.revision,
+				});
+			}
+			continue;
+		}
+		if (result.type === "document" || result.type === "block") {
+			const contentRefs =
+				result.type === "block" ? [result.contentRef] : readDocumentAiRefs(result.content);
+			for (const contentRef of contentRefs) {
+				const blockId = parseDocumentAiRef(contentRef);
+				const revision = readDocumentAiRefRevision(contentRef);
+				if (!blockId || !revision)
+					throw new Error("Document read returned an invalid content ref.");
+				targets.push({
+					location: { blockId, itemId: result.itemId, kind: "document-block", version: 1 },
+					revision,
+				});
+			}
+			continue;
+		}
 
 		if (result.type !== "file" || result.assetKind !== "pdf") {
-			locations.push({
+			targets.push({
 				itemId: result.itemId,
 				kind: "item",
 				version: 1,
@@ -39,7 +73,7 @@ export function createWorkspaceReadReferences(
 		}
 
 		for (const pageNumber of result.location.returned) {
-			locations.push({
+			targets.push({
 				itemId: result.itemId,
 				kind: "pdf-page",
 				pageNumber,
@@ -48,7 +82,7 @@ export function createWorkspaceReadReferences(
 		}
 	}
 
-	return createWorkspaceReferenceRecords(locations);
+	return createWorkspaceReferenceRecords(targets);
 }
 
 /**
@@ -123,6 +157,8 @@ export function createWorkspaceReadItemsModelOutput(output: WorkspaceReadItemsOu
 	const refsByLocation = new Map(
 		output.references.map((record) => [getWorkspaceLocationKey(record.location), record.ref]),
 	);
+	const refFor = (location: WorkspaceLocation) =>
+		refsByLocation.get(getWorkspaceLocationKey(location));
 	const guidance = createWorkspaceReadGuidance(output.results);
 
 	return {
@@ -135,31 +171,46 @@ export function createWorkspaceReadItemsModelOutput(output: WorkspaceReadItemsOu
 			if (result.status === "failed") {
 				return result;
 			}
+			if (result.type === "flashcard") {
+				return {
+					...omitWorkspaceReadItemId(result),
+					cards: result.cards.map(({ cardId, revision: _revision, ...card }) => ({
+						...card,
+						ref: refFor({ itemId: result.itemId, kind: "flashcard", cardId, version: 1 }),
+					})),
+				};
+			}
+			if (result.type === "document") {
+				return {
+					...omitWorkspaceReadItemId(result),
+					content: replaceDocumentContentRefs(result, refsByLocation),
+				};
+			}
+			if (result.type === "block") {
+				const blockId = parseDocumentAiRef(result.contentRef);
+				const ref = blockId
+					? refFor({ blockId, itemId: result.itemId, kind: "document-block", version: 1 })
+					: undefined;
+				const { contentRef: _contentRef, itemId: _itemId, ...modelResult } = result;
+				return { ...modelResult, ...(ref ? { ref } : {}) };
+			}
 
 			if (result.type !== "file" || result.assetKind !== "pdf") {
-				const ref = refsByLocation.get(
-					getWorkspaceLocationKey({
-						itemId: result.itemId,
-						kind: "item",
-						version: 1,
-					}),
-				);
+				const ref = refFor({ itemId: result.itemId, kind: "item", version: 1 });
 
 				return {
 					...omitWorkspaceReadItemId(result),
-					...(ref ? { reference: ref } : {}),
+					...(ref ? { ref } : {}),
 				};
 			}
 
 			const references = result.location.returned.flatMap((pageNumber) => {
-				const ref = refsByLocation.get(
-					getWorkspaceLocationKey({
-						itemId: result.itemId,
-						kind: "pdf-page",
-						pageNumber,
-						version: 1,
-					}),
-				);
+				const ref = refFor({
+					itemId: result.itemId,
+					kind: "pdf-page",
+					pageNumber,
+					version: 1,
+				});
 
 				return ref ? [{ pageNumber, ref }] : [];
 			});
@@ -170,6 +221,25 @@ export function createWorkspaceReadItemsModelOutput(output: WorkspaceReadItemsOu
 			};
 		}),
 	};
+}
+
+function replaceDocumentContentRefs(
+	result: Extract<WorkspaceContentReadResult, { status: "ready"; type: "document" }>,
+	refsByLocation: ReadonlyMap<string, WorkspaceReference>,
+) {
+	return result.content.replace(/data-ref="([^"]+)"/g, (attribute, contentRef: string) => {
+		const blockId = parseDocumentAiRef(contentRef);
+		if (!blockId) return attribute;
+		const ref = refsByLocation.get(
+			getWorkspaceLocationKey({
+				blockId,
+				itemId: result.itemId,
+				kind: "document-block",
+				version: 1,
+			}),
+		);
+		return ref ? `data-ref="${ref}"` : attribute;
+	});
 }
 
 function omitWorkspaceReadItemId<T extends { readonly itemId?: string }>(

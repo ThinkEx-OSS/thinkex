@@ -7,17 +7,14 @@ import {
 	WorkspaceToolbarIconButton,
 	WorkspaceToolbarTextButton,
 } from "#/features/workspaces/components/WorkspaceToolbar";
-import {
-	type WorkspaceItem,
-	type WorkspaceItemType,
-	isWorkspaceItemContainer,
-} from "#/features/workspaces/contracts";
+import type { WorkspaceCreateItemRequest } from "#/features/workspaces/components/workspace-presentation-model";
+import { type WorkspaceItem, isWorkspaceItemContainer } from "#/features/workspaces/contracts";
 
 interface WorkspaceContextActionsProps {
 	activeItem?: WorkspaceItem;
 	createParentId: string | null;
 	searchHotkey: string;
-	onCreateItem: (input: { type: WorkspaceItemType; parentId: string | null }) => void;
+	onCreateItem: (input: WorkspaceCreateItemRequest) => void;
 	onSearch: () => void;
 	onCloseItemView?: () => void;
 }

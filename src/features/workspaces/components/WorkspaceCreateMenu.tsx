@@ -11,6 +11,7 @@ import {
 	workspaceDropdownMenuRenderer,
 } from "#/features/workspaces/components/WorkspaceMenuRenderers";
 import { WorkspaceToolbarTextButton } from "#/features/workspaces/components/WorkspaceToolbar";
+import type { WorkspaceCreateItemRequest } from "#/features/workspaces/components/workspace-presentation-model";
 import {
 	applyWorkspaceMenuReadOnly,
 	renderWorkspaceMenuActions,
@@ -21,15 +22,11 @@ import {
 	WorkspaceViewerMenuNotice,
 	WorkspaceViewerRoleBadge,
 } from "#/features/workspaces/components/workspace-viewer-ui";
-import type { WorkspaceItemType } from "#/features/workspaces/contracts";
-import {
-	workspaceItemAcquisitionActions,
-	workspaceItemPrimaryCreateActions,
-} from "#/features/workspaces/model/item-display";
+import { workspaceCreateMenuActionGroups } from "#/features/workspaces/model/item-display";
 
 interface WorkspaceCreateMenuProps {
 	parentId: string | null;
-	onCreateItem: (input: { type: WorkspaceItemType; parentId: string | null }) => void;
+	onCreateItem: (input: WorkspaceCreateItemRequest) => void;
 }
 
 export default function WorkspaceCreateMenu({ parentId, onCreateItem }: WorkspaceCreateMenuProps) {
@@ -96,24 +93,16 @@ function getWorkspaceCreateMenuActions({
 }: WorkspaceCreateMenuProps & {
 	onUploadFile: (parentId: string | null) => void;
 }) {
-	return [
-		...workspaceItemPrimaryCreateActions.map(({ type, label, Icon, iconClassName }) => ({
+	return workspaceCreateMenuActionGroups.flatMap((group, index) => [
+		...(index > 0 ? [{ kind: "separator" as const, id: `create-${group.id}` }] : []),
+		...group.actions.map((action) => ({
 			kind: "item" as const,
-			id: type,
-			label,
-			leading: <Icon className={`size-4 ${iconClassName}`} />,
-			onSelect: () => onCreateItem({ type, parentId }),
+			id: action.kind === "item" ? action.type : action.id,
+			label: action.label,
+			leading: <action.Icon className={`size-4 ${action.iconClassName}`} />,
+			...(action.kind === "item"
+				? { onSelect: () => onCreateItem({ type: action.type, parentId }) }
+				: { onSelect: () => onUploadFile(parentId) }),
 		})),
-		...workspaceItemAcquisitionActions.map(
-			({ id, label, description, Icon, iconClassName, disabled }) => ({
-				kind: "item" as const,
-				id,
-				label,
-				trailing: description,
-				disabled,
-				leading: <Icon className={`size-4 ${iconClassName}`} />,
-				onSelect: id === "upload-file" ? () => onUploadFile(parentId) : undefined,
-			}),
-		),
-	];
+	]);
 }

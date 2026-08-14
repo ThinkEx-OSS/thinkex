@@ -1,4 +1,4 @@
-import { FilePen, Folder, Paperclip, Upload } from "lucide-react";
+import { FilePen, Folder, Layers3, Paperclip, Upload } from "lucide-react";
 
 import {
 	type WorkspaceItem,
@@ -13,6 +13,7 @@ import { getWorkspaceItemPalette } from "#/features/workspaces/model/workspace-i
 const workspaceItemIcons = {
 	document: FilePen,
 	file: Paperclip,
+	flashcard: Layers3,
 	folder: Folder,
 } satisfies Record<WorkspaceItemType, typeof FilePen>;
 
@@ -46,14 +47,10 @@ export function getWorkspaceItemDisplay(item: WorkspaceItem) {
 	};
 }
 
-const workspaceItemPrimaryCreateActionOrder = ["document", "folder"] as const;
-
-export const workspaceItemPrimaryCreateActions =
-	workspaceItemPrimaryCreateActionOrder.map(createWorkspaceItemAction);
-
-function createWorkspaceItemAction(type: "document" | "folder") {
+function createWorkspaceItemAction(type: "document" | "flashcard" | "folder") {
 	const display = getWorkspaceItemTypeDisplay(type);
 	return {
+		kind: "item" as const,
 		type,
 		label: display.menuLabel,
 		Icon: display.icon,
@@ -61,13 +58,25 @@ function createWorkspaceItemAction(type: "document" | "folder") {
 	};
 }
 
-export const workspaceItemAcquisitionActions = [
+const workspaceUploadAction = {
+	kind: "upload" as const,
+	id: "upload-file",
+	label: "Upload",
+	Icon: Upload,
+	iconClassName: workspaceColors[getWorkspaceItemTypeDisplay("file").color].iconClassName,
+};
+
+export const workspaceCreateMenuActionGroups = [
 	{
-		id: "upload-file",
-		label: "Upload",
-		description: undefined,
-		Icon: Upload,
-		iconClassName: workspaceColors[getWorkspaceItemTypeDisplay("file").color].iconClassName,
-		disabled: false,
+		id: "primary",
+		actions: [
+			createWorkspaceItemAction("document"),
+			workspaceUploadAction,
+			createWorkspaceItemAction("folder"),
+		],
+	},
+	{
+		id: "study",
+		actions: [createWorkspaceItemAction("flashcard")],
 	},
 ] as const;

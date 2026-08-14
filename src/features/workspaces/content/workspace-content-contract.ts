@@ -1,11 +1,17 @@
 import { z } from "zod";
 
 import { workspaceRelationKindSchema } from "#/features/workspaces/contracts";
-import { workspaceReferenceRecordSchema } from "#/features/workspaces/locations/workspace-location";
+import {
+	flashcardReviewSchema,
+	flashcardStudyProgressSchema,
+} from "#/features/workspaces/flashcards/flashcard-study-state";
+import {
+	workspaceReferenceInputSchema,
+	workspaceReferenceRecordSchema,
+} from "#/features/workspaces/locations/workspace-location";
 import { workspaceFileAssetKindSchema } from "#/features/workspaces/model/workspace-file";
 
 const workspacePathSchema = z.string().min(1);
-const workspaceEditRefSchema = z.string().trim().min(1).max(64);
 
 const readWorkspaceItemsFailureCodes = [
 	"content_changed",
@@ -20,18 +26,21 @@ const readWorkspaceItemsFailureCodes = [
 	"path_not_absolute",
 	"path_not_found",
 	"projection_failed",
-	"edit_ref_not_found",
+	"ref_not_found",
 	"unsupported_item_type",
 ] as const;
 
-const workspacePageRangeSchema = z
+const workspaceNumberRangeSchema = z
 	.string()
 	.trim()
 	.min(1)
-	.regex(/^\d+(?:\s*-\s*\d+)?(?:\s*,\s*\d+(?:\s*-\s*\d+)?)*$/)
-	.describe(
-		"Up to 20 physical pages from an extracted file, like 1, 3, 5-7, or 1,4-6. Defaults to page 1.",
-	);
+	.regex(/^\d+(?:\s*-\s*\d+)?(?:\s*,\s*\d+(?:\s*-\s*\d+)?)*$/);
+const workspacePageRangeSchema = workspaceNumberRangeSchema.describe(
+	"Up to 20 physical pages from an extracted file, like 1, 3, 5-7, or 1,4-6. Defaults to page 1.",
+);
+const workspaceCardRangeSchema = workspaceNumberRangeSchema.describe(
+	"Up to 20 card numbers from a flashcard set, like 1, 3, 5-7, or 1,4-6.",
+);
 
 const workspaceContentReadRequestBase = {
 	path: workspacePathSchema.describe("Absolute path of the workspace item to read."),
@@ -49,15 +58,20 @@ const workspaceContentReadRequestSchema = z.union([
 	}),
 	z.strictObject({
 		...workspaceContentReadRequestBase,
+		mode: z.literal("cards"),
+		range: workspaceCardRangeSchema,
+	}),
+	z.strictObject({
+		...workspaceContentReadRequestBase,
 		cursor: z.string().min(1).max(4_096).describe("Opaque cursor returned by a previous read."),
 		mode: z.literal("continue"),
 	}),
 	z.strictObject({
 		...workspaceContentReadRequestBase,
-		editRef: workspaceEditRefSchema.describe(
-			"editRef of one block from an earlier document read. The result returns the block in full with its current editRef.",
+		ref: workspaceReferenceInputSchema.describe(
+			"Ref from an earlier read. Returns the exact content it identifies with a current ref.",
 		),
-		mode: z.literal("block"),
+		mode: z.literal("ref"),
 	}),
 ]);
 
@@ -100,6 +114,30 @@ const workspaceContentReadResultSchema = z.union([
 		relations: workspaceReadRelationsSchema.optional(),
 		status: z.literal("ready"),
 		type: z.literal("document"),
+	}),
+	z.object({
+		cards: z.array(
+			z.object({
+				cardId: z.uuid(),
+				revision: z.string().regex(/^[A-Za-z0-9_-]{10}$/),
+				front: z.string(),
+				back: z.string(),
+				study: flashcardReviewSchema.optional(),
+			}),
+		),
+		format: z.literal("html"),
+		itemId: z.string().min(1),
+		location: z.object({
+			kind: z.literal("cards"),
+			returned: z.array(z.number().int().positive()).min(1),
+			total: z.number().int().positive(),
+		}),
+		nextCursor: z.string().optional(),
+		path: workspacePathSchema,
+		progress: flashcardStudyProgressSchema,
+		relations: workspaceReadRelationsSchema.optional(),
+		status: z.literal("ready"),
+		type: z.literal("flashcard"),
 	}),
 	z.object({
 		assetKind: workspaceFileAssetKindSchema,
@@ -146,7 +184,7 @@ const workspaceContentReadResultSchema = z.union([
 	}),
 	z.object({
 		content: z.string(),
-		editRef: workspaceEditRefSchema,
+		contentRef: z.string().min(1).max(64),
 		format: z.literal("html"),
 		itemId: z.string().min(1),
 		path: workspacePathSchema,

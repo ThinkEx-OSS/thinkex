@@ -3,15 +3,6 @@ import { describe, expect, it } from "vitest";
 import { getWorkspaceToolResultAdapter } from "#/features/workspaces/ai/workspace-tool-result-adapters";
 
 describe("workspace tool result adapters", () => {
-	it("passes through results that predate the current output schema", () => {
-		// Persisted before create results carried references, as replayed history does.
-		const legacy = { failed: [], items: [{ path: "/Notes/A", type: "document" }] };
-
-		expect(getWorkspaceToolResultAdapter("workspace_create_items")?.projectOutput(legacy)).toEqual(
-			legacy,
-		);
-	});
-
 	it("projects current results onto the model-facing shape", () => {
 		const output = {
 			failed: [],
@@ -21,7 +12,7 @@ describe("workspace tool result adapters", () => {
 
 		expect(getWorkspaceToolResultAdapter("workspace_create_items")?.projectOutput(output)).toEqual({
 			failed: [],
-			items: [{ path: "/Notes/A", reference: "wr_7Kp2Qa9x", type: "document" }],
+			items: [{ path: "/Notes/A", ref: "wr_7Kp2Qa9x", type: "document" }],
 		});
 	});
 
@@ -45,9 +36,9 @@ describe("workspace tool result adapters", () => {
 		});
 	});
 
-	it("projects historical create failures without exposing internal references", () => {
+	it("projects create failures without exposing internal references", () => {
 		const output = {
-			failed: [{ code: "path_not_canonical", index: 0, path: "/Old" }],
+			failed: [{ code: "path_already_exists", index: 0, path: "/Old" }],
 			items: [{ itemId: "itm_internal", path: "/Old", type: "document" }],
 			references: [
 				{
@@ -59,7 +50,7 @@ describe("workspace tool result adapters", () => {
 
 		expect(getWorkspaceToolResultAdapter("workspace_create_items")?.projectOutput(output)).toEqual({
 			failed: output.failed,
-			items: [{ path: "/Old", reference: "wr_7Kp2Qa9x", type: "document" }],
+			items: [{ path: "/Old", ref: "wr_7Kp2Qa9x", type: "document" }],
 		});
 	});
 

@@ -1,16 +1,14 @@
 import { z } from "zod";
 
-const workspaceItemTypes = ["folder", "document", "file"] as const;
-export const workspaceItemTypeSchema = z.enum(workspaceItemTypes);
+export const WORKSPACE_ITEM_TYPES = ["folder", "document", "flashcard", "file"] as const;
+export const workspaceItemTypeSchema = z.enum(WORKSPACE_ITEM_TYPES);
 export type WorkspaceItemType = z.infer<typeof workspaceItemTypeSchema>;
 
 /**
- * Where an item's content lives. Code that asks "can I read/write this item's
- * body?" must branch on this rather than on the type, because the two are not
- * the same question: a future type can share `document` storage without being a
- * document, and `none` covers every item whose body is the tree itself.
+ * Shared storage lifecycle only. Item-specific reading, editing, and rendering
+ * must dispatch on the concrete item type.
  */
-type WorkspaceItemContentKind = "document" | "file" | "none";
+type WorkspaceItemContentKind = "document" | "file" | "none" | "structured";
 
 interface WorkspaceItemRegistryEntry {
 	color: "amber" | "emerald" | "rose" | "sky" | "violet";
@@ -42,6 +40,14 @@ const workspaceItemRegistry = {
 		isContainer: false,
 		label: "Document",
 		menuLabel: "Document",
+	},
+	flashcard: {
+		color: "violet",
+		contentKind: "structured",
+		defaultName: "New flashcards",
+		isContainer: false,
+		label: "Flashcards",
+		menuLabel: "Flashcards",
 	},
 	file: {
 		color: "rose",

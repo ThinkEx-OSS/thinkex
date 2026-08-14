@@ -11,13 +11,17 @@ import TextAlign from "@tiptap/extension-text-align";
 import UnderlineExtension from "@tiptap/extension-underline";
 import StarterKit from "@tiptap/starter-kit";
 
+import {
+	type WorkspaceLocation,
+	workspaceLocationSchema,
+} from "#/features/workspaces/locations/workspace-location";
+
 export const tiptapDocumentYjsField = "default";
 
 /**
- * A source reference inside a document. Holds the workspace item id rather than
- * the ref the assistant cited with: refs belong to one chat turn, and documents
- * outlive them. What the source is called is looked up when it is drawn, the
- * same way a chat citation does it, so a renamed source stays right.
+ * A source reference inside a document. Holds the durable workspace location
+ * rather than the short ref from one chat turn, so exact pages, blocks, and
+ * cards keep working after the turn ends.
  */
 export const Citation = Node.create({
 	name: "citation",
@@ -28,6 +32,8 @@ export const Citation = Node.create({
 	addAttributes() {
 		return {
 			itemId: { default: null, parseHTML: (el) => el.getAttribute("data-item-id") },
+			blockId: { default: null, parseHTML: (el) => el.getAttribute("data-block-id") },
+			cardId: { default: null, parseHTML: (el) => el.getAttribute("data-card-id") },
 			pageNumber: {
 				default: null,
 				parseHTML: (el) => {
@@ -47,11 +53,31 @@ export const Citation = Node.create({
 			"citation",
 			{
 				"data-item-id": node.attrs.itemId,
+				...(node.attrs.blockId ? { "data-block-id": String(node.attrs.blockId) } : {}),
+				...(node.attrs.cardId ? { "data-card-id": String(node.attrs.cardId) } : {}),
 				...(node.attrs.pageNumber ? { "data-page": String(node.attrs.pageNumber) } : {}),
 			},
 		];
 	},
 });
+
+export function getWorkspaceCitationLocation(
+	attrs: Record<string, unknown>,
+): WorkspaceLocation | undefined {
+	const itemId = typeof attrs.itemId === "string" ? attrs.itemId : null;
+	if (!itemId) return undefined;
+
+	const location = attrs.cardId
+		? { cardId: attrs.cardId, itemId, kind: "flashcard", version: 1 }
+		: attrs.blockId
+			? { blockId: attrs.blockId, itemId, kind: "document-block", version: 1 }
+			: attrs.pageNumber
+				? { itemId, kind: "pdf-page", pageNumber: attrs.pageNumber, version: 1 }
+				: { itemId, kind: "item", version: 1 };
+	const parsed = workspaceLocationSchema.safeParse(location);
+
+	return parsed.success ? parsed.data : undefined;
+}
 /**
  * An interactive widget: a self-contained HTML fragment the assistant writes,
  * rendered in a sandboxed iframe by the client's node view.
@@ -89,7 +115,7 @@ export const Widget = Node.create({
 	},
 
 	renderHTML({ HTMLAttributes }) {
-		// Merge rather than replace: global attributes land here, and data-edit-ref is
+		// Merge rather than replace: global attributes land here, and data-ref is
 		// how the assistant addresses this block for reads and edits.
 		return ["div", mergeAttributes(HTMLAttributes, { "data-type": "widget" }), 0];
 	},
@@ -121,7 +147,7 @@ const DocumentAiRef = Extension.create({
 						parseHTML: () => null,
 						renderHTML: (attributes: Record<string, unknown>) => {
 							const ref = attributes[tiptapDocumentAiRefAttribute];
-							return typeof ref === "string" && ref ? { "data-edit-ref": ref } : {};
+							return typeof ref === "string" && ref ? { "data-ref": ref } : {};
 						},
 					},
 				},

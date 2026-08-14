@@ -12,8 +12,8 @@ export type WorkspaceAccessScope = (typeof workspaceAccessScopes)[number];
 export interface WorkspaceAccessContext extends ScopedAccessContext<WorkspaceAccessScope> {
 	operationId: string;
 	/**
-	 * Resolves the short refs a read handed the assistant, so a document can cite
-	 * with the same `wr_` ref it cites with in chat. Absent outside a chat turn.
+	 * Resolves short refs retained in the chat transcript for reads, edits,
+	 * citations, and navigation. Absent outside a chat turn.
 	 */
 	resolveWorkspaceReferences?: (refs: readonly string[]) => Promise<WorkspaceReferenceRecord[]>;
 	workspaceId: string;

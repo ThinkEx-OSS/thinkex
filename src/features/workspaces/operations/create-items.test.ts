@@ -14,8 +14,11 @@ vi.mock("#/features/workspaces/persistence/workspace-items", () => ({
 	resolveWorkspacePaths: persistence.resolveWorkspacePaths,
 }));
 
+vi.mock("cloudflare:workers", () => ({ env: {} }));
+
 import { createWorkspaceItemsOperation } from "#/features/workspaces/operations/create-items";
 import { createWorkspaceAccessContext } from "#/features/workspaces/operations/workspace-access-context";
+import { parseFlashcardSetContent } from "#/features/workspaces/flashcards/flashcard-content";
 
 describe("createWorkspaceItemsOperation", () => {
 	beforeEach(() => {
@@ -56,5 +59,41 @@ describe("createWorkspaceItemsOperation", () => {
 			items: [],
 		});
 		expect(persistence.createWorkspaceItem).not.toHaveBeenCalled();
+	});
+
+	it("creates flashcards as structured content", async () => {
+		persistence.createWorkspaceItem.mockResolvedValue({
+			status: "applied",
+			command: { result: { name: "Cell biology" }, revision: 1 },
+		});
+
+		const result = await createWorkspaceItemsOperation(
+			createWorkspaceAccessContext({
+				operationId: "create-flashcards",
+				scopes: ["workspace:write"],
+				userId: "user-1",
+				workspaceId: "workspace-1",
+			}),
+			{
+				items: [
+					{
+						cards: [{ front: "<p>What is ATP?</p>", back: "<p>Cellular energy.</p>" }],
+						path: "/Cell biology",
+						type: "flashcard",
+					},
+				],
+			},
+		);
+
+		const createInput = persistence.createWorkspaceItem.mock.calls[0]?.[1];
+		expect(result).toMatchObject({
+			failed: [],
+			items: [{ path: "/Cell biology", type: "flashcard" }],
+		});
+		expect(createInput).toMatchObject({ type: "flashcard" });
+		expect(parseFlashcardSetContent(createInput?.initialContent).cards[0]).toMatchObject({
+			front: { type: "doc" },
+			back: { type: "doc" },
+		});
 	});
 });

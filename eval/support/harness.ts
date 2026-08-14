@@ -4,6 +4,7 @@ import type { z } from "zod";
 
 import { getAIThreadSoulPrompt } from "#/features/workspaces/ai/ai-thread-soul-prompt";
 import { createProviderCompatibleInputSchema } from "#/features/workspaces/ai/ai-thread-tool";
+import { getWorkspaceToolResultAdapter } from "#/features/workspaces/ai/workspace-tool-result-adapters";
 import {
 	getAIThreadSystemPromptForWorkspace,
 	getWorkspaceAiGatewayProviderOptions,
@@ -24,13 +25,15 @@ import {
 	withTiptapNodeAiRef,
 } from "#/features/workspaces/documents/document-ai-html";
 import { getTiptapDocumentSchema } from "#/features/workspaces/documents/tiptap-schema";
+import type { WorkspaceContentReadResult } from "#/features/workspaces/content/workspace-content-contract";
+import { createWorkspaceReadReferences } from "#/features/workspaces/content/workspace-read-references";
 
 /** A single tool call the model emitted, graded against the real zod schema. */
 export interface WorkspaceAgentToolCall {
 	name: string;
 	input: unknown;
-	/** editRefs returned by completed read steps before this call, grouped by source path. */
-	priorReadEditRefsByPath: Record<string, string[]>;
+	/** Refs returned by completed read steps before this call, grouped by source path. */
+	priorReadRefsByPath: Record<string, string[]>;
 	/** `input` satisfies the tool's real zod input schema. */
 	valid: boolean;
 	/** Human-readable zod issues (`path: message`) when invalid. */
@@ -56,6 +59,7 @@ const STANDUP_PATH = "/Notes/Standup.md";
 type EvalStandupFixture = {
 	blocks: Map<string, string>;
 	content: string;
+	references: ReturnType<typeof createWorkspaceReadReferences>;
 };
 
 let evalStandupFixture: Promise<EvalStandupFixture> | undefined;
@@ -78,11 +82,20 @@ async function createEvalStandupFixture(): Promise<EvalStandupFixture> {
 		if (!blockId) throw new Error("Eval standup fixture has an unexpected block count.");
 		const node = withTiptapNodeAiRef(document.child(index), blockId);
 		const snapshot = await createDocumentAiBlockSnapshot(node);
-		blocks.set(snapshot.editRef, snapshot.content);
+		blocks.set(snapshot.contentRef, snapshot.content);
 		content.push(await serializeTiptapNodeToAiHtml(node));
 	}
 
-	return { blocks, content: content.join("") };
+	const result = {
+		content: content.join(""),
+		format: "html" as const,
+		itemId: "standup-document",
+		location: { endBlock: 2, kind: "blocks" as const, startBlock: 1, totalBlocks: 2 },
+		path: STANDUP_PATH,
+		status: "ready" as const,
+		type: "document" as const,
+	};
+	return { blocks, content: result.content, references: createWorkspaceReadReferences([result]) };
 }
 
 // Per-tool stubbed outputs. Reads return the realistic item for the requested
@@ -91,25 +104,26 @@ async function createEvalStandupFixture(): Promise<EvalStandupFixture> {
 async function evalToolFixture(toolName: string, input: unknown): Promise<unknown> {
 	if (toolName === "workspace_read_items") {
 		const fixture = await getEvalStandupFixture();
-		const requests = (
-			input as {
-				requests?: Array<{ editRef?: string; mode?: string; path?: string }>;
-			}
-		)?.requests;
-		const results = (requests ?? []).map((request) => {
+		const requests = (input as { requests?: Array<{ ref?: string; mode?: string; path?: string }> })
+			?.requests;
+		const results: WorkspaceContentReadResult[] = (requests ?? []).map((request) => {
 			if (request.path !== STANDUP_PATH) {
 				return { code: "path_not_found", path: request.path ?? "", status: "failed" };
 			}
-			if (request.mode === "block") {
-				const editRef = request.editRef ?? "";
-				const content = fixture.blocks.get(editRef);
+			if (request.mode === "ref") {
+				const record = fixture.references.find(({ ref }) => ref === request.ref);
+				const contentRef =
+					record?.location.kind === "document-block" && record.revision
+						? `${record.location.blockId}.r_${record.revision}`
+						: "";
+				const content = fixture.blocks.get(contentRef);
 				if (!content) {
-					return { code: "edit_ref_not_found", path: STANDUP_PATH, status: "failed" };
+					return { code: "ref_not_found", path: STANDUP_PATH, status: "failed" };
 				}
 
 				return {
 					content,
-					editRef,
+					contentRef,
 					format: "html",
 					itemId: "standup-document",
 					path: STANDUP_PATH,
@@ -132,7 +146,7 @@ async function evalToolFixture(toolName: string, input: unknown): Promise<unknow
 			};
 		});
 
-		return { references: [], results };
+		return { references: fixture.references, results };
 	}
 	return { ok: true, note: "eval stub — no real mutation" };
 }
@@ -154,6 +168,14 @@ function buildEvalToolSet(canMutate: boolean): ToolSet {
 						asSchema(definition.inputSchema as z.ZodTypeAny),
 					),
 					inputExamples: definition.inputExamples,
+					...(getWorkspaceToolResultAdapter(definition.name)
+						? {
+								toModelOutput: ({ output }: { output: unknown }) => ({
+									type: "json" as const,
+									value: getWorkspaceToolResultAdapter(definition.name)!.projectOutput(output),
+								}),
+							}
+						: {}),
 					execute: async (input: unknown) => evalToolFixture(definition.name, input),
 				}),
 			]),
@@ -191,7 +213,7 @@ export async function runWorkspaceAgent(input: WorkspaceAgentInput): Promise<Wor
 	});
 
 	const toolCalls: WorkspaceAgentToolCall[] = [];
-	const priorReadEditRefsByPath = new Map<string, Set<string>>();
+	const priorReadRefsByPath = new Map<string, Set<string>>();
 	for (const step of result.steps) {
 		for (const part of step.content) {
 			if (part.type !== "tool-call") continue;
@@ -200,8 +222,8 @@ export async function runWorkspaceAgent(input: WorkspaceAgentInput): Promise<Wor
 			toolCalls.push({
 				name: part.toolName,
 				input: part.input,
-				priorReadEditRefsByPath: Object.fromEntries(
-					[...priorReadEditRefsByPath].map(([path, refs]) => [path, [...refs]]),
+				priorReadRefsByPath: Object.fromEntries(
+					[...priorReadRefsByPath].map(([path, refs]) => [path, [...refs]]),
 				),
 				valid: parsed ? parsed.success : false,
 				issues: parsed
@@ -215,7 +237,7 @@ export async function runWorkspaceAgent(input: WorkspaceAgentInput): Promise<Wor
 		}
 		for (const toolResult of step.toolResults) {
 			if (toolResult.toolName === "workspace_read_items") {
-				collectReadEditRefs(toolResult.output, priorReadEditRefsByPath);
+				collectReadRefs(toolResult.output, priorReadRefsByPath);
 			}
 		}
 	}
@@ -223,8 +245,9 @@ export async function runWorkspaceAgent(input: WorkspaceAgentInput): Promise<Wor
 	return { text: result.text, toolCalls };
 }
 
-function collectReadEditRefs(output: unknown, refsByPath: Map<string, Set<string>>) {
-	const results = (output as { results?: unknown[] })?.results;
+function collectReadRefs(output: unknown, refsByPath: Map<string, Set<string>>) {
+	const projected = getWorkspaceToolResultAdapter("workspace_read_items")?.projectOutput(output);
+	const results = (projected as { results?: unknown[] })?.results;
 	if (!Array.isArray(results)) {
 		return;
 	}
@@ -234,9 +257,10 @@ function collectReadEditRefs(output: unknown, refsByPath: Map<string, Set<string
 			continue;
 		}
 
-		const { content, editRef, path } = result as {
+		const { cards, content, ref, path } = result as {
+			cards?: unknown;
 			content?: unknown;
-			editRef?: unknown;
+			ref?: unknown;
 			path?: unknown;
 		};
 		if (typeof path !== "string") {
@@ -247,13 +271,20 @@ function collectReadEditRefs(output: unknown, refsByPath: Map<string, Set<string
 			refs = new Set<string>();
 			refsByPath.set(path, refs);
 		}
-		if (typeof editRef === "string") {
-			refs.add(editRef);
+		if (typeof ref === "string") {
+			refs.add(ref);
 		}
 		if (typeof content === "string") {
-			for (const match of content.matchAll(/data-edit-ref="([^"]+)"/g)) {
+			for (const match of content.matchAll(/data-ref="([^"]+)"/g)) {
 				if (match[1]) {
 					refs.add(match[1]);
+				}
+			}
+		}
+		if (Array.isArray(cards)) {
+			for (const card of cards) {
+				if (card && typeof card === "object" && "ref" in card && typeof card.ref === "string") {
+					refs.add(card.ref);
 				}
 			}
 		}
