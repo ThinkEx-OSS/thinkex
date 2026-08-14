@@ -10,6 +10,7 @@ import {
 	type FlashcardStudyRating,
 } from "#/features/workspaces/flashcards/flashcard-study-state";
 import { assertCanReadWorkspace } from "#/features/workspaces/server/permissions";
+import type { Transaction } from "#/features/workspaces/persistence/workspace-postgres-support";
 
 export async function readFlashcardViewer(input: {
 	itemId: string;
@@ -54,50 +55,19 @@ export async function recordFlashcardStudyRating(input: {
 }) {
 	return await withDb((db) =>
 		db.transaction(async (transaction) => {
-			await assertCanReadWorkspace(transaction, input);
-			const [item] = await transaction
-				.select({ content: workspaceItemContents.content })
-				.from(workspaceItems)
-				.innerJoin(workspaceItemContents, eq(workspaceItems.id, workspaceItemContents.itemId))
-				.where(
-					and(
-						eq(workspaceItems.id, input.itemId),
-						eq(workspaceItems.workspaceId, input.workspaceId),
-						eq(workspaceItems.type, "flashcard"),
-					),
-				)
-				.limit(1);
-			if (!item) throw new Error("Flashcard set not found.");
-			if (!parseFlashcardSetContent(item.content).cards.some((card) => card.id === input.cardId)) {
+			const cards = await requireFlashcardSet(transaction, input);
+			if (!cards.some((card) => card.id === input.cardId)) {
 				throw new Error("Flashcard not found.");
 			}
 
-			const [currentRow] = await transaction
-				.select({ state: workspaceItemUserStates.state })
-				.from(workspaceItemUserStates)
-				.where(
-					and(
-						eq(workspaceItemUserStates.userId, input.userId),
-						eq(workspaceItemUserStates.itemId, input.itemId),
-					),
-				)
-				.limit(1);
-			const state = currentRow
-				? parseFlashcardStudyState(currentRow.state)
-				: createEmptyFlashcardStudyState();
+			const state = await lockFlashcardStudyState(transaction, input);
 			const nextState = applyFlashcardStudyRating(state, {
 				cardId: input.cardId,
 				rating: input.rating,
 				reviewedAt: new Date().toISOString(),
 			});
 
-			await transaction
-				.insert(workspaceItemUserStates)
-				.values({ itemId: input.itemId, userId: input.userId, state: nextState })
-				.onConflictDoUpdate({
-					target: [workspaceItemUserStates.userId, workspaceItemUserStates.itemId],
-					set: { state: nextState, updatedAt: new Date() },
-				});
+			await updateFlashcardStudyState(transaction, input, nextState);
 			return nextState;
 		}),
 	);
@@ -110,29 +80,72 @@ export async function resetFlashcardStudyProgress(input: {
 }) {
 	return await withDb((db) =>
 		db.transaction(async (transaction) => {
-			await assertCanReadWorkspace(transaction, input);
-			const [item] = await transaction
-				.select({ id: workspaceItems.id })
-				.from(workspaceItems)
-				.where(
-					and(
-						eq(workspaceItems.id, input.itemId),
-						eq(workspaceItems.workspaceId, input.workspaceId),
-						eq(workspaceItems.type, "flashcard"),
-					),
-				)
-				.limit(1);
-			if (!item) throw new Error("Flashcard set not found.");
-
-			await transaction
-				.delete(workspaceItemUserStates)
-				.where(
-					and(
-						eq(workspaceItemUserStates.userId, input.userId),
-						eq(workspaceItemUserStates.itemId, input.itemId),
-					),
-				);
-			return createEmptyFlashcardStudyState();
+			await requireFlashcardSet(transaction, input);
+			await lockFlashcardStudyState(transaction, input);
+			const state = createEmptyFlashcardStudyState();
+			await updateFlashcardStudyState(transaction, input, state);
+			return state;
 		}),
 	);
+}
+
+async function requireFlashcardSet(
+	transaction: Transaction,
+	input: { itemId: string; userId: string; workspaceId: string },
+) {
+	await assertCanReadWorkspace(transaction, input);
+	const [item] = await transaction
+		.select({ content: workspaceItemContents.content })
+		.from(workspaceItems)
+		.innerJoin(workspaceItemContents, eq(workspaceItems.id, workspaceItemContents.itemId))
+		.where(
+			and(
+				eq(workspaceItems.id, input.itemId),
+				eq(workspaceItems.workspaceId, input.workspaceId),
+				eq(workspaceItems.type, "flashcard"),
+			),
+		)
+		.limit(1);
+	if (!item) throw new Error("Flashcard set not found.");
+	return parseFlashcardSetContent(item.content).cards;
+}
+
+async function lockFlashcardStudyState(
+	transaction: Transaction,
+	input: { itemId: string; userId: string },
+) {
+	const emptyState = createEmptyFlashcardStudyState();
+	await transaction
+		.insert(workspaceItemUserStates)
+		.values({ itemId: input.itemId, userId: input.userId, state: emptyState })
+		.onConflictDoNothing();
+	const [row] = await transaction
+		.select({ state: workspaceItemUserStates.state })
+		.from(workspaceItemUserStates)
+		.where(
+			and(
+				eq(workspaceItemUserStates.userId, input.userId),
+				eq(workspaceItemUserStates.itemId, input.itemId),
+			),
+		)
+		.limit(1)
+		.for("update");
+	if (!row) throw new Error("Flashcard study state could not be created.");
+	return parseFlashcardStudyState(row.state);
+}
+
+async function updateFlashcardStudyState(
+	transaction: Transaction,
+	input: { itemId: string; userId: string },
+	state: ReturnType<typeof createEmptyFlashcardStudyState>,
+) {
+	await transaction
+		.update(workspaceItemUserStates)
+		.set({ state, updatedAt: new Date() })
+		.where(
+			and(
+				eq(workspaceItemUserStates.userId, input.userId),
+				eq(workspaceItemUserStates.itemId, input.itemId),
+			),
+		);
 }
