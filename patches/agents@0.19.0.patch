@@ -11,23 +11,19 @@ index 8d5b57034f927298d207d8a2bcbac927614780f5..9cf49a4471b9da862ddde11b818fd1ee
  }
  /**
  * For a single message, resolve its ID by matching toolCallId against server state.
-@@ -1948,23 +1948,31 @@ function assistantContentKey(message, sanitize) {
+@@ -1948,23 +1948,27 @@ function assistantContentKey(message, sanitize) {
  	return JSON.stringify(sanitized.parts);
  }
  function mergeServerToolOutputs(incoming, serverMessages) {
 -	const serverResolvedParts = /* @__PURE__ */ new Map();
 +	const serverResolvedPartsByMessage = /* @__PURE__ */ new Map();
-+	const resolvedByToolCallId = /* @__PURE__ */ new Map();
  	for (const msg of serverMessages) {
  		if (msg.role !== "assistant") continue;
 +		const resolvedParts = /* @__PURE__ */ new Map();
  		for (const part of msg.parts) {
  			const record = part;
 -			if ("toolCallId" in record && "state" in record && (record.state === "output-available" || record.state === "output-error" || record.state === "output-denied")) serverResolvedParts.set(record.toolCallId, record);
-+			if (isResolvedToolPart(record)) {
-+				resolvedParts.set(record.toolCallId, record);
-+				resolvedByToolCallId.set(record.toolCallId, resolvedByToolCallId.has(record.toolCallId) ? null : record);
-+			}
++			if ("toolCallId" in record && "state" in record && (record.state === "output-available" || record.state === "output-error" || record.state === "output-denied")) resolvedParts.set(record.toolCallId, record);
  		}
 +		if (resolvedParts.size > 0) serverResolvedPartsByMessage.set(msg.id, resolvedParts);
  	}
@@ -35,32 +31,32 @@ index 8d5b57034f927298d207d8a2bcbac927614780f5..9cf49a4471b9da862ddde11b818fd1ee
 +	if (serverResolvedPartsByMessage.size === 0) return incoming;
  	return incoming.map((msg) => {
  		if (msg.role !== "assistant") return msg;
-+		const ownResolvedParts = serverResolvedPartsByMessage.get(msg.id);
++		const serverResolvedParts = serverResolvedPartsByMessage.get(msg.id);
++		if (!serverResolvedParts) return msg;
  		let hasChanges = false;
  		const updatedParts = msg.parts.map((part) => {
  			const record = part;
 -			if ("toolCallId" in record && "state" in record && (record.state === "input-available" || record.state === "approval-requested" || record.state === "approval-responded") && serverResolvedParts.has(record.toolCallId)) {
 -				hasChanges = true;
 -				const server = serverResolvedParts.get(record.toolCallId);
-+			if (!isPendingToolPart(record)) return part;
-+			const server = ownResolvedParts?.get(record.toolCallId) ?? resolvedByToolCallId.get(record.toolCallId);
-+			if (server && sameToolInput(record.input, server.input)) {
++			if ("toolCallId" in record && "state" in record && (record.state === "input-available" || record.state === "approval-requested" || record.state === "approval-responded") && serverResolvedParts.has(record.toolCallId)) {
 +				hasChanges = true;
++				const server = serverResolvedParts.get(record.toolCallId);
  				const merged = {
  					...part,
  					state: server.state
-@@ -1999,7 +2007,22 @@ function reconcileAssistantIds(incoming, serverMessages, sanitize) {
+@@ -1999,7 +2003,22 @@ function reconcileAssistantIds(incoming, serverMessages, sanitize) {
  	}
  	return incoming.map((incomingMessage, incomingIdx) => {
  		if (exactMatchMap.has(incomingIdx)) return incomingMessage;
 -		if (incomingMessage.role !== "assistant" || hasToolCallPart(incomingMessage)) return incomingMessage;
 +		if (incomingMessage.role !== "assistant") return incomingMessage;
-+		const incomingToolCalls = getToolCalls(incomingMessage);
-+		if (incomingToolCalls.length > 0) {
++		const incomingToolCallIds = getToolCallIds(incomingMessage);
++		if (incomingToolCallIds.size > 0) {
 +			for (let i = 0; i < serverMessages.length; i++) {
 +				if (claimedServerIndices.has(i)) continue;
 +				const serverMessage = serverMessages[i];
-+				if (serverMessage.role === "assistant" && serverMessage.parts.some((serverPart) => "toolCallId" in serverPart && typeof serverPart.toolCallId === "string" && incomingToolCalls.some((incomingPart) => incomingPart.toolCallId === serverPart.toolCallId && sameToolInput(incomingPart.input, serverPart.input)))) {
++				if (serverMessage.role === "assistant" && serverMessage.parts.some((part) => "toolCallId" in part && typeof part.toolCallId === "string" && incomingToolCallIds.has(part.toolCallId))) {
 +					claimedServerIndices.add(i);
 +					return {
 +						...incomingMessage,
@@ -73,21 +69,12 @@ index 8d5b57034f927298d207d8a2bcbac927614780f5..9cf49a4471b9da862ddde11b818fd1ee
  		const incomingKey = assistantContentKey(incomingMessage, sanitize);
  		if (!incomingKey) return incomingMessage;
  		for (let i = 0; i < serverMessages.length; i++) {
-@@ -2020,6 +2043,18 @@ function reconcileAssistantIds(incoming, serverMessages, sanitize) {
+@@ -2020,6 +2039,9 @@ function reconcileAssistantIds(incoming, serverMessages, sanitize) {
  function hasToolCallPart(message) {
  	return message.parts.some((part) => "toolCallId" in part);
  }
-+function getToolCalls(message) {
-+	return message.parts.filter((part) => "toolCallId" in part && typeof part.toolCallId === "string");
-+}
-+function isResolvedToolPart(record) {
-+	return "toolCallId" in record && "state" in record && (record.state === "output-available" || record.state === "output-error" || record.state === "output-denied");
-+}
-+function isPendingToolPart(record) {
-+	return "toolCallId" in record && "state" in record && (record.state === "input-available" || record.state === "approval-requested" || record.state === "approval-responded");
-+}
-+function sameToolInput(left, right) {
-+	return JSON.stringify(left) === JSON.stringify(right);
++function getToolCallIds(message) {
++	return new Set(message.parts.flatMap((part) => "toolCallId" in part && typeof part.toolCallId === "string" ? [part.toolCallId] : []));
 +}
  function findMessageByToolCallId(messages, toolCallId) {
  	for (const msg of messages) {
@@ -105,24 +92,6 @@ index 51c24ed62b48d43a64a093b5d08e6ccb3aafcbf9..44059d63d10b5f1ae192eb7a6e63f0df
  				};
  				agent.addEventListener("message", onMessage, { signal: abortController.signal });
  				agent.addEventListener("close", onClose, { signal: abortController.signal });
-@@ -470,7 +470,7 @@ var WebSocketChatTransport = class {
- 						if (data.done) finish(() => controller.close());
- 					} catch {}
- 				};
--				const onClose = () => finish(() => controller.close());
-+				const onClose = () => finish(() => requestId === null ? controller.close() : controller.error(new Error("Chat connection interrupted")));
- 				agent.addEventListener("message", onMessage, { signal: streamController.signal });
- 				agent.addEventListener("close", onClose, { signal: streamController.signal });
- 				retryResumeProbe();
-@@ -540,7 +540,7 @@ var WebSocketChatTransport = class {
- 					} catch {}
- 				};
- 				const onClose = () => {
--					finish(() => controller.close(), false, false);
-+					finish(() => controller.error(new Error("Chat connection interrupted")), false, false);
- 				};
- 				agent.addEventListener("message", onMessage, { signal: chunkController.signal });
- 				agent.addEventListener("close", onClose, { signal: chunkController.signal });
 @@ -716,9 +716,35 @@ function prependMissingHydratedMessages(hydratedMessages, currentMessages) {
  	const missingHydratedMessages = hydratedMessages.filter((message) => !currentMessageIds.has(message.id));
  	if (missingHydratedMessages.length === 0) return currentMessages;
