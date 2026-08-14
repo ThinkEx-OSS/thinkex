@@ -377,19 +377,29 @@ function FlashcardStudySurface({
 }) {
 	const settling = ratingFeedback !== null;
 	const nextCard = ratingFeedback ? studyCards[currentIndex + 1] : undefined;
+	const isLastCardRating = ratingFeedback !== null && !nextCard;
 	const ratingDirection = ratingFeedback === "again" ? -1 : 1;
 	const ratingAnimation = ratingFeedback
-		? {
-				x: ratingDirection * 148,
-				y: 126,
-				rotate: ratingDirection * 7,
-				scale: 0.42,
-				opacity: 0,
-			}
+		? nextCard
+			? {
+					x: ratingDirection * 148,
+					y: 126,
+					rotate: ratingDirection * 7,
+					scale: 0.42,
+					opacity: 0,
+				}
+			: {
+					x: 0,
+					y: 0,
+					rotate: 0,
+					scale: [1, 0.96, 1.015, 1],
+					opacity: 1,
+				}
 		: { x: 0, y: 0, rotate: 0, scale: 1, opacity: 1 };
-	const ratingAnticipation = ratingFeedback
-		? { x: ratingDirection * 12, rotate: ratingDirection * 3 }
-		: { x: 0, y: 0, rotate: 0 };
+	const ratingAnticipation =
+		ratingFeedback && nextCard
+			? { x: ratingDirection * 12, rotate: ratingDirection * 3 }
+			: { x: 0, y: 0, rotate: 0 };
 	const ratingRing =
 		ratingFeedback === "again"
 			? "inset 0 0 0 5px color-mix(in srgb, var(--color-red-500) 62%, transparent)"
@@ -439,29 +449,37 @@ function FlashcardStudySurface({
 								initial={false}
 								animate={ratingAnimation}
 								transition={
-									ratingFeedback
-										? {
-												type: "spring",
-												visualDuration: 0.58,
-												bounce: 0.05,
-												delay: 0.28,
-												rotate: {
+									isLastCardRating
+										? { duration: 0.65, times: [0, 0.3, 0.65, 1], ease: "easeInOut" }
+										: ratingFeedback
+											? {
 													type: "spring",
-													visualDuration: 0.4,
-													bounce: 0.06,
+													visualDuration: 0.58,
+													bounce: 0.05,
 													delay: 0.28,
-												},
-												scale: {
-													type: "spring",
-													visualDuration: 0.32,
-													bounce: 0.02,
-													delay: 0.28,
-												},
-												opacity: { type: "tween", duration: 0.36, delay: 0.4, ease: "easeOut" },
-											}
-										: { duration: 0 }
+													rotate: {
+														type: "spring",
+														visualDuration: 0.4,
+														bounce: 0.06,
+														delay: 0.28,
+													},
+													scale: {
+														type: "spring",
+														visualDuration: 0.32,
+														bounce: 0.02,
+														delay: 0.28,
+													},
+													opacity: { type: "tween", duration: 0.36, delay: 0.4, ease: "easeOut" },
+												}
+											: { duration: 0 }
 								}
-								style={{ transformOrigin: ratingDirection < 0 ? "bottom left" : "bottom right" }}
+								style={{
+									transformOrigin: isLastCardRating
+										? "center"
+										: ratingDirection < 0
+											? "bottom left"
+											: "bottom right",
+								}}
 								onUpdate={(latest) => {
 									if (
 										ratingFeedback &&
@@ -470,6 +488,9 @@ function FlashcardStudySurface({
 									) {
 										onRatingAnimationComplete();
 									}
+								}}
+								onAnimationComplete={() => {
+									if (isLastCardRating) onRatingAnimationComplete();
 								}}
 								onClick={(event) => {
 									if ((event.target as HTMLElement).closest("button, a")) return;
@@ -481,7 +502,7 @@ function FlashcardStudySurface({
 									initial={false}
 									animate={ratingAnticipation}
 									transition={
-										ratingFeedback
+										ratingFeedback && nextCard
 											? { type: "spring", visualDuration: 0.22, bounce: 0.1 }
 											: { duration: 0 }
 									}
@@ -491,11 +512,14 @@ function FlashcardStudySurface({
 										aria-hidden="true"
 										className="pointer-events-none absolute inset-0 z-10 rounded-2xl"
 										initial={false}
-										animate={{ opacity: ratingFeedback ? 0.8 : 0 }}
-										transition={{
-											duration: ratingFeedback ? 0.16 : 0,
-											ease: "easeOut",
+										animate={{
+											opacity: isLastCardRating ? [0, 1, 1, 0] : ratingFeedback ? 0.8 : 0,
 										}}
+										transition={
+											isLastCardRating
+												? { duration: 0.65, times: [0, 0.2, 0.65, 1], ease: "easeOut" }
+												: { duration: ratingFeedback ? 0.16 : 0, ease: "easeOut" }
+										}
 										style={{ boxShadow: ratingRing }}
 									/>
 									<m.div
