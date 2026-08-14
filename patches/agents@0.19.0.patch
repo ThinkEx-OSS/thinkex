@@ -43,8 +43,8 @@ index 8d5b57034f927298d207d8a2bcbac927614780f5..9cf49a4471b9da862ddde11b818fd1ee
 -				hasChanges = true;
 -				const server = serverResolvedParts.get(record.toolCallId);
 +			if (!isPendingToolPart(record)) return part;
-+			const server = ownResolvedParts?.get(record.toolCallId) ?? fallbackResolvedPart(resolvedByToolCallId, record);
-+			if (server) {
++			const server = ownResolvedParts?.get(record.toolCallId) ?? resolvedByToolCallId.get(record.toolCallId);
++			if (server && sameToolInput(record.input, server.input)) {
 +				hasChanges = true;
  				const merged = {
  					...part,
@@ -55,12 +55,12 @@ index 8d5b57034f927298d207d8a2bcbac927614780f5..9cf49a4471b9da862ddde11b818fd1ee
  		if (exactMatchMap.has(incomingIdx)) return incomingMessage;
 -		if (incomingMessage.role !== "assistant" || hasToolCallPart(incomingMessage)) return incomingMessage;
 +		if (incomingMessage.role !== "assistant") return incomingMessage;
-+		const incomingToolCallIds = getToolCallIds(incomingMessage);
-+		if (incomingToolCallIds.size > 0) {
++		const incomingToolCalls = getToolCalls(incomingMessage);
++		if (incomingToolCalls.length > 0) {
 +			for (let i = 0; i < serverMessages.length; i++) {
 +				if (claimedServerIndices.has(i)) continue;
 +				const serverMessage = serverMessages[i];
-+				if (serverMessage.role === "assistant" && serverMessage.parts.some((part) => "toolCallId" in part && typeof part.toolCallId === "string" && incomingToolCallIds.has(part.toolCallId))) {
++				if (serverMessage.role === "assistant" && serverMessage.parts.some((serverPart) => "toolCallId" in serverPart && typeof serverPart.toolCallId === "string" && incomingToolCalls.some((incomingPart) => incomingPart.toolCallId === serverPart.toolCallId && sameToolInput(incomingPart.input, serverPart.input)))) {
 +					claimedServerIndices.add(i);
 +					return {
 +						...incomingMessage,
@@ -73,12 +73,12 @@ index 8d5b57034f927298d207d8a2bcbac927614780f5..9cf49a4471b9da862ddde11b818fd1ee
  		const incomingKey = assistantContentKey(incomingMessage, sanitize);
  		if (!incomingKey) return incomingMessage;
  		for (let i = 0; i < serverMessages.length; i++) {
-@@ -2020,6 +2043,25 @@ function reconcileAssistantIds(incoming, serverMessages, sanitize) {
+@@ -2020,6 +2043,18 @@ function reconcileAssistantIds(incoming, serverMessages, sanitize) {
  function hasToolCallPart(message) {
  	return message.parts.some((part) => "toolCallId" in part);
  }
-+function getToolCallIds(message) {
-+	return new Set(message.parts.flatMap((part) => "toolCallId" in part && typeof part.toolCallId === "string" ? [part.toolCallId] : []));
++function getToolCalls(message) {
++	return message.parts.filter((part) => "toolCallId" in part && typeof part.toolCallId === "string");
 +}
 +function isResolvedToolPart(record) {
 +	return "toolCallId" in record && "state" in record && (record.state === "output-available" || record.state === "output-error" || record.state === "output-denied");
@@ -86,14 +86,7 @@ index 8d5b57034f927298d207d8a2bcbac927614780f5..9cf49a4471b9da862ddde11b818fd1ee
 +function isPendingToolPart(record) {
 +	return "toolCallId" in record && "state" in record && (record.state === "input-available" || record.state === "approval-requested" || record.state === "approval-responded");
 +}
-+function fallbackResolvedPart(resolvedByToolCallId, record) {
-+	const server = resolvedByToolCallId.get(record.toolCallId);
-+	if (!server) return;
-+	return sameToolInput(record.input, server.input) ? server : void 0;
-+}
 +function sameToolInput(left, right) {
-+	if (left === void 0 && right === void 0) return true;
-+	if (left === void 0 || right === void 0) return false;
 +	return JSON.stringify(left) === JSON.stringify(right);
 +}
  function findMessageByToolCallId(messages, toolCallId) {
@@ -135,12 +128,12 @@ index 51c24ed62b48d43a64a093b5d08e6ccb3aafcbf9..44059d63d10b5f1ae192eb7a6e63f0df
  	if (missingHydratedMessages.length === 0) return currentMessages;
  	return [...missingHydratedMessages, ...currentMessages];
  }
-+function continuationPartsOverlap(left, right) {
-+	if (left.type !== right.type) return false;
-+	if ("toolCallId" in left || "toolCallId" in right) return left.toolCallId === right.toolCallId;
-+	if ("id" in left && "id" in right && typeof left.id === "string" && typeof right.id === "string") return left.id === right.id;
-+	if ((left.type === "text" || left.type === "reasoning") && "text" in left && "text" in right) return left.text.startsWith(right.text) || right.text.startsWith(left.text);
-+	return JSON.stringify(left) === JSON.stringify(right);
++function continuationPartsOverlap(baseline, current) {
++	if (baseline.type !== current.type) return false;
++	if ("toolCallId" in baseline || "toolCallId" in current) return baseline.toolCallId === current.toolCallId;
++	if ("id" in baseline && "id" in current && typeof baseline.id === "string" && typeof current.id === "string") return baseline.id === current.id;
++	if ((baseline.type === "text" || baseline.type === "reasoning") && "text" in baseline && "text" in current) return current.text.startsWith(baseline.text);
++	return JSON.stringify(baseline) === JSON.stringify(current);
 +}
 +function preserveContinuationBaseline(messages, baselineMessages) {
 +	const baselineAssistant = findLastAssistantMessage(baselineMessages)?.message;

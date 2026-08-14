@@ -348,6 +348,41 @@ describe("agents useAgentChat observer", () => {
 		});
 	});
 
+	it("keeps a text-only baseline when a resumed text part starts", async () => {
+		const { agent, sentFrames, target } = createFakeAgent();
+		const baseline = continuationBaseline();
+		baseline[1].parts.splice(1);
+		const chat = await mountChat(agent, baseline);
+
+		await vi.waitFor(() => {
+			expect(countFrames(sentFrames, "cf_agent_stream_resume_request")).toBe(1);
+		});
+		await act(async () => {
+			dispatch(target, {
+				id: "continuation-1",
+				type: "cf_agent_stream_resuming",
+			});
+		});
+		await vi.waitFor(() => {
+			expect(countFrames(sentFrames, "cf_agent_stream_resume_ack")).toBe(1);
+		});
+
+		await act(async () => {
+			dispatchChunk(target, "continuation-1", {
+				messageId: "assistant-1",
+				type: "start",
+			});
+			dispatchChunk(target, "continuation-1", {
+				id: "text-1",
+				type: "text-start",
+			});
+		});
+
+		await vi.waitFor(() => {
+			expect(assistantText(chat()?.messages)).toBe("already ");
+		});
+	});
+
 	it("does not duplicate a fallback continuation when its buffered prefix replays", async () => {
 		const { agent, close, open, sentFrames, target } = createFakeAgent();
 		const chat = await mountChat(agent, continuationBaseline());
