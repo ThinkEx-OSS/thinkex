@@ -22,8 +22,8 @@ type WorkspaceLocationRevealRequest = {
 
 type WorkspaceLocationContextValue = {
 	completeRevealRequest: (request: WorkspaceLocationRevealRequest, revealed: boolean) => void;
+	getItem: (itemId: string) => WorkspaceItem | undefined;
 	getPresentation: (location: WorkspaceLocation) => WorkspaceLocationPresentation;
-	hasItem: (itemId: string) => boolean;
 	reveal: (location: WorkspaceLocation) => boolean;
 	revealRequest: WorkspaceLocationRevealRequest | null;
 };
@@ -53,6 +53,9 @@ export function WorkspaceLocationProvider({
 	);
 	const value: WorkspaceLocationContextValue = {
 		completeRevealRequest,
+		getItem(itemId) {
+			return itemsById.get(itemId);
+		},
 		getPresentation(location) {
 			const item = itemsById.get(location.itemId);
 			const itemName = item?.name ?? "Source unavailable";
@@ -69,9 +72,6 @@ export function WorkspaceLocationProvider({
 
 			const { Icon, iconClassName } = getWorkspaceItemDisplay(item);
 			return { Icon, iconClassName, label: itemName, locatorLabel };
-		},
-		hasItem(itemId) {
-			return itemsById.has(itemId);
 		},
 		reveal(location) {
 			const viewInstanceId = navigate(location);

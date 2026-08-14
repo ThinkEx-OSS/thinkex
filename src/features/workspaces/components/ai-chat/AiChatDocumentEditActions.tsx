@@ -19,8 +19,8 @@ export function AiChatDocumentEditActions({
 	groups: readonly AiChatDocumentEditGroup[];
 }) {
 	// A deleted document has nothing left to open.
-	const { hasItem } = useWorkspaceLocationActions();
-	const knownGroups = groups.filter((group) => hasItem(group.itemId));
+	const { getItem } = useWorkspaceLocationActions();
+	const knownGroups = groups.filter((group) => getItem(group.itemId));
 
 	if (knownGroups.length === 0) {
 		return null;
