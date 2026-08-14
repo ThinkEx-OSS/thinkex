@@ -45,11 +45,11 @@ interface FlashcardSessionState {
 }
 
 export function FlashcardViewer({
-	documentPath,
+	itemPath,
 	item,
 	viewInstanceId,
 }: {
-	documentPath: string;
+	itemPath: string;
 	item: WorkspaceItem;
 	viewInstanceId: string;
 }) {
@@ -72,7 +72,7 @@ export function FlashcardViewer({
 		<FlashcardStudySession
 			key={`${item.id}:${item.updatedAt}`}
 			cards={data.cards}
-			documentPath={documentPath}
+			itemPath={itemPath}
 			studyState={data.studyState}
 			item={item}
 			viewInstanceId={viewInstanceId}
@@ -82,13 +82,13 @@ export function FlashcardViewer({
 
 function FlashcardStudySession({
 	cards,
-	documentPath,
+	itemPath,
 	studyState,
 	item,
 	viewInstanceId,
 }: {
 	cards: Flashcard[];
-	documentPath: string;
+	itemPath: string;
 	studyState: FlashcardStudyState;
 	item: WorkspaceItem;
 	viewInstanceId: string;
@@ -351,7 +351,7 @@ function FlashcardStudySession({
 			currentCard={currentCard}
 			currentIndex={currentIndex}
 			currentRating={currentRating}
-			documentPath={documentPath}
+			itemPath={itemPath}
 			flipped={flipped}
 			gotItCount={sessionProgress.gotItCount}
 			item={item}
@@ -372,7 +372,7 @@ function FlashcardStudySurface({
 	currentCard,
 	currentIndex,
 	currentRating,
-	documentPath,
+	itemPath,
 	flipped,
 	gotItCount,
 	item,
@@ -389,7 +389,7 @@ function FlashcardStudySurface({
 	currentCard: Flashcard;
 	currentIndex: number;
 	currentRating: FlashcardStudyRating | undefined;
-	documentPath: string;
+	itemPath: string;
 	flipped: boolean;
 	gotItCount: number;
 	item: WorkspaceItem;
@@ -566,7 +566,7 @@ function FlashcardStudySurface({
 													onSend={() =>
 														sendComposerPrompt(
 															item.workspaceId,
-															`Give me a helpful hint for card ${sourceCardNumber} in “${documentPath}” without revealing the answer.`,
+															`Give me a helpful hint for card ${sourceCardNumber} in “${itemPath}” without revealing the answer.`,
 														)
 													}
 												/>
@@ -583,7 +583,7 @@ function FlashcardStudySurface({
 													onSend={() =>
 														sendComposerPrompt(
 															item.workspaceId,
-															`Explain the answer to card ${sourceCardNumber} in “${documentPath}” clearly and concisely.`,
+															`Explain the answer to card ${sourceCardNumber} in “${itemPath}” clearly and concisely.`,
 														)
 													}
 												/>

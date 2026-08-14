@@ -80,7 +80,7 @@ export default function WorkspaceContent({
 		return (
 			<>
 				<WorkspaceItemView
-					documentPath={getWorkspaceItemPath(activeItem, itemsById)}
+					itemPath={getWorkspaceItemPath(activeItem, itemsById)}
 					item={activeItem}
 					viewInstanceId={viewInstanceId}
 					workspaceId={workspaceId}
@@ -479,7 +479,7 @@ function WorkspaceContentActionDialogs({
 }
 
 function WorkspaceItemView({
-	documentPath,
+	itemPath,
 	item,
 	viewInstanceId,
 	workspaceId,
@@ -487,7 +487,7 @@ function WorkspaceItemView({
 	onMoveItem,
 	onDeleteItem,
 }: {
-	documentPath: string;
+	itemPath: string;
 	item: WorkspaceItem;
 	viewInstanceId: string;
 	workspaceId: string;
@@ -500,7 +500,7 @@ function WorkspaceItemView({
 	if (item.type === "document") {
 		return (
 			<DocumentEditorSurface
-				documentPath={documentPath}
+				documentPath={itemPath}
 				item={item}
 				viewInstanceId={viewInstanceId}
 				workspaceId={workspaceId}
@@ -522,9 +522,7 @@ function WorkspaceItemView({
 	}
 
 	if (item.type === "flashcard") {
-		return (
-			<FlashcardViewer documentPath={documentPath} item={item} viewInstanceId={viewInstanceId} />
-		);
+		return <FlashcardViewer itemPath={itemPath} item={item} viewInstanceId={viewInstanceId} />;
 	}
 
 	const { Icon: ItemIcon, iconClassName, surfaceClassName } = getWorkspaceItemDisplay(item);

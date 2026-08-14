@@ -38,7 +38,7 @@ describe("workspace tool result adapters", () => {
 
 	it("projects create failures without exposing internal references", () => {
 		const output = {
-			failed: [{ code: "path_not_canonical", index: 0, path: "/Old" }],
+			failed: [{ code: "path_already_exists", index: 0, path: "/Old" }],
 			items: [{ itemId: "itm_internal", path: "/Old", type: "document" }],
 			references: [
 				{

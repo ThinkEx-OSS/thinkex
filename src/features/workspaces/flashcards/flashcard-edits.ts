@@ -167,9 +167,10 @@ function findCardIndex(
 	initialRevisions: ReadonlyMap<string, string>,
 ) {
 	const target = targets.get(ref);
-	const index = target ? cards.findIndex((card) => card.id === target.cardId) : -1;
+	if (!target) throw new FlashcardEditError("ref_not_found");
+	const index = cards.findIndex((card) => card.id === target.cardId);
 	if (index < 0) throw new FlashcardEditError("ref_not_found");
-	if (initialRevisions.get(target!.cardId) !== target!.revision) {
+	if (initialRevisions.get(target.cardId) !== target.revision) {
 		throw new FlashcardEditError("ref_stale");
 	}
 	return index;

@@ -157,6 +157,8 @@ export function createWorkspaceReadItemsModelOutput(output: WorkspaceReadItemsOu
 	const refsByLocation = new Map(
 		output.references.map((record) => [getWorkspaceLocationKey(record.location), record.ref]),
 	);
+	const refFor = (location: WorkspaceLocation) =>
+		refsByLocation.get(getWorkspaceLocationKey(location));
 	const guidance = createWorkspaceReadGuidance(output.results);
 
 	return {
@@ -174,14 +176,7 @@ export function createWorkspaceReadItemsModelOutput(output: WorkspaceReadItemsOu
 					...omitWorkspaceReadItemId(result),
 					cards: result.cards.map(({ cardId, revision: _revision, ...card }) => ({
 						...card,
-						ref: refsByLocation.get(
-							getWorkspaceLocationKey({
-								itemId: result.itemId,
-								kind: "flashcard",
-								cardId,
-								version: 1,
-							}),
-						),
+						ref: refFor({ itemId: result.itemId, kind: "flashcard", cardId, version: 1 }),
 					})),
 				};
 			}
@@ -194,27 +189,14 @@ export function createWorkspaceReadItemsModelOutput(output: WorkspaceReadItemsOu
 			if (result.type === "block") {
 				const blockId = parseDocumentAiRef(result.contentRef);
 				const ref = blockId
-					? refsByLocation.get(
-							getWorkspaceLocationKey({
-								blockId,
-								itemId: result.itemId,
-								kind: "document-block",
-								version: 1,
-							}),
-						)
+					? refFor({ blockId, itemId: result.itemId, kind: "document-block", version: 1 })
 					: undefined;
 				const { contentRef: _contentRef, itemId: _itemId, ...modelResult } = result;
 				return { ...modelResult, ...(ref ? { ref } : {}) };
 			}
 
 			if (result.type !== "file" || result.assetKind !== "pdf") {
-				const ref = refsByLocation.get(
-					getWorkspaceLocationKey({
-						itemId: result.itemId,
-						kind: "item",
-						version: 1,
-					}),
-				);
+				const ref = refFor({ itemId: result.itemId, kind: "item", version: 1 });
 
 				return {
 					...omitWorkspaceReadItemId(result),
@@ -223,14 +205,12 @@ export function createWorkspaceReadItemsModelOutput(output: WorkspaceReadItemsOu
 			}
 
 			const references = result.location.returned.flatMap((pageNumber) => {
-				const ref = refsByLocation.get(
-					getWorkspaceLocationKey({
-						itemId: result.itemId,
-						kind: "pdf-page",
-						pageNumber,
-						version: 1,
-					}),
-				);
+				const ref = refFor({
+					itemId: result.itemId,
+					kind: "pdf-page",
+					pageNumber,
+					version: 1,
+				});
 
 				return ref ? [{ pageNumber, ref }] : [];
 			});

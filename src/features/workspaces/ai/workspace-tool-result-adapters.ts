@@ -3,10 +3,11 @@ import { z } from "zod";
 
 import { workspaceReadItemsOutputSchema } from "#/features/workspaces/content/workspace-content-contract";
 import { createWorkspaceReadItemsModelOutput } from "#/features/workspaces/content/workspace-read-references";
+import type { WorkspaceReferenceRecord } from "#/features/workspaces/locations/workspace-location";
 import {
-	workspaceReferenceRecordSchema,
-	type WorkspaceReferenceRecord,
-} from "#/features/workspaces/locations/workspace-location";
+	workspaceCreateItemsOutputSchema,
+	workspaceEditItemOutputSchema,
+} from "#/features/workspaces/operations/workspace-tool-schemas";
 
 function defineWorkspaceToolResultAdapter<TSchema extends z.ZodTypeAny>(input: {
 	collectReferences?: (output: z.output<TSchema>) => readonly WorkspaceReferenceRecord[];
@@ -32,24 +33,7 @@ const workspaceReadItemsResultAdapter = defineWorkspaceToolResultAdapter({
 
 const workspaceCreateItemsResultAdapter = defineWorkspaceToolResultAdapter({
 	collectReferences: (output) => output.references,
-	outputSchema: z.object({
-		failed: z.array(
-			z.object({
-				code: z.string(),
-				detail: z.string().optional(),
-				index: z.number(),
-				path: z.string(),
-			}),
-		),
-		items: z.array(
-			z.object({
-				itemId: z.string(),
-				path: z.string(),
-				type: z.enum(["document", "flashcard", "folder"]),
-			}),
-		),
-		references: z.array(workspaceReferenceRecordSchema),
-	}),
+	outputSchema: workspaceCreateItemsOutputSchema,
 	projectOutput: (output) => {
 		const refsByItemId = new Map(
 			output.references.flatMap((record) =>
@@ -71,14 +55,8 @@ const workspaceCreateItemsResultAdapter = defineWorkspaceToolResultAdapter({
 // The operation output also carries the durable item id used by the app's
 // review controls. Keep the model-facing receipt limited to actionable counts.
 const workspaceEditItemResultAdapter = defineWorkspaceToolResultAdapter({
-	outputSchema: z.object({
-		applied: z.number(),
-		failed: z.array(
-			z.object({ code: z.string(), detail: z.string().optional(), index: z.number() }),
-		),
-		path: z.string(),
-	}),
-	projectOutput: (output) => output,
+	outputSchema: workspaceEditItemOutputSchema,
+	projectOutput: ({ applied, failed, path }) => ({ applied, failed, path }),
 });
 
 const workspaceToolResultAdapters = {
