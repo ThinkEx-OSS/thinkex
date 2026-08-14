@@ -363,8 +363,18 @@ export function applyDocumentCitationLocations(
 			continue;
 		}
 		element.setAttribute("data-item-id", location.itemId);
-		if (location.kind === "pdf-page") {
-			element.setAttribute("data-page", String(location.pageNumber));
+		switch (location.kind) {
+			case "item":
+				break;
+			case "pdf-page":
+				element.setAttribute("data-page", String(location.pageNumber));
+				break;
+			case "document-block":
+				element.setAttribute("data-block-id", location.blockId);
+				break;
+			case "flashcard":
+				element.setAttribute("data-card-id", location.cardId);
+				break;
 		}
 	}
 
