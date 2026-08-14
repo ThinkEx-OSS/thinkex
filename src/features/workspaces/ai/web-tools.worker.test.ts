@@ -80,7 +80,7 @@ describe("web_fetch", () => {
 	});
 
 	it("scrapes pages once through Firecrawl", async () => {
-		const fetchSpy = vi.fn(async () => Response.json({ data: { markdown: "# Rendered page" } }));
+		const fetchSpy = vi.fn(async () => Response.json({ data: { markdown: "" } }));
 		vi.stubGlobal("fetch", fetchSpy);
 		const tool = createAIThreadWebTools(createEnv(createImagesBinding().binding)).web_fetch;
 		if (!tool?.execute) throw new Error("Expected executable web_fetch");
@@ -90,7 +90,7 @@ describe("web_fetch", () => {
 		).resolves.toEqual({
 			kind: "page",
 			url: "https://example.com/",
-			content: "# Rendered page",
+			content: "",
 			truncated: false,
 		});
 		expect(fetchSpy).toHaveBeenCalledOnce();

@@ -1,8 +1,4 @@
-import {
-	firecrawlJsonRequest,
-	getRecordValue,
-	getStringValue,
-} from "#/integrations/firecrawl/client";
+import { firecrawlJsonRequest, getRecordValue } from "#/integrations/firecrawl/client";
 
 const FIRECRAWL_SCRAPE_TIMEOUT_MS = 20_000;
 
@@ -28,8 +24,8 @@ export async function scrapePublicWebPage(input: {
 			timeout: FIRECRAWL_SCRAPE_TIMEOUT_MS,
 		}),
 	});
-	const markdown = getStringValue(getRecordValue(response, "data"), "markdown");
-	if (markdown === null) {
+	const markdown = getRecordValue(getRecordValue(response, "data"), "markdown");
+	if (typeof markdown !== "string") {
 		throw new Error("Web page scrape did not return Markdown.");
 	}
 
