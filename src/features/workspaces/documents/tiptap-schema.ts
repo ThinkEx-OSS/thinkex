@@ -61,7 +61,7 @@ export const Citation = Node.create({
 	},
 });
 
-export function getDocumentCitationLocation(
+export function getWorkspaceCitationLocation(
 	attrs: Record<string, unknown>,
 ): WorkspaceLocation | undefined {
 	const itemId = typeof attrs.itemId === "string" ? attrs.itemId : null;
