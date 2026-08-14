@@ -14,14 +14,15 @@ export function getToolSourcePreviews(activity: AiChatToolActivity): ToolSourceP
 
 	switch (activity.toolName) {
 		case "web_search":
-			return getArray(output.results).map((item) =>
-				sourcePreviewFromRecord(asRecord(item), {
+			return getArray(output.results).map((item) => {
+				const record = asRecord(item);
+				return sourcePreviewFromRecord(record, {
 					descriptionKeys: ["snippet", "description"],
-					kind: "Web",
+					kind: getString(record.type) === "image" ? "Image" : "Web",
 					titleKeys: ["title"],
 					urlKeys: ["url"],
-				}),
-			);
+				});
+			});
 		case "web_links":
 			return getArray(output.items).map((item) =>
 				typeof item === "string"
@@ -32,9 +33,14 @@ export function getToolSourcePreviews(activity: AiChatToolActivity): ToolSourceP
 							urlKeys: ["url", "href"],
 						}),
 			);
-		case "web_markdown": {
+		case "web_fetch": {
 			const url = getString(input.url);
-			return url ? [sourcePreviewFromUrl(url, "Page")] : [];
+			let label = "Page";
+			if (output.kind === "image") label = "Image";
+			if (output.kind === "unsupported") {
+				label = output.reason === "pdf" ? "PDF" : "Unsupported";
+			}
+			return url ? [sourcePreviewFromUrl(url, label)] : [];
 		}
 		case "research_discover":
 			return [

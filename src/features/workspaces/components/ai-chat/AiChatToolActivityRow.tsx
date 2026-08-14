@@ -20,6 +20,7 @@ import {
 	AiChatComputeDetails,
 	AiChatComputeImages,
 } from "#/features/workspaces/components/ai-chat/AiChatComputeResult";
+import { AiChatImageSearchResults } from "#/features/workspaces/components/ai-chat/AiChatImageSearchResults";
 import {
 	getToolActivityForPart,
 	type AiChatToolActivity,
@@ -120,15 +121,18 @@ function ToolActivityMotion({
 }
 
 function getInlineActivityContent(activity: AiChatToolActivity) {
-	if (
-		activity.toolName !== "compute" ||
-		activity.status === "running" ||
-		activity.status === "interrupted"
-	) {
+	if (activity.status === "running" || activity.status === "interrupted") {
 		return null;
 	}
 
-	return <AiChatComputeImages output={activity.detail.output} />;
+	if (activity.toolName === "compute") {
+		return <AiChatComputeImages output={activity.detail.output} />;
+	}
+	if (activity.toolName === "web_search") {
+		return <AiChatImageSearchResults output={activity.detail.output} />;
+	}
+
+	return null;
 }
 
 function getActivityDetails(activity: AiChatToolActivity) {
