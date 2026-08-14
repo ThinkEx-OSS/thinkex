@@ -4,6 +4,7 @@ import {
 	applyFlashcardStudyRating,
 	createEmptyFlashcardStudyState,
 	parseFlashcardStudyState,
+	summarizeFlashcardStudyProgress,
 } from "#/features/workspaces/flashcards/flashcard-study-state";
 
 describe("flashcard study state", () => {
@@ -46,6 +47,31 @@ describe("flashcard study state", () => {
 			lastRating: "good",
 			lastReviewedAt: "2026-08-13T12:01:00.000Z",
 			reviewCount: 2,
+		});
+	});
+
+	it("summarizes only cards still in the set", () => {
+		const [gotItId, missedId, unreviewedId, removedId] = Array.from({ length: 4 }, () =>
+			crypto.randomUUID(),
+		);
+		const reviewedAt = "2026-08-13T12:00:00.000Z";
+		const studyState = {
+			kind: "flashcard" as const,
+			cards: {
+				[gotItId!]: { lastRating: "hard" as const, lastReviewedAt: reviewedAt, reviewCount: 1 },
+				[missedId!]: { lastRating: "again" as const, lastReviewedAt: reviewedAt, reviewCount: 1 },
+				[removedId!]: { lastRating: "good" as const, lastReviewedAt: reviewedAt, reviewCount: 1 },
+			},
+		};
+
+		expect(
+			summarizeFlashcardStudyProgress([gotItId!, missedId!, unreviewedId!], studyState),
+		).toEqual({
+			gotItCount: 1,
+			missedCount: 1,
+			reviewedCount: 2,
+			totalCards: 3,
+			unreviewedCount: 1,
 		});
 	});
 });

@@ -275,6 +275,9 @@ export const workspaceReadItemsInputExamples = createInputExamples<
 		requests: [{ mode: "start", path: "/Demo Folder/Demo Flashcards" }],
 	},
 	{
+		requests: [{ mode: "cards", path: "/Demo Folder/Demo Flashcards", range: "1-3" }],
+	},
+	{
 		requests: [
 			{
 				mode: "pages",

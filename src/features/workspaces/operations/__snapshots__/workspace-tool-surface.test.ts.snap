@@ -725,6 +725,32 @@ exports[`workspace tool surface > workspace_read_items input schema is stable 1`
           {
             "additionalProperties": false,
             "properties": {
+              "mode": {
+                "const": "cards",
+                "type": "string",
+              },
+              "path": {
+                "description": "Absolute path of the workspace item to read.",
+                "minLength": 1,
+                "type": "string",
+              },
+              "range": {
+                "description": "Up to 20 card numbers from a flashcard set, like 1, 3, 5-7, or 1,4-6.",
+                "minLength": 1,
+                "pattern": "^\\d+(?:\\s*-\\s*\\d+)?(?:\\s*,\\s*\\d+(?:\\s*-\\s*\\d+)?)*$",
+                "type": "string",
+              },
+            },
+            "required": [
+              "path",
+              "mode",
+              "range",
+            ],
+            "type": "object",
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
               "cursor": {
                 "description": "Opaque cursor returned by a previous read.",
                 "maxLength": 4096,

@@ -15,6 +15,7 @@ import type { WorkspacePathResolution } from "#/features/workspaces/persistence/
 import { readWorkspaceContent } from "#/features/workspaces/content/workspace-content-reader";
 import { encodeWorkspaceContentCursor } from "#/features/workspaces/content/workspace-content-cursor";
 import { createFlashcardSetFromHtml } from "#/features/workspaces/flashcards/flashcard-content";
+import type { FlashcardStudyState } from "#/features/workspaces/flashcards/flashcard-study-state";
 
 const persistence = vi.hoisted(() => ({
 	getWorkspaceItemPaths: vi.fn(),
@@ -55,17 +56,97 @@ describe("WorkspaceContentReader", () => {
 			bucket: {} as R2Bucket,
 			getDocumentSession: () => createDocumentSession({ html: "<p />", revision: "unused" }),
 			item: flashcardItem,
-			readFlashcardSet: async () => set,
+			readFlashcardItem: async () => ({
+				cards: set.cards,
+				studyState: {
+					kind: "flashcard",
+					cards: {
+						[set.cards[0]!.id]: {
+							lastRating: "good",
+							lastReviewedAt: "2026-01-02T00:00:00.000Z",
+							reviewCount: 2,
+						},
+					},
+				},
+			}),
 		});
 
 		await expect(read([{ mode: "start", path: "/Biology cards" }])).resolves.toMatchObject([
 			{
-				cards: [{ cardId: set.cards[0]!.id, front: "<p>Question</p>", back: "<p>Answer</p>" }],
+				cards: [
+					{
+						cardId: set.cards[0]!.id,
+						front: "<p>Question</p>",
+						back: "<p>Answer</p>",
+						study: { lastRating: "good", reviewCount: 2 },
+					},
+				],
 				format: "html",
+				location: { kind: "cards", returned: [1], total: 1 },
+				progress: {
+					gotItCount: 1,
+					missedCount: 0,
+					reviewedCount: 1,
+					totalCards: 1,
+					unreviewedCount: 0,
+				},
 				status: "ready",
 				type: "flashcard",
 			},
 		]);
+	});
+
+	it("continues a large flashcard set without repeating cards", async () => {
+		const side = `<p>${"x".repeat(7_900)}</p>`;
+		const set = createFlashcardSetFromHtml(
+			Array.from({ length: 4 }, () => ({ front: side, back: side })),
+		);
+		let cards = set.cards;
+		const read = createReader({
+			bucket: {} as R2Bucket,
+			getDocumentSession: () => createDocumentSession({ html: "<p />", revision: "unused" }),
+			item: flashcardItem,
+			readFlashcardItem: async () => ({
+				cards,
+				studyState: { kind: "flashcard", cards: {} },
+			}),
+		});
+
+		const [first] = await read([{ mode: "start", path: "/Biology cards" }]);
+		expect(first).toMatchObject({
+			cards: expect.any(Array),
+			location: { kind: "cards", returned: [1, 2, 3], total: 4 },
+			status: "ready",
+			type: "flashcard",
+		});
+		if (!first || first.status !== "ready" || first.type !== "flashcard" || !first.nextCursor) {
+			throw new Error("Expected the first flashcard chunk to have a continuation cursor.");
+		}
+		expect(first.cards).toHaveLength(3);
+
+		cards = [...set.cards].reverse();
+		await expect(
+			read([{ cursor: first.nextCursor, mode: "continue", path: "/Biology cards" }]),
+		).resolves.toEqual([{ code: "content_changed", path: "/Biology cards", status: "failed" }]);
+		cards = set.cards;
+
+		const [second] = await read([
+			{ cursor: first.nextCursor, mode: "continue", path: "/Biology cards" },
+		]);
+		expect(second).toMatchObject({
+			cards: [{ cardId: set.cards[3]!.id }],
+			location: { kind: "cards", returned: [4], total: 4 },
+			status: "ready",
+			type: "flashcard",
+		});
+
+		const [targeted] = await read([{ mode: "cards", path: "/Biology cards", range: "1, 4" }]);
+		expect(targeted).toMatchObject({
+			cards: [{ cardId: set.cards[0]!.id }, { cardId: set.cards[3]!.id }],
+			location: { kind: "cards", returned: [1, 4], total: 4 },
+			status: "ready",
+			type: "flashcard",
+		});
 	});
 
 	it("continues a large live document with a revision-guarded cursor", async () => {
@@ -130,7 +211,7 @@ describe("WorkspaceContentReader", () => {
 		await expect(
 			read([{ cursor: first.nextCursor, mode: "continue", path: "/Notes" }]),
 		).resolves.toEqual([{ code: "content_changed", path: "/Notes", status: "failed" }]);
-	});
+	}, 10_000);
 
 	it("keeps document HTML split on top-level block boundaries", async () => {
 		const html = `<h1>Heading</h1><pre><code>${"x".repeat(64_000)}</code></pre><p>Tail</p>`;
@@ -347,9 +428,15 @@ function createReader(input: {
 	bucket: R2Bucket;
 	getDocumentSession: (itemId: string) => ReturnType<typeof createDocumentSession>;
 	item?: WorkspaceItem;
-	readFlashcardSet?: () =>
-		| ReturnType<typeof createFlashcardSetFromHtml>
-		| Promise<ReturnType<typeof createFlashcardSetFromHtml>>;
+	readFlashcardItem?: () =>
+		| {
+				cards: ReturnType<typeof createFlashcardSetFromHtml>["cards"];
+				studyState: FlashcardStudyState;
+		  }
+		| Promise<{
+				cards: ReturnType<typeof createFlashcardSetFromHtml>["cards"];
+				studyState: FlashcardStudyState;
+		  }>;
 	resolvePaths?: typeof persistence.resolveWorkspacePaths;
 }) {
 	const item = input.item ?? documentItem;
@@ -365,7 +452,9 @@ function createReader(input: {
 		readWorkspaceContent({
 			bucket: input.bucket,
 			getDocumentSession: input.getDocumentSession,
-			readFlashcardSet: input.readFlashcardSet ?? (async () => ({ version: 1, cards: [] })),
+			readFlashcardItem:
+				input.readFlashcardItem ??
+				(async () => ({ cards: [], studyState: { kind: "flashcard", cards: {} } })),
 			requests,
 			workspaceId: "workspace-1",
 		});

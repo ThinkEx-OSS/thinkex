@@ -86,6 +86,7 @@ describe("workspace read references", () => {
 				},
 			],
 			path: "/Geography",
+			progress: { gotItCount: 1, missedCount: 0, reviewedCount: 1 },
 			type: "flashcard",
 		});
 		expect(JSON.stringify(modelOutput)).not.toContain("flashcard-1");
@@ -253,11 +254,24 @@ function flashcardResult(): Extract<
 				back: "<p>Paris</p>",
 				cardId: "f67080f9-0158-4565-86a9-4c90ed6809d2",
 				front: "<p>Capital of France?</p>",
+				study: {
+					lastRating: "good",
+					lastReviewedAt: "2026-08-13T12:00:00.000Z",
+					reviewCount: 1,
+				},
 			},
 		],
 		format: "html",
 		itemId: "flashcard-1",
+		location: { kind: "cards", returned: [1], total: 1 },
 		path: "/Geography",
+		progress: {
+			gotItCount: 1,
+			missedCount: 0,
+			reviewedCount: 1,
+			totalCards: 1,
+			unreviewedCount: 0,
+		},
 		status: "ready",
 		type: "flashcard",
 	};

@@ -12,10 +12,12 @@ export type WorkspaceItemViewState =
 			cardId: string;
 			cardNumber: number;
 			totalCards: number;
+			gotItCount: number;
+			missedCount: number;
+			setTotalCards: number;
 			mode: "all" | "missed";
 			shuffled: boolean;
 			side: "front" | "back";
-			reviewedCount: number;
 			rating?: "again" | "hard" | "good" | "easy";
 	  };
 
@@ -29,10 +31,12 @@ export type WorkspaceAiContextItemViewState =
 			cardId: string;
 			cardNumber: number;
 			totalCards: number;
+			gotItCount: number;
+			missedCount: number;
+			setTotalCards: number;
 			mode: "all" | "missed";
 			shuffled: boolean;
 			side: "front" | "back";
-			reviewedCount: number;
 			rating?: "again" | "hard" | "good" | "easy";
 	  };
 
@@ -49,11 +53,13 @@ export function isWorkspaceAiContextItemViewState(
 		isPositiveInteger(value.cardNumber) &&
 		isPositiveInteger(value.totalCards) &&
 		value.cardNumber <= value.totalCards &&
+		isNonNegativeInteger(value.gotItCount) &&
+		isNonNegativeInteger(value.missedCount) &&
+		isPositiveInteger(value.setTotalCards) &&
 		(value.mode === "all" || value.mode === "missed") &&
 		typeof value.shuffled === "boolean" &&
 		(value.side === "front" || value.side === "back") &&
-		isNonNegativeInteger(value.reviewedCount) &&
-		value.reviewedCount <= value.totalCards &&
+		value.gotItCount + value.missedCount <= value.setTotalCards &&
 		(value.rating === undefined ||
 			value.rating === "again" ||
 			value.rating === "hard" ||
@@ -84,10 +90,12 @@ export function getWorkspaceAiContextItemViewState(input: {
 		cardId: viewState.cardId,
 		cardNumber: viewState.cardNumber,
 		totalCards: viewState.totalCards,
+		gotItCount: viewState.gotItCount,
+		missedCount: viewState.missedCount,
+		setTotalCards: viewState.setTotalCards,
 		mode: viewState.mode,
 		shuffled: viewState.shuffled,
 		side: viewState.side,
-		reviewedCount: viewState.reviewedCount,
 		...(viewState.rating ? { rating: viewState.rating } : {}),
 	};
 }
@@ -104,10 +112,15 @@ export function normalizeWorkspaceItemViewState(
 	}
 
 	const totalCards = finiteInteger(viewState.totalCards, 1);
+	const setTotalCards = finiteInteger(viewState.setTotalCards, 1);
+	const gotItCount = Math.min(setTotalCards, finiteInteger(viewState.gotItCount, 0));
+	const missedCount = Math.min(setTotalCards - gotItCount, finiteInteger(viewState.missedCount, 0));
 	return {
 		...viewState,
 		cardNumber: Math.min(totalCards, finiteInteger(viewState.cardNumber, 1)),
-		reviewedCount: Math.min(totalCards, finiteInteger(viewState.reviewedCount, 0)),
+		gotItCount,
+		missedCount,
+		setTotalCards,
 		totalCards,
 	};
 }
@@ -133,10 +146,12 @@ export function isSameWorkspaceItemViewState(
 			left.cardId === right.cardId &&
 			left.cardNumber === right.cardNumber &&
 			left.totalCards === right.totalCards &&
+			left.gotItCount === right.gotItCount &&
+			left.missedCount === right.missedCount &&
+			left.setTotalCards === right.setTotalCards &&
 			left.mode === right.mode &&
 			left.shuffled === right.shuffled &&
 			left.side === right.side &&
-			left.reviewedCount === right.reviewedCount &&
 			left.rating === right.rating
 		);
 	}
@@ -175,7 +190,8 @@ export function formatWorkspaceAiContextItemViewStateDetail(
 	const side = viewState.side === "back" ? "back shown" : "front shown";
 	const rating = viewState.rating ? `, marked ${formatFlashcardRating(viewState.rating)}` : "";
 	const session = `${viewState.mode === "missed" ? "missed cards" : "all cards"}, ${viewState.shuffled ? "shuffled" : "original order"}`;
-	return `card ${viewState.cardNumber} of ${viewState.totalCards} (cardId ${viewState.cardId}), ${side}, ${viewState.reviewedCount} reviewed, session: ${session}${rating}`;
+	const reviewedCount = viewState.gotItCount + viewState.missedCount;
+	return `card ${viewState.cardNumber} of ${viewState.totalCards} in the current session (cardId ${viewState.cardId}), ${side}, set progress: ${reviewedCount} of ${viewState.setTotalCards} reviewed (${viewState.gotItCount} got it, ${viewState.missedCount} missed), session: ${session}${rating}`;
 }
 
 function formatFlashcardRating(rating: "again" | "hard" | "good" | "easy") {

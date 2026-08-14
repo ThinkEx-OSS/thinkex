@@ -1,6 +1,10 @@
 import { z } from "zod";
 
 import { workspaceRelationKindSchema } from "#/features/workspaces/contracts";
+import {
+	flashcardReviewSchema,
+	flashcardStudyProgressSchema,
+} from "#/features/workspaces/flashcards/flashcard-study-state";
 import { workspaceReferenceRecordSchema } from "#/features/workspaces/locations/workspace-location";
 import { workspaceFileAssetKindSchema } from "#/features/workspaces/model/workspace-file";
 
@@ -24,14 +28,17 @@ const readWorkspaceItemsFailureCodes = [
 	"unsupported_item_type",
 ] as const;
 
-const workspacePageRangeSchema = z
+const workspaceNumberRangeSchema = z
 	.string()
 	.trim()
 	.min(1)
-	.regex(/^\d+(?:\s*-\s*\d+)?(?:\s*,\s*\d+(?:\s*-\s*\d+)?)*$/)
-	.describe(
-		"Up to 20 physical pages from an extracted file, like 1, 3, 5-7, or 1,4-6. Defaults to page 1.",
-	);
+	.regex(/^\d+(?:\s*-\s*\d+)?(?:\s*,\s*\d+(?:\s*-\s*\d+)?)*$/);
+const workspacePageRangeSchema = workspaceNumberRangeSchema.describe(
+	"Up to 20 physical pages from an extracted file, like 1, 3, 5-7, or 1,4-6. Defaults to page 1.",
+);
+const workspaceCardRangeSchema = workspaceNumberRangeSchema.describe(
+	"Up to 20 card numbers from a flashcard set, like 1, 3, 5-7, or 1,4-6.",
+);
 
 const workspaceContentReadRequestBase = {
 	path: workspacePathSchema.describe("Absolute path of the workspace item to read."),
@@ -46,6 +53,11 @@ const workspaceContentReadRequestSchema = z.union([
 		...workspaceContentReadRequestBase,
 		mode: z.literal("pages"),
 		range: workspacePageRangeSchema,
+	}),
+	z.strictObject({
+		...workspaceContentReadRequestBase,
+		mode: z.literal("cards"),
+		range: workspaceCardRangeSchema,
 	}),
 	z.strictObject({
 		...workspaceContentReadRequestBase,
@@ -107,11 +119,19 @@ const workspaceContentReadResultSchema = z.union([
 				cardId: z.uuid(),
 				front: z.string(),
 				back: z.string(),
+				study: flashcardReviewSchema.optional(),
 			}),
 		),
 		format: z.literal("html"),
 		itemId: z.string().min(1),
+		location: z.object({
+			kind: z.literal("cards"),
+			returned: z.array(z.number().int().positive()).min(1),
+			total: z.number().int().positive(),
+		}),
+		nextCursor: z.string().optional(),
 		path: workspacePathSchema,
+		progress: flashcardStudyProgressSchema,
 		relations: workspaceReadRelationsSchema.optional(),
 		status: z.literal("ready"),
 		type: z.literal("flashcard"),

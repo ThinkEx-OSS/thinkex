@@ -25,17 +25,26 @@ import {
 	resolveWorkspacePaths,
 } from "#/features/workspaces/persistence/workspace-items";
 import { readWorkspaceFileExtraction } from "#/features/workspaces/persistence/workspace-files";
-import { WorkspacePageSelectionError } from "#/features/workspaces/read-page-selection";
+import {
+	parseWorkspacePageRange,
+	WorkspacePageSelectionError,
+} from "#/features/workspaces/read-page-selection";
 import {
 	decodeWorkspaceContentCursor,
 	encodeWorkspaceContentCursor,
 } from "#/features/workspaces/content/workspace-content-cursor";
 import {
 	serializeFlashcardSetToHtml,
-	type FlashcardSetContent,
+	type Flashcard,
 } from "#/features/workspaces/flashcards/flashcard-content";
+import {
+	summarizeFlashcardStudyProgress,
+	type FlashcardStudyState,
+} from "#/features/workspaces/flashcards/flashcard-study-state";
+import { sha256Base64UrlText } from "#/lib/binary";
 
 const maxWorkspaceContentBatchBytes = 2 * 1024 * 1024 + 64 * 1024;
+const targetFlashcardChunkCharacters = 48_000;
 
 interface DocumentContentReader {
 	readHtmlChunk(input: DocumentHtmlChunkReadInput): Promise<DocumentHtmlChunkReadResult>;
@@ -43,6 +52,12 @@ interface DocumentContentReader {
 		editRef: string;
 	}): Promise<(DocumentAiBlockSnapshot & { status: "ready" }) | { status: "edit_ref_not_found" }>;
 }
+
+type FlashcardItemReader = (
+	itemId: string,
+) =>
+	| { cards: Flashcard[]; studyState: FlashcardStudyState }
+	| Promise<{ cards: Flashcard[]; studyState: FlashcardStudyState }>;
 
 interface PendingReadyResult {
 	item: WorkspaceItem;
@@ -53,7 +68,7 @@ interface PendingReadyResult {
 export async function readWorkspaceContent(input: {
 	bucket: R2Bucket;
 	getDocumentSession: (itemId: string) => DocumentContentReader | Promise<DocumentContentReader>;
-	readFlashcardSet: (itemId: string) => FlashcardSetContent | Promise<FlashcardSetContent>;
+	readFlashcardItem: FlashcardItemReader;
 	requests: WorkspaceContentReadRequest[];
 	workspaceId: string;
 }): Promise<WorkspaceContentReadResult[]> {
@@ -158,7 +173,7 @@ export async function readWorkspaceContent(input: {
 async function readWorkspaceItem(input: {
 	bucket: R2Bucket;
 	getDocumentSession: (itemId: string) => DocumentContentReader | Promise<DocumentContentReader>;
-	readFlashcardSet: (itemId: string) => FlashcardSetContent | Promise<FlashcardSetContent>;
+	readFlashcardItem: FlashcardItemReader;
 	item: WorkspaceItem;
 	path: string;
 	request: WorkspaceContentReadRequest;
@@ -186,27 +201,102 @@ async function readWorkspaceItem(input: {
 async function readFlashcards(input: {
 	item: WorkspaceItem;
 	path: string;
-	readFlashcardSet: (itemId: string) => FlashcardSetContent | Promise<FlashcardSetContent>;
+	readFlashcardItem: FlashcardItemReader;
 	request: WorkspaceContentReadRequest;
 	workspaceId: string;
 }): Promise<WorkspaceContentReadResult> {
-	if (input.item.type !== "flashcard" || input.request.mode !== "start") {
+	if (
+		input.item.type !== "flashcard" ||
+		(input.request.mode !== "start" &&
+			input.request.mode !== "continue" &&
+			input.request.mode !== "cards")
+	) {
 		return { code: "invalid_selection", path: input.path, status: "failed" };
 	}
 
-	const content = await input.readFlashcardSet(input.item.id);
+	const { cards, studyState } = await input.readFlashcardItem(input.item.id);
+	const serializedCards = serializeFlashcardSetToHtml({ cards, version: 1 });
+	let selectedCards: typeof serializedCards;
+	let returned: number[];
+	let nextCursor: string | undefined;
+
+	if (input.request.mode === "cards") {
+		try {
+			returned = parseWorkspacePageRange(input.request.range, cards.length);
+		} catch (error) {
+			if (error instanceof WorkspacePageSelectionError) {
+				return { code: "invalid_selection", path: input.path, status: "failed" };
+			}
+			throw error;
+		}
+		selectedCards = returned.map((cardNumber) => serializedCards[cardNumber - 1]!);
+	} else {
+		const encodedCursor = input.request.mode === "continue" ? input.request.cursor : undefined;
+		const cursor = encodedCursor ? decodeWorkspaceContentCursor(encodedCursor) : undefined;
+		if (encodedCursor && (!cursor || cursor.kind !== "flashcard" || cursor.path !== input.path)) {
+			return { code: "invalid_cursor", path: input.path, status: "failed" };
+		}
+
+		const revision = await sha256Base64UrlText(JSON.stringify(cards));
+		if (cursor?.kind === "flashcard" && cursor.revision !== revision) {
+			return { code: "content_changed", path: input.path, status: "failed" };
+		}
+
+		const offset = cursor?.kind === "flashcard" ? cursor.offset : 0;
+		const chunk = readFlashcardChunk(serializedCards, offset);
+		if (!chunk) return { code: "invalid_cursor", path: input.path, status: "failed" };
+		selectedCards = chunk.cards;
+		returned = Array.from({ length: chunk.endOffset - offset }, (_, index) => offset + index + 1);
+		if (chunk.endOffset < cards.length) {
+			nextCursor = encodeWorkspaceContentCursor({
+				kind: "flashcard",
+				offset: chunk.endOffset,
+				path: input.path,
+				revision,
+				version: 1,
+			});
+		}
+	}
+
 	return {
-		cards: serializeFlashcardSetToHtml(content).map((card) => ({
+		cards: selectedCards.map((card) => ({
 			cardId: card.id,
 			front: card.front,
 			back: card.back,
+			...(studyState.cards[card.id] ? { study: studyState.cards[card.id] } : {}),
 		})),
 		format: "html",
 		itemId: input.item.id,
+		location: {
+			kind: "cards",
+			returned,
+			total: cards.length,
+		},
+		...(nextCursor ? { nextCursor } : {}),
 		path: input.path,
+		progress: summarizeFlashcardStudyProgress(
+			cards.map((card) => card.id),
+			studyState,
+		),
 		status: "ready",
 		type: "flashcard",
 	};
+}
+
+function readFlashcardChunk(cards: ReturnType<typeof serializeFlashcardSetToHtml>, offset: number) {
+	if (offset < 0 || offset >= cards.length) return null;
+
+	let characters = 0;
+	let endOffset = offset;
+	while (endOffset < cards.length) {
+		const card = cards[endOffset]!;
+		const cardCharacters = card.front.length + card.back.length;
+		if (endOffset > offset && characters + cardCharacters > targetFlashcardChunkCharacters) break;
+		characters += cardCharacters;
+		endOffset += 1;
+	}
+
+	return { cards: cards.slice(offset, endOffset), endOffset };
 }
 
 /**
@@ -248,7 +338,7 @@ async function readDocument(input: {
 	request: WorkspaceContentReadRequest;
 	workspaceId: string;
 }): Promise<WorkspaceContentReadResult> {
-	if (input.request.mode === "pages") {
+	if (input.request.mode !== "start" && input.request.mode !== "continue") {
 		return { code: "invalid_selection", path: input.path, status: "failed" };
 	}
 
@@ -299,6 +389,13 @@ async function readFile(input: {
 	request: WorkspaceContentReadRequest;
 	workspaceId: string;
 }): Promise<WorkspaceContentReadResult> {
+	if (
+		input.request.mode !== "start" &&
+		input.request.mode !== "continue" &&
+		input.request.mode !== "pages"
+	) {
+		return { code: "invalid_selection", path: input.path, status: "failed" };
+	}
 	const fileType = resolveWorkspaceFileTypeFromItem(input.item);
 	if (!fileType) {
 		return { code: "unsupported_item_type", path: input.path, status: "failed" };

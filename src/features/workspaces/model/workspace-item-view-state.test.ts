@@ -11,11 +11,13 @@ describe("normalizeWorkspaceItemViewState", () => {
 				cardId: "card-1",
 				cardNumber: Number.NaN,
 				totalCards: Number.POSITIVE_INFINITY,
+				gotItCount: Number.POSITIVE_INFINITY,
+				missedCount: Number.NEGATIVE_INFINITY,
+				setTotalCards: Number.POSITIVE_INFINITY,
 				mode: "all",
 				shuffled: false,
 				side: "front",
-				reviewedCount: Number.NEGATIVE_INFINITY,
 			}),
-		).toMatchObject({ cardNumber: 1, reviewedCount: 0, totalCards: 1 });
+		).toMatchObject({ cardNumber: 1, gotItCount: 0, missedCount: 0, totalCards: 1 });
 	});
 });

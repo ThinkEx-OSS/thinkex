@@ -144,7 +144,7 @@ export const workspaceToolDefinitions = [
 		name: "workspace_read_items",
 		access: "read",
 		description:
-			"Read ThinkEx documents, flashcard sets, and extracted files by absolute path. Document chunks give each top-level block an editRef. Flashcard reads return every card with its stable cardId and HTML front and back. Widgets come back as an empty placeholder, so read one with mode block to get its full content and current editRef before editing it. Files support physical-page selections. Continue documents or files with nextCursor.",
+			"Read ThinkEx documents, flashcard sets, and extracted files by absolute path. Document chunks give each top-level block an editRef. Flashcard reads return cards with stable cardIds, HTML fronts and backs, and the current user's study progress; again means missed, while hard, good, and easy mean got it. Use mode cards with a card-number range for targeted flashcard reads. Continue long documents, flashcard sets, or files with nextCursor. Widgets come back as an empty placeholder, so read one with mode block to get its full content and current editRef before editing it. Files also support physical-page selections.",
 		inputSchema: workspaceReadItemsInputSchema,
 		inputExamples: workspaceReadItemsInputExamples,
 		outputSchema: workspaceReadItemsOutputSchema,

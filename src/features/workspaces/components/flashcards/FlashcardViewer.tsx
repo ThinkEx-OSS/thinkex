@@ -16,9 +16,10 @@ import {
 	useRecordFlashcardStudyRating,
 	useResetFlashcardStudyProgress,
 } from "#/features/workspaces/flashcards/flashcard-queries";
-import type {
-	FlashcardStudyRating,
-	FlashcardStudyState,
+import {
+	summarizeFlashcardStudyProgress,
+	type FlashcardStudyRating,
+	type FlashcardStudyState,
 } from "#/features/workspaces/flashcards/flashcard-study-state";
 import {
 	createFlashcardStudyQueue,
@@ -109,11 +110,14 @@ function FlashcardStudySession({
 	const missedInSessionCount = studyCards.filter(
 		(card) => studyState.cards[card.id]?.lastRating === "again",
 	).length;
-	const reviewedCount = gotItCount + missedInSessionCount;
-	const missedCount = cards.filter(
-		(card) => studyState.cards[card.id]?.lastRating === "again",
-	).length;
-	const ratedCount = cards.filter((card) => studyState.cards[card.id] !== undefined).length;
+	const studyProgress = useMemo(
+		() =>
+			summarizeFlashcardStudyProgress(
+				cards.map((card) => card.id),
+				studyState,
+			),
+		[cards, studyState],
+	);
 	const currentRating = currentCard ? studyState.cards[currentCard.id]?.lastRating : undefined;
 	const clearItemViewState = useWorkspaceUiStore((state) => state.clearItemViewState);
 	const setItemViewState = useWorkspaceUiStore((state) => state.setItemViewState);
@@ -160,9 +164,9 @@ function FlashcardStudySession({
 		resetProgress();
 	}, [resetProgress, startSession]);
 	useFlashcardItemToolbar({
-		canReset: ratedCount > 0,
+		canReset: studyProgress.reviewedCount > 0,
 		isResetting,
-		missedCount,
+		missedCount: studyProgress.missedCount,
 		mode,
 		onModeChange: changeMode,
 		onReset: resetStudyProgress,
@@ -178,10 +182,12 @@ function FlashcardStudySession({
 			cardId: currentCard.id,
 			cardNumber: currentIndex + 1,
 			totalCards: studyCards.length,
+			gotItCount: studyProgress.gotItCount,
+			missedCount: studyProgress.missedCount,
+			setTotalCards: studyProgress.totalCards,
 			mode,
 			shuffled,
 			side: flipped ? "back" : "front",
-			reviewedCount,
 			...(currentRating ? { rating: currentRating } : {}),
 		});
 	}, [
@@ -192,9 +198,9 @@ function FlashcardStudySession({
 		item.id,
 		item.workspaceId,
 		mode,
-		reviewedCount,
 		setItemViewState,
 		shuffled,
+		studyProgress,
 		studyCards.length,
 	]);
 	useEffect(
