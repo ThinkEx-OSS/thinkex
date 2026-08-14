@@ -560,13 +560,14 @@ function WorkspacePdfItemViewStateReporter({
 	} = useScroll(documentId);
 	const clearItemViewState = useWorkspaceUiStore((state) => state.clearItemViewState);
 	const setItemViewState = useWorkspaceUiStore((state) => state.setItemViewState);
+	const pageNumber = Math.max(1, currentPage);
 
 	useEffect(() => {
 		setItemViewState(workspaceId, viewInstanceId, {
 			itemId,
-			label: `p. ${currentPage}`,
+			label: `p. ${pageNumber}`,
 		});
-	}, [currentPage, itemId, setItemViewState, viewInstanceId, workspaceId]);
+	}, [itemId, pageNumber, setItemViewState, viewInstanceId, workspaceId]);
 
 	useEffect(() => {
 		return () => {

@@ -74,4 +74,14 @@ describe("flashcard study state", () => {
 			unreviewedCount: 1,
 		});
 	});
+
+	it("allows an empty study queue", () => {
+		expect(summarizeFlashcardStudyProgress([], createEmptyFlashcardStudyState())).toEqual({
+			gotItCount: 0,
+			missedCount: 0,
+			reviewedCount: 0,
+			totalCards: 0,
+			unreviewedCount: 0,
+		});
+	});
 });

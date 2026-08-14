@@ -11,6 +11,7 @@ import {
 	workspaceDropdownMenuRenderer,
 } from "#/features/workspaces/components/WorkspaceMenuRenderers";
 import { WorkspaceToolbarTextButton } from "#/features/workspaces/components/WorkspaceToolbar";
+import type { WorkspaceCreateItemRequest } from "#/features/workspaces/components/workspace-presentation-model";
 import {
 	applyWorkspaceMenuReadOnly,
 	renderWorkspaceMenuActions,
@@ -21,12 +22,11 @@ import {
 	WorkspaceViewerMenuNotice,
 	WorkspaceViewerRoleBadge,
 } from "#/features/workspaces/components/workspace-viewer-ui";
-import type { WorkspaceItemType } from "#/features/workspaces/contracts";
 import { workspaceCreateMenuActionGroups } from "#/features/workspaces/model/item-display";
 
 interface WorkspaceCreateMenuProps {
 	parentId: string | null;
-	onCreateItem: (input: { type: WorkspaceItemType; parentId: string | null }) => void;
+	onCreateItem: (input: WorkspaceCreateItemRequest) => void;
 }
 
 export default function WorkspaceCreateMenu({ parentId, onCreateItem }: WorkspaceCreateMenuProps) {

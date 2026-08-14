@@ -31,9 +31,14 @@ export const workspaceLocationSchema = z.discriminatedUnion("kind", [
 	}),
 	z.strictObject({
 		itemId: workspaceLocationItemIdSchema,
-		kind: z.literal("flashcard-side"),
+		kind: z.literal("document-block"),
+		blockId: z.string().regex(/^b_[A-Za-z0-9_-]{12}$/),
+		version: z.literal(1),
+	}),
+	z.strictObject({
+		itemId: workspaceLocationItemIdSchema,
+		kind: z.literal("flashcard"),
 		cardId: z.uuid(),
-		side: z.enum(["front", "back"]),
 		version: z.literal(1),
 	}),
 ]);
@@ -42,10 +47,8 @@ export const workspaceLocationSchema = z.discriminatedUnion("kind", [
 export type WorkspaceLocation = Readonly<z.output<typeof workspaceLocationSchema>>;
 
 /** Schema for the exact short reference the model is allowed to copy. */
-export const workspaceReferenceSchema = z
-	.string()
-	.regex(/^wr_[0-9A-Za-z]{8}$/)
-	.brand<"WorkspaceReference">();
+export const workspaceReferenceInputSchema = z.string().regex(/^wr_[0-9A-Za-z]{8}$/);
+export const workspaceReferenceSchema = workspaceReferenceInputSchema.brand<"WorkspaceReference">();
 
 /** Short model-facing alias for a durable workspace location. */
 export type WorkspaceReference = z.output<typeof workspaceReferenceSchema>;
@@ -54,6 +57,10 @@ export type WorkspaceReference = z.output<typeof workspaceReferenceSchema>;
 export const workspaceReferenceRecordSchema = z.strictObject({
 	location: workspaceLocationSchema,
 	ref: workspaceReferenceSchema,
+	revision: z
+		.string()
+		.regex(/^[A-Za-z0-9_-]{10}$/)
+		.optional(),
 });
 
 /** Durable record retained behind a short workspace reference. */
@@ -71,8 +78,10 @@ export function getWorkspaceLocationKey(location: WorkspaceLocation) {
 			return `1:item:${location.itemId}`;
 		case "pdf-page":
 			return `1:pdf-page:${location.itemId}:${location.pageNumber}`;
-		case "flashcard-side":
-			return `1:flashcard-side:${location.itemId}:${location.cardId}:${location.side}`;
+		case "document-block":
+			return `1:document-block:${location.itemId}:${location.blockId}`;
+		case "flashcard":
+			return `1:flashcard:${location.itemId}:${location.cardId}`;
 	}
 }
 
@@ -88,6 +97,26 @@ export function parseWorkspaceReference(input: unknown) {
 	return parsed.success ? parsed.data : undefined;
 }
 
+/** Index app-issued refs while making collisions unusable. */
+export function indexWorkspaceReferenceRecords(
+	records: readonly WorkspaceReferenceRecord[],
+): ReadonlyMap<WorkspaceReference, WorkspaceReferenceRecord | null> {
+	const index = new Map<WorkspaceReference, WorkspaceReferenceRecord | null>();
+	for (const record of records) {
+		const existing = index.get(record.ref);
+		if (existing === undefined) {
+			index.set(record.ref, record);
+		} else if (
+			existing &&
+			(getWorkspaceLocationKey(existing.location) !== getWorkspaceLocationKey(record.location) ||
+				existing.revision !== record.revision)
+		) {
+			index.set(record.ref, null);
+		}
+	}
+	return index;
+}
+
 /**
  * Creates deduplicated, collision-checked refs for durable locations.
  *
@@ -99,7 +128,7 @@ export function parseWorkspaceReference(input: unknown) {
  * @returns One reference record per distinct location.
  */
 export function createWorkspaceReferenceRecords(
-	locations: readonly WorkspaceLocation[],
+	targets: readonly (WorkspaceLocation | { location: WorkspaceLocation; revision: string })[],
 	options: { readonly createCandidate?: () => string } = {},
 ): WorkspaceReferenceRecord[] {
 	const createCandidate =
@@ -108,7 +137,9 @@ export function createWorkspaceReferenceRecords(
 	const refs = new Set<WorkspaceReference>();
 	const records: WorkspaceReferenceRecord[] = [];
 
-	for (const location of locations) {
+	for (const target of targets) {
+		const { location, revision } =
+			"location" in target ? target : { location: target, revision: undefined };
 		const locationKey = getWorkspaceLocationKey(location);
 		if (locationKeys.has(locationKey)) {
 			continue;
@@ -134,7 +165,7 @@ export function createWorkspaceReferenceRecords(
 
 		locationKeys.add(locationKey);
 		refs.add(allocatedRef);
-		records.push({ location, ref: allocatedRef });
+		records.push({ location, ref: allocatedRef, ...(revision ? { revision } : {}) });
 	}
 
 	return records;

@@ -66,47 +66,41 @@ export function scoreNoForbiddenTools(
 
 /**
  * For a read→edit turn: the model must submit a *targeted* edit (replace / insert /
- * delete) whose `editRef` came from a completed earlier read, not a fabricated
- * target or a whole-document `overwrite`.
+ * delete) whose `ref` came from a completed earlier read, not a fabricated target.
  */
 export function scoreTargetedEditProvenance(output: WorkspaceAgentOutput): ScoreResult {
 	let targeted = 0;
 	const fabricated: string[] = [];
-	let usedOverwrite = false;
-
 	for (const call of output.toolCalls) {
 		if (call.name !== "workspace_edit_item") continue;
 		const input = call.input as {
-			edits?: Array<{ editRef?: string; op?: string }>;
+			edits?: Array<{ ref?: string; op?: string }>;
 			path?: string;
 		};
 		if (!Array.isArray(input.edits)) continue;
 
-		const priorReadEditRefs = new Set(
-			typeof input.path === "string" && Object.hasOwn(call.priorReadEditRefsByPath, input.path)
-				? call.priorReadEditRefsByPath[input.path]
+		const priorReadRefs = new Set(
+			typeof input.path === "string" && Object.hasOwn(call.priorReadRefsByPath, input.path)
+				? call.priorReadRefsByPath[input.path]
 				: [],
 		);
 		for (const edit of input.edits) {
-			if (edit.op === "overwrite") {
-				usedOverwrite = true;
-			} else if (typeof edit.editRef === "string" && priorReadEditRefs.has(edit.editRef)) {
+			if (typeof edit.ref === "string" && priorReadRefs.has(edit.ref)) {
 				targeted += 1;
 			} else {
-				fabricated.push(edit.editRef ?? "<none>");
+				fabricated.push(edit.ref ?? "<none>");
 			}
 		}
 	}
-	const pass = targeted > 0 && fabricated.length === 0 && !usedOverwrite;
+	const pass = targeted > 0 && fabricated.length === 0;
 
 	const reasons: string[] = [];
-	if (targeted === 0) reasons.push("no targeted edit used an editRef from the read");
-	if (fabricated.length > 0) reasons.push(`fabricated editRef(s): ${fabricated.join(", ")}`);
-	if (usedOverwrite) reasons.push("used overwrite instead of a targeted edit");
+	if (targeted === 0) reasons.push("no targeted edit used a ref from the read");
+	if (fabricated.length > 0) reasons.push(`fabricated ref(s): ${fabricated.join(", ")}`);
 	return {
 		score: pass ? 1 : 0,
 		pass,
-		message: pass ? "targeted edit used an editRef from a prior read" : reasons.join("; "),
+		message: pass ? "targeted edit used a ref from a prior read" : reasons.join("; "),
 	};
 }
 

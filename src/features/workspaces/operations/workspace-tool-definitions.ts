@@ -144,7 +144,7 @@ export const workspaceToolDefinitions = [
 		name: "workspace_read_items",
 		access: "read",
 		description:
-			"Read ThinkEx documents, flashcard sets, and extracted files by absolute path. Document chunks give each top-level block an editRef. Flashcard reads return cards with stable cardIds, HTML fronts and backs, and the current user's study progress; again means missed, while hard, good, and easy mean got it. Use mode cards with a card-number range for targeted flashcard reads. Continue long documents, flashcard sets, or files with nextCursor. Widgets come back as an empty placeholder, so read one with mode block to get its full content and current editRef before editing it. Files also support physical-page selections.",
+			"Read ThinkEx documents, flashcard sets, and extracted files by absolute path. Document chunks and flashcards include short, freshness-checked refs. Flashcard reads also return HTML fronts and backs plus the current user's study progress; again means missed, while hard, good, and easy mean got it. Use mode cards with a card-number range for targeted flashcard reads. Continue long documents, flashcard sets, or files with nextCursor. Use mode ref to read the exact content identified by an earlier ref; this returns elided widget source in full before editing. Files also support physical-page selections.",
 		inputSchema: workspaceReadItemsInputSchema,
 		inputExamples: workspaceReadItemsInputExamples,
 		outputSchema: workspaceReadItemsOutputSchema,
@@ -192,7 +192,7 @@ export const workspaceToolDefinitions = [
 		name: "workspace_create_items",
 		access: "write",
 		description:
-			"Create folders, documents, or flashcard sets at exact absolute paths. Set type and follow that branch's recipe. If a path already exists, creation fails instead of renaming.",
+			"Create folders, documents, or flashcard sets at exact absolute paths. Set type and provide that branch's fields. If a path already exists, creation fails instead of renaming.",
 		inputSchema: workspaceCreateItemsInputSchema,
 		inputExamples: workspaceCreateItemsInputExamples,
 		outputSchema: workspaceCreateItemsOutputSchema,
@@ -223,7 +223,7 @@ export const workspaceToolDefinitions = [
 		name: "workspace_edit_item",
 		access: "write",
 		description:
-			"Edit one document or flashcard set by absolute path. Set type to match the item and follow only that branch's recipe. Read the item first. Flashcard edits apply immediately; document edits retain their review flow. Use workspace_link_items for item-level relationships.",
+			"Edit one document or flashcard set by absolute path. Read it first, then copy the exact refs it returned. The same refs also work for citations and navigation. Flashcard edits apply immediately; document edits retain their review flow. Use workspace_link_items for item-level relationships.",
 		inputSchema: workspaceEditItemInputSchema,
 		inputExamples: workspaceEditItemInputExamples,
 		outputSchema: workspaceEditItemOutputSchema,

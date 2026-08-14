@@ -9,7 +9,7 @@ export interface WorkspaceToolCase {
 	forbiddenTools?: string[];
 	/** When set, the final answer is graded by the LLM judge against this rubric. */
 	qualityRubric?: string;
-	/** When true, the turn must produce a targeted edit whose editRef traces to the read fixture. */
+	/** When true, the turn must produce a targeted edit whose ref traces to the read fixture. */
 	requiresTargetedEditFromRead?: boolean;
 }
 

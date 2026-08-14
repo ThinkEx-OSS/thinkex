@@ -102,7 +102,7 @@ exports[`workspace tool surface > workspace_create_items input schema is stable 
           },
           {
             "additionalProperties": false,
-            "description": "Document creation recipe.",
+            "description": "Document to create.",
             "properties": {
               "initialContent": {
                 "description": "Optional initial HTML content. Use semantic HTML with paragraphs, h1-h4, blockquotes, lists, code blocks, horizontal rules, tables, links, and standard text marks. This is HTML, so math is markup rather than delimiters: use <span data-type="inline-math" data-latex="..."></span> or <div data-type="block-math" data-latex="..."></div>, and keep dollar signs out of the data-latex value. Put every subscript and superscript (exponents like 10^8, indices like x_1) inside math rather than <sub>/<sup> tags. Chemistry renders with \\ce{...} (e.g. \\ce{CH4 + 2 O2 -> CO2 + 2 H2O}) and quantities with units render with \\pu{...} (e.g. \\pu{9.81 m/s^2}), both inside data-latex. Write literal money as plain text ($30, never \\$30) — a backslash before a dollar sign shows on screen in HTML. For checkboxes, use <ul data-type="taskList"><li data-type="taskItem" data-checked="false"><label><input type="checkbox"><span></span></label><div><p>Item</p></div></li></ul>. Documents cannot hold images: never use <img> or <figure>, and describe the visual in words instead. Cite workspace sources in documents exactly as in a chat reply, with <citation ref="wr_7Kp2Qa9x"></citation> placed after the claim it supports. A widget is one interactive block inside a document. Use one when the user explicitly asks for a widget, asks for interaction or live computation, or wants a document visual that ordinary blocks cannot express. Keep ordinary content in ordinary blocks. Before authoring or editing widget source, activate the "widget-authoring" skill and follow its HTML, sandbox, layout, and editing contract. Serialize the result as <div data-type="widget" title="Short title">…HTML-escaped fragment…</div>.",
@@ -160,7 +160,7 @@ exports[`workspace tool surface > workspace_create_items input schema is stable 
           },
           {
             "additionalProperties": false,
-            "description": "Flashcard creation recipe.",
+            "description": "Flashcard set to create.",
             "properties": {
               "cards": {
                 "description": "Ordered cards. Flashcard fronts and backs are HTML. Keep each side concise. Use paragraphs, lists, links, code blocks, and standard text marks only. This is HTML, so math is markup rather than delimiters: use <span data-type="inline-math" data-latex="..."></span> or <div data-type="block-math" data-latex="..."></div>, and keep dollar signs out of the data-latex value. Put every subscript and superscript (exponents like 10^8, indices like x_1) inside math rather than <sub>/<sup> tags. Chemistry renders with \\ce{...} (e.g. \\ce{CH4 + 2 O2 -> CO2 + 2 H2O}) and quantities with units render with \\pu{...} (e.g. \\pu{9.81 m/s^2}), both inside data-latex. Write literal money as plain text ($30, never \\$30) — a backslash before a dollar sign shows on screen in HTML. Do not use headings, tables, images, widgets, task lists, or citations inside a card. Use item-level relations for sources.",
@@ -283,23 +283,17 @@ exports[`workspace tool surface > workspace_edit_item input schema is stable 1`]
   "oneOf": [
     {
       "additionalProperties": false,
-      "description": "Document edit recipe.",
+      "description": "Document edits.",
       "properties": {
         "edits": {
-          "description": "Ordered document edits. Target blocks with exact editRefs from a read. Use overwrite only to replace the whole document. Use semantic HTML with paragraphs, h1-h4, blockquotes, lists, code blocks, horizontal rules, tables, links, and standard text marks. This is HTML, so math is markup rather than delimiters: use <span data-type="inline-math" data-latex="..."></span> or <div data-type="block-math" data-latex="..."></div>, and keep dollar signs out of the data-latex value. Put every subscript and superscript (exponents like 10^8, indices like x_1) inside math rather than <sub>/<sup> tags. Chemistry renders with \\ce{...} (e.g. \\ce{CH4 + 2 O2 -> CO2 + 2 H2O}) and quantities with units render with \\pu{...} (e.g. \\pu{9.81 m/s^2}), both inside data-latex. Write literal money as plain text ($30, never \\$30) — a backslash before a dollar sign shows on screen in HTML. For checkboxes, use <ul data-type="taskList"><li data-type="taskItem" data-checked="false"><label><input type="checkbox"><span></span></label><div><p>Item</p></div></li></ul>. Documents cannot hold images: never use <img> or <figure>, and describe the visual in words instead. Cite workspace sources in documents exactly as in a chat reply, with <citation ref="wr_7Kp2Qa9x"></citation> placed after the claim it supports. A widget is one interactive block inside a document. Use one when the user explicitly asks for a widget, asks for interaction or live computation, or wants a document visual that ordinary blocks cannot express. Keep ordinary content in ordinary blocks. Before authoring or editing widget source, activate the "widget-authoring" skill and follow its HTML, sandbox, layout, and editing contract. Serialize the result as <div data-type="widget" title="Short title">…HTML-escaped fragment…</div>.",
+          "description": "Ordered document edits using exact refs from a read. Available operations: insert_before, insert_after, update, replace, replace_text, move, and delete. update accepts exactly one top-level block; replace may replace one block with several. move requires exactly one of beforeRef or afterRef. Use semantic HTML with paragraphs, h1-h4, blockquotes, lists, code blocks, horizontal rules, tables, links, and standard text marks. This is HTML, so math is markup rather than delimiters: use <span data-type="inline-math" data-latex="..."></span> or <div data-type="block-math" data-latex="..."></div>, and keep dollar signs out of the data-latex value. Put every subscript and superscript (exponents like 10^8, indices like x_1) inside math rather than <sub>/<sup> tags. Chemistry renders with \\ce{...} (e.g. \\ce{CH4 + 2 O2 -> CO2 + 2 H2O}) and quantities with units render with \\pu{...} (e.g. \\pu{9.81 m/s^2}), both inside data-latex. Write literal money as plain text ($30, never \\$30) — a backslash before a dollar sign shows on screen in HTML. For checkboxes, use <ul data-type="taskList"><li data-type="taskItem" data-checked="false"><label><input type="checkbox"><span></span></label><div><p>Item</p></div></li></ul>. Documents cannot hold images: never use <img> or <figure>, and describe the visual in words instead. Cite workspace sources in documents exactly as in a chat reply, with <citation ref="wr_7Kp2Qa9x"></citation> placed after the claim it supports. A widget is one interactive block inside a document. Use one when the user explicitly asks for a widget, asks for interaction or live computation, or wants a document visual that ordinary blocks cannot express. Keep ordinary content in ordinary blocks. Before authoring or editing widget source, activate the "widget-authoring" skill and follow its HTML, sandbox, layout, and editing contract. Serialize the result as <div data-type="widget" title="Short title">…HTML-escaped fragment…</div>.",
           "items": {
             "anyOf": [
               {
                 "additionalProperties": false,
                 "properties": {
-                  "editRef": {
-                    "description": "Exact editRef from a recent document or block read.",
-                    "maxLength": 64,
-                    "minLength": 1,
-                    "type": "string",
-                  },
                   "html": {
-                    "description": "Schema-constrained HTML fragment. Model-supplied data-edit-ref attributes are ignored.",
+                    "description": "Schema-constrained HTML fragment. Model-supplied data-ref attributes are ignored.",
                     "maxLength": 512000,
                     "type": "string",
                   },
@@ -308,12 +302,18 @@ exports[`workspace tool surface > workspace_edit_item input schema is stable 1`]
                       "insert_after",
                       "insert_before",
                       "replace",
+                      "update",
                     ],
+                    "type": "string",
+                  },
+                  "ref": {
+                    "description": "Exact ref from a recent document or block read.",
+                    "pattern": "^wr_[0-9A-Za-z]{8}$",
                     "type": "string",
                   },
                 },
                 "required": [
-                  "editRef",
+                  "ref",
                   "html",
                   "op",
                 ],
@@ -322,19 +322,18 @@ exports[`workspace tool surface > workspace_edit_item input schema is stable 1`]
               {
                 "additionalProperties": false,
                 "properties": {
-                  "editRef": {
-                    "description": "Exact editRef from a recent document or block read.",
-                    "maxLength": 64,
-                    "minLength": 1,
-                    "type": "string",
-                  },
                   "op": {
                     "const": "delete",
                     "type": "string",
                   },
+                  "ref": {
+                    "description": "Exact ref from a recent document or block read.",
+                    "pattern": "^wr_[0-9A-Za-z]{8}$",
+                    "type": "string",
+                  },
                 },
                 "required": [
-                  "editRef",
+                  "ref",
                   "op",
                 ],
                 "type": "object",
@@ -342,31 +341,6 @@ exports[`workspace tool surface > workspace_edit_item input schema is stable 1`]
               {
                 "additionalProperties": false,
                 "properties": {
-                  "html": {
-                    "description": "Schema-constrained HTML fragment. Model-supplied data-edit-ref attributes are ignored.",
-                    "maxLength": 512000,
-                    "type": "string",
-                  },
-                  "op": {
-                    "const": "overwrite",
-                    "type": "string",
-                  },
-                },
-                "required": [
-                  "html",
-                  "op",
-                ],
-                "type": "object",
-              },
-              {
-                "additionalProperties": false,
-                "properties": {
-                  "editRef": {
-                    "description": "Exact editRef from a recent document or block read.",
-                    "maxLength": 64,
-                    "minLength": 1,
-                    "type": "string",
-                  },
                   "find": {
                     "description": "Exact text to replace inside the target block, copied from a read. It must appear exactly once in that block; if it matches more than once the edit fails instead of replacing every occurrence.",
                     "maxLength": 512000,
@@ -377,6 +351,11 @@ exports[`workspace tool surface > workspace_edit_item input schema is stable 1`]
                     "const": "replace_text",
                     "type": "string",
                   },
+                  "ref": {
+                    "description": "Exact ref from a recent document or block read.",
+                    "pattern": "^wr_[0-9A-Za-z]{8}$",
+                    "type": "string",
+                  },
                   "replace": {
                     "description": "Replacement text. May be empty to delete the matched text.",
                     "maxLength": 512000,
@@ -384,10 +363,39 @@ exports[`workspace tool surface > workspace_edit_item input schema is stable 1`]
                   },
                 },
                 "required": [
-                  "editRef",
+                  "ref",
                   "find",
                   "op",
                   "replace",
+                ],
+                "type": "object",
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "afterRef": {
+                    "description": "Exact ref from a recent document or block read.",
+                    "pattern": "^wr_[0-9A-Za-z]{8}$",
+                    "type": "string",
+                  },
+                  "beforeRef": {
+                    "description": "Exact ref from a recent document or block read.",
+                    "pattern": "^wr_[0-9A-Za-z]{8}$",
+                    "type": "string",
+                  },
+                  "op": {
+                    "const": "move",
+                    "type": "string",
+                  },
+                  "ref": {
+                    "description": "Exact ref from a recent document or block read.",
+                    "pattern": "^wr_[0-9A-Za-z]{8}$",
+                    "type": "string",
+                  },
+                },
+                "required": [
+                  "ref",
+                  "op",
                 ],
                 "type": "object",
               },
@@ -416,28 +424,18 @@ exports[`workspace tool surface > workspace_edit_item input schema is stable 1`]
     },
     {
       "additionalProperties": false,
-      "description": "Flashcard edit recipe.",
+      "description": "Flashcard edits.",
       "properties": {
         "edits": {
-          "description": "Ordered flashcard edits. Use stable card IDs from a read. Omit beforeCardId and afterCardId to place a card at the end. Flashcard fronts and backs are HTML. Keep each side concise. Use paragraphs, lists, links, code blocks, and standard text marks only. This is HTML, so math is markup rather than delimiters: use <span data-type="inline-math" data-latex="..."></span> or <div data-type="block-math" data-latex="..."></div>, and keep dollar signs out of the data-latex value. Put every subscript and superscript (exponents like 10^8, indices like x_1) inside math rather than <sub>/<sup> tags. Chemistry renders with \\ce{...} (e.g. \\ce{CH4 + 2 O2 -> CO2 + 2 H2O}) and quantities with units render with \\pu{...} (e.g. \\pu{9.81 m/s^2}), both inside data-latex. Write literal money as plain text ($30, never \\$30) — a backslash before a dollar sign shows on screen in HTML. Do not use headings, tables, images, widgets, task lists, or citations inside a card. Use item-level relations for sources.",
+          "description": "Ordered flashcard edits using exact refs from a read. Available operations: insert_before, insert_after, update, replace, replace_text, move, and delete. replace changes both sides; replace_text requires front or back as side; move requires exactly one of beforeRef or afterRef. Flashcard fronts and backs are HTML. Keep each side concise. Use paragraphs, lists, links, code blocks, and standard text marks only. This is HTML, so math is markup rather than delimiters: use <span data-type="inline-math" data-latex="..."></span> or <div data-type="block-math" data-latex="..."></div>, and keep dollar signs out of the data-latex value. Put every subscript and superscript (exponents like 10^8, indices like x_1) inside math rather than <sub>/<sup> tags. Chemistry renders with \\ce{...} (e.g. \\ce{CH4 + 2 O2 -> CO2 + 2 H2O}) and quantities with units render with \\pu{...} (e.g. \\pu{9.81 m/s^2}), both inside data-latex. Write literal money as plain text ($30, never \\$30) — a backslash before a dollar sign shows on screen in HTML. Do not use headings, tables, images, widgets, task lists, or citations inside a card. Use item-level relations for sources.",
           "items": {
             "anyOf": [
               {
                 "additionalProperties": false,
                 "properties": {
-                  "afterCardId": {
-                    "format": "uuid",
-                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                    "type": "string",
-                  },
                   "back": {
                     "maxLength": 8000,
                     "minLength": 1,
-                    "type": "string",
-                  },
-                  "beforeCardId": {
-                    "format": "uuid",
-                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
                     "type": "string",
                   },
                   "front": {
@@ -446,12 +444,20 @@ exports[`workspace tool surface > workspace_edit_item input schema is stable 1`]
                     "type": "string",
                   },
                   "op": {
-                    "const": "insert_card",
+                    "enum": [
+                      "insert_before",
+                      "insert_after",
+                    ],
+                    "type": "string",
+                  },
+                  "ref": {
+                    "pattern": "^wr_[0-9A-Za-z]{8}$",
                     "type": "string",
                   },
                 },
                 "required": [
                   "op",
+                  "ref",
                   "front",
                   "back",
                 ],
@@ -465,9 +471,32 @@ exports[`workspace tool surface > workspace_edit_item input schema is stable 1`]
                     "minLength": 1,
                     "type": "string",
                   },
-                  "cardId": {
-                    "format": "uuid",
-                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                  "front": {
+                    "maxLength": 8000,
+                    "minLength": 1,
+                    "type": "string",
+                  },
+                  "op": {
+                    "const": "update",
+                    "type": "string",
+                  },
+                  "ref": {
+                    "pattern": "^wr_[0-9A-Za-z]{8}$",
+                    "type": "string",
+                  },
+                },
+                "required": [
+                  "op",
+                  "ref",
+                ],
+                "type": "object",
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "back": {
+                    "maxLength": 8000,
+                    "minLength": 1,
                     "type": "string",
                   },
                   "front": {
@@ -476,61 +505,102 @@ exports[`workspace tool surface > workspace_edit_item input schema is stable 1`]
                     "type": "string",
                   },
                   "op": {
-                    "const": "update_card",
+                    "const": "replace",
+                    "type": "string",
+                  },
+                  "ref": {
+                    "pattern": "^wr_[0-9A-Za-z]{8}$",
                     "type": "string",
                   },
                 },
                 "required": [
                   "op",
-                  "cardId",
+                  "ref",
+                  "front",
+                  "back",
                 ],
                 "type": "object",
               },
               {
                 "additionalProperties": false,
                 "properties": {
-                  "afterCardId": {
-                    "format": "uuid",
-                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                    "type": "string",
-                  },
-                  "beforeCardId": {
-                    "format": "uuid",
-                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                    "type": "string",
-                  },
-                  "cardId": {
-                    "format": "uuid",
-                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                  "find": {
+                    "description": "Exact HTML text from the selected side. It must appear exactly once.",
+                    "maxLength": 8000,
+                    "minLength": 1,
                     "type": "string",
                   },
                   "op": {
-                    "const": "move_card",
+                    "const": "replace_text",
+                    "type": "string",
+                  },
+                  "ref": {
+                    "pattern": "^wr_[0-9A-Za-z]{8}$",
+                    "type": "string",
+                  },
+                  "replace": {
+                    "description": "Replacement text. May be empty.",
+                    "maxLength": 8000,
+                    "type": "string",
+                  },
+                  "side": {
+                    "enum": [
+                      "front",
+                      "back",
+                    ],
                     "type": "string",
                   },
                 },
                 "required": [
                   "op",
-                  "cardId",
+                  "ref",
+                  "side",
+                  "find",
+                  "replace",
                 ],
                 "type": "object",
               },
               {
                 "additionalProperties": false,
                 "properties": {
-                  "cardId": {
-                    "format": "uuid",
-                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                  "afterRef": {
+                    "pattern": "^wr_[0-9A-Za-z]{8}$",
+                    "type": "string",
+                  },
+                  "beforeRef": {
+                    "pattern": "^wr_[0-9A-Za-z]{8}$",
                     "type": "string",
                   },
                   "op": {
-                    "const": "delete_card",
+                    "const": "move",
+                    "type": "string",
+                  },
+                  "ref": {
+                    "pattern": "^wr_[0-9A-Za-z]{8}$",
                     "type": "string",
                   },
                 },
                 "required": [
                   "op",
-                  "cardId",
+                  "ref",
+                ],
+                "type": "object",
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "op": {
+                    "const": "delete",
+                    "type": "string",
+                  },
+                  "ref": {
+                    "pattern": "^wr_[0-9A-Za-z]{8}$",
+                    "type": "string",
+                  },
+                },
+                "required": [
+                  "op",
+                  "ref",
                 ],
                 "type": "object",
               },
@@ -777,14 +847,8 @@ exports[`workspace tool surface > workspace_read_items input schema is stable 1`
           {
             "additionalProperties": false,
             "properties": {
-              "editRef": {
-                "description": "editRef of one block from an earlier document read. The result returns the block in full with its current editRef.",
-                "maxLength": 64,
-                "minLength": 1,
-                "type": "string",
-              },
               "mode": {
-                "const": "block",
+                "const": "ref",
                 "type": "string",
               },
               "path": {
@@ -792,10 +856,15 @@ exports[`workspace tool surface > workspace_read_items input schema is stable 1`
                 "minLength": 1,
                 "type": "string",
               },
+              "ref": {
+                "description": "Ref from an earlier read. Returns the exact content it identifies with a current ref.",
+                "pattern": "^wr_[0-9A-Za-z]{8}$",
+                "type": "string",
+              },
             },
             "required": [
               "path",
-              "editRef",
+              "ref",
               "mode",
             ],
             "type": "object",

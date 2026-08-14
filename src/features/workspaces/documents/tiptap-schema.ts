@@ -89,7 +89,7 @@ export const Widget = Node.create({
 	},
 
 	renderHTML({ HTMLAttributes }) {
-		// Merge rather than replace: global attributes land here, and data-edit-ref is
+		// Merge rather than replace: global attributes land here, and data-ref is
 		// how the assistant addresses this block for reads and edits.
 		return ["div", mergeAttributes(HTMLAttributes, { "data-type": "widget" }), 0];
 	},
@@ -121,7 +121,7 @@ const DocumentAiRef = Extension.create({
 						parseHTML: () => null,
 						renderHTML: (attributes: Record<string, unknown>) => {
 							const ref = attributes[tiptapDocumentAiRefAttribute];
-							return typeof ref === "string" && ref ? { "data-edit-ref": ref } : {};
+							return typeof ref === "string" && ref ? { "data-ref": ref } : {};
 						},
 					},
 				},

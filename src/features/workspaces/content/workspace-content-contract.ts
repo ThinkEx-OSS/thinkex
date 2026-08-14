@@ -5,11 +5,13 @@ import {
 	flashcardReviewSchema,
 	flashcardStudyProgressSchema,
 } from "#/features/workspaces/flashcards/flashcard-study-state";
-import { workspaceReferenceRecordSchema } from "#/features/workspaces/locations/workspace-location";
+import {
+	workspaceReferenceInputSchema,
+	workspaceReferenceRecordSchema,
+} from "#/features/workspaces/locations/workspace-location";
 import { workspaceFileAssetKindSchema } from "#/features/workspaces/model/workspace-file";
 
 const workspacePathSchema = z.string().min(1);
-const workspaceEditRefSchema = z.string().trim().min(1).max(64);
 
 const readWorkspaceItemsFailureCodes = [
 	"content_changed",
@@ -24,7 +26,7 @@ const readWorkspaceItemsFailureCodes = [
 	"path_not_absolute",
 	"path_not_found",
 	"projection_failed",
-	"edit_ref_not_found",
+	"ref_not_found",
 	"unsupported_item_type",
 ] as const;
 
@@ -66,10 +68,10 @@ const workspaceContentReadRequestSchema = z.union([
 	}),
 	z.strictObject({
 		...workspaceContentReadRequestBase,
-		editRef: workspaceEditRefSchema.describe(
-			"editRef of one block from an earlier document read. The result returns the block in full with its current editRef.",
+		ref: workspaceReferenceInputSchema.describe(
+			"Ref from an earlier read. Returns the exact content it identifies with a current ref.",
 		),
-		mode: z.literal("block"),
+		mode: z.literal("ref"),
 	}),
 ]);
 
@@ -117,6 +119,7 @@ const workspaceContentReadResultSchema = z.union([
 		cards: z.array(
 			z.object({
 				cardId: z.uuid(),
+				revision: z.string().regex(/^[A-Za-z0-9_-]{10}$/),
 				front: z.string(),
 				back: z.string(),
 				study: flashcardReviewSchema.optional(),
@@ -181,7 +184,7 @@ const workspaceContentReadResultSchema = z.union([
 	}),
 	z.object({
 		content: z.string(),
-		editRef: workspaceEditRefSchema,
+		contentRef: z.string().min(1).max(64),
 		format: z.literal("html"),
 		itemId: z.string().min(1),
 		path: workspacePathSchema,

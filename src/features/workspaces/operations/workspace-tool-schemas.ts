@@ -134,10 +134,10 @@ export const workspaceEditItemInputSchema = z.discriminatedUnion("type", [
 				.min(1)
 				.max(40)
 				.describe(
-					`Ordered document edits. Target blocks with exact editRefs from a read. Use overwrite only to replace the whole document. ${workspaceDocumentHtmlInstruction}`,
+					`Ordered document edits using exact refs from a read. Available operations: insert_before, insert_after, update, replace, replace_text, move, and delete. update accepts exactly one top-level block; replace may replace one block with several. move requires exactly one of beforeRef or afterRef. ${workspaceDocumentHtmlInstruction}`,
 				),
 		})
-		.describe("Document edit recipe."),
+		.describe("Document edits."),
 	z
 		.object({
 			type: z.literal("flashcard"),
@@ -150,10 +150,10 @@ export const workspaceEditItemInputSchema = z.discriminatedUnion("type", [
 				.min(1)
 				.max(100)
 				.describe(
-					`Ordered flashcard edits. Use stable card IDs from a read. Omit beforeCardId and afterCardId to place a card at the end. ${workspaceFlashcardHtmlInstruction}`,
+					`Ordered flashcard edits using exact refs from a read. Available operations: insert_before, insert_after, update, replace, replace_text, move, and delete. replace changes both sides; replace_text requires front or back as side; move requires exactly one of beforeRef or afterRef. ${workspaceFlashcardHtmlInstruction}`,
 				),
 		})
-		.describe("Flashcard edit recipe."),
+		.describe("Flashcard edits."),
 ]);
 
 export const workspaceLinkItemsInputSchema = z.object({
@@ -217,7 +217,7 @@ export const workspaceCreateItemsInputSchema = z.object({
 							.describe(`Optional initial HTML content. ${workspaceDocumentHtmlInstruction}`)
 							.optional(),
 					})
-					.describe("Document creation recipe."),
+					.describe("Document to create."),
 				z
 					.object({
 						type: z.literal("flashcard"),
@@ -238,7 +238,7 @@ export const workspaceCreateItemsInputSchema = z.object({
 							.optional()
 							.describe("Optional relationships from this set to source items, at most 20."),
 					})
-					.describe("Flashcard creation recipe."),
+					.describe("Flashcard set to create."),
 			]),
 		)
 		.min(1)
@@ -289,8 +289,8 @@ export const workspaceReadItemsInputExamples = createInputExamples<
 	{
 		requests: [
 			{
-				editRef: "b_JQrkL4Neurv2.r_6sNqkQxDdy",
-				mode: "block",
+				ref: "wr_7Kp2Qa9x",
+				mode: "ref",
 				path: "/Demo Folder/Demo Document",
 			},
 		],
@@ -354,7 +354,7 @@ export const workspaceEditItemInputExamples = createInputExamples<
 		path: "/Demo Folder/Demo Document",
 		edits: [
 			{
-				editRef: "b_JQrkL4Neurv2.r_6sNqkQxDdy",
+				ref: "wr_7Kp2Qa9x",
 				op: "replace",
 				html: "<p>Updated paragraph.</p>",
 			},
@@ -365,8 +365,9 @@ export const workspaceEditItemInputExamples = createInputExamples<
 		path: "/Demo Folder/Demo Document",
 		edits: [
 			{
-				op: "overwrite",
-				html: "<h1>Demo Document</h1><p>This document was updated as part of the demo.</p>",
+				ref: "wr_7Kp2Qa9x",
+				afterRef: "wr_8Lq3Rb0y",
+				op: "move",
 			},
 		],
 	},
@@ -375,7 +376,7 @@ export const workspaceEditItemInputExamples = createInputExamples<
 		path: "/Demo Folder/Demo Document",
 		edits: [
 			{
-				editRef: "b_JQrkL4Neurv2.r_6sNqkQxDdy",
+				ref: "wr_7Kp2Qa9x",
 				op: "replace_text",
 				find: "gravity = 9.8",
 				replace: "gravity = 3.7",
@@ -387,8 +388,8 @@ export const workspaceEditItemInputExamples = createInputExamples<
 		path: "/Demo Folder/Demo Flashcards",
 		edits: [
 			{
-				op: "update_card",
-				cardId: "f67080f9-0158-4565-86a9-4c90ed6809d2",
+				op: "update",
+				ref: "wr_7Kp2Qa9x",
 				back: "<p>The cell's main energy carrier.</p>",
 			},
 		],

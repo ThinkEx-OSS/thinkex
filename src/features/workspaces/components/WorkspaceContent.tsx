@@ -36,14 +36,11 @@ import { MoveWorkspaceItemsDialog } from "#/features/workspaces/components/Works
 import { useWorkspacePaneHotkey } from "#/features/workspaces/components/WorkspacePaneRuntime";
 import { WorkspaceRootEmptyPreview } from "#/features/workspaces/components/WorkspaceRootEmptyPreview";
 import WorkspaceSelectionActionBar from "#/features/workspaces/components/WorkspaceSelectionActionBar";
+import type { WorkspaceCreateItemRequest } from "#/features/workspaces/components/workspace-presentation-model";
 import { workspaceItemGridClass } from "#/features/workspaces/components/workspace-item-card-chrome";
 import { useWorkspaceMutationAccess } from "#/features/workspaces/components/workspace-mutation-access";
 import { useWorkspaceViewCapabilities } from "#/features/workspaces/components/workspace-view-policy";
-import {
-	type WorkspaceItem,
-	type WorkspaceItemType,
-	type WorkspaceSummary,
-} from "#/features/workspaces/contracts";
+import { type WorkspaceItem, type WorkspaceSummary } from "#/features/workspaces/contracts";
 import { getWorkspaceItemDisplay } from "#/features/workspaces/model/item-display";
 import {
 	getWorkspaceChildren,
@@ -61,7 +58,7 @@ interface WorkspaceContentProps {
 	items: WorkspaceItem[];
 	activeItem?: WorkspaceItem;
 	workspace: WorkspaceSummary;
-	onCreateItem: (input: { type: WorkspaceItemType; parentId: string | null }) => void;
+	onCreateItem: (input: WorkspaceCreateItemRequest) => void;
 	onOpenItem: (item: WorkspaceItem, options?: { background?: boolean }) => void;
 }
 
@@ -525,7 +522,9 @@ function WorkspaceItemView({
 	}
 
 	if (item.type === "flashcard") {
-		return <FlashcardViewer item={item} viewInstanceId={viewInstanceId} />;
+		return (
+			<FlashcardViewer documentPath={documentPath} item={item} viewInstanceId={viewInstanceId} />
+		);
 	}
 
 	const { Icon: ItemIcon, iconClassName, surfaceClassName } = getWorkspaceItemDisplay(item);

@@ -6,7 +6,7 @@ import { getWorkspaceItemDisplay } from "#/features/workspaces/model/item-displa
 import type { WorkspaceItem } from "#/features/workspaces/contracts";
 
 type WorkspacePdfPageLocation = Extract<WorkspaceLocation, { kind: "pdf-page" }>;
-type WorkspaceFlashcardSideLocation = Extract<WorkspaceLocation, { kind: "flashcard-side" }>;
+type WorkspaceFlashcardLocation = Extract<WorkspaceLocation, { kind: "flashcard" }>;
 
 type WorkspaceLocationPresentation = {
 	Icon: LucideIcon;
@@ -16,7 +16,7 @@ type WorkspaceLocationPresentation = {
 };
 
 type WorkspaceLocationRevealRequest = {
-	location: WorkspacePdfPageLocation | WorkspaceFlashcardSideLocation;
+	location: WorkspacePdfPageLocation | WorkspaceFlashcardLocation;
 	viewInstanceId: string;
 };
 
@@ -72,7 +72,9 @@ export function WorkspaceLocationProvider({
 			const viewInstanceId = navigate(location);
 
 			setRevealRequest(
-				viewInstanceId && location.kind !== "item" ? { location, viewInstanceId } : null,
+				viewInstanceId && (location.kind === "pdf-page" || location.kind === "flashcard")
+					? { location, viewInstanceId }
+					: null,
 			);
 			return Boolean(viewInstanceId);
 		},
@@ -88,8 +90,9 @@ function getWorkspaceLocatorLabel(location: WorkspaceLocation) {
 			return undefined;
 		case "pdf-page":
 			return `p. ${location.pageNumber}`;
-		case "flashcard-side":
-			return location.side === "front" ? "Question" : "Answer";
+		case "document-block":
+		case "flashcard":
+			return undefined;
 	}
 }
 
@@ -122,16 +125,16 @@ export function useWorkspacePdfPageRevealRequest(viewInstanceId: string) {
 	};
 }
 
-export function useWorkspaceFlashcardSideRevealRequest(viewInstanceId: string) {
+export function useWorkspaceFlashcardRevealRequest(viewInstanceId: string) {
 	const { consumeRevealRequest, revealRequest } = useWorkspaceLocationActions();
 
 	return {
 		consume: consumeRevealRequest,
 		request:
 			revealRequest?.viewInstanceId === viewInstanceId &&
-			revealRequest.location.kind === "flashcard-side"
+			revealRequest.location.kind === "flashcard"
 				? (revealRequest as WorkspaceLocationRevealRequest & {
-						location: WorkspaceFlashcardSideLocation;
+						location: WorkspaceFlashcardLocation;
 					})
 				: null,
 	};

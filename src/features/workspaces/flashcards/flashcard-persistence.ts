@@ -49,11 +49,13 @@ export async function updateFlashcardSet<T>(
 		itemId: string;
 		workspaceId: string;
 	},
-	update: (content: FlashcardSetContent) => {
-		changed: boolean;
-		content: FlashcardSetContent;
-		result: T;
-	},
+	update: (content: FlashcardSetContent) =>
+		| {
+				changed: boolean;
+				content: FlashcardSetContent;
+				result: T;
+		  }
+		| Promise<{ changed: boolean; content: FlashcardSetContent; result: T }>,
 ) {
 	const command = await withWorkspaceTransaction(async (transaction) => {
 		await lockWorkspaceForActor(transaction, input.workspaceId, input.actorUserId);
@@ -70,7 +72,7 @@ export async function updateFlashcardSet<T>(
 			)
 			.limit(1);
 		if (!row) throw new Error("Workspace item is not a flashcard set.");
-		const updated = update(parseFlashcardSetContent(row.content));
+		const updated = await update(parseFlashcardSetContent(row.content));
 		if (!updated.changed) return { item: null, revision: null, result: updated.result };
 		const now = new Date();
 		await transaction

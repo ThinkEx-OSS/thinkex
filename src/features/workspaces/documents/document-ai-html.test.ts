@@ -17,9 +17,7 @@ describe("document AI HTML", () => {
 		).document;
 		const html = await serializeTiptapDocumentToAiHtml(document);
 
-		expect(html).toMatch(
-			/^<h1 data-edit-ref="b_[A-Za-z0-9_-]{12}\.r_[A-Za-z0-9_-]{10}">Notes<\/h1>/,
-		);
+		expect(html).toMatch(/^<h1 data-ref="b_[A-Za-z0-9_-]{12}\.r_[A-Za-z0-9_-]{10}">Notes<\/h1>/);
 		expect(html).toContain("<strong>bold</strong>");
 		expect(html).toContain('data-type="inline-math"');
 		expect(html).toContain('data-type="taskItem"');
@@ -40,15 +38,14 @@ describe("document AI HTML", () => {
 		expect(html).not.toContain("<sub>");
 	});
 
-	it("ignores editRefs supplied in model-authored HTML", async () => {
+	it("ignores refs supplied in model-authored HTML", async () => {
 		const html = await serializeTiptapDocumentToAiHtml(
-			ensureTiptapDocumentBlockIds(
-				parseDocumentAiHtml('<p data-edit-ref="b_modelchosen1">Hello</p>'),
-			).document,
+			ensureTiptapDocumentBlockIds(parseDocumentAiHtml('<p data-ref="b_modelchosen1">Hello</p>'))
+				.document,
 		);
 
 		expect(html).not.toContain("b_modelchosen1");
-		expect(html).toMatch(/data-edit-ref="b_[A-Za-z0-9_-]{12}\.r_[A-Za-z0-9_-]{10}"/);
+		expect(html).toMatch(/data-ref="b_[A-Za-z0-9_-]{12}\.r_[A-Za-z0-9_-]{10}"/);
 	});
 
 	it("normalizes malformed but recoverable HTML", () => {

@@ -22,11 +22,8 @@ import WorkspaceMobileBreadcrumbOverflow from "#/features/workspaces/components/
 import WorkspaceRootActionsMenu from "#/features/workspaces/components/WorkspaceRootActionsMenu";
 import { WorkspaceSearchDialog } from "#/features/workspaces/components/WorkspaceSearchDialog";
 import { WorkspaceToolbarGroup } from "#/features/workspaces/components/WorkspaceToolbar";
-import type {
-	WorkspaceItem,
-	WorkspaceItemType,
-	WorkspaceSummary,
-} from "#/features/workspaces/contracts";
+import type { WorkspaceCreateItemRequest } from "#/features/workspaces/components/workspace-presentation-model";
+import type { WorkspaceItem, WorkspaceSummary } from "#/features/workspaces/contracts";
 import { getWorkspaceDisplay } from "#/features/workspaces/model/display";
 import { getWorkspaceItemDisplay } from "#/features/workspaces/model/item-display";
 import { getWorkspaceBreadcrumbItems } from "#/features/workspaces/model/tree";
@@ -44,7 +41,7 @@ interface WorkspaceContextBarProps {
 	activeItem?: WorkspaceItem;
 	itemsById: Map<string, WorkspaceItem>;
 	toolbarSlotId?: string;
-	onCreateItem: (input: { type: WorkspaceItemType; parentId: string | null }) => void;
+	onCreateItem: (input: WorkspaceCreateItemRequest) => void;
 	onCloseItemView?: () => void;
 	onNavigateToRoot: () => void;
 	onNavigateToItem: (item: WorkspaceItem) => void;

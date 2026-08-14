@@ -19,16 +19,13 @@ import WorkspaceShellSkeleton from "#/features/workspaces/components/WorkspaceSh
 import WorkspaceSplitPresentation from "#/features/workspaces/components/WorkspaceSplitPresentation";
 import WorkspaceStandardTabPanes from "#/features/workspaces/components/WorkspaceStandardTabPanes";
 import WorkspaceTopBar from "#/features/workspaces/components/WorkspaceTopBar";
+import type { WorkspaceCreateItemRequest } from "#/features/workspaces/components/workspace-presentation-model";
 import { WorkspaceMutationAccessProvider } from "#/features/workspaces/components/workspace-mutation-access";
 import {
 	useWorkspaceViewPolicy,
 	WorkspaceViewCapabilitiesProvider,
 } from "#/features/workspaces/components/workspace-view-policy";
-import type {
-	WorkspaceItem,
-	WorkspaceItemType,
-	WorkspaceSummary,
-} from "#/features/workspaces/contracts";
+import type { WorkspaceItem, WorkspaceSummary } from "#/features/workspaces/contracts";
 import type { WorkspaceLocation } from "#/features/workspaces/locations/workspace-location";
 import { WorkspaceLocationProvider } from "#/features/workspaces/locations/workspace-location-context";
 import { DocumentEditReviewProvider } from "#/features/workspaces/documents/document-edit-review-context";
@@ -133,7 +130,7 @@ export function WorkspaceShell({
 
 		return viewInstanceId;
 	};
-	const createWorkspaceItem = (input: { type: WorkspaceItemType; parentId: string | null }) => {
+	const createWorkspaceItem = (input: WorkspaceCreateItemRequest) => {
 		if (!getWorkspaceMemberCapabilities(workspace.membershipRole).canMutateContent) {
 			return;
 		}
@@ -142,7 +139,6 @@ export function WorkspaceShell({
 			setFlashcardParentId(input.parentId);
 			return;
 		}
-
 		createWorkspaceItemMutation.mutate({
 			id: crypto.randomUUID(),
 			workspaceId: workspace.id,

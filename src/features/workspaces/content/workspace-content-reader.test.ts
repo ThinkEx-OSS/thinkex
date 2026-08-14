@@ -6,7 +6,7 @@ import {
 	createDocumentAiBlockSnapshot,
 	ensureTiptapDocumentBlockIds,
 	parseDocumentAiHtml,
-	parseDocumentAiEditRef,
+	parseDocumentAiRef,
 	readTiptapNodeBlockId,
 } from "#/features/workspaces/documents/document-ai-html";
 import { readDocumentHtmlChunk } from "#/features/workspaces/documents/document-html-chunk";
@@ -50,7 +50,7 @@ const flashcardItem: WorkspaceItem = {
 };
 
 describe("WorkspaceContentReader", () => {
-	it("reads a complete flashcard set with stable card IDs", async () => {
+	it("reads a complete flashcard set with revision metadata", async () => {
 		const set = createFlashcardSetFromHtml([{ front: "<p>Question</p>", back: "<p>Answer</p>" }]);
 		const read = createReader({
 			bucket: {} as R2Bucket,
@@ -76,6 +76,7 @@ describe("WorkspaceContentReader", () => {
 				cards: [
 					{
 						cardId: set.cards[0]!.id,
+						revision: expect.stringMatching(/^[A-Za-z0-9_-]{10}$/),
 						front: "<p>Question</p>",
 						back: "<p>Answer</p>",
 						study: { lastRating: "good", reviewCount: 2 },
@@ -90,6 +91,42 @@ describe("WorkspaceContentReader", () => {
 					totalCards: 1,
 					unreviewedCount: 0,
 				},
+				status: "ready",
+				type: "flashcard",
+			},
+		]);
+	});
+
+	it("reads the current flashcard addressed by a ref", async () => {
+		const set = createFlashcardSetFromHtml([
+			{ front: "<p>One</p>", back: "<p>1</p>" },
+			{ front: "<p>Two</p>", back: "<p>2</p>" },
+		]);
+		const read = createReader({
+			bucket: {} as R2Bucket,
+			getDocumentSession: () => createDocumentSession({ html: "<p />", revision: "unused" }),
+			item: flashcardItem,
+			readFlashcardItem: async () => ({
+				cards: set.cards,
+				studyState: { kind: "flashcard", cards: {} },
+			}),
+			resolveReference: (_itemId, ref) =>
+				ref === "wr_AAAAAAAA"
+					? {
+							cardId: set.cards[1]!.id,
+							itemId: flashcardItem.id,
+							kind: "flashcard",
+							version: 1,
+						}
+					: undefined,
+		});
+
+		await expect(
+			read([{ mode: "ref", path: "/Biology cards", ref: "wr_AAAAAAAA" }]),
+		).resolves.toMatchObject([
+			{
+				cards: [{ cardId: set.cards[1]!.id, front: "<p>Two</p>" }],
+				location: { kind: "cards", returned: [2], total: 2 },
 				status: "ready",
 				type: "flashcard",
 			},
@@ -134,7 +171,7 @@ describe("WorkspaceContentReader", () => {
 			{ cursor: first.nextCursor, mode: "continue", path: "/Biology cards" },
 		]);
 		expect(second).toMatchObject({
-			cards: [{ cardId: set.cards[3]!.id }],
+			cards: [{ cardId: set.cards[3]!.id, revision: expect.stringMatching(/^[A-Za-z0-9_-]{10}$/) }],
 			location: { kind: "cards", returned: [4], total: 4 },
 			status: "ready",
 			type: "flashcard",
@@ -236,9 +273,9 @@ describe("WorkspaceContentReader", () => {
 		}
 		expect(contents).toHaveLength(3);
 		expect(contents[0]).toMatch(
-			/^<h1 data-edit-ref="b_[A-Za-z0-9_-]{12}\.r_[A-Za-z0-9_-]{10}">Heading<\/h1>$/,
+			/^<h1 data-ref="b_[A-Za-z0-9_-]{12}\.r_[A-Za-z0-9_-]{10}">Heading<\/h1>$/,
 		);
-		expect(contents[1]).toContain("<pre data-edit-ref=");
+		expect(contents[1]).toContain("<pre data-ref=");
 		expect(contents[1]).toContain("</pre>");
 		expect(contents[2]).toContain(">Tail</p>");
 	});
@@ -323,22 +360,32 @@ describe("WorkspaceContentReader", () => {
 		// The chunk carries the placeholder, not the source.
 		expect(chunk.content).not.toContain("Interactive");
 		const widgetTag = /<div[^>]*data-type="widget"[^>]*>/.exec(chunk.content)?.[0] ?? "";
-		const editRef = /data-edit-ref="([^"]+)"/.exec(widgetTag)?.[1];
-		expect(editRef).toBeTruthy();
-		const staleEditRef = editRef?.replace(/\.r_.+$/, ".r_0000000000");
+		const contentRef = /data-ref="([^"]+)"/.exec(widgetTag)?.[1];
+		expect(contentRef).toBeTruthy();
 
-		const [block] = await read([
-			{ editRef: staleEditRef as string, mode: "block", path: "/Notes" },
-		]);
-		expect(block).toMatchObject({ editRef, status: "ready", type: "block" });
+		const readBlock = createReader({
+			bucket: {} as R2Bucket,
+			getDocumentSession: () => session,
+			resolveReference: (_itemId, ref) =>
+				ref === "wr_AAAAAAAA"
+					? {
+							blockId: parseDocumentAiRef(contentRef!)!,
+							itemId: documentItem.id,
+							kind: "document-block",
+							version: 1,
+						}
+					: undefined,
+		});
+		const [block] = await readBlock([{ ref: "wr_AAAAAAAA", mode: "ref", path: "/Notes" }]);
+		expect(block).toMatchObject({ contentRef, status: "ready", type: "block" });
 		if (!block || block.status !== "ready" || block.type !== "block") {
 			throw new Error("Expected a block read.");
 		}
 		expect(block.content).toContain("Interactive");
-		expect(block.content).not.toContain("data-edit-ref");
+		expect(block.content).not.toContain("data-ref");
 	});
 
-	it("rejects block reads for files", async () => {
+	it("rejects unknown exact refs", async () => {
 		const fileItem = {
 			...documentItem,
 			id: "file-1",
@@ -354,12 +401,12 @@ describe("WorkspaceContentReader", () => {
 		await expect(
 			read([
 				{
-					editRef: "b_abcdefghijkl.r_0123456789",
-					mode: "block",
+					ref: "wr_AAAAAAAA",
+					mode: "ref",
 					path: "/Book.pdf",
 				},
 			]),
-		).resolves.toEqual([{ code: "invalid_selection", path: "/Book.pdf", status: "failed" }]);
+		).resolves.toEqual([{ code: "ref_not_found", path: "/Book.pdf", status: "failed" }]);
 	});
 
 	it("keeps one ordered result for every requested path", async () => {
@@ -403,11 +450,7 @@ function createDocumentSession(input: { html: string; revision: string }) {
 				? { ...chunk, revision: input.revision, status: "ready" as const }
 				: { status: "invalid_offset" as const };
 		}),
-		readBlock: vi.fn(async ({ editRef }: { editRef: string }) => {
-			const blockId = parseDocumentAiEditRef(editRef);
-			if (!blockId) {
-				return { status: "edit_ref_not_found" as const };
-			}
+		readBlock: vi.fn(async ({ blockId }: { blockId: string }) => {
 			let found: ReturnType<typeof documentNode.child> | null = null;
 			documentNode.forEach((node) => {
 				if (!found && readTiptapNodeBlockId(node) === blockId) {
@@ -419,7 +462,7 @@ function createDocumentSession(input: { html: string; revision: string }) {
 						...(await createDocumentAiBlockSnapshot(found)),
 						status: "ready" as const,
 					}
-				: { status: "edit_ref_not_found" as const };
+				: { status: "ref_not_found" as const };
 		}),
 	};
 }
@@ -437,6 +480,7 @@ function createReader(input: {
 				cards: ReturnType<typeof createFlashcardSetFromHtml>["cards"];
 				studyState: FlashcardStudyState;
 		  }>;
+	resolveReference?: Parameters<typeof readWorkspaceContent>[0]["resolveReference"];
 	resolvePaths?: typeof persistence.resolveWorkspacePaths;
 }) {
 	const item = input.item ?? documentItem;
@@ -455,6 +499,7 @@ function createReader(input: {
 			readFlashcardItem:
 				input.readFlashcardItem ??
 				(async () => ({ cards: [], studyState: { kind: "flashcard", cards: {} } })),
+			resolveReference: input.resolveReference,
 			requests,
 			workspaceId: "workspace-1",
 		});

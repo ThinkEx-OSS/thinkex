@@ -14,7 +14,7 @@ import { getAiChatDocumentEditGroups } from "#/features/workspaces/components/ai
 import {
 	getWorkspaceCitationLocations,
 	stripWorkspaceCitationTags,
-} from "#/features/workspaces/ai/workspace-citations";
+} from "#/features/workspaces/ai/workspace-references";
 import {
 	type AiChatRenderablePart,
 	type AssistantRowDisplay,

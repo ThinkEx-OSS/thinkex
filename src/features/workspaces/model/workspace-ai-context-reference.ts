@@ -57,11 +57,7 @@ function getWorkspaceItemViewState(
 	const activeState = activeViewInstanceId
 		? context.itemViewStatesByViewInstanceId[activeViewInstanceId]
 		: undefined;
-	if (activeState?.itemId === itemId) return activeState;
-
-	return Object.values(context.itemViewStatesByViewInstanceId).find(
-		(state) => state?.itemId === itemId,
-	);
+	return activeState?.itemId === itemId ? activeState : undefined;
 }
 
 export function getWorkspaceAiContextVisibleItemIds(context: WorkspaceAiContextScope) {

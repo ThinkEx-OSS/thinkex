@@ -376,7 +376,7 @@ export const createWorkspaceItemInputSchema = z
 		id: z.uuid(),
 		workspaceId: z.string().min(1),
 		parentId: z.string().min(1).nullable().optional(),
-		type: workspaceItemTypeSchema,
+		type: z.enum(["document", "folder"]),
 		name: z.string().trim().min(1).max(WORKSPACE_ITEM_NAME_MAX_LENGTH).optional(),
 		color: workspaceColorSchema.optional(),
 		initialContent: z.string().optional(),

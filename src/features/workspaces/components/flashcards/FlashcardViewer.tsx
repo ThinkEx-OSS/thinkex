@@ -28,7 +28,7 @@ import {
 } from "#/features/workspaces/flashcards/flashcard-study-session";
 import type { Flashcard } from "#/features/workspaces/flashcards/flashcard-content";
 import type { WorkspaceItem } from "#/features/workspaces/contracts";
-import { useWorkspaceFlashcardSideRevealRequest } from "#/features/workspaces/locations/workspace-location-context";
+import { useWorkspaceFlashcardRevealRequest } from "#/features/workspaces/locations/workspace-location-context";
 import { useWorkspaceUiStore } from "#/features/workspaces/state/workspace-ui-store";
 import { isRecord } from "#/lib/record";
 import { cn } from "#/lib/utils";
@@ -45,9 +45,11 @@ interface FlashcardSessionState {
 }
 
 export function FlashcardViewer({
+	documentPath,
 	item,
 	viewInstanceId,
 }: {
+	documentPath: string;
 	item: WorkspaceItem;
 	viewInstanceId: string;
 }) {
@@ -70,6 +72,7 @@ export function FlashcardViewer({
 		<FlashcardStudySession
 			key={`${item.id}:${item.updatedAt}`}
 			cards={data.cards}
+			documentPath={documentPath}
 			studyState={data.studyState}
 			item={item}
 			viewInstanceId={viewInstanceId}
@@ -79,11 +82,13 @@ export function FlashcardViewer({
 
 function FlashcardStudySession({
 	cards,
+	documentPath,
 	studyState,
 	item,
 	viewInstanceId,
 }: {
 	cards: Flashcard[];
+	documentPath: string;
 	studyState: FlashcardStudyState;
 	item: WorkspaceItem;
 	viewInstanceId: string;
@@ -104,6 +109,9 @@ function FlashcardStudySession({
 		[cardsById, studyCardIds],
 	);
 	const currentCard = studyCards[currentIndex];
+	const sourceCardNumber = currentCard
+		? cards.findIndex((card) => card.id === currentCard.id) + 1
+		: 0;
 	const sessionProgress = useMemo(
 		() =>
 			summarizeFlashcardStudyProgress(
@@ -124,7 +132,7 @@ function FlashcardStudySession({
 	const clearItemViewState = useWorkspaceUiStore((state) => state.clearItemViewState);
 	const setItemViewState = useWorkspaceUiStore((state) => state.setItemViewState);
 	const { consume: consumeRevealRequest, request: revealRequest } =
-		useWorkspaceFlashcardSideRevealRequest(viewInstanceId);
+		useWorkspaceFlashcardRevealRequest(viewInstanceId);
 	const recordRating = useRecordFlashcardStudyRating({
 		itemId: item.id,
 		updatedAt: item.updatedAt,
@@ -196,7 +204,6 @@ function FlashcardStudySession({
 			itemId: item.id,
 			label: `card ${currentIndex + 1}`,
 			detail: getFlashcardViewStateDetail({
-				cardId: currentCard.id,
 				cardNumber: currentIndex + 1,
 				currentRating,
 				flipped,
@@ -240,7 +247,7 @@ function FlashcardStudySession({
 					...current,
 					cardIds: nextCardIds,
 					currentIndex: cardIndex,
-					flipped: revealRequest.location.side === "back",
+					flipped: false,
 					mode: nextCardIds === studyCardIds ? mode : "all",
 					ratingFeedback: null,
 				}));
@@ -302,7 +309,22 @@ function FlashcardStudySession({
 
 	const rate = (rating: FlashcardStudyRating) => {
 		if (settling) return;
-		recordRating.mutate({ cardId: currentCard.id, rating });
+		const cardId = currentCard.id;
+		recordRating.mutate(
+			{ cardId, rating },
+			{
+				onError: () =>
+					setSession((current) => {
+						const failedIndex = current.cardIds.indexOf(cardId);
+						return {
+							...current,
+							...(failedIndex < 0 ? {} : { currentIndex: failedIndex }),
+							flipped: false,
+							ratingFeedback: null,
+						};
+					}),
+			},
+		);
 		setSession((current) => ({
 			...current,
 			ratingFeedback: rating,
@@ -329,6 +351,7 @@ function FlashcardStudySession({
 			currentCard={currentCard}
 			currentIndex={currentIndex}
 			currentRating={currentRating}
+			documentPath={documentPath}
 			flipped={flipped}
 			gotItCount={sessionProgress.gotItCount}
 			item={item}
@@ -338,6 +361,7 @@ function FlashcardStudySession({
 			onRate={rate}
 			onRatingAnimationComplete={finishRatingAnimation}
 			ratingFeedback={ratingFeedback}
+			sourceCardNumber={sourceCardNumber}
 			studyCards={studyCards}
 			studyState={studyState}
 		/>
@@ -348,6 +372,7 @@ function FlashcardStudySurface({
 	currentCard,
 	currentIndex,
 	currentRating,
+	documentPath,
 	flipped,
 	gotItCount,
 	item,
@@ -357,12 +382,14 @@ function FlashcardStudySurface({
 	onRate,
 	onRatingAnimationComplete,
 	ratingFeedback,
+	sourceCardNumber,
 	studyCards,
 	studyState,
 }: {
 	currentCard: Flashcard;
 	currentIndex: number;
 	currentRating: FlashcardStudyRating | undefined;
+	documentPath: string;
 	flipped: boolean;
 	gotItCount: number;
 	item: WorkspaceItem;
@@ -372,6 +399,7 @@ function FlashcardStudySurface({
 	onRate: (rating: FlashcardStudyRating) => void;
 	onRatingAnimationComplete: () => void;
 	ratingFeedback: FlashcardStudyRating | null;
+	sourceCardNumber: number;
 	studyCards: Flashcard[];
 	studyState: FlashcardStudyState;
 }) {
@@ -538,7 +566,7 @@ function FlashcardStudySurface({
 													onSend={() =>
 														sendComposerPrompt(
 															item.workspaceId,
-															"Give me a helpful hint for the current flashcard without revealing the answer.",
+															`Give me a helpful hint for card ${sourceCardNumber} in “${documentPath}” without revealing the answer.`,
 														)
 													}
 												/>
@@ -555,7 +583,7 @@ function FlashcardStudySurface({
 													onSend={() =>
 														sendComposerPrompt(
 															item.workspaceId,
-															"Explain the answer to the current flashcard clearly and concisely.",
+															`Explain the answer to card ${sourceCardNumber} in “${documentPath}” clearly and concisely.`,
 														)
 													}
 												/>
@@ -732,7 +760,6 @@ function getFlashcardRatingLabel(rating: FlashcardStudyRating | undefined): stri
 }
 
 function getFlashcardViewStateDetail(input: {
-	cardId: string;
 	cardNumber: number;
 	currentRating?: FlashcardStudyRating;
 	flipped: boolean;
@@ -747,7 +774,7 @@ function getFlashcardViewStateDetail(input: {
 	const rating = input.currentRating
 		? `, marked ${input.currentRating === "again" ? "no" : input.currentRating === "good" ? "yes" : input.currentRating}`
 		: "";
-	return `card ${input.cardNumber} of ${input.totalCards} in the current session (cardId ${input.cardId}), ${side}, set progress: ${input.studyProgress.reviewedCount} of ${input.studyProgress.totalCards} reviewed (${input.studyProgress.gotItCount} got it, ${input.studyProgress.missedCount} missed), session: ${mode}, ${order}${rating}`;
+	return `card ${input.cardNumber} of ${input.totalCards} in the current session, ${side}, set progress: ${input.studyProgress.reviewedCount} of ${input.studyProgress.totalCards} reviewed (${input.studyProgress.gotItCount} got it, ${input.studyProgress.missedCount} missed), session: ${mode}, ${order}${rating}`;
 }
 
 function FlashcardFace({

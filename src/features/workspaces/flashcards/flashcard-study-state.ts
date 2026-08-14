@@ -20,7 +20,7 @@ export const flashcardStudyProgressSchema = z.object({
 	gotItCount: z.number().int().nonnegative(),
 	missedCount: z.number().int().nonnegative(),
 	reviewedCount: z.number().int().nonnegative(),
-	totalCards: z.number().int().positive(),
+	totalCards: z.number().int().nonnegative(),
 	unreviewedCount: z.number().int().nonnegative(),
 });
 

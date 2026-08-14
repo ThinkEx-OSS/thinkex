@@ -9,6 +9,10 @@ import { recordWorkspaceFileReadOutcomes } from "#/features/workspaces/content/w
 import { createWorkspaceReadReferences } from "#/features/workspaces/content/workspace-read-references";
 import { getDocumentSessionFromEnv } from "#/features/workspaces/document-session-access";
 import { readFlashcardViewer } from "#/features/workspaces/flashcards/flashcard-study-persistence";
+import {
+	indexWorkspaceReferenceRecords,
+	parseWorkspaceReference,
+} from "#/features/workspaces/locations/workspace-location";
 import type { WorkspaceAccessContext } from "#/features/workspaces/operations/workspace-access-context";
 import { authorizeWorkspaceOperation } from "#/features/workspaces/operations/workspace-operation-context";
 
@@ -24,6 +28,14 @@ export async function readWorkspaceItemsOperation(
 		access: "read",
 		context: accessContext,
 	});
+	const requestedRefs = input.requests.flatMap((request) =>
+		request.mode === "ref" ? [request.ref] : [],
+	);
+	const referenceTargets = indexWorkspaceReferenceRecords(
+		requestedRefs.length > 0 && accessContext.resolveWorkspaceReferences
+			? await accessContext.resolveWorkspaceReferences(requestedRefs)
+			: [],
+	);
 	const results = await readWorkspaceContent({
 		bucket: env.WORKSPACE_FILES,
 		getDocumentSession: (itemId) =>
@@ -37,6 +49,11 @@ export async function readWorkspaceItemsOperation(
 				userId: accessContext.actor.userId,
 				workspaceId: accessContext.workspaceId,
 			}),
+		resolveReference: (itemId, ref) => {
+			const parsedRef = parseWorkspaceReference(ref);
+			const record = parsedRef ? referenceTargets.get(parsedRef) : undefined;
+			return record?.location.itemId === itemId ? record.location : undefined;
+		},
 		requests: input.requests,
 		workspaceId: accessContext.workspaceId,
 	});

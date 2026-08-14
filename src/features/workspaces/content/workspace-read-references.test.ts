@@ -10,13 +10,18 @@ import {
 } from "#/features/workspaces/content/workspace-read-references";
 
 describe("workspace read references", () => {
-	it("gives documents one item ref and extracted files one ref per physical page", () => {
+	it("gives document blocks and extracted pages one transcript-backed ref each", () => {
 		const results = [documentResult(), fileResult()] satisfies WorkspaceContentReadResult[];
 		const references = createWorkspaceReadReferences(results);
 
 		expect(references).toHaveLength(3);
 		expect(references.map(({ location }) => location)).toEqual([
-			{ itemId: "document-1", kind: "item", version: 1 },
+			{
+				blockId: "b_abcdefghijkl",
+				itemId: "document-1",
+				kind: "document-block",
+				version: 1,
+			},
 			{ itemId: "file-1", kind: "pdf-page", pageNumber: 12, version: 1 },
 			{ itemId: "file-1", kind: "pdf-page", pageNumber: 13, version: 1 },
 		]);
@@ -34,8 +39,8 @@ describe("workspace read references", () => {
 		const file = modelOutput.results[1];
 
 		expect(document).toMatchObject({
+			content: expect.stringMatching(/data-ref="wr_[0-9A-Za-z]{8}"/),
 			path: "/Notes",
-			reference: expect.stringMatching(/^wr_[0-9A-Za-z]{8}$/),
 			status: "ready",
 			type: "document",
 		});
@@ -54,7 +59,7 @@ describe("workspace read references", () => {
 		expect(JSON.stringify(modelOutput)).not.toContain("file-1");
 	});
 
-	it("gives every flashcard side its own navigable ref", () => {
+	it("gives each flashcard one ref for editing, citation, and navigation", () => {
 		const results = [flashcardResult()] satisfies WorkspaceContentReadResult[];
 		const references = createWorkspaceReadReferences(results);
 		const modelOutput = createWorkspaceReadItemsModelOutput({ references, results });
@@ -63,15 +68,7 @@ describe("workspace read references", () => {
 			{
 				cardId: "f67080f9-0158-4565-86a9-4c90ed6809d2",
 				itemId: "flashcard-1",
-				kind: "flashcard-side",
-				side: "front",
-				version: 1,
-			},
-			{
-				cardId: "f67080f9-0158-4565-86a9-4c90ed6809d2",
-				itemId: "flashcard-1",
-				kind: "flashcard-side",
-				side: "back",
+				kind: "flashcard",
 				version: 1,
 			},
 		]);
@@ -79,10 +76,8 @@ describe("workspace read references", () => {
 			cards: [
 				{
 					back: "<p>Paris</p>",
-					backReference: expect.stringMatching(/^wr_[0-9A-Za-z]{8}$/),
-					cardId: "f67080f9-0158-4565-86a9-4c90ed6809d2",
 					front: "<p>Capital of France?</p>",
-					frontReference: expect.stringMatching(/^wr_[0-9A-Za-z]{8}$/),
+					ref: expect.stringMatching(/^wr_[0-9A-Za-z]{8}$/),
 				},
 			],
 			path: "/Geography",
@@ -119,7 +114,7 @@ describe("workspace read references", () => {
 		]);
 		expect(modelOutput.results[0]).toMatchObject({
 			assetKind: "image",
-			reference: expect.stringMatching(/^wr_[0-9A-Za-z]{8}$/),
+			ref: expect.stringMatching(/^wr_[0-9A-Za-z]{8}$/),
 		});
 		expect(modelOutput.results[0]).not.toHaveProperty("pageReferences");
 	});
@@ -216,7 +211,7 @@ function documentResult(): Extract<
 	{ status: "ready"; type: "document" }
 > {
 	return {
-		content: '<h1 data-edit-ref="b_abcdefghijkl.r_0123456789">Notes</h1>',
+		content: '<h1 data-ref="b_abcdefghijkl.r_0123456789">Notes</h1>',
 		format: "html",
 		itemId: "document-1",
 		location: { endBlock: 1, kind: "blocks", startBlock: 1, totalBlocks: 1 },
@@ -253,6 +248,7 @@ function flashcardResult(): Extract<
 			{
 				back: "<p>Paris</p>",
 				cardId: "f67080f9-0158-4565-86a9-4c90ed6809d2",
+				revision: "0123456789",
 				front: "<p>Capital of France?</p>",
 				study: {
 					lastRating: "good",

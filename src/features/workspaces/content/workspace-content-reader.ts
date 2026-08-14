@@ -34,9 +34,11 @@ import {
 	encodeWorkspaceContentCursor,
 } from "#/features/workspaces/content/workspace-content-cursor";
 import {
-	serializeFlashcardSetToHtml,
+	createFlashcardRevision,
 	type Flashcard,
+	serializeFlashcardSetToHtml,
 } from "#/features/workspaces/flashcards/flashcard-content";
+import type { WorkspaceLocation } from "#/features/workspaces/locations/workspace-location";
 import {
 	summarizeFlashcardStudyProgress,
 	type FlashcardStudyState,
@@ -49,8 +51,8 @@ const targetFlashcardChunkCharacters = 48_000;
 interface DocumentContentReader {
 	readHtmlChunk(input: DocumentHtmlChunkReadInput): Promise<DocumentHtmlChunkReadResult>;
 	readBlock(input: {
-		editRef: string;
-	}): Promise<(DocumentAiBlockSnapshot & { status: "ready" }) | { status: "edit_ref_not_found" }>;
+		blockId: string;
+	}): Promise<(DocumentAiBlockSnapshot & { status: "ready" }) | { status: "ref_not_found" }>;
 }
 
 type FlashcardItemReader = (
@@ -69,6 +71,7 @@ export async function readWorkspaceContent(input: {
 	bucket: R2Bucket;
 	getDocumentSession: (itemId: string) => DocumentContentReader | Promise<DocumentContentReader>;
 	readFlashcardItem: FlashcardItemReader;
+	resolveReference?: (itemId: string, ref: string) => WorkspaceLocation | undefined;
 	requests: WorkspaceContentReadRequest[];
 	workspaceId: string;
 }): Promise<WorkspaceContentReadResult[]> {
@@ -133,10 +136,9 @@ export async function readWorkspaceContent(input: {
 				"content" in read
 					? read.content
 					: JSON.stringify(
-							read.cards.map((card) => ({
+							read.cards.map(({ cardId: _cardId, revision: _revision, ...card }) => ({
 								...card,
-								backReference: "wr_00000000",
-								frontReference: "wr_00000000",
+								ref: "wr_00000000",
 							})),
 						),
 			).byteLength;
@@ -174,20 +176,20 @@ async function readWorkspaceItem(input: {
 	bucket: R2Bucket;
 	getDocumentSession: (itemId: string) => DocumentContentReader | Promise<DocumentContentReader>;
 	readFlashcardItem: FlashcardItemReader;
+	resolveReference?: (itemId: string, ref: string) => WorkspaceLocation | undefined;
 	item: WorkspaceItem;
 	path: string;
 	request: WorkspaceContentReadRequest;
 	workspaceId: string;
 }): Promise<WorkspaceContentReadResult> {
+	if (input.request.mode === "ref") {
+		return readWorkspaceReference(input, input.request.ref);
+	}
 	switch (input.item.type) {
 		case "document":
-			return input.request.mode === "block"
-				? readDocumentBlock(input, input.request.editRef)
-				: readDocument(input);
+			return readDocument(input);
 		case "file":
-			return input.request.mode === "block"
-				? { code: "invalid_selection", path: input.path, status: "failed" }
-				: readFile(input);
+			return readFile(input);
 		case "folder":
 			return { code: "unsupported_item_type", path: input.path, status: "failed" };
 		case "flashcard":
@@ -195,14 +197,48 @@ async function readWorkspaceItem(input: {
 	}
 }
 
-async function readFlashcards(input: {
-	item: WorkspaceItem;
-	path: string;
-	readFlashcardItem: FlashcardItemReader;
-	request: WorkspaceContentReadRequest;
-	workspaceId: string;
-}): Promise<WorkspaceContentReadResult> {
+async function readWorkspaceReference(
+	input: Parameters<typeof readWorkspaceItem>[0],
+	ref: string,
+): Promise<WorkspaceContentReadResult> {
+	const location = input.resolveReference?.(input.item.id, ref);
+	if (!location || location.itemId !== input.item.id) {
+		return { code: "ref_not_found", path: input.path, status: "failed" };
+	}
+
+	switch (location.kind) {
+		case "item":
+			return readWorkspaceItem({ ...input, request: { mode: "start", path: input.path } });
+		case "pdf-page":
+			return input.item.type === "file"
+				? readFile({
+						...input,
+						request: { mode: "pages", path: input.path, range: String(location.pageNumber) },
+					})
+				: { code: "ref_not_found", path: input.path, status: "failed" };
+		case "document-block":
+			return input.item.type === "document"
+				? readDocumentBlock(input, location.blockId)
+				: { code: "ref_not_found", path: input.path, status: "failed" };
+		case "flashcard":
+			return input.item.type === "flashcard"
+				? readFlashcards(input, location.cardId)
+				: { code: "ref_not_found", path: input.path, status: "failed" };
+	}
+}
+
+async function readFlashcards(
+	input: {
+		item: WorkspaceItem;
+		path: string;
+		readFlashcardItem: FlashcardItemReader;
+		request: WorkspaceContentReadRequest;
+		workspaceId: string;
+	},
+	targetCardId?: string,
+): Promise<WorkspaceContentReadResult> {
 	if (
+		!targetCardId &&
 		input.request.mode !== "start" &&
 		input.request.mode !== "continue" &&
 		input.request.mode !== "cards"
@@ -211,12 +247,18 @@ async function readFlashcards(input: {
 	}
 
 	const { cards, studyState } = await input.readFlashcardItem(input.item.id);
+	const cardsById = new Map(cards.map((card) => [card.id, card]));
 	const serializedCards = serializeFlashcardSetToHtml({ cards, version: 1 });
 	let selectedCards: typeof serializedCards;
 	let returned: number[];
 	let nextCursor: string | undefined;
 
-	if (input.request.mode === "cards") {
+	if (targetCardId) {
+		const cardIndex = serializedCards.findIndex((card) => card.id === targetCardId);
+		if (cardIndex < 0) return { code: "ref_not_found", path: input.path, status: "failed" };
+		selectedCards = [serializedCards[cardIndex]!];
+		returned = [cardIndex + 1];
+	} else if (input.request.mode === "cards") {
 		try {
 			returned = parseWorkspacePageRange(input.request.range, cards.length);
 		} catch (error) {
@@ -255,12 +297,19 @@ async function readFlashcards(input: {
 	}
 
 	return {
-		cards: selectedCards.map((card) => ({
-			cardId: card.id,
-			front: card.front,
-			back: card.back,
-			...(studyState.cards[card.id] ? { study: studyState.cards[card.id] } : {}),
-		})),
+		cards: await Promise.all(
+			selectedCards.map(async (card) => {
+				const source = cardsById.get(card.id);
+				if (!source) throw new Error("Serialized flashcard does not match its source set.");
+				return {
+					cardId: card.id,
+					revision: await createFlashcardRevision(source),
+					front: card.front,
+					back: card.back,
+					...(studyState.cards[card.id] ? { study: studyState.cards[card.id] } : {}),
+				};
+			}),
+		),
 		format: "html",
 		itemId: input.item.id,
 		location: {
@@ -308,17 +357,17 @@ async function readDocumentBlock(
 		item: WorkspaceItem;
 		path: string;
 	},
-	editRef: string,
+	blockId: string,
 ): Promise<WorkspaceContentReadResult> {
 	const documentSession = await input.getDocumentSession(input.item.id);
-	const block = await documentSession.readBlock({ editRef });
+	const block = await documentSession.readBlock({ blockId });
 	if (block.status !== "ready") {
-		return { code: "edit_ref_not_found", path: input.path, status: "failed" };
+		return { code: "ref_not_found", path: input.path, status: "failed" };
 	}
 
 	return {
 		content: block.content,
-		editRef: block.editRef,
+		contentRef: block.contentRef,
 		format: "html",
 		itemId: input.item.id,
 		path: input.path,

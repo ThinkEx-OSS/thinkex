@@ -44,7 +44,7 @@ describe("workspace AI context validation", () => {
 						openInTabs: ["Study"],
 						viewState: {
 							detail:
-								"card 3 of 15 in the current session (cardId f67080f9-0158-4565-86a9-4c90ed6809d2), back shown, set progress: 5 of 15 reviewed (3 got it, 2 missed), session: all cards, shuffled, marked yes",
+								"card 3 of 15 in the current session, back shown, set progress: 5 of 15 reviewed (3 got it, 2 missed), session: all cards, shuffled, marked yes",
 							label: "card 3",
 						},
 					},
@@ -55,7 +55,7 @@ describe("workspace AI context validation", () => {
 
 		expect(isWorkspaceAiContextSnapshot(snapshot)).toBe(true);
 		expect(formatWorkspaceAiContextForPrompt(snapshot)).toContain(
-			"card 3 of 15 in the current session (cardId f67080f9-0158-4565-86a9-4c90ed6809d2), back shown, set progress: 5 of 15 reviewed (3 got it, 2 missed), session: all cards, shuffled, marked yes",
+			"card 3 of 15 in the current session, back shown, set progress: 5 of 15 reviewed (3 got it, 2 missed), session: all cards, shuffled, marked yes",
 		);
 		expect(formatWorkspaceAiContextForPrompt(snapshot)).not.toContain("front");
 		expect(

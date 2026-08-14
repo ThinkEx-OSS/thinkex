@@ -3,22 +3,22 @@ import { describe, expect, it } from "vitest";
 
 import {
 	collectWorkspaceReferenceRecords,
-	reconcileWorkspaceMessageCitations,
+	reconcileWorkspaceMessageReferences,
 	stripWorkspaceCitationTags,
-} from "#/features/workspaces/ai/workspace-citations";
+} from "#/features/workspaces/ai/workspace-references";
 import type { WorkspaceReferenceRecord } from "#/features/workspaces/locations/workspace-location";
 
 const first = reference("wr_AAAAAAAA", "item-1");
 const second = reference("wr_BBBBBBBB", "item-2");
 
-describe("workspace citations", () => {
+describe("workspace references", () => {
 	it("persists only known refs used by assistant text in first-use order", () => {
 		const message = assistantMessage(
 			`Alpha <citation ref="wr_BBBBBBBB"></citation> beta ` +
 				`<citation ref="wr_UNKNOWN0"></citation> gamma ` +
 				`<citation ref="wr_AAAAAAAA"/> again <citation ref="wr_BBBBBBBB"></citation>`,
 		);
-		const reconciled = reconcileWorkspaceMessageCitations(message, [first, second]);
+		const reconciled = reconcileWorkspaceMessageReferences(message, [first, second]);
 
 		expect(collectWorkspaceReferenceRecords([reconciled])).toEqual([second, first]);
 	});
@@ -29,19 +29,19 @@ describe("workspace citations", () => {
 
 		expect(
 			collectWorkspaceReferenceRecords([
-				reconcileWorkspaceMessageCitations(message, [first, collision]),
+				reconcileWorkspaceMessageReferences(message, [first, collision]),
 			]),
 		).toEqual([]);
 	});
 
 	it("is idempotent and removes stale normalized records", () => {
 		const message = assistantMessage(`Alpha <citation ref="wr_AAAAAAAA"></citation>`);
-		const reconciled = reconcileWorkspaceMessageCitations(message, [first]);
+		const reconciled = reconcileWorkspaceMessageReferences(message, [first]);
 
-		expect(reconcileWorkspaceMessageCitations(reconciled, [first])).toBe(reconciled);
+		expect(reconcileWorkspaceMessageReferences(reconciled, [first])).toBe(reconciled);
 		expect(
 			collectWorkspaceReferenceRecords([
-				reconcileWorkspaceMessageCitations(
+				reconcileWorkspaceMessageReferences(
 					{ ...reconciled, parts: [{ type: "text", text: "No citation" }, reconciled.parts[1]] },
 					[first],
 				),
@@ -51,16 +51,43 @@ describe("workspace citations", () => {
 
 	it("collapses duplicate citation data parts to one canonical part", () => {
 		const message = assistantMessage(`Alpha <citation ref="wr_AAAAAAAA"></citation>`);
-		const reconciled = reconcileWorkspaceMessageCitations(message, [first]);
+		const reconciled = reconcileWorkspaceMessageReferences(message, [first]);
 		const duplicated = {
 			...reconciled,
 			parts: [...reconciled.parts, reconciled.parts[1]],
 		};
-		const repaired = reconcileWorkspaceMessageCitations(duplicated, [first]);
+		const repaired = reconcileWorkspaceMessageReferences(duplicated, [first]);
 
-		expect(repaired.parts.filter((part) => part.type === "data-workspace-citations")).toHaveLength(
+		expect(repaired.parts.filter((part) => part.type === "data-workspace-references")).toHaveLength(
 			1,
 		);
+	});
+
+	it("retains Code Mode refs that are not present in a direct tool result", () => {
+		const reconciled = reconcileWorkspaceMessageReferences(assistantMessage("Done"), [], [first]);
+
+		expect(collectWorkspaceReferenceRecords([reconciled])).toEqual([first]);
+	});
+
+	it("does not duplicate refs already persisted by a direct tool result", () => {
+		const readOutput = { references: [first], results: [] };
+		const message: UIMessage = {
+			id: "assistant-1",
+			role: "assistant",
+			parts: [
+				{
+					type: "tool-workspace_read_items",
+					toolCallId: "call-1",
+					state: "output-available",
+					input: { requests: [] },
+					output: readOutput,
+				},
+			],
+		};
+		const reconciled = reconcileWorkspaceMessageReferences(message, [first], [first]);
+
+		expect(reconciled.parts).toHaveLength(1);
+		expect(collectWorkspaceReferenceRecords([reconciled])).toEqual([first]);
 	});
 
 	it("collects references from direct workspace reads", () => {
@@ -68,7 +95,7 @@ describe("workspace citations", () => {
 			references: [first],
 			results: [
 				{
-					content: '<h1 data-edit-ref="b_abcdefghijkl.r_0123456789">Notes</h1>',
+					content: '<h1 data-ref="b_abcdefghijkl.r_0123456789">Notes</h1>',
 					format: "html",
 					itemId: "item-1",
 					location: {
@@ -136,9 +163,9 @@ describe("workspace citations", () => {
 				role: "user",
 				parts: [
 					{
-						type: "data-workspace-citations",
-						id: "workspace-citations",
-						data: { citations: [first], version: 1 },
+						type: "data-workspace-references",
+						id: "workspace-references",
+						data: { references: [first], version: 1 },
 					},
 				],
 			},

@@ -1,6 +1,6 @@
 import { isToolUIPart } from "ai";
 
-import { WORKSPACE_CITATIONS_DATA_PART_TYPE } from "#/features/workspaces/ai/workspace-citations";
+import { WORKSPACE_REFERENCES_DATA_PART_TYPE } from "#/features/workspaces/ai/workspace-references";
 import type {
 	AiChatMessage,
 	AiChatMessagePart,
@@ -199,7 +199,7 @@ export function getDisplayableParts(message: AiChatMessage): AiChatRenderablePar
 }
 
 export function isDisplayableMessagePart(part: AiChatMessagePart): boolean {
-	if (part.type === WORKSPACE_CITATIONS_DATA_PART_TYPE) {
+	if (part.type === WORKSPACE_REFERENCES_DATA_PART_TYPE) {
 		return false;
 	}
 

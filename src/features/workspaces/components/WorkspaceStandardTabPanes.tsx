@@ -1,10 +1,7 @@
 import WorkspaceContent from "#/features/workspaces/components/WorkspaceContent";
 import { WorkspacePaneRuntimeProvider } from "#/features/workspaces/components/WorkspacePaneRuntime";
-import type {
-	WorkspaceItem,
-	WorkspaceItemType,
-	WorkspaceSummary,
-} from "#/features/workspaces/contracts";
+import type { WorkspaceCreateItemRequest } from "#/features/workspaces/components/workspace-presentation-model";
+import type { WorkspaceItem, WorkspaceSummary } from "#/features/workspaces/contracts";
 import type { WorkspaceTab } from "#/features/workspaces/model/tab-types";
 import { cn } from "#/lib/utils";
 
@@ -24,7 +21,7 @@ export default function WorkspaceStandardTabPanes({
 	tabs: WorkspaceTab[];
 	workspace: WorkspaceSummary;
 	onCloseItemView?: () => void;
-	onCreateItem: (input: { type: WorkspaceItemType; parentId: string | null }) => void;
+	onCreateItem: (input: WorkspaceCreateItemRequest) => void;
 	onOpenItem: (item: WorkspaceItem, options?: { background?: boolean }) => void;
 }) {
 	return (

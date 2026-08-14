@@ -8,6 +8,7 @@ import {
 	coerceTiptapDocumentProjection,
 	type TiptapDocumentJson,
 } from "#/features/workspaces/documents/tiptap-document";
+import { sha256Base64UrlText } from "#/lib/binary";
 import { isRecord } from "#/lib/record";
 
 export const FLASHCARD_SET_VERSION = 1;
@@ -113,11 +114,22 @@ export function stringifyFlashcardSetContent(content: FlashcardSetContent) {
 	return `${JSON.stringify(content)}\n`;
 }
 
+export function serializeFlashcardSideToHtml(side: TiptapDocumentJson) {
+	return serializeTiptapDocumentToHtml(side);
+}
+
+export async function createFlashcardRevision(card: Flashcard) {
+	return (await sha256Base64UrlText(JSON.stringify({ front: card.front, back: card.back }))).slice(
+		0,
+		10,
+	);
+}
+
 export function serializeFlashcardSetToHtml(content: FlashcardSetContent): FlashcardHtmlCard[] {
 	return content.cards.map((card) => ({
 		id: card.id,
-		front: serializeTiptapDocumentToHtml(card.front),
-		back: serializeTiptapDocumentToHtml(card.back),
+		front: serializeFlashcardSideToHtml(card.front),
+		back: serializeFlashcardSideToHtml(card.back),
 	}));
 }
 
