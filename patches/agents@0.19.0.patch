@@ -71,7 +71,7 @@ index 8d5b57034f927298d207d8a2bcbac927614780f5..9cf49a4471b9da862ddde11b818fd1ee
  	for (const msg of messages) {
  		if (msg.role !== "assistant") continue;
 diff --git a/dist/chat/react.js b/dist/chat/react.js
-index 51c24ed62b48d43a64a093b5d08e6ccb3aafcbf9..f9fa50a098030d9e99a48bcfe261d9e2623a2b43 100644
+index 51c24ed62b48d43a64a093b5d08e6ccb3aafcbf9..44059d63d10b5f1ae192eb7a6e63f0df61ddf49e 100644
 --- a/dist/chat/react.js
 +++ b/dist/chat/react.js
 @@ -253,7 +253,7 @@ var WebSocketChatTransport = class {
@@ -83,29 +83,77 @@ index 51c24ed62b48d43a64a093b5d08e6ccb3aafcbf9..f9fa50a098030d9e99a48bcfe261d9e2
  				};
  				agent.addEventListener("message", onMessage, { signal: abortController.signal });
  				agent.addEventListener("close", onClose, { signal: abortController.signal });
-@@ -967,6 +967,7 @@ function useAgentChat(options) {
+@@ -720,0 +721,23 @@ function prependMissingHydratedMessages(hydratedMessages, currentMessages) {
++function continuationPartsOverlap(left, right) {
++	if (left.type !== right.type) return false;
++	if ("toolCallId" in left || "toolCallId" in right) return left.toolCallId === right.toolCallId;
++	if ((left.type === "text" || left.type === "reasoning") && "text" in left && "text" in right) return left.text.startsWith(right.text) || right.text.startsWith(left.text);
++	return JSON.stringify(left) === JSON.stringify(right);
++}
++function preserveContinuationBaseline(messages, baselineMessages) {
++	const baselineAssistant = findLastAssistantMessage(baselineMessages)?.message;
++	if (!baselineAssistant) return messages;
++	const assistantIndex = messages.findIndex((message) => message.id === baselineAssistant.id);
++	if (assistantIndex < 0) return messages;
++	const assistant = messages[assistantIndex];
++	const missingParts = baselineAssistant.parts.filter((baselinePart) => !assistant.parts.some((part) => continuationPartsOverlap(baselinePart, part)));
++	const missingMetadata = assistant.metadata == null && baselineAssistant.metadata != null;
++	if (missingParts.length === 0 && !missingMetadata) return messages;
++	const next = [...messages];
++	next[assistantIndex] = {
++		...assistant,
++		parts: [...structuredClone(missingParts), ...assistant.parts],
++		...missingMetadata ? { metadata: structuredClone(baselineAssistant.metadata) } : {}
++	};
++	return next;
++}
+@@ -967,6 +990,25 @@ function useAgentChat(options) {
  	const [clientToolResults, setClientToolResults] = useState(/* @__PURE__ */ new Map());
  	const messagesRef = useRef(chatMessages);
  	messagesRef.current = chatMessages;
 +	const continuationStartMessagesRef = useRef(/* @__PURE__ */ new Map());
++	const transportContinuationRequestIdRef = useRef(null);
++	const completedTransportContinuationRequestIdRef = useRef(null);
++	useEffect(() => {
++		const requestId = transportContinuationRequestIdRef.current;
++		if (!requestId) return;
++		const baseline = continuationStartMessagesRef.current.get(requestId);
++		if (!baseline) return;
++		const next = preserveContinuationBaseline(chatMessages, baseline);
++		if (next !== chatMessages) {
++			setMessages(next);
++			return;
++		}
++		if (completedTransportContinuationRequestIdRef.current === requestId) {
++			continuationStartMessagesRef.current.delete(requestId);
++			transportContinuationRequestIdRef.current = null;
++			completedTransportContinuationRequestIdRef.current = null;
++		}
++	}, [chatMessages, setMessages, status]);
  	const initialMessagesRef = useRef(initialMessages);
  	initialMessagesRef.current = initialMessages;
  	const seededInitialMessagesKeyRef = useRef(null);
-@@ -1088,6 +1089,7 @@ function useAgentChat(options) {
+@@ -1088,6 +1130,9 @@ function useAgentChat(options) {
  		pendingReplayResumeRequestIdsRef.current.clear();
  		fallbackAckedResumeRequestIdsRef.current.clear();
  		replayHydratedAssistantMessageIdsRef.current.clear();
 +		continuationStartMessagesRef.current.clear();
++		transportContinuationRequestIdRef.current = null;
++		completedTransportContinuationRequestIdRef.current = null;
  		protectedStreamingAssistantRef.current = null;
  	}, [
  		markInitialMessagesSeeded,
-@@ -1268,6 +1270,16 @@ function useAgentChat(options) {
+@@ -1268,6 +1313,20 @@ function useAgentChat(options) {
  	const [isRecovering, setIsRecovering] = useState(false);
  	useEffect(() => {
  		const localResponseIds = localResponseMessageIdsRef.current;
 +		const continuationStartMessages = continuationStartMessagesRef.current;
 +		const captureContinuationStart = (requestId) => {
 +			if (!continuationStartMessages.has(requestId)) continuationStartMessages.set(requestId, structuredClone(messagesRef.current));
++		};
++		const completeContinuation = (requestId) => {
++			if (transportContinuationRequestIdRef.current === requestId) completedTransportContinuationRequestIdRef.current = requestId;
++			else continuationStartMessages.delete(requestId);
 +		};
 +		const rewindContinuation = (requestId) => {
 +			const baseline = continuationStartMessages.get(requestId);
@@ -116,20 +164,25 @@ index 51c24ed62b48d43a64a093b5d08e6ccb3aafcbf9..f9fa50a098030d9e99a48bcfe261d9e2
  		/**
  		* Unified message handler that parses JSON once and dispatches based on type.
  		* Avoids duplicate parsing overhead from separate listeners.
-@@ -1322,6 +1334,7 @@ function useAgentChat(options) {
+@@ -1322,6 +1381,9 @@ function useAgentChat(options) {
  					break;
  				case "cf_agent_stream_resume_none":
  					if (customTransport.handleStreamResumeNone(data) && data.reason === STREAM_RESUME_NONE_REASONS.IDLE && typeof data.probeId === "string") {
 +						continuationStartMessages.clear();
++						transportContinuationRequestIdRef.current = null;
++						completedTransportContinuationRequestIdRef.current = null;
  						const result = transition(streamStateRef.current, { type: "clear" });
  						streamStateRef.current = result.state;
  						setIsServerStreaming(result.isStreaming);
-@@ -1337,9 +1350,14 @@ function useAgentChat(options) {
+@@ -1337,9 +1399,17 @@ function useAgentChat(options) {
  						if (!isEarlyToolContinuation) return;
  					}
  					if (!resumingToolContinuationRef.current) pendingReplayResumeRequestIdsRef.current.add(data.id);
 +					if (customTransport.isAwaitingResume()) {
 +						// AI SDK snapshots the last message as soon as this resolves.
++						captureContinuationStart(data.id);
++						transportContinuationRequestIdRef.current = data.id;
++						completedTransportContinuationRequestIdRef.current = null;
 +						rewindContinuation(data.id);
 +					}
  					if (customTransport.handleStreamResuming(data)) return;
@@ -139,7 +192,7 @@ index 51c24ed62b48d43a64a093b5d08e6ccb3aafcbf9..f9fa50a098030d9e99a48bcfe261d9e2
  					if (isEarlyToolContinuation) {
  						pendingToolContinuationRef.current = false;
  						observedToolContinuationRequestIdRef.current = data.id;
-@@ -1369,6 +1387,7 @@ function useAgentChat(options) {
+@@ -1369,6 +1439,7 @@ function useAgentChat(options) {
  							const chunkData = JSON.parse(data.body);
  							if (chunkData.type === "start" && typeof chunkData.messageId === "string") {
  								localResponseIds.set(data.id, chunkData.messageId);
@@ -147,7 +200,7 @@ index 51c24ed62b48d43a64a093b5d08e6ccb3aafcbf9..f9fa50a098030d9e99a48bcfe261d9e2
  								if (!data.continuation) {
  									if (protectedStreamingAssistantRef.current?.assistantId !== chunkData.messageId) {
  										const msgs = messagesRef.current;
-@@ -1386,8 +1405,8 @@ function useAgentChat(options) {
+@@ -1386,8 +1457,8 @@ function useAgentChat(options) {
  								}
  							}
  						} catch {}
@@ -158,11 +211,11 @@ index 51c24ed62b48d43a64a093b5d08e6ccb3aafcbf9..f9fa50a098030d9e99a48bcfe261d9e2
  							if (streamStateRef.current.status === "observing" && streamStateRef.current.streamId === data.id) {
  								streamStateRef.current = { status: "idle" };
  								setIsServerStreaming(false);
-@@ -1397,14 +1416,30 @@ function useAgentChat(options) {
+@@ -1397,14 +1468,30 @@ function useAgentChat(options) {
  							localResponseIds.delete(data.id);
  							localRequestIdsRef.current.delete(data.id);
  							fallbackAckedResumeRequestIdsRef.current.delete(data.id);
-+							continuationStartMessages.delete(data.id);
++							completeContinuation(data.id);
  							if (observedToolContinuationRequestIdRef.current === data.id) resetToolContinuation();
  						}
  						return;
@@ -173,7 +226,7 @@ index 51c24ed62b48d43a64a093b5d08e6ccb3aafcbf9..f9fa50a098030d9e99a48bcfe261d9e2
 +						pendingReplayResumeRequestIdsRef.current.delete(data.id);
 +						customTransport.handleServerTurnCompleted(data.id);
 +						fallbackAckedResumeRequestIdsRef.current.delete(data.id);
-+						continuationStartMessages.delete(data.id);
++						completeContinuation(data.id);
 +						setIsRecovering(false);
 +						if (streamStateRef.current.status === "idle" || streamStateRef.current.streamId === data.id) {
 +							const result = transition(streamStateRef.current, { type: "clear" });
@@ -189,14 +242,17 @@ index 51c24ed62b48d43a64a093b5d08e6ccb3aafcbf9..f9fa50a098030d9e99a48bcfe261d9e2
  						if (data.replay && !data.continuation && !resumingToolContinuationRef.current && observedToolContinuationRequestIdRef.current !== data.id && typeof chunkData.messageId === "string" && chunkData.type === "start") {
  							pendingReplayResumeRequestIdsRef.current.delete(data.id);
  							resetMatchingHydratedAssistantForReplay(chunkData.messageId);
-@@ -1417,6 +1452,7 @@ function useAgentChat(options) {
+@@ -1417,6 +1504,7 @@ function useAgentChat(options) {
  					if (data.done) {
  						customTransport.handleServerTurnCompleted(data.id);
  						fallbackAckedResumeRequestIdsRef.current.delete(data.id);
-+						continuationStartMessages.delete(data.id);
++						completeContinuation(data.id);
  						setIsRecovering(false);
  					}
  					const completedObservedToolContinuation = data.done && observedToolContinuationRequestIdRef.current === data.id;
+@@ -1496,0 +1585,2 @@ function useAgentChat(options) {
++			transportContinuationRequestIdRef.current = null;
++			completedTransportContinuationRequestIdRef.current = null;
 diff --git a/dist/wire-types-CU9rLoeS.js b/dist/wire-types-CU9rLoeS.js
 index a0f027305b8594ea5cec3edcbf4273cf878319e5..d565dbb7c92d0ac7ca0e4a14c51a2820834a07d0 100644
 --- a/dist/wire-types-CU9rLoeS.js
