@@ -1,4 +1,4 @@
-import { ChevronDown, List, LoaderCircle, RotateCcw, Shuffle, XCircle } from "lucide-react";
+import { List, LoaderCircle, RotateCcw, Shuffle, XCircle } from "lucide-react";
 import { useState } from "react";
 
 import {
@@ -127,7 +127,6 @@ function FlashcardModeMenu({
 			<DropdownMenuTrigger render={<WorkspaceToolbarTextButton />}>
 				{mode === "all" ? <List /> : <XCircle />}
 				{mode === "all" ? "All cards" : "Missed"}
-				<ChevronDown />
 			</DropdownMenuTrigger>
 			<DropdownMenuContent className="w-48" align="end">
 				<FlashcardModeItems missedCount={missedCount} mode={mode} onModeChange={onModeChange} />
