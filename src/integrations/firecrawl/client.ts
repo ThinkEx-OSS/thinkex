@@ -7,6 +7,7 @@ export async function firecrawlJsonRequest(input: {
 	env: Cloudflare.Env;
 	path: string;
 	operation: string;
+	abortSignal?: AbortSignal;
 	method?: string;
 	body?: BodyInit | null;
 	headers?: HeadersInit;
@@ -23,6 +24,7 @@ export async function firecrawlJsonRequest(input: {
 			method: input.method ?? "GET",
 			headers,
 			body: input.body,
+			signal: input.abortSignal,
 		});
 		const responseJson = (await response.json().catch(() => null)) as unknown;
 

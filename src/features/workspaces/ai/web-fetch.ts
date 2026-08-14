@@ -1,10 +1,10 @@
-import { browserMarkdown, type QuickActionBinding } from "@cloudflare/think/tools/browser";
 import { z } from "zod";
 
 import { WORKSPACE_AI_CHAT_ATTACHMENT_POLICY } from "#/features/workspaces/ai/chat-attachment-policy";
 import { assertPublicHttpUrl } from "#/features/workspaces/ai/web-access-policy";
 import { normalizeChatImageToJpeg } from "#/features/workspaces/conversion/image-normalizer";
 import { workspaceFileUploadFormats } from "#/features/workspaces/model/workspace-file/policy";
+import { scrapePublicWebPage } from "#/integrations/firecrawl/scrape";
 
 const MAX_PAGE_CHARACTERS = 100_000;
 const MAX_REDIRECTS = 5;
@@ -46,7 +46,6 @@ export interface FreshWebImage {
 
 export async function fetchPublicWebResource(input: {
 	abortSignal?: AbortSignal;
-	browser: QuickActionBinding;
 	env: Cloudflare.Env;
 	kind: "page" | "image";
 	url: string;
@@ -57,11 +56,11 @@ export async function fetchPublicWebResource(input: {
 			return unsupportedPdf(requestedUrl.toString());
 		}
 
-		input.abortSignal?.throwIfAborted();
 		const url = requestedUrl.toString();
-		const content = await browserMarkdown(input.browser, {
+		const content = await scrapePublicWebPage({
+			abortSignal: input.abortSignal,
+			env: input.env,
 			url,
-			gotoOptions: { timeout: WEB_FETCH_TIMEOUT_MS },
 		});
 		return {
 			output: {

@@ -1,4 +1,3 @@
-import { browserLinks, type QuickActionBinding } from "@cloudflare/think/tools/browser";
 import type { JSONValue, ToolSet } from "ai";
 import { z } from "zod";
 import { defineAIThreadTool } from "#/features/workspaces/ai/ai-thread-tool";
@@ -14,9 +13,6 @@ import {
 	webSearchFreshnessValues,
 	webSearchSourceValues,
 } from "#/integrations/firecrawl/search";
-import { assertPublicHttpUrl } from "#/features/workspaces/ai/web-access-policy";
-
-const MAX_BROWSER_RESULT_CHARS = 100_000;
 const webSearchInputSchema = z.object({
 	query: z.string().trim().min(1).describe("Topic or question to search for."),
 	include_domains: z
@@ -48,11 +44,6 @@ const webFetchInputSchema = publicUrlInputSchema.extend({
 		.enum(["page", "image"])
 		.describe("Use page for rendered webpage text or image to inspect the image pixels."),
 });
-const webLinksOutputSchema = z.object({
-	items: z.array(z.string()),
-	truncated: z.boolean(),
-});
-
 const webSearchInputExamples: Array<{ input: z.infer<typeof webSearchInputSchema> }> = [
 	{
 		input: {
@@ -91,21 +82,12 @@ const webSearchInputExamples: Array<{ input: z.infer<typeof webSearchInputSchema
 	},
 ];
 
-const browserPageInputExamples = [
-	{
-		input: {
-			url: "https://example.com",
-		},
-	},
-];
-
 const webFetchInputExamples = [
 	{ input: { kind: "page" as const, url: "https://example.com" } },
 	{ input: { kind: "image" as const, url: "https://example.com/image.png" } },
 ];
 
 export function createAIThreadWebTools(env: Cloudflare.Env): ToolSet {
-	const browser: QuickActionBinding = env.BROWSER;
 	const freshImages = new Map<string, FreshWebImage>();
 
 	return {
@@ -153,7 +135,6 @@ export function createAIThreadWebTools(env: Cloudflare.Env): ToolSet {
 			execute: async ({ kind, url }, context) => {
 				const result = await fetchPublicWebResource({
 					abortSignal: context.abortSignal,
-					browser,
 					env,
 					kind,
 					url,
@@ -165,42 +146,5 @@ export function createAIThreadWebTools(env: Cloudflare.Env): ToolSet {
 				return result.output;
 			},
 		}),
-		web_links: defineAIThreadTool({
-			description: "Load a public webpage and return its rendered links.",
-			inputSchema: publicUrlInputSchema,
-			inputExamples: browserPageInputExamples,
-			outputSchema: webLinksOutputSchema,
-			execute: async ({ url }) => {
-				const safeUrl = assertPublicHttpUrl(url);
-				return truncateLinks(
-					await browserLinks(browser, {
-						url: safeUrl.toString(),
-					}),
-				);
-			},
-		}),
-	};
-}
-
-function truncateLinks(items: string[]) {
-	const result: string[] = [];
-	let size = 2;
-	let truncated = false;
-
-	for (const item of items) {
-		const itemSize = JSON.stringify(item).length + (result.length === 0 ? 0 : 1);
-
-		if (size + itemSize > MAX_BROWSER_RESULT_CHARS) {
-			truncated = true;
-			break;
-		}
-
-		result.push(item);
-		size += itemSize;
-	}
-
-	return {
-		items: truncated ? result : items,
-		truncated,
 	};
 }

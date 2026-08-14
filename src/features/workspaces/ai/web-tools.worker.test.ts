@@ -79,13 +79,10 @@ describe("web_fetch", () => {
 		});
 	});
 
-	it("renders pages without probing them through fetch first", async () => {
-		const fetchSpy = vi.fn();
+	it("scrapes pages once through Firecrawl", async () => {
+		const fetchSpy = vi.fn(async () => Response.json({ data: { markdown: "# Rendered page" } }));
 		vi.stubGlobal("fetch", fetchSpy);
-		const quickAction = vi.fn(async () => Response.json({ result: "# Rendered page" }));
-		const tool = createAIThreadWebTools(
-			createEnv(createImagesBinding().binding, { quickAction }),
-		).web_fetch;
+		const tool = createAIThreadWebTools(createEnv(createImagesBinding().binding)).web_fetch;
 		if (!tool?.execute) throw new Error("Expected executable web_fetch");
 
 		await expect(
@@ -96,11 +93,18 @@ describe("web_fetch", () => {
 			content: "# Rendered page",
 			truncated: false,
 		});
-		expect(quickAction).toHaveBeenCalledWith("markdown", {
-			url: "https://example.com/",
-			gotoOptions: { timeout: 20_000 },
+		expect(fetchSpy).toHaveBeenCalledOnce();
+		expect(fetchSpy).toHaveBeenCalledWith(new URL("https://api.firecrawl.dev/v2/scrape"), {
+			method: "POST",
+			headers: expect.any(Headers),
+			body: JSON.stringify({
+				url: "https://example.com/",
+				formats: ["markdown"],
+				onlyMainContent: true,
+				timeout: 20_000,
+			}),
+			signal: expect.any(AbortSignal),
 		});
-		expect(fetchSpy).not.toHaveBeenCalled();
 	});
 
 	it("cancels an image response rejected by its content length", async () => {
@@ -154,9 +158,9 @@ function createImagesBinding(output = new Uint8Array([1])) {
 	};
 }
 
-function createEnv(images: ImagesBinding, browser: Partial<Cloudflare.Env["BROWSER"]> = {}) {
+function createEnv(images: ImagesBinding) {
 	return {
-		BROWSER: browser as Cloudflare.Env["BROWSER"],
+		BROWSER: {} as Cloudflare.Env["BROWSER"],
 		IMAGES: images,
 	} as Cloudflare.Env;
 }

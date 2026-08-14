@@ -23,16 +23,6 @@ export function getToolSourcePreviews(activity: AiChatToolActivity): ToolSourceP
 					urlKeys: ["url"],
 				});
 			});
-		case "web_links":
-			return getArray(output.items).map((item) =>
-				typeof item === "string"
-					? sourcePreviewFromUrl(item, "Link")
-					: sourcePreviewFromRecord(asRecord(item), {
-							kind: "Link",
-							titleKeys: ["title", "text", "label"],
-							urlKeys: ["url", "href"],
-						}),
-			);
 		case "web_fetch": {
 			const url = getString(input.url);
 			let label = "Page";

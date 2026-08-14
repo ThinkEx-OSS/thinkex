@@ -128,8 +128,6 @@ export function getRunningToolReceipt(input: {
 				? receipt.running("Renaming ", ...name(oldName), " → ", ...name(newName))
 				: receipt.running("Renaming ", ...name(oldName));
 		}
-		case "web_links":
-			return receipt.running("Finding links on ", { name: formatUrl(getString(toolInput.url)) });
 		case "web_fetch":
 			return receipt.running("Reading ", {
 				name: formatUrlWithPath(getString(toolInput.url)),
@@ -192,8 +190,6 @@ export function getFinishedToolReceipt(input: {
 			return summarizeWebSearch(input.output, input.toolInput);
 		case "web_fetch":
 			return summarizeWebFetch(input.output, input.toolInput);
-		case "web_links":
-			return summarizeWebLinks(input.output, input.toolInput);
 		case "research_discover":
 			return summarizeResearchDiscover(input.output, input.toolInput);
 		case "research_deepen":
@@ -414,13 +410,6 @@ function summarizeWebFetch(output: unknown, toolInput: unknown): AiChatToolRecei
 	return receipt.completed(kind === "image" ? "Inspected " : "Read ", target);
 }
 
-function summarizeWebLinks(output: unknown, toolInput: unknown): AiChatToolReceipt {
-	const items = getArray(asRecord(output).items);
-	return receipt.completed(`Found ${formatCount(items.length, "link")} on `, {
-		name: formatUrl(getString(asRecord(toolInput).url)),
-	});
-}
-
 function summarizeResearchDiscover(output: unknown, toolInput: unknown): AiChatToolReceipt {
 	const record = asRecord(output);
 	const total = getArray(record.papers).length + getArray(record.github).length;
@@ -582,15 +571,6 @@ function getBaseName(path: string | undefined) {
 
 function getPathFromToolInput(input: unknown) {
 	return getString(asRecord(input).path);
-}
-
-function formatUrl(url: string | undefined) {
-	if (!url) return "page";
-	try {
-		return new URL(url).hostname.replace(/^www\./, "");
-	} catch {
-		return url;
-	}
 }
 
 function formatUrlWithPath(url: string | undefined) {
