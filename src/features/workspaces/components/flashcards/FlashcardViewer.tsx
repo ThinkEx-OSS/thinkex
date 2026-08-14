@@ -380,13 +380,20 @@ function FlashcardStudySurface({
 	const ratingDirection = ratingFeedback === "again" ? -1 : 1;
 	const ratingAnimation = ratingFeedback
 		? {
-				x: ratingDirection * 120,
-				y: 80,
-				rotate: ratingDirection * 5,
-				scale: 0.9,
+				x: ratingDirection * 148,
+				y: 126,
+				rotate: ratingDirection * 7,
+				scale: 0.42,
 				opacity: 0,
 			}
 		: { x: 0, y: 0, rotate: 0, scale: 1, opacity: 1 };
+	const ratingAnticipation = ratingFeedback
+		? { x: ratingDirection * 12, rotate: ratingDirection * 3 }
+		: { x: 0, y: 0, rotate: 0 };
+	const ratingRing =
+		ratingFeedback === "again"
+			? "inset 0 0 0 5px color-mix(in srgb, var(--color-red-500) 62%, transparent)"
+			: "inset 0 0 0 5px color-mix(in srgb, var(--color-emerald-500) 62%, transparent)";
 
 	return (
 		<LazyMotion features={domAnimation}>
@@ -412,29 +419,85 @@ function FlashcardStudySurface({
 					<div className="mx-auto flex min-h-0 w-full max-w-4xl flex-1 flex-col gap-4">
 						<div className="relative min-h-72 flex-1 rounded-2xl sm:min-h-96">
 							{nextCard ? (
-								<div
+								<m.div
 									aria-hidden="true"
 									className="workspace-flashcard absolute inset-0 rounded-2xl"
+									initial={{ y: 8, scale: 0.96 }}
+									animate={{ y: 0, scale: 1 }}
+									transition={{
+										type: "spring",
+										visualDuration: 0.5,
+										bounce: 0.05,
+									}}
 								>
 									<FlashcardFace label="Front" content={nextCard.front} action={null} />
-								</div>
+								</m.div>
 							) : null}
 							<m.div
 								key={currentCard.id}
 								className="workspace-flashcard group absolute inset-0 z-[1] cursor-pointer rounded-2xl"
 								initial={false}
 								animate={ratingAnimation}
-								transition={{ duration: ratingFeedback ? 0.28 : 0, ease: "easeInOut" }}
+								transition={
+									ratingFeedback
+										? {
+												type: "spring",
+												visualDuration: 0.58,
+												bounce: 0.05,
+												delay: 0.28,
+												rotate: {
+													type: "spring",
+													visualDuration: 0.4,
+													bounce: 0.06,
+													delay: 0.28,
+												},
+												scale: {
+													type: "spring",
+													visualDuration: 0.32,
+													bounce: 0.02,
+													delay: 0.28,
+												},
+												opacity: { type: "tween", duration: 0.36, delay: 0.4, ease: "easeOut" },
+											}
+										: { duration: 0 }
+								}
 								style={{ transformOrigin: ratingDirection < 0 ? "bottom left" : "bottom right" }}
-								onAnimationComplete={() => {
-									if (ratingFeedback) onRatingAnimationComplete();
+								onUpdate={(latest) => {
+									if (
+										ratingFeedback &&
+										typeof latest.opacity === "number" &&
+										latest.opacity <= 0.08
+									) {
+										onRatingAnimationComplete();
+									}
 								}}
 								onClick={(event) => {
 									if ((event.target as HTMLElement).closest("button, a")) return;
 									onFlip();
 								}}
 							>
-								<div className="absolute inset-0">
+								<m.div
+									className="absolute inset-0"
+									initial={false}
+									animate={ratingAnticipation}
+									transition={
+										ratingFeedback
+											? { type: "spring", visualDuration: 0.22, bounce: 0.1 }
+											: { duration: 0 }
+									}
+									style={{ transformOrigin: "center" }}
+								>
+									<m.div
+										aria-hidden="true"
+										className="pointer-events-none absolute inset-0 z-10 rounded-2xl"
+										initial={false}
+										animate={{ opacity: ratingFeedback ? 0.8 : 0 }}
+										transition={{
+											duration: ratingFeedback ? 0.16 : 0,
+											ease: "easeOut",
+										}}
+										style={{ boxShadow: ratingRing }}
+									/>
 									<m.div
 										className={cn("workspace-flashcard-inner", flipped && "is-flipped")}
 										initial={false}
@@ -475,7 +538,7 @@ function FlashcardStudySurface({
 											}
 										/>
 									</m.div>
-								</div>
+								</m.div>
 							</m.div>
 						</div>
 
