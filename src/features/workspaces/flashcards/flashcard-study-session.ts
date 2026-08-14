@@ -13,11 +13,12 @@ export function createFlashcardStudyQueue(
 	},
 	random: () => number = Math.random,
 ) {
-	const cardIds = input.cards
-		.filter(
-			(card) => input.mode === "all" || input.studyState.cards[card.id]?.lastRating === "again",
-		)
-		.map((card) => card.id);
+	const cardIds: string[] = [];
+	for (const card of input.cards) {
+		if (input.mode === "all" || input.studyState.cards[card.id]?.lastRating === "again") {
+			cardIds.push(card.id);
+		}
+	}
 
 	if (!input.shuffled) return cardIds;
 

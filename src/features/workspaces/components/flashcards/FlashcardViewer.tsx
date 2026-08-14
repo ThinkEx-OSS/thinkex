@@ -34,6 +34,15 @@ import "./flashcard-viewer.css";
 
 const CARD_SETTLE_MS = 220;
 
+interface FlashcardSessionState {
+	cardIds: string[];
+	currentIndex: number;
+	flipped: boolean;
+	mode: FlashcardStudyMode;
+	settling: boolean;
+	shuffled: boolean;
+}
+
 export function FlashcardViewer({
 	item,
 	viewInstanceId,
@@ -78,14 +87,15 @@ function FlashcardStudySession({
 	item: WorkspaceItem;
 	viewInstanceId: string;
 }) {
-	const [currentIndex, setCurrentIndex] = useState(0);
-	const [flipped, setFlipped] = useState(false);
-	const [settling, setSettling] = useState(false);
-	const [mode, setMode] = useState<FlashcardStudyMode>("all");
-	const [shuffled, setShuffled] = useState(false);
-	const [studyCardIds, setStudyCardIds] = useState(() =>
-		createFlashcardStudyQueue({ cards, mode: "all", shuffled: false, studyState }),
-	);
+	const [session, setSession] = useState<FlashcardSessionState>(() => ({
+		cardIds: createFlashcardStudyQueue({ cards, mode: "all", shuffled: false, studyState }),
+		currentIndex: 0,
+		flipped: false,
+		mode: "all",
+		settling: false,
+		shuffled: false,
+	}));
+	const { cardIds: studyCardIds, currentIndex, flipped, mode, settling, shuffled } = session;
 	const settleTimerRef = useRef<number | null>(null);
 	const cardsById = useMemo(() => new Map(cards.map((card) => [card.id, card])), [cards]);
 	const studyCards = useMemo(
@@ -128,19 +138,19 @@ function FlashcardStudySession({
 	const startSession = useCallback(
 		(nextMode: FlashcardStudyMode, nextShuffled: boolean) => {
 			clearSettleTimer();
-			setMode(nextMode);
-			setShuffled(nextShuffled);
-			setStudyCardIds(
-				createFlashcardStudyQueue({
+			setSession({
+				cardIds: createFlashcardStudyQueue({
 					cards,
 					mode: nextMode,
 					shuffled: nextShuffled,
 					studyState,
 				}),
-			);
-			setCurrentIndex(0);
-			setFlipped(false);
-			setSettling(false);
+				currentIndex: 0,
+				flipped: false,
+				mode: nextMode,
+				settling: false,
+				shuffled: nextShuffled,
+			});
 		},
 		[cards, clearSettleTimer, studyState],
 	);
@@ -212,13 +222,14 @@ function FlashcardStudySession({
 			if (cancelled) return;
 			if (cardIndex >= 0) {
 				clearSettleTimer();
-				if (nextCardIds !== studyCardIds) {
-					setMode("all");
-					setStudyCardIds(nextCardIds);
-				}
-				setCurrentIndex(cardIndex);
-				setFlipped(revealRequest.location.side === "back");
-				setSettling(false);
+				setSession((current) => ({
+					...current,
+					cardIds: nextCardIds,
+					currentIndex: cardIndex,
+					flipped: revealRequest.location.side === "back",
+					mode: nextCardIds === studyCardIds ? mode : "all",
+					settling: false,
+				}));
 			}
 			consumeRevealRequest(revealRequest);
 		});
@@ -234,6 +245,7 @@ function FlashcardStudySession({
 		shuffled,
 		studyCardIds,
 		studyState,
+		mode,
 	]);
 	if (cards.length === 0) {
 		return (
@@ -268,15 +280,13 @@ function FlashcardStudySession({
 			return;
 		}
 		if (!flipped) {
-			setCurrentIndex(nextIndex);
+			setSession((current) => ({ ...current, currentIndex: nextIndex }));
 			return;
 		}
-		setSettling(true);
-		setFlipped(false);
+		setSession((current) => ({ ...current, flipped: false, settling: true }));
 		clearSettleTimer();
 		settleTimerRef.current = window.setTimeout(() => {
-			setCurrentIndex(nextIndex);
-			setSettling(false);
+			setSession((current) => ({ ...current, currentIndex: nextIndex, settling: false }));
 			settleTimerRef.current = null;
 		}, CARD_SETTLE_MS);
 	};
@@ -285,8 +295,63 @@ function FlashcardStudySession({
 		if (settling) return;
 		recordRating.mutate({ cardId: currentCard.id, rating });
 		if (currentIndex < studyCards.length - 1) goTo(currentIndex + 1);
-		else setFlipped(false);
+		else setSession((current) => ({ ...current, flipped: false }));
 	};
+	const flipCard = () => {
+		if (!settling) setSession((current) => ({ ...current, flipped: !current.flipped }));
+	};
+
+	return (
+		<FlashcardStudySurface
+			currentCard={currentCard}
+			currentIndex={currentIndex}
+			currentRating={currentRating}
+			flipped={flipped}
+			gotItCount={gotItCount}
+			item={item}
+			missedCount={missedInSessionCount}
+			onFlip={flipCard}
+			onGoTo={goTo}
+			onRate={rate}
+			reviewedCount={reviewedCount}
+			settling={settling}
+			studyCards={studyCards}
+			studyState={studyState}
+		/>
+	);
+}
+
+function FlashcardStudySurface({
+	currentCard,
+	currentIndex,
+	currentRating,
+	flipped,
+	gotItCount,
+	item,
+	missedCount,
+	onFlip,
+	onGoTo,
+	onRate,
+	reviewedCount,
+	settling,
+	studyCards,
+	studyState,
+}: {
+	currentCard: Flashcard;
+	currentIndex: number;
+	currentRating: FlashcardStudyRating | undefined;
+	flipped: boolean;
+	gotItCount: number;
+	item: WorkspaceItem;
+	missedCount: number;
+	onFlip: () => void;
+	onGoTo: (index: number) => void;
+	onRate: (rating: FlashcardStudyRating) => void;
+	reviewedCount: number;
+	settling: boolean;
+	studyCards: Flashcard[];
+	studyState: FlashcardStudyState;
+}) {
 	return (
 		<section
 			className="flex h-full min-h-0 flex-col bg-background px-4 py-5 sm:px-8 sm:py-7"
@@ -298,10 +363,10 @@ function FlashcardStudySession({
 				if (isTypingTarget) return;
 				if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
 					event.preventDefault();
-					goTo(currentIndex + (event.key === "ArrowLeft" ? -1 : 1));
+					onGoTo(currentIndex + (event.key === "ArrowLeft" ? -1 : 1));
 				} else if (event.key === " " && !(event.target as HTMLElement).closest("button, a")) {
 					event.preventDefault();
-					if (!settling) setFlipped((value) => !value);
+					onFlip();
 				}
 			}}
 			tabIndex={0}
@@ -316,12 +381,12 @@ function FlashcardStudySession({
 					tabIndex={0}
 					onClick={(event) => {
 						if ((event.target as HTMLElement).closest("a")) return;
-						if (!settling) setFlipped((value) => !value);
+						onFlip();
 					}}
 					onKeyDown={(event) => {
 						if (event.key === "Enter") {
 							event.preventDefault();
-							if (!settling) setFlipped((value) => !value);
+							onFlip();
 						}
 					}}
 				>
@@ -367,8 +432,8 @@ function FlashcardStudySession({
 						cards={studyCards}
 						currentIndex={currentIndex}
 						gotItCount={gotItCount}
-						missedCount={missedInSessionCount}
-						onSelect={goTo}
+						missedCount={missedCount}
+						onSelect={onGoTo}
 						reviewsByCardId={studyState.cards}
 					/>
 					<div className="grid min-h-10 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
@@ -382,7 +447,7 @@ function FlashcardStudySession({
 								aria-label="Previous card"
 								title="Previous card (Left arrow)"
 								disabled={settling || currentIndex === 0}
-								onClick={() => goTo(currentIndex - 1)}
+								onClick={() => onGoTo(currentIndex - 1)}
 							>
 								<ChevronLeft />
 							</Button>
@@ -396,7 +461,7 @@ function FlashcardStudySession({
 									"border-red-500/30 text-red-600 hover:border-red-500/50 hover:bg-red-500/10 hover:text-red-700 dark:text-red-400",
 									currentRating === "again" && "bg-red-500/10",
 								)}
-								onClick={() => rate("again")}
+								onClick={() => onRate("again")}
 							>
 								<X /> No
 							</Button>
@@ -410,7 +475,7 @@ function FlashcardStudySession({
 									"border-emerald-500/30 text-emerald-600 hover:border-emerald-500/50 hover:bg-emerald-500/10 hover:text-emerald-700 dark:text-emerald-400",
 									currentRating !== undefined && currentRating !== "again" && "bg-emerald-500/10",
 								)}
-								onClick={() => rate("good")}
+								onClick={() => onRate("good")}
 							>
 								<Check /> Yes
 							</Button>
@@ -420,7 +485,7 @@ function FlashcardStudySession({
 								aria-label="Next card"
 								title="Next card (Right arrow)"
 								disabled={settling || currentIndex === studyCards.length - 1}
-								onClick={() => goTo(currentIndex + 1)}
+								onClick={() => onGoTo(currentIndex + 1)}
 							>
 								<ChevronRight />
 							</Button>
