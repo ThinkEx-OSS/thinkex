@@ -80,7 +80,7 @@ describe("web_fetch", () => {
 	});
 
 	it("scrapes pages once through Firecrawl", async () => {
-		const fetchSpy = vi.fn(async () => Response.json({ data: { markdown: "" } }));
+		const fetchSpy = vi.fn(async () => Response.json({ data: { markdown: "# Rendered page" } }));
 		vi.stubGlobal("fetch", fetchSpy);
 		const tool = createAIThreadWebTools(createEnv(createImagesBinding().binding)).web_fetch;
 		if (!tool?.execute) throw new Error("Expected executable web_fetch");
@@ -90,7 +90,7 @@ describe("web_fetch", () => {
 		).resolves.toEqual({
 			kind: "page",
 			url: "https://example.com/",
-			content: "",
+			content: "# Rendered page",
 			truncated: false,
 		});
 		expect(fetchSpy).toHaveBeenCalledOnce();
@@ -105,6 +105,19 @@ describe("web_fetch", () => {
 			}),
 			signal: expect.any(AbortSignal),
 		});
+	});
+
+	it("accepts a successful page scrape with empty Markdown", async () => {
+		vi.stubGlobal(
+			"fetch",
+			vi.fn(async () => Response.json({ data: { markdown: "" } })),
+		);
+		const tool = createAIThreadWebTools(createEnv(createImagesBinding().binding)).web_fetch;
+		if (!tool?.execute) throw new Error("Expected executable web_fetch");
+
+		await expect(
+			tool.execute({ kind: "page", url: "https://example.com" }, directOptions("empty-page-call")),
+		).resolves.toMatchObject({ kind: "page", content: "" });
 	});
 
 	it("cancels an image response rejected by its content length", async () => {
