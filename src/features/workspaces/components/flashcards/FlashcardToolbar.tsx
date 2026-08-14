@@ -197,7 +197,6 @@ function FlashcardModeItems({
 				<DropdownMenuRadioItem value="missed" disabled={missedCount === 0}>
 					<XCircle />
 					Missed
-					<span className="ml-auto text-xs text-muted-foreground">{missedCount}</span>
 				</DropdownMenuRadioItem>
 			</DropdownMenuRadioGroup>
 		</DropdownMenuGroup>
