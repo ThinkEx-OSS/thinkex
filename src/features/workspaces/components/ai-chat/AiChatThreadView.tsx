@@ -99,7 +99,7 @@ export default function AiChatThreadView({
 	});
 	useEffect(() => {
 		if (!directPrompt) return;
-		if (isBlocked || connectionError) {
+		if (isBlocked || connectionError || presentation.isBusy) {
 			const text = takeDirectPrompt(threadId, directPrompt.id);
 			if (text) {
 				queueMicrotask(() =>
@@ -117,6 +117,7 @@ export default function AiChatThreadView({
 		directPrompt,
 		inputStatus,
 		isBlocked,
+		presentation.isBusy,
 		setDraftText,
 		takeDirectPrompt,
 		threadId,

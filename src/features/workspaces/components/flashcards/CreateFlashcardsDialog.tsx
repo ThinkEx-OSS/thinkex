@@ -39,7 +39,7 @@ export function CreateFlashcardsDialog({
 							const rawTopic = formData.get("topic");
 							const topic = typeof rawTopic === "string" ? rawTopic.trim() : "";
 							const count = Number(formData.get("count"));
-							if (!topic || !Number.isInteger(count)) return;
+							if (!topic || ![5, 10, 15, 20].includes(count)) return;
 							if (
 								!sendComposerPrompt(
 									workspaceId,
