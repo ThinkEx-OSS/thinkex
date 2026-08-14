@@ -1,11 +1,12 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { Spinner } from "#/components/ui/spinner";
 import { useWorkspaceImageViewerTransform } from "#/features/workspaces/components/use-workspace-image-viewer-transform";
 import {
 	WorkspaceCaptureShortcuts,
 	WorkspaceCaptureViewerFrame,
 } from "#/features/workspaces/components/WorkspaceCaptureChrome";
-import { useFileItemToolbar } from "#/features/workspaces/components/WorkspaceItemToolbarSlot";
+import { WorkspaceFileToolbar } from "#/features/workspaces/components/WorkspaceFileToolbar";
+import { useWorkspaceItemToolbar } from "#/features/workspaces/components/WorkspaceItemToolbarSlot";
 import { WorkspaceImageRegionCaptureOverlay } from "#/features/workspaces/components/WorkspaceRegionCaptureOverlay";
 import { useWorkspaceViewCapabilities } from "#/features/workspaces/components/workspace-view-policy";
 import { renderImageRegionCapture } from "#/features/workspaces/components/workspace-image-capture";
@@ -66,17 +67,19 @@ function WorkspaceImageViewerContent({
 		isCaptureActive: captureActive,
 	});
 
-	useFileItemToolbar({
-		capture: enableFileCapture
-			? {
-					isActive: captureActive,
-					onToggle: toggleCapture,
+	const toolbar = useMemo(
+		() => (
+			<WorkspaceFileToolbar
+				capture={
+					enableFileCapture ? { isActive: captureActive, onToggle: toggleCapture } : undefined
 				}
-			: undefined,
-		fileName: item.name,
-		fileUrl,
-		slotId: viewInstanceId,
-	});
+				fileName={item.name}
+				fileUrl={fileUrl}
+			/>
+		),
+		[captureActive, enableFileCapture, fileUrl, item.name, toggleCapture],
+	);
+	useWorkspaceItemToolbar(viewInstanceId, toolbar);
 
 	const handleImageLoad = useCallback(() => {
 		setStatus("ready");

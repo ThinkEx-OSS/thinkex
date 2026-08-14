@@ -35,14 +35,17 @@ import { DocumentEditReviewProvider } from "#/features/workspaces/documents/docu
 import { isWorkspaceItemView } from "#/features/workspaces/model/view";
 import { getWorkspaceItemPath } from "#/features/workspaces/model/tree";
 import { workspaceItemRequiresHeavyViewerRuntime } from "#/features/workspaces/model/workspace-file";
-import { getWorkspaceMobileChatSurfaceMode } from "#/features/workspaces/model/workspace-ui";
+import {
+	getActiveWorkspaceViewInstanceId,
+	getWorkspaceMobileChatSurfaceMode,
+} from "#/features/workspaces/model/workspace-ui";
 import { useWorkspaceNavigation } from "#/features/workspaces/navigation/useWorkspaceNavigation";
 import { useWorkspaceRealtime } from "#/features/workspaces/realtime/use-workspace-presence";
 import { useWorkspacePersistedStoresHydrated } from "#/features/workspaces/state/persisted-store-hydration";
 import { useWorkspaceAiComposerDraftQuotes } from "#/features/workspaces/state/workspace-ai-composer-draft-store";
 import { useWorkspaceSelectionItemIds } from "#/features/workspaces/state/workspace-selection-store";
 import {
-	useWorkspaceItemViewStates,
+	useWorkspaceItemViewStatesByViewInstance,
 	useWorkspaceUiSession,
 	useWorkspaceUiStore,
 } from "#/features/workspaces/state/workspace-ui-store";
@@ -73,7 +76,7 @@ export function WorkspaceShell({
 	const [flashcardParentId, setFlashcardParentId] = useState<string | null | undefined>();
 	const persistedStoresHydrated = useWorkspacePersistedStoresHydrated();
 	const ensureWorkspaceUiSession = useWorkspaceUiStore((state) => state.ensureWorkspaceSession);
-	const itemViewStatesByItemId = useWorkspaceItemViewStates(workspace.id);
+	const itemViewStatesByViewInstanceId = useWorkspaceItemViewStatesByViewInstance(workspace.id);
 	const selectedQuotes = useWorkspaceAiComposerDraftQuotes(workspace.id);
 	const setChatSurfaceMode = useWorkspaceUiStore((state) => state.setChatSurfaceMode);
 	const toggleChatPanel = useWorkspaceUiStore((state) => state.toggleChatPanel);
@@ -186,7 +189,7 @@ export function WorkspaceShell({
 	const aiContextScope = {
 		activeItem: isWorkspaceItemView(activeItem) ? activeItem : undefined,
 		activeTabId: activeTab.id,
-		itemViewStatesByItemId,
+		itemViewStatesByViewInstanceId,
 		itemsById,
 		presentation,
 		selectedItemIds,
@@ -201,7 +204,7 @@ export function WorkspaceShell({
 			workspace={workspace}
 			activeItem={activeItem}
 			itemsById={itemsById}
-			toolbarSlotId={activeTab.id}
+			toolbarSlotId={getActiveWorkspaceViewInstanceId(presentation, activeTab.id)}
 			onCreateItem={createWorkspaceItem}
 			onCloseItemView={isWorkspaceItemView(activeItem) ? closeItemView : undefined}
 			onNavigateToRoot={openWorkspaceRoot}

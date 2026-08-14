@@ -8,7 +8,8 @@ import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react
 import { Button } from "#/components/ui/button";
 import { Skeleton } from "#/components/ui/skeleton";
 import { sendComposerPrompt } from "#/features/workspaces/composer/workspace-composer-actions";
-import { useFlashcardItemToolbar } from "#/features/workspaces/components/WorkspaceItemToolbarSlot";
+import { FlashcardToolbar } from "#/features/workspaces/components/flashcards/FlashcardToolbar";
+import { useWorkspaceItemToolbar } from "#/features/workspaces/components/WorkspaceItemToolbarSlot";
 import { getTiptapDocumentBaseExtensions } from "#/features/workspaces/documents/tiptap-extensions";
 import type { TiptapDocumentJson } from "#/features/workspaces/documents/tiptap-document";
 import {
@@ -103,13 +104,14 @@ function FlashcardStudySession({
 		[cardsById, studyCardIds],
 	);
 	const currentCard = studyCards[currentIndex];
-	const gotItCount = studyCards.filter((card) => {
-		const rating = studyState.cards[card.id]?.lastRating;
-		return rating !== undefined && rating !== "again";
-	}).length;
-	const missedInSessionCount = studyCards.filter(
-		(card) => studyState.cards[card.id]?.lastRating === "again",
-	).length;
+	const sessionProgress = useMemo(
+		() =>
+			summarizeFlashcardStudyProgress(
+				studyCards.map((card) => card.id),
+				studyState,
+			),
+		[studyCards, studyState],
+	);
 	const studyProgress = useMemo(
 		() =>
 			summarizeFlashcardStudyProgress(
@@ -163,32 +165,46 @@ function FlashcardStudySession({
 		startSession("all", false);
 		resetProgress();
 	}, [resetProgress, startSession]);
-	useFlashcardItemToolbar({
-		canReset: studyProgress.reviewedCount > 0,
-		isResetting,
-		missedCount: studyProgress.missedCount,
-		mode,
-		onModeChange: changeMode,
-		onReset: resetStudyProgress,
-		onShuffleToggle: toggleShuffle,
-		shuffled,
-		slotId: viewInstanceId,
-	});
+	const toolbar = useMemo(
+		() => (
+			<FlashcardToolbar
+				canReset={studyProgress.reviewedCount > 0}
+				isResetting={isResetting}
+				missedCount={studyProgress.missedCount}
+				mode={mode}
+				shuffled={shuffled}
+				onModeChange={changeMode}
+				onReset={resetStudyProgress}
+				onShuffleToggle={toggleShuffle}
+			/>
+		),
+		[
+			changeMode,
+			isResetting,
+			mode,
+			resetStudyProgress,
+			shuffled,
+			studyProgress.missedCount,
+			studyProgress.reviewedCount,
+			toggleShuffle,
+		],
+	);
+	useWorkspaceItemToolbar(viewInstanceId, toolbar);
 	useEffect(() => {
 		if (!currentCard) return;
-		setItemViewState(item.workspaceId, {
-			kind: "flashcard",
+		setItemViewState(item.workspaceId, viewInstanceId, {
 			itemId: item.id,
-			cardId: currentCard.id,
-			cardNumber: currentIndex + 1,
-			totalCards: studyCards.length,
-			gotItCount: studyProgress.gotItCount,
-			missedCount: studyProgress.missedCount,
-			setTotalCards: studyProgress.totalCards,
-			mode,
-			shuffled,
-			side: flipped ? "back" : "front",
-			...(currentRating ? { rating: currentRating } : {}),
+			label: `card ${currentIndex + 1}`,
+			detail: getFlashcardViewStateDetail({
+				cardId: currentCard.id,
+				cardNumber: currentIndex + 1,
+				currentRating,
+				flipped,
+				mode,
+				shuffled,
+				studyProgress,
+				totalCards: studyCards.length,
+			}),
 		});
 	}, [
 		currentCard,
@@ -202,10 +218,11 @@ function FlashcardStudySession({
 		shuffled,
 		studyProgress,
 		studyCards.length,
+		viewInstanceId,
 	]);
 	useEffect(
-		() => () => clearItemViewState(item.workspaceId, item.id),
-		[clearItemViewState, item.id, item.workspaceId],
+		() => () => clearItemViewState(item.workspaceId, viewInstanceId),
+		[clearItemViewState, item.workspaceId, viewInstanceId],
 	);
 	useEffect(() => {
 		if (!revealRequest) return;
@@ -313,9 +330,9 @@ function FlashcardStudySession({
 			currentIndex={currentIndex}
 			currentRating={currentRating}
 			flipped={flipped}
-			gotItCount={gotItCount}
+			gotItCount={sessionProgress.gotItCount}
 			item={item}
-			missedCount={missedInSessionCount}
+			missedCount={sessionProgress.missedCount}
 			onFlip={flipCard}
 			onGoTo={goTo}
 			onRate={rate}
@@ -363,20 +380,13 @@ function FlashcardStudySurface({
 	const ratingDirection = ratingFeedback === "again" ? -1 : 1;
 	const ratingAnimation = ratingFeedback
 		? {
-				x: ratingDirection * 148,
-				y: 126,
-				rotate: ratingDirection * 7,
-				scale: 0.42,
+				x: ratingDirection * 120,
+				y: 80,
+				rotate: ratingDirection * 5,
+				scale: 0.9,
 				opacity: 0,
 			}
 		: { x: 0, y: 0, rotate: 0, scale: 1, opacity: 1 };
-	const ratingAnticipation = ratingFeedback
-		? { x: ratingDirection * 12, rotate: ratingDirection * 3 }
-		: { x: 0, y: 0, rotate: 0 };
-	const ratingRing =
-		ratingFeedback === "again"
-			? "inset 0 0 0 5px color-mix(in srgb, var(--color-red-500) 62%, transparent)"
-			: "inset 0 0 0 5px color-mix(in srgb, var(--color-emerald-500) 62%, transparent)";
 
 	return (
 		<LazyMotion features={domAnimation}>
@@ -402,85 +412,29 @@ function FlashcardStudySurface({
 					<div className="mx-auto flex min-h-0 w-full max-w-4xl flex-1 flex-col gap-4">
 						<div className="relative min-h-72 flex-1 rounded-2xl sm:min-h-96">
 							{nextCard ? (
-								<m.div
+								<div
 									aria-hidden="true"
 									className="workspace-flashcard absolute inset-0 rounded-2xl"
-									initial={{ y: 8, scale: 0.96 }}
-									animate={{ y: 0, scale: 1 }}
-									transition={{
-										type: "spring",
-										visualDuration: 0.5,
-										bounce: 0.05,
-									}}
 								>
 									<FlashcardFace label="Front" content={nextCard.front} action={null} />
-								</m.div>
+								</div>
 							) : null}
 							<m.div
 								key={currentCard.id}
 								className="workspace-flashcard group absolute inset-0 z-[1] cursor-pointer rounded-2xl"
 								initial={false}
 								animate={ratingAnimation}
-								transition={
-									ratingFeedback
-										? {
-												type: "spring",
-												visualDuration: 0.58,
-												bounce: 0.05,
-												delay: 0.28,
-												rotate: {
-													type: "spring",
-													visualDuration: 0.4,
-													bounce: 0.06,
-													delay: 0.28,
-												},
-												scale: {
-													type: "spring",
-													visualDuration: 0.32,
-													bounce: 0.02,
-													delay: 0.28,
-												},
-												opacity: { type: "tween", duration: 0.36, delay: 0.4, ease: "easeOut" },
-											}
-										: { duration: 0 }
-								}
+								transition={{ duration: ratingFeedback ? 0.28 : 0, ease: "easeInOut" }}
 								style={{ transformOrigin: ratingDirection < 0 ? "bottom left" : "bottom right" }}
-								onUpdate={(latest) => {
-									if (
-										ratingFeedback &&
-										typeof latest.opacity === "number" &&
-										latest.opacity <= 0.08
-									) {
-										onRatingAnimationComplete();
-									}
+								onAnimationComplete={() => {
+									if (ratingFeedback) onRatingAnimationComplete();
 								}}
 								onClick={(event) => {
 									if ((event.target as HTMLElement).closest("button, a")) return;
 									onFlip();
 								}}
 							>
-								<m.div
-									className="absolute inset-0"
-									initial={false}
-									animate={ratingAnticipation}
-									transition={
-										ratingFeedback
-											? { type: "spring", visualDuration: 0.22, bounce: 0.1 }
-											: { duration: 0 }
-									}
-									style={{ transformOrigin: "center" }}
-								>
-									<m.div
-										aria-hidden="true"
-										className="pointer-events-none absolute inset-0 z-10 rounded-2xl"
-										initial={false}
-										animate={{ opacity: ratingFeedback ? 0.8 : 0 }}
-										transition={{
-											duration: ratingFeedback ? 0.16 : 0,
-											ease: "easeOut",
-										}}
-										style={{ boxShadow: ratingRing }}
-									/>
+								<div className="absolute inset-0">
 									<m.div
 										className={cn("workspace-flashcard-inner", flipped && "is-flipped")}
 										initial={false}
@@ -488,11 +442,11 @@ function FlashcardStudySurface({
 										transition={{ type: "spring", visualDuration: 0.4, bounce: 0.08 }}
 									>
 										<FlashcardFace
+											active={!flipped}
 											label="Front"
 											content={currentCard.front}
 											action={
 												<FlashcardAiAction
-													active={!flipped}
 													label="Hint"
 													onSend={() =>
 														sendComposerPrompt(
@@ -504,12 +458,12 @@ function FlashcardStudySurface({
 											}
 										/>
 										<FlashcardFace
+											active={flipped}
 											back
 											label="Back"
 											content={currentCard.back}
 											action={
 												<FlashcardAiAction
-													active={flipped}
 													label="Explain"
 													onSend={() =>
 														sendComposerPrompt(
@@ -521,7 +475,7 @@ function FlashcardStudySurface({
 											}
 										/>
 									</m.div>
-								</m.div>
+								</div>
 							</m.div>
 						</div>
 
@@ -690,12 +644,33 @@ function getFlashcardRatingLabel(rating: FlashcardStudyRating | undefined): stri
 	}
 }
 
+function getFlashcardViewStateDetail(input: {
+	cardId: string;
+	cardNumber: number;
+	currentRating?: FlashcardStudyRating;
+	flipped: boolean;
+	mode: FlashcardStudyMode;
+	shuffled: boolean;
+	studyProgress: ReturnType<typeof summarizeFlashcardStudyProgress>;
+	totalCards: number;
+}) {
+	const side = input.flipped ? "back shown" : "front shown";
+	const order = input.shuffled ? "shuffled" : "original order";
+	const mode = input.mode === "missed" ? "missed cards" : "all cards";
+	const rating = input.currentRating
+		? `, marked ${input.currentRating === "again" ? "no" : input.currentRating === "good" ? "yes" : input.currentRating}`
+		: "";
+	return `card ${input.cardNumber} of ${input.totalCards} in the current session (cardId ${input.cardId}), ${side}, set progress: ${input.studyProgress.reviewedCount} of ${input.studyProgress.totalCards} reviewed (${input.studyProgress.gotItCount} got it, ${input.studyProgress.missedCount} missed), session: ${mode}, ${order}${rating}`;
+}
+
 function FlashcardFace({
+	active = true,
 	action,
 	back = false,
 	content,
 	label,
 }: {
+	active?: boolean;
 	action: ReactNode;
 	back?: boolean;
 	content: TiptapDocumentJson;
@@ -723,7 +698,11 @@ function FlashcardFace({
 	);
 
 	return (
-		<div className={cn("workspace-flashcard-face", back && "workspace-flashcard-back")}>
+		<div
+			aria-hidden={!active}
+			className={cn("workspace-flashcard-face", back && "workspace-flashcard-back")}
+			inert={!active}
+		>
 			<span className="absolute top-5 left-5 text-xs font-medium uppercase tracking-wider text-muted-foreground">
 				{label}
 			</span>
@@ -733,22 +712,11 @@ function FlashcardFace({
 	);
 }
 
-function FlashcardAiAction({
-	active,
-	label,
-	onSend,
-}: {
-	active: boolean;
-	label: string;
-	onSend: () => void;
-}) {
+function FlashcardAiAction({ label, onSend }: { label: string; onSend: () => void }) {
 	return (
 		<Button
 			variant="ghost"
 			size="sm"
-			aria-hidden={!active}
-			disabled={!active}
-			tabIndex={active ? 0 : -1}
 			className="absolute top-4 right-4 z-10 text-amber-600 hover:bg-amber-500/10 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300"
 			onClick={(event) => {
 				event.stopPropagation();

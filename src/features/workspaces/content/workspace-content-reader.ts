@@ -179,10 +179,7 @@ async function readWorkspaceItem(input: {
 	request: WorkspaceContentReadRequest;
 	workspaceId: string;
 }): Promise<WorkspaceContentReadResult> {
-	// Exhaustive on content kind, not on item type: a new item type that stores
-	// its body somewhere new must fail this switch rather than fall through to
-	// `unsupported_item_type` at runtime.
-	switch (getWorkspaceItemContentKind(input.item.type)) {
+	switch (input.item.type) {
 		case "document":
 			return input.request.mode === "block"
 				? readDocumentBlock(input, input.request.editRef)
@@ -191,9 +188,9 @@ async function readWorkspaceItem(input: {
 			return input.request.mode === "block"
 				? { code: "invalid_selection", path: input.path, status: "failed" }
 				: readFile(input);
-		case "none":
+		case "folder":
 			return { code: "unsupported_item_type", path: input.path, status: "failed" };
-		case "structured":
+		case "flashcard":
 			return readFlashcards(input);
 	}
 }
@@ -206,10 +203,9 @@ async function readFlashcards(input: {
 	workspaceId: string;
 }): Promise<WorkspaceContentReadResult> {
 	if (
-		input.item.type !== "flashcard" ||
-		(input.request.mode !== "start" &&
-			input.request.mode !== "continue" &&
-			input.request.mode !== "cards")
+		input.request.mode !== "start" &&
+		input.request.mode !== "continue" &&
+		input.request.mode !== "cards"
 	) {
 		return { code: "invalid_selection", path: input.path, status: "failed" };
 	}

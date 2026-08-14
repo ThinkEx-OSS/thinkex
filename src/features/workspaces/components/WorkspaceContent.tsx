@@ -43,7 +43,6 @@ import {
 	type WorkspaceItem,
 	type WorkspaceItemType,
 	type WorkspaceSummary,
-	getWorkspaceItemContentKind,
 } from "#/features/workspaces/contracts";
 import { getWorkspaceItemDisplay } from "#/features/workspaces/model/item-display";
 import {
@@ -501,7 +500,7 @@ function WorkspaceItemView({
 }) {
 	const viewCapabilities = useWorkspaceViewCapabilities();
 
-	if (getWorkspaceItemContentKind(item.type) === "document") {
+	if (item.type === "document") {
 		return (
 			<DocumentEditorSurface
 				documentPath={documentPath}
@@ -512,7 +511,7 @@ function WorkspaceItemView({
 		);
 	}
 
-	if (getWorkspaceItemContentKind(item.type) === "file") {
+	if (item.type === "file") {
 		return (
 			<WorkspaceFileViewer
 				item={item}

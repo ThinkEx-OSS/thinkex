@@ -38,13 +38,14 @@ import {
 import { TilingLayer, TilingPluginPackage } from "@embedpdf/plugin-tiling/react";
 import { Viewport, ViewportPluginPackage } from "@embedpdf/plugin-viewport/react";
 import { ZoomGestureWrapper, ZoomMode, ZoomPluginPackage } from "@embedpdf/plugin-zoom/react";
-import { type ReactNode, useCallback, useEffect, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { Spinner } from "#/components/ui/spinner";
 import {
 	WorkspaceCaptureShortcuts,
 	WorkspaceCaptureViewerFrame,
 } from "#/features/workspaces/components/WorkspaceCaptureChrome";
-import { useFileItemToolbar } from "#/features/workspaces/components/WorkspaceItemToolbarSlot";
+import { WorkspaceFileToolbar } from "#/features/workspaces/components/WorkspaceFileToolbar";
+import { useWorkspaceItemToolbar } from "#/features/workspaces/components/WorkspaceItemToolbarSlot";
 import {
 	useWorkspacePaneHotkey,
 	useWorkspacePaneRuntime,
@@ -127,17 +128,19 @@ export default function WorkspacePdfViewer({
 		setIsCaptureActive((current) => !current);
 	}, []);
 
-	useFileItemToolbar({
-		capture: enableFileCapture
-			? {
-					isActive: captureActive,
-					onToggle: toggleCapture,
+	const toolbar = useMemo(
+		() => (
+			<WorkspaceFileToolbar
+				capture={
+					enableFileCapture ? { isActive: captureActive, onToggle: toggleCapture } : undefined
 				}
-			: undefined,
-		fileName: item.name,
-		fileUrl,
-		slotId: viewInstanceId,
-	});
+				fileName={item.name}
+				fileUrl={fileUrl}
+			/>
+		),
+		[captureActive, enableFileCapture, fileUrl, item.name, toggleCapture],
+	);
+	useWorkspaceItemToolbar(viewInstanceId, toolbar);
 
 	return (
 		<div className="pdf-scrollbar relative h-full min-h-0 overflow-hidden bg-background">
@@ -315,6 +318,7 @@ function WorkspacePdfDocumentLoader({
 					itemId={itemId}
 					onCaptureModeExit={onCaptureModeExit}
 					onCaptureModeToggle={onCaptureModeToggle}
+					viewInstanceId={viewInstanceId}
 					workspaceId={workspaceId}
 					{...props}
 				/>
@@ -335,6 +339,7 @@ function WorkspacePdfDocumentContent({
 	itemId,
 	onCaptureModeExit,
 	onCaptureModeToggle,
+	viewInstanceId,
 	workspaceId,
 }: {
 	documentId: string;
@@ -348,6 +353,7 @@ function WorkspacePdfDocumentContent({
 	itemId: string;
 	onCaptureModeExit: () => void;
 	onCaptureModeToggle: () => void;
+	viewInstanceId: string;
 	workspaceId: string;
 }) {
 	const [selectionPoint, setSelectionPoint] = useState<ClientPoint | null>(null);
@@ -391,6 +397,7 @@ function WorkspacePdfDocumentContent({
 			<WorkspacePdfItemViewStateReporter
 				documentId={documentId}
 				itemId={itemId}
+				viewInstanceId={viewInstanceId}
 				workspaceId={workspaceId}
 			/>
 			<WorkspacePdfSelectionShortcuts documentId={documentId} />
@@ -540,10 +547,12 @@ function WorkspacePdfPage({
 function WorkspacePdfItemViewStateReporter({
 	documentId,
 	itemId,
+	viewInstanceId,
 	workspaceId,
 }: {
 	documentId: string;
 	itemId: string;
+	viewInstanceId: string;
 	workspaceId: string;
 }) {
 	const {
@@ -553,18 +562,17 @@ function WorkspacePdfItemViewStateReporter({
 	const setItemViewState = useWorkspaceUiStore((state) => state.setItemViewState);
 
 	useEffect(() => {
-		setItemViewState(workspaceId, {
-			kind: "pdf-page",
+		setItemViewState(workspaceId, viewInstanceId, {
 			itemId,
-			pageNumber: currentPage,
+			label: `p. ${currentPage}`,
 		});
-	}, [currentPage, itemId, setItemViewState, workspaceId]);
+	}, [currentPage, itemId, setItemViewState, viewInstanceId, workspaceId]);
 
 	useEffect(() => {
 		return () => {
-			clearItemViewState(workspaceId, itemId);
+			clearItemViewState(workspaceId, viewInstanceId);
 		};
-	}, [clearItemViewState, itemId, workspaceId]);
+	}, [clearItemViewState, viewInstanceId, workspaceId]);
 
 	return null;
 }

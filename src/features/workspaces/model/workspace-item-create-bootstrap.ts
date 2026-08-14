@@ -8,10 +8,6 @@ import {
 	createInitialTiptapDocumentJson,
 	stringifyTiptapDocumentJson,
 } from "#/features/workspaces/documents/tiptap-document";
-import {
-	parseFlashcardSetContent,
-	stringifyFlashcardSetContent,
-} from "#/features/workspaces/flashcards/flashcard-content";
 
 /** Content and metadata shared by persistence writes and optimistic UI. */
 export function buildWorkspaceItemCreateBootstrap(input: {
@@ -25,9 +21,7 @@ export function buildWorkspaceItemCreateBootstrap(input: {
 			? input.initialContent?.trim()
 				? input.initialContent
 				: stringifyTiptapDocumentJson(createInitialTiptapDocumentJson())
-			: input.type === "flashcard"
-				? stringifyFlashcardSetContent(parseFlashcardSetContent(input.initialContent ?? ""))
-				: (input.initialContent ?? "");
+			: (input.initialContent ?? "");
 	const metadataJson =
 		contentKind === "document"
 			? prepareDocumentItemMetadata(input.metadataJson ?? {}, initialContent)

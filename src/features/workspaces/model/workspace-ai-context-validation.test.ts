@@ -43,17 +43,9 @@ describe("workspace AI context validation", () => {
 						activeVisible: true,
 						openInTabs: ["Study"],
 						viewState: {
-							kind: "flashcard",
-							cardId: "f67080f9-0158-4565-86a9-4c90ed6809d2",
-							cardNumber: 3,
-							gotItCount: 3,
-							missedCount: 2,
-							setTotalCards: 15,
-							mode: "all",
-							rating: "good",
-							shuffled: true,
-							side: "back",
-							totalCards: 15,
+							detail:
+								"card 3 of 15 in the current session (cardId f67080f9-0158-4565-86a9-4c90ed6809d2), back shown, set progress: 5 of 15 reviewed (3 got it, 2 missed), session: all cards, shuffled, marked yes",
+							label: "card 3",
 						},
 					},
 					type: "Flashcards",
@@ -74,10 +66,7 @@ describe("workspace AI context validation", () => {
 						...snapshot.selectedItems[0],
 						state: {
 							...snapshot.selectedItems[0]!.state,
-							viewState: {
-								...snapshot.selectedItems[0]!.state.viewState,
-								gotItCount: 16,
-							},
+							viewState: { label: "x".repeat(81) },
 						},
 					},
 				],

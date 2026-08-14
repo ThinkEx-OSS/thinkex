@@ -5,10 +5,8 @@ export const workspaceItemTypeSchema = z.enum(WORKSPACE_ITEM_TYPES);
 export type WorkspaceItemType = z.infer<typeof workspaceItemTypeSchema>;
 
 /**
- * Where an item's content lives. Code that asks "can I read/write this item's
- * body?" must branch on this rather than on the type, because the two are not
- * the same question: a future type can share `document` storage without being a
- * document, and `none` covers every item whose body is the tree itself.
+ * Shared storage lifecycle only. Item-specific reading, editing, and rendering
+ * must dispatch on the concrete item type.
  */
 type WorkspaceItemContentKind = "document" | "file" | "none" | "structured";
 
