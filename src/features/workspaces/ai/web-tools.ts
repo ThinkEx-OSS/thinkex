@@ -43,6 +43,11 @@ const webSearchInputSchema = z.object({
 const publicUrlInputSchema = z.object({
 	url: z.string().trim().min(1).describe("Public HTTP(S) webpage or image URL to fetch."),
 });
+const webFetchInputSchema = publicUrlInputSchema.extend({
+	kind: z
+		.enum(["page", "image"])
+		.describe("Use page for rendered webpage text or image to inspect the image pixels."),
+});
 const webLinksOutputSchema = z.object({
 	items: z.array(z.string()),
 	truncated: z.boolean(),
@@ -94,6 +99,11 @@ const browserPageInputExamples = [
 	},
 ];
 
+const webFetchInputExamples = [
+	{ input: { kind: "page" as const, url: "https://example.com" } },
+	{ input: { kind: "image" as const, url: "https://example.com/image.png" } },
+];
+
 export function createAIThreadWebTools(env: Cloudflare.Env): ToolSet {
 	const browser: QuickActionBinding = env.BROWSER;
 	const freshImages = new Map<string, FreshWebImage>();
@@ -117,9 +127,9 @@ export function createAIThreadWebTools(env: Cloudflare.Env): ToolSet {
 		}),
 		web_fetch: defineAIThreadTool({
 			description:
-				"Fetch a public webpage or image URL. Webpages return rendered Markdown. Images are attached temporarily for this model step so you can inspect them. Public PDFs are unsupported; ask the user to upload those to the workspace.",
-			inputSchema: publicUrlInputSchema,
-			inputExamples: browserPageInputExamples,
+				"Fetch a public webpage or image URL. Set kind to page for rendered Markdown or image to attach its pixels temporarily for this model step. Public PDFs are unsupported; ask the user to upload those to the workspace.",
+			inputSchema: webFetchInputSchema,
+			inputExamples: webFetchInputExamples,
 			outputSchema: webFetchOutputSchema,
 			toModelOutput: ({ output, toolCallId }) => {
 				const image = freshImages.get(toolCallId);
@@ -140,11 +150,12 @@ export function createAIThreadWebTools(env: Cloudflare.Env): ToolSet {
 					],
 				};
 			},
-			execute: async ({ url }, context) => {
+			execute: async ({ kind, url }, context) => {
 				const result = await fetchPublicWebResource({
 					abortSignal: context.abortSignal,
 					browser,
 					env,
+					kind,
 					url,
 				});
 				if (context.source === "direct" && result.image) {

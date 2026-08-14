@@ -46,5 +46,9 @@ describe("AI chat assistant part spacing", () => {
 
 		expect(html).toContain('data-slot="assistant-parts"');
 		expect(html).toContain('class="flex flex-col gap-3"');
+		const imageResultIndex = html.indexOf('aria-label="Mountain landscape"');
+		const responseIndex = html.indexOf("The image search tool works.");
+		expect(imageResultIndex).toBeGreaterThan(-1);
+		expect(responseIndex).toBeGreaterThan(imageResultIndex);
 	});
 });

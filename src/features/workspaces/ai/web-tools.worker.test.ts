@@ -23,7 +23,10 @@ describe("web_fetch", () => {
 		if (!tool?.execute || !tool.toModelOutput) throw new Error("Expected executable web_fetch");
 		const options = directOptions("image-call");
 
-		const output = await tool.execute({ url: "https://cdn.example/image.png" }, options);
+		const output = await tool.execute(
+			{ kind: "image", url: "https://cdn.example/image.png" },
+			options,
+		);
 		expect(output).toEqual({
 			kind: "image",
 			url: "https://cdn.example/image.png",
@@ -33,7 +36,7 @@ describe("web_fetch", () => {
 		expect(JSON.stringify(output)).not.toContain("9,8,7");
 
 		const freshModelOutput = await tool.toModelOutput({
-			input: { url: "https://cdn.example/image.png" },
+			input: { kind: "image", url: "https://cdn.example/image.png" },
 			output,
 			toolCallId: "image-call",
 		});
@@ -44,7 +47,7 @@ describe("web_fetch", () => {
 
 		expect(
 			tool.toModelOutput({
-				input: { url: "https://cdn.example/image.png" },
+				input: { kind: "image", url: "https://cdn.example/image.png" },
 				output,
 				toolCallId: "image-call",
 			}),
@@ -65,12 +68,68 @@ describe("web_fetch", () => {
 		if (!tool?.execute) throw new Error("Expected executable web_fetch");
 
 		await expect(
-			tool.execute({ url: "https://example.com/paper.pdf" }, directOptions("pdf-call")),
+			tool.execute(
+				{ kind: "image", url: "https://example.com/paper.pdf" },
+				directOptions("pdf-call"),
+			),
 		).resolves.toMatchObject({
 			kind: "unsupported",
 			reason: "pdf",
 			message: expect.stringContaining("upload the PDF to the workspace"),
 		});
+	});
+
+	it("renders pages without probing them through fetch first", async () => {
+		const fetchSpy = vi.fn();
+		vi.stubGlobal("fetch", fetchSpy);
+		const quickAction = vi.fn(async () => Response.json({ result: "# Rendered page" }));
+		const tool = createAIThreadWebTools(
+			createEnv(createImagesBinding().binding, { quickAction }),
+		).web_fetch;
+		if (!tool?.execute) throw new Error("Expected executable web_fetch");
+
+		await expect(
+			tool.execute({ kind: "page", url: "https://example.com" }, directOptions("page-call")),
+		).resolves.toEqual({
+			kind: "page",
+			url: "https://example.com/",
+			content: "# Rendered page",
+			truncated: false,
+		});
+		expect(quickAction).toHaveBeenCalledWith("markdown", {
+			url: "https://example.com/",
+			gotoOptions: { timeout: 20_000 },
+		});
+		expect(fetchSpy).not.toHaveBeenCalled();
+	});
+
+	it("cancels an image response rejected by its content length", async () => {
+		const cancel = vi.fn();
+		const body = new ReadableStream<Uint8Array>({ cancel });
+		vi.stubGlobal(
+			"fetch",
+			vi.fn(
+				async () =>
+					new Response(body, {
+						headers: {
+							"content-length": String(50 * 1024 * 1024),
+							"content-type": "image/png",
+						},
+					}),
+			),
+		);
+		const images = createImagesBinding();
+		const tool = createAIThreadWebTools(createEnv(images.binding)).web_fetch;
+		if (!tool?.execute) throw new Error("Expected executable web_fetch");
+
+		await expect(
+			tool.execute(
+				{ kind: "image", url: "https://cdn.example/huge.png" },
+				directOptions("large-image-call"),
+			),
+		).rejects.toThrow("image exceeds");
+		expect(cancel).toHaveBeenCalledOnce();
+		expect(images.input).not.toHaveBeenCalled();
 	});
 });
 
@@ -95,9 +154,9 @@ function createImagesBinding(output = new Uint8Array([1])) {
 	};
 }
 
-function createEnv(images: ImagesBinding) {
+function createEnv(images: ImagesBinding, browser: Partial<Cloudflare.Env["BROWSER"]> = {}) {
 	return {
-		BROWSER: {} as Cloudflare.Env["BROWSER"],
+		BROWSER: browser as Cloudflare.Env["BROWSER"],
 		IMAGES: images,
 	} as Cloudflare.Env;
 }

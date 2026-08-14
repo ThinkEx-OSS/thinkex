@@ -35,4 +35,27 @@ describe("AI chat image search results", () => {
 		expect(html).not.toContain("1600 × 900");
 		expect(html).not.toContain("Ignored webpage");
 	});
+
+	it("does not render unsafe image or source URLs", () => {
+		const html = renderToStaticMarkup(
+			<AiChatImageSearchResults
+				output={{
+					results: [
+						{
+							type: "image",
+							url: "https://example.com/source",
+							imageUrl: "data:image/png;base64,abc",
+						},
+						{
+							type: "image",
+							url: "http://127.0.0.1/private",
+							imageUrl: "https://cdn.example/image.png",
+						},
+					],
+				}}
+			/>,
+		);
+
+		expect(html).toBe("");
+	});
 });

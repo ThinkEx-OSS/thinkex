@@ -18,19 +18,19 @@ const supportedImageMediaTypes: ReadonlySet<string> = new Set(
 export const webFetchOutputSchema = z.discriminatedUnion("kind", [
 	z.object({
 		kind: z.literal("page"),
-		url: z.string().url(),
+		url: z.url(),
 		content: z.string(),
 		truncated: z.boolean(),
 	}),
 	z.object({
 		kind: z.literal("image"),
-		url: z.string().url(),
+		url: z.url(),
 		mediaType: z.literal("image/jpeg"),
 		sizeBytes: z.number().int().positive(),
 	}),
 	z.object({
 		kind: z.literal("unsupported"),
-		url: z.string().url(),
+		url: z.url(),
 		mediaType: z.string().nullable(),
 		reason: z.enum(["pdf", "media_type"]),
 		message: z.string(),
@@ -48,14 +48,21 @@ export async function fetchPublicWebResource(input: {
 	abortSignal?: AbortSignal;
 	browser: QuickActionBinding;
 	env: Cloudflare.Env;
+	kind: "page" | "image";
 	url: string;
 }): Promise<{ image?: FreshWebImage; output: WebFetchOutput }> {
-	const { response, url } = await fetchFollowingPublicRedirects(input.url, input.abortSignal);
-	const mediaType = normalizeMediaType(response.headers.get("content-type"));
+	const requestedUrl = assertPublicHttpUrl(input.url);
+	if (input.kind === "page") {
+		if (requestedUrl.pathname.toLowerCase().endsWith(".pdf")) {
+			return unsupportedPdf(requestedUrl.toString());
+		}
 
-	if (mediaType === "text/html" || mediaType === "application/xhtml+xml") {
-		await response.body?.cancel();
-		const content = await browserMarkdown(input.browser, { url });
+		input.abortSignal?.throwIfAborted();
+		const url = requestedUrl.toString();
+		const content = await browserMarkdown(input.browser, {
+			url,
+			gotoOptions: { timeout: WEB_FETCH_TIMEOUT_MS },
+		});
 		return {
 			output: {
 				kind: "page",
@@ -66,18 +73,15 @@ export async function fetchPublicWebResource(input: {
 		};
 	}
 
+	const { response, url } = await fetchImageFollowingPublicRedirects(
+		requestedUrl,
+		input.abortSignal,
+	);
+	const mediaType = normalizeMediaType(response.headers.get("content-type"));
+
 	if (mediaType === "application/pdf") {
 		await response.body?.cancel();
-		return {
-			output: {
-				kind: "unsupported",
-				url,
-				mediaType,
-				reason: "pdf",
-				message:
-					"Public PDFs are not supported here. Ask the user to upload the PDF to the workspace, then read it with workspace_read_items.",
-			},
-		};
+		return unsupportedPdf(url, mediaType);
 	}
 
 	if (!mediaType || !supportedImageMediaTypes.has(mediaType)) {
@@ -98,10 +102,7 @@ export async function fetchPublicWebResource(input: {
 	if (!response.body) {
 		throw new Error("The image response did not include a body.");
 	}
-	assertContentLengthWithinLimit(
-		response.headers.get("content-length"),
-		WORKSPACE_AI_CHAT_ATTACHMENT_POLICY.maxFileSize,
-	);
+	await assertContentLengthWithinLimit(response, WORKSPACE_AI_CHAT_ATTACHMENT_POLICY.maxFileSize);
 	const normalized = await normalizeChatImageToJpeg(
 		input.env,
 		limitReadableStream(response.body, WORKSPACE_AI_CHAT_ATTACHMENT_POLICY.maxFileSize),
@@ -119,15 +120,15 @@ export async function fetchPublicWebResource(input: {
 	};
 }
 
-async function fetchFollowingPublicRedirects(input: string, abortSignal?: AbortSignal) {
-	let url = assertPublicHttpUrl(input);
+async function fetchImageFollowingPublicRedirects(input: URL, abortSignal?: AbortSignal) {
+	let url = input;
 	const signal = abortSignal
 		? AbortSignal.any([abortSignal, AbortSignal.timeout(WEB_FETCH_TIMEOUT_MS)])
 		: AbortSignal.timeout(WEB_FETCH_TIMEOUT_MS);
 
 	for (let redirects = 0; redirects <= MAX_REDIRECTS; redirects += 1) {
 		const response = await fetch(url, {
-			headers: { Accept: "text/html,image/*;q=0.9,*/*;q=0.1" },
+			headers: { Accept: "image/*,*/*;q=0.1" },
 			redirect: "manual",
 			signal,
 		});
@@ -154,12 +155,27 @@ function normalizeMediaType(value: string | null) {
 	return value?.split(";", 1)[0]?.trim().toLowerCase() || null;
 }
 
-function assertContentLengthWithinLimit(value: string | null, maxBytes: number) {
+async function assertContentLengthWithinLimit(response: Response, maxBytes: number) {
+	const value = response.headers.get("content-length");
 	if (value === null) return;
 	const size = Number(value);
 	if (Number.isSafeInteger(size) && size > maxBytes) {
+		await response.body?.cancel();
 		throw new Error(`The image exceeds the ${maxBytes}-byte input limit.`);
 	}
+}
+
+function unsupportedPdf(url: string, mediaType: string | null = "application/pdf") {
+	return {
+		output: {
+			kind: "unsupported" as const,
+			url,
+			mediaType,
+			reason: "pdf" as const,
+			message:
+				"Public PDFs are not supported here. Ask the user to upload the PDF to the workspace, then read it with workspace_read_items.",
+		},
+	};
 }
 
 function limitReadableStream(body: ReadableStream<Uint8Array>, maxBytes: number) {

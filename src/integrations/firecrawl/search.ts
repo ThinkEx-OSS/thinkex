@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { parsePublicHttpUrl } from "#/features/workspaces/ai/web-access-policy";
+
 import {
 	firecrawlJsonRequest,
 	getRecordArrayValue,
@@ -76,16 +78,16 @@ export async function searchPublicWeb(input: {
 	if (input.source === "images") {
 		return {
 			results: getRecordArrayValue(data, "images").flatMap((item) => {
-				const imageUrl = getStringValue(item, "imageUrl");
-				const sourceUrl = getStringValue(item, "url");
+				const imageUrl = parsePublicHttpUrl(getStringValue(item, "imageUrl"));
+				const sourceUrl = parsePublicHttpUrl(getStringValue(item, "url"));
 				if (!imageUrl || !sourceUrl) return [];
 
 				return [
 					{
 						type: "image" as const,
 						title: getStringValue(item, "title"),
-						url: sourceUrl,
-						imageUrl,
+						url: sourceUrl.toString(),
+						imageUrl: imageUrl.toString(),
 						imageWidth: positiveIntegerOrNull(getNumberValue(item, "imageWidth")),
 						imageHeight: positiveIntegerOrNull(getNumberValue(item, "imageHeight")),
 						position: positiveIntegerOrNull(getNumberValue(item, "position")),
@@ -103,10 +105,11 @@ export async function searchPublicWeb(input: {
 
 	return {
 		results: hits.flatMap((item) => {
-			const url =
+			const url = parsePublicHttpUrl(
 				getStringValue(item, "url") ??
-				getStringValue(getRecordValue(item, "metadata"), "sourceURL") ??
-				getStringValue(getRecordValue(item, "metadata"), "url");
+					getStringValue(getRecordValue(item, "metadata"), "sourceURL") ??
+					getStringValue(getRecordValue(item, "metadata"), "url"),
+			);
 			if (!url) return [];
 
 			return [
@@ -115,7 +118,7 @@ export async function searchPublicWeb(input: {
 					title:
 						getStringValue(item, "title") ??
 						getStringValue(getRecordValue(item, "metadata"), "title"),
-					url,
+					url: url.toString(),
 					snippet: truncateFirecrawlText(
 						getStringValue(item, "description") ??
 							getStringValue(item, "snippet") ??

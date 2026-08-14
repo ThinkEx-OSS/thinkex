@@ -66,7 +66,7 @@ describe("searchPublicWeb", () => {
 			categories: [{ type: "developer" }],
 		});
 		expect(result.results).toEqual([
-			{ type: "page", title: "News", url: "https://news.example", snippet: "Today" },
+			{ type: "page", title: "News", url: "https://news.example/", snippet: "Today" },
 			{
 				type: "page",
 				title: "Issue",
@@ -121,6 +121,39 @@ describe("searchPublicWeb", () => {
 				position: 1,
 			},
 		]);
+	});
+
+	it("drops unsafe result URLs returned by Firecrawl", async () => {
+		vi.stubGlobal(
+			"fetch",
+			vi.fn(
+				async () =>
+					new Response(
+						JSON.stringify({
+							data: {
+								images: [
+									{
+										imageUrl: "data:image/png;base64,abc",
+										url: "https://example.com/source",
+									},
+									{
+										imageUrl: "https://cdn.example/image.png",
+										url: "http://127.0.0.1/private",
+									},
+								],
+							},
+						}),
+					),
+			),
+		);
+
+		await expect(
+			searchPublicWeb({
+				env: { FIRECRAWL_API_KEY: "fc-test" } as Cloudflare.Env,
+				query: "unsafe images",
+				source: "images",
+			}),
+		).resolves.toEqual({ results: [] });
 	});
 
 	it("rejects categories for image searches instead of silently broadening them", async () => {

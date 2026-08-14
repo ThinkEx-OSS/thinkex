@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+import { parsePublicHttpUrl } from "#/features/workspaces/ai/web-access-policy";
 import { asRecord } from "#/lib/record";
 
 const MAX_VISIBLE_IMAGES = 8;
@@ -47,14 +48,14 @@ function getImageResults(output: unknown) {
 
 	return results.flatMap((item) => {
 		const record = asRecord(item);
-		const imageUrl = getString(record.imageUrl);
-		const sourceUrl = getString(record.url);
+		const imageUrl = parsePublicHttpUrl(record.imageUrl);
+		const sourceUrl = parsePublicHttpUrl(record.url);
 		if (record.type !== "image" || !imageUrl || !sourceUrl) return [];
 
 		return [
 			{
-				imageUrl,
-				sourceUrl,
+				imageUrl: imageUrl.toString(),
+				sourceUrl: sourceUrl.toString(),
 				title: getString(record.title),
 			},
 		];

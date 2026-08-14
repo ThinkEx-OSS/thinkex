@@ -26,6 +26,16 @@ export function assertPublicHttpUrl(input: string) {
 	return url;
 }
 
+export function parsePublicHttpUrl(input: unknown) {
+	if (typeof input !== "string" || !input.trim()) return null;
+
+	try {
+		return assertPublicHttpUrl(input.trim());
+	} catch {
+		return null;
+	}
+}
+
 function normalizeHostname(hostname: string) {
 	return hostname.toLowerCase().replace(/^\[/, "").replace(/\]$/, "").replace(/\.$/, "");
 }
