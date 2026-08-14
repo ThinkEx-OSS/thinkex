@@ -2,7 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 import type { JSONContent } from "@tiptap/core";
 import { EditorContent, useEditor } from "@tiptap/react";
 import { Check, ChevronLeft, ChevronRight, Lightbulb, X } from "lucide-react";
-import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { MotionConfig, motion } from "motion/react";
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 
 import { Button } from "#/components/ui/button";
 import { Skeleton } from "#/components/ui/skeleton";
@@ -32,13 +33,12 @@ import { cn } from "#/lib/utils";
 
 import "./flashcard-viewer.css";
 
-const CARD_SETTLE_MS = 220;
-
 interface FlashcardSessionState {
 	cardIds: string[];
 	currentIndex: number;
 	flipped: boolean;
 	mode: FlashcardStudyMode;
+	ratingFeedback: FlashcardStudyRating | null;
 	settling: boolean;
 	shuffled: boolean;
 }
@@ -67,7 +67,7 @@ export function FlashcardViewer({
 	}
 	return (
 		<FlashcardStudySession
-			key={item.updatedAt}
+			key={`${item.id}:${item.updatedAt}`}
 			cards={data.cards}
 			studyState={data.studyState}
 			item={item}
@@ -92,11 +92,19 @@ function FlashcardStudySession({
 		currentIndex: 0,
 		flipped: false,
 		mode: "all",
+		ratingFeedback: null,
 		settling: false,
 		shuffled: false,
 	}));
-	const { cardIds: studyCardIds, currentIndex, flipped, mode, settling, shuffled } = session;
-	const settleTimerRef = useRef<number | null>(null);
+	const {
+		cardIds: studyCardIds,
+		currentIndex,
+		flipped,
+		mode,
+		ratingFeedback,
+		settling,
+		shuffled,
+	} = session;
 	const cardsById = useMemo(() => new Map(cards.map((card) => [card.id, card])), [cards]);
 	const studyCards = useMemo(
 		() => getStudyCards(studyCardIds, cardsById),
@@ -130,14 +138,8 @@ function FlashcardStudySession({
 		updatedAt: item.updatedAt,
 		workspaceId: item.workspaceId,
 	});
-	const clearSettleTimer = useCallback(() => {
-		if (settleTimerRef.current === null) return;
-		window.clearTimeout(settleTimerRef.current);
-		settleTimerRef.current = null;
-	}, []);
 	const startSession = useCallback(
 		(nextMode: FlashcardStudyMode, nextShuffled: boolean) => {
-			clearSettleTimer();
 			setSession({
 				cardIds: createFlashcardStudyQueue({
 					cards,
@@ -148,11 +150,12 @@ function FlashcardStudySession({
 				currentIndex: 0,
 				flipped: false,
 				mode: nextMode,
+				ratingFeedback: null,
 				settling: false,
 				shuffled: nextShuffled,
 			});
 		},
-		[cards, clearSettleTimer, studyState],
+		[cards, studyState],
 	);
 	const changeMode = useCallback(
 		(nextMode: FlashcardStudyMode) => startSession(nextMode, shuffled),
@@ -208,7 +211,6 @@ function FlashcardStudySession({
 		() => () => clearItemViewState(item.workspaceId, item.id),
 		[clearItemViewState, item.id, item.workspaceId],
 	);
-	useEffect(() => () => clearSettleTimer(), [clearSettleTimer]);
 	useEffect(() => {
 		if (!revealRequest) return;
 		let nextCardIds = studyCardIds;
@@ -221,13 +223,13 @@ function FlashcardStudySession({
 		queueMicrotask(() => {
 			if (cancelled) return;
 			if (cardIndex >= 0) {
-				clearSettleTimer();
 				setSession((current) => ({
 					...current,
 					cardIds: nextCardIds,
 					currentIndex: cardIndex,
 					flipped: revealRequest.location.side === "back",
 					mode: nextCardIds === studyCardIds ? mode : "all",
+					ratingFeedback: null,
 					settling: false,
 				}));
 			}
@@ -239,7 +241,6 @@ function FlashcardStudySession({
 	}, [
 		cards,
 		cardsById,
-		clearSettleTimer,
 		consumeRevealRequest,
 		revealRequest,
 		shuffled,
@@ -279,23 +280,36 @@ function FlashcardStudySession({
 		if (settling || nextIndex < 0 || nextIndex >= studyCards.length || nextIndex === currentIndex) {
 			return;
 		}
-		if (!flipped) {
-			setSession((current) => ({ ...current, currentIndex: nextIndex }));
-			return;
-		}
-		setSession((current) => ({ ...current, flipped: false, settling: true }));
-		clearSettleTimer();
-		settleTimerRef.current = window.setTimeout(() => {
-			setSession((current) => ({ ...current, currentIndex: nextIndex, settling: false }));
-			settleTimerRef.current = null;
-		}, CARD_SETTLE_MS);
+		setSession((current) => ({
+			...current,
+			currentIndex: nextIndex,
+			flipped: false,
+			ratingFeedback: null,
+			settling: false,
+		}));
 	};
 
 	const rate = (rating: FlashcardStudyRating) => {
 		if (settling) return;
 		recordRating.mutate({ cardId: currentCard.id, rating });
-		if (currentIndex < studyCards.length - 1) goTo(currentIndex + 1);
-		else setSession((current) => ({ ...current, flipped: false }));
+		setSession((current) => ({
+			...current,
+			ratingFeedback: rating,
+			settling: true,
+		}));
+	};
+	const finishRatingAnimation = () => {
+		setSession((current) => {
+			if (!current.ratingFeedback) return current;
+			const hasNextCard = current.currentIndex < current.cardIds.length - 1;
+			return {
+				...current,
+				currentIndex: hasNextCard ? current.currentIndex + 1 : current.currentIndex,
+				flipped: false,
+				ratingFeedback: null,
+				settling: false,
+			};
+		});
 	};
 	const flipCard = () => {
 		if (!settling) setSession((current) => ({ ...current, flipped: !current.flipped }));
@@ -313,7 +327,8 @@ function FlashcardStudySession({
 			onFlip={flipCard}
 			onGoTo={goTo}
 			onRate={rate}
-			reviewedCount={reviewedCount}
+			onRatingAnimationComplete={finishRatingAnimation}
+			ratingFeedback={ratingFeedback}
 			settling={settling}
 			studyCards={studyCards}
 			studyState={studyState}
@@ -332,7 +347,8 @@ function FlashcardStudySurface({
 	onFlip,
 	onGoTo,
 	onRate,
-	reviewedCount,
+	onRatingAnimationComplete,
+	ratingFeedback,
 	settling,
 	studyCards,
 	studyState,
@@ -347,12 +363,33 @@ function FlashcardStudySurface({
 	onFlip: () => void;
 	onGoTo: (index: number) => void;
 	onRate: (rating: FlashcardStudyRating) => void;
-	reviewedCount: number;
+	onRatingAnimationComplete: () => void;
+	ratingFeedback: FlashcardStudyRating | null;
 	settling: boolean;
 	studyCards: Flashcard[];
 	studyState: FlashcardStudyState;
 }) {
+	const nextCard = ratingFeedback ? studyCards[currentIndex + 1] : undefined;
+	const ratingDirection = ratingFeedback === "again" ? -1 : 1;
+	const ratingAnimation = ratingFeedback
+		? {
+				x: ratingDirection * 148,
+				y: 126,
+				rotate: ratingDirection * 7,
+				scale: 0.42,
+				opacity: 0,
+			}
+		: { x: 0, y: 0, rotate: 0, scale: 1, opacity: 1 };
+	const ratingAnticipation = ratingFeedback
+		? { x: ratingDirection * 12, rotate: ratingDirection * 3 }
+		: { x: 0, y: 0, rotate: 0 };
+	const ratingRing =
+		ratingFeedback === "again"
+			? "inset 0 0 0 5px color-mix(in srgb, var(--color-red-500) 62%, transparent)"
+			: "inset 0 0 0 5px color-mix(in srgb, var(--color-emerald-500) 62%, transparent)";
+
 	return (
+		<MotionConfig reducedMotion="user">
 		<section
 			className="flex h-full min-h-0 flex-col bg-background px-4 py-5 sm:px-8 sm:py-7"
 			aria-label={`${item.name} study session`}
@@ -372,59 +409,126 @@ function FlashcardStudySurface({
 			tabIndex={0}
 		>
 			<div className="mx-auto flex min-h-0 w-full max-w-4xl flex-1 flex-col gap-4">
-				<div
-					role="button"
-					className="workspace-flashcard group relative min-h-72 flex-1 cursor-pointer rounded-2xl outline-none focus-visible:ring-3 focus-visible:ring-ring/50 sm:min-h-96"
-					aria-label={flipped ? "Show card front" : "Show card answer"}
-					aria-pressed={flipped}
-					aria-disabled={settling}
-					tabIndex={0}
-					onClick={(event) => {
-						if ((event.target as HTMLElement).closest("a")) return;
-						onFlip();
-					}}
-					onKeyDown={(event) => {
-						if (event.key === "Enter") {
-							event.preventDefault();
-							onFlip();
+				<div className="workspace-flashcard-stack relative min-h-72 flex-1 rounded-2xl sm:min-h-96">
+					{nextCard ? (
+						<motion.div
+							aria-hidden="true"
+							className="workspace-flashcard absolute inset-0 rounded-2xl"
+							initial={{ y: 8, scale: 0.96 }}
+							animate={{ y: 0, scale: 1 }}
+							transition={{
+								type: "spring",
+								visualDuration: 0.5,
+								bounce: 0.05,
+							}}
+						>
+							<div className="workspace-flashcard-inner">
+								<FlashcardFace label="Front" content={nextCard.front} action={null} />
+								<FlashcardFace back label="Back" content={nextCard.back} action={null} />
+							</div>
+						</motion.div>
+					) : null}
+					<motion.div
+						key={currentCard.id}
+						className="workspace-flashcard group absolute inset-0 z-[1] cursor-pointer rounded-2xl"
+						initial={false}
+						animate={ratingAnimation}
+						transition={
+							ratingFeedback
+								? {
+										type: "spring",
+										visualDuration: 0.58,
+										bounce: 0.05,
+										delay: 0.28,
+										rotate: {
+											type: "spring",
+											visualDuration: 0.4,
+											bounce: 0.06,
+											delay: 0.28,
+										},
+										scale: {
+											type: "spring",
+											visualDuration: 0.32,
+											bounce: 0.02,
+											delay: 0.28,
+										},
+										opacity: { type: "tween", duration: 0.36, delay: 0.4, ease: "easeOut" },
+									}
+								: { duration: 0 }
 						}
-					}}
-				>
-					<div className={cn("workspace-flashcard-inner", flipped && "is-flipped")}>
-						<FlashcardFace
-							label="Front"
-							content={currentCard.front}
-							action={
-								<FlashcardAiAction
-									active={!flipped}
-									label="Hint"
-									onSend={() =>
-										sendComposerPrompt(
-											item.workspaceId,
-											"Give me a helpful hint for the current flashcard without revealing the answer.",
-										)
-									}
-								/>
+						style={{ transformOrigin: ratingDirection < 0 ? "bottom left" : "bottom right" }}
+						onAnimationComplete={
+							ratingFeedback ? onRatingAnimationComplete : undefined
+						}
+						onClick={(event) => {
+							if ((event.target as HTMLElement).closest("button, a")) return;
+							onFlip();
+						}}
+					>
+						<motion.div
+							className="absolute inset-0"
+							initial={false}
+							animate={ratingAnticipation}
+							transition={
+								ratingFeedback
+									? { type: "spring", visualDuration: 0.22, bounce: 0.1 }
+									: { duration: 0 }
 							}
+							style={{ transformOrigin: "center" }}
+						>
+						<motion.div
+							aria-hidden="true"
+							className="pointer-events-none absolute inset-0 z-10 rounded-2xl"
+							initial={false}
+							animate={{ opacity: ratingFeedback ? 0.8 : 0 }}
+							transition={{
+								duration: ratingFeedback ? 0.16 : 0,
+								ease: "easeOut",
+							}}
+							style={{ boxShadow: ratingRing }}
 						/>
-						<FlashcardFace
-							back
-							label="Back"
-							content={currentCard.back}
-							action={
-								<FlashcardAiAction
-									active={flipped}
-									label="Explain"
-									onSend={() =>
-										sendComposerPrompt(
-											item.workspaceId,
-											"Explain the answer to the current flashcard clearly and concisely.",
-										)
-									}
-								/>
-							}
-						/>
-					</div>
+						<motion.div
+							className={cn("workspace-flashcard-inner", flipped && "is-flipped")}
+							initial={false}
+							animate={{ rotateY: flipped ? 180 : 0 }}
+							transition={{ type: "spring", visualDuration: 0.4, bounce: 0.08 }}
+						>
+							<FlashcardFace
+								label="Front"
+								content={currentCard.front}
+								action={
+									<FlashcardAiAction
+										active={!flipped}
+										label="Hint"
+										onSend={() =>
+											sendComposerPrompt(
+												item.workspaceId,
+												"Give me a helpful hint for the current flashcard without revealing the answer.",
+											)
+										}
+									/>
+								}
+							/>
+							<FlashcardFace
+								back
+								label="Back"
+								content={currentCard.back}
+								action={
+									<FlashcardAiAction
+										active={flipped}
+										label="Explain"
+										onSend={() =>
+											sendComposerPrompt(
+												item.workspaceId,
+												"Explain the answer to the current flashcard clearly and concisely.",
+											)
+										}
+									/>
+								}
+							/>
+						</motion.div>
+						</motion.div>
+					</motion.div>
 				</div>
 
 				<div className="space-y-3">
@@ -437,8 +541,8 @@ function FlashcardStudySurface({
 						reviewsByCardId={studyState.cards}
 					/>
 					<div className="grid min-h-10 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
-						<span className="col-start-1 justify-self-start text-xs text-muted-foreground tabular-nums sm:text-sm">
-							{currentIndex + 1} of {studyCards.length}
+						<span className="justify-self-start text-xs text-muted-foreground tabular-nums sm:text-sm">
+							{gotItCount + missedCount} reviewed
 						</span>
 						<div className="col-start-2 flex items-center justify-center gap-1 sm:gap-2">
 							<Button
@@ -447,6 +551,7 @@ function FlashcardStudySurface({
 								aria-label="Previous card"
 								title="Previous card (Left arrow)"
 								disabled={settling || currentIndex === 0}
+								className="size-11 rounded-xl [&_svg]:size-4.5 sm:size-12 sm:[&_svg]:size-5"
 								onClick={() => onGoTo(currentIndex - 1)}
 							>
 								<ChevronLeft />
@@ -458,6 +563,7 @@ function FlashcardStudySurface({
 								title="Review again"
 								disabled={settling}
 								className={cn(
+									"h-11 gap-2 rounded-xl px-5 text-sm font-medium [&_svg]:size-4.5 sm:h-12 sm:px-6 sm:text-base sm:[&_svg]:size-5",
 									"border-red-500/30 text-red-600 hover:border-red-500/50 hover:bg-red-500/10 hover:text-red-700 dark:text-red-400",
 									currentRating === "again" && "bg-red-500/10",
 								)}
@@ -472,6 +578,7 @@ function FlashcardStudySurface({
 								title="Got it"
 								disabled={settling}
 								className={cn(
+									"h-11 gap-2 rounded-xl px-5 text-sm font-medium [&_svg]:size-4.5 sm:h-12 sm:px-6 sm:text-base sm:[&_svg]:size-5",
 									"border-emerald-500/30 text-emerald-600 hover:border-emerald-500/50 hover:bg-emerald-500/10 hover:text-emerald-700 dark:text-emerald-400",
 									currentRating !== undefined && currentRating !== "again" && "bg-emerald-500/10",
 								)}
@@ -485,19 +592,20 @@ function FlashcardStudySurface({
 								aria-label="Next card"
 								title="Next card (Right arrow)"
 								disabled={settling || currentIndex === studyCards.length - 1}
+								className="size-11 rounded-xl [&_svg]:size-4.5 sm:size-12 sm:[&_svg]:size-5"
 								onClick={() => onGoTo(currentIndex + 1)}
 							>
 								<ChevronRight />
 							</Button>
 						</div>
 						<span className="col-start-3 justify-self-end text-xs text-muted-foreground tabular-nums sm:text-sm">
-							<span className="sm:hidden">{reviewedCount} done</span>
-							<span className="hidden sm:inline">{reviewedCount} reviewed</span>
+							{currentIndex + 1} of {studyCards.length}
 						</span>
 					</div>
 				</div>
 			</div>
 		</section>
+		</MotionConfig>
 	);
 }
 
@@ -642,6 +750,7 @@ function FlashcardAiAction({
 			variant="ghost"
 			size="sm"
 			aria-hidden={!active}
+			disabled={!active}
 			tabIndex={active ? 0 : -1}
 			className="absolute top-4 right-4 z-10 text-amber-600 hover:bg-amber-500/10 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300"
 			onClick={(event) => {

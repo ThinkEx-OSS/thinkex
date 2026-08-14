@@ -99,17 +99,21 @@ export function normalizeWorkspaceItemViewState(
 		return {
 			kind: "pdf-page",
 			itemId: viewState.itemId,
-			pageNumber: Math.max(1, Math.trunc(viewState.pageNumber)),
+			pageNumber: finiteInteger(viewState.pageNumber, 1),
 		};
 	}
 
-	const totalCards = Math.max(1, Math.trunc(viewState.totalCards));
+	const totalCards = finiteInteger(viewState.totalCards, 1);
 	return {
 		...viewState,
-		cardNumber: Math.min(totalCards, Math.max(1, Math.trunc(viewState.cardNumber))),
-		reviewedCount: Math.min(totalCards, Math.max(0, Math.trunc(viewState.reviewedCount))),
+		cardNumber: Math.min(totalCards, finiteInteger(viewState.cardNumber, 1)),
+		reviewedCount: Math.min(totalCards, finiteInteger(viewState.reviewedCount, 0)),
 		totalCards,
 	};
+}
+
+function finiteInteger(value: number, minimum: number) {
+	return Number.isFinite(value) ? Math.max(minimum, Math.trunc(value)) : minimum;
 }
 
 export function isSameWorkspaceItemViewState(

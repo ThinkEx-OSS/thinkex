@@ -7,7 +7,6 @@ import type { WorkspaceItem } from "#/features/workspaces/contracts";
 
 type WorkspacePdfPageLocation = Extract<WorkspaceLocation, { kind: "pdf-page" }>;
 type WorkspaceFlashcardSideLocation = Extract<WorkspaceLocation, { kind: "flashcard-side" }>;
-type WorkspaceLocatorLocation = WorkspacePdfPageLocation | WorkspaceFlashcardSideLocation;
 
 type WorkspaceLocationPresentation = {
 	Icon: LucideIcon;
@@ -17,7 +16,7 @@ type WorkspaceLocationPresentation = {
 };
 
 type WorkspaceLocationRevealRequest = {
-	location: WorkspaceLocatorLocation;
+	location: WorkspacePdfPageLocation | WorkspaceFlashcardSideLocation;
 	viewInstanceId: string;
 };
 
@@ -116,7 +115,9 @@ export function useWorkspacePdfPageRevealRequest(viewInstanceId: string) {
 		consume: consumeRevealRequest,
 		request:
 			revealRequest?.viewInstanceId === viewInstanceId && revealRequest.location.kind === "pdf-page"
-				? { ...revealRequest, location: revealRequest.location }
+				? (revealRequest as WorkspaceLocationRevealRequest & {
+						location: WorkspacePdfPageLocation;
+					})
 				: null,
 	};
 }
@@ -129,7 +130,9 @@ export function useWorkspaceFlashcardSideRevealRequest(viewInstanceId: string) {
 		request:
 			revealRequest?.viewInstanceId === viewInstanceId &&
 			revealRequest.location.kind === "flashcard-side"
-				? { ...revealRequest, location: revealRequest.location }
+				? (revealRequest as WorkspaceLocationRevealRequest & {
+						location: WorkspaceFlashcardSideLocation;
+					})
 				: null,
 	};
 }
