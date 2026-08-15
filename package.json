@@ -7,7 +7,9 @@
 	},
 	"scripts": {
 		"dev": "node scripts/run-local-dev.mjs --infisical",
+		"dev:full": "node scripts/run-local-dev.mjs --infisical --full",
 		"serve:dev": "node scripts/run-local-dev.mjs",
+		"dev:clean": "node scripts/clean-local-dev.mjs",
 		"build": "vp run ciBuild",
 		"build:app": "NODE_ENV=production CLOUDFLARE_VITE_FORCE_LOCAL=true CLOUDFLARE_LOAD_DEV_VARS_FROM_DOT_ENV=false vp build && node scripts/patch-worker-observability.mjs",
 		"build:production": "NODE_ENV=production CLOUDFLARE_ENV=production CLOUDFLARE_LOAD_DEV_VARS_FROM_DOT_ENV=false vp build && node scripts/patch-worker-observability.mjs",
