@@ -35,8 +35,8 @@ function MessageScrollerViewport({
 				// Native scroll anchoring re-pins a bottom-parked transcript when the
 				// viewport shrinks — growing the composer by a chip row slides every
 				// message up by that height. Every position this scroller cares about is
-				// restored in JS (prepends, the anchored turn, follow-bottom), so opt out
-				// and let those own the scroll offset.
+				// restored in JS (the opening scroll, the anchored turn, the reading
+				// anchor), so opt out and let those own the scroll offset.
 				"size-full min-h-0 min-w-0 scroll-fade scrollbar-thin scrollbar-gutter-stable overflow-y-auto overscroll-contain contain-content [overflow-anchor:none] data-autoscrolling:scrollbar-none",
 				className,
 			)}
