@@ -71,32 +71,38 @@ export function CodeBlockNodeView({
 		>
 			<CodeBlockHeader className="workspace-document-code-block-header" contentEditable={false}>
 				<CodeBlockTitle>
-					<CodeBlockLanguageSelector
-						value={language ?? "plain"}
-						onValueChange={(value) => {
-							updateAttributes({
-								language: value === "plain" ? null : (value as SupportedCodeLanguage),
-							});
-						}}
-					>
-						<CodeBlockLanguageSelectorTrigger aria-label="Code language">
-							<CodeBlockLanguageSelectorValue>
-								{(value: string | null) =>
-									value === "plain" ? "Plain text" : getCodeLanguageLabel(value)
-								}
-							</CodeBlockLanguageSelectorValue>
-						</CodeBlockLanguageSelectorTrigger>
-						<CodeBlockLanguageSelectorContent className="min-w-44">
-							<CodeBlockLanguageSelectorItem value="plain">
-								Plain text
-							</CodeBlockLanguageSelectorItem>
-							{codeLanguageOptions.map((option) => (
-								<CodeBlockLanguageSelectorItem key={option.value} value={option.value}>
-									{option.label}
+					{/* Study viewers render this node view read-only, where the
+					    language is a fact to show, not a setting to change. */}
+					{editor.isEditable ? (
+						<CodeBlockLanguageSelector
+							value={language ?? "plain"}
+							onValueChange={(value) => {
+								updateAttributes({
+									language: value === "plain" ? null : (value as SupportedCodeLanguage),
+								});
+							}}
+						>
+							<CodeBlockLanguageSelectorTrigger aria-label="Code language">
+								<CodeBlockLanguageSelectorValue>
+									{(value: string | null) =>
+										value === "plain" ? "Plain text" : getCodeLanguageLabel(value)
+									}
+								</CodeBlockLanguageSelectorValue>
+							</CodeBlockLanguageSelectorTrigger>
+							<CodeBlockLanguageSelectorContent className="min-w-44">
+								<CodeBlockLanguageSelectorItem value="plain">
+									Plain text
 								</CodeBlockLanguageSelectorItem>
-							))}
-						</CodeBlockLanguageSelectorContent>
-					</CodeBlockLanguageSelector>
+								{codeLanguageOptions.map((option) => (
+									<CodeBlockLanguageSelectorItem key={option.value} value={option.value}>
+										{option.label}
+									</CodeBlockLanguageSelectorItem>
+								))}
+							</CodeBlockLanguageSelectorContent>
+						</CodeBlockLanguageSelector>
+					) : (
+						getCodeLanguageLabel(language)
+					)}
 				</CodeBlockTitle>
 				<CodeBlockActions>
 					<CodeBlockDownloadButton code={code} language={codeLanguage} />
