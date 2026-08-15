@@ -14,6 +14,7 @@ import { StudyRichText } from "#/features/workspaces/components/study/StudyRichT
 import {
 	StudyAiActionButton,
 	StudyNavButton,
+	useStudySessionFocus,
 } from "#/features/workspaces/components/study/StudySessionControls";
 import { StudyToolbar } from "#/features/workspaces/components/study/StudyToolbar";
 import { useWorkspaceItemToolbar } from "#/features/workspaces/components/WorkspaceItemToolbarSlot";
@@ -421,6 +422,7 @@ function FlashcardStudySurface({
 	studyCards: Flashcard[];
 	studyState: FlashcardStudyState;
 }) {
+	const sectionRef = useStudySessionFocus(currentCard.id);
 	const settling = ratingFeedback !== null;
 	const nextCard = ratingFeedback ? studyCards[currentIndex + 1] : undefined;
 	const isLastCardRating = ratingFeedback !== null && !nextCard;
@@ -455,6 +457,7 @@ function FlashcardStudySurface({
 		<LazyMotion features={domAnimation}>
 			<MotionConfig reducedMotion="user">
 				<section
+					ref={sectionRef}
 					className="flex h-full min-h-0 flex-col bg-background px-4 py-5 sm:px-8 sm:py-7"
 					aria-label={`${item.name} study session`}
 					onKeyDown={(event) => {

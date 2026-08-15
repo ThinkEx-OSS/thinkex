@@ -1,7 +1,26 @@
 import { ChevronLeft, ChevronRight, Lightbulb } from "lucide-react";
+import { useEffect, useRef } from "react";
 
 import { Button } from "#/components/ui/button";
 import { cn } from "#/lib/utils";
+
+/**
+ * Keeps the session's arrow keys alive across navigation. Both viewers key the
+ * current entry's subtree so it remounts on navigation, and a remount that held
+ * the focused element drops focus to <body> — out of reach of the section's
+ * keydown handler. Attach the returned ref to the section; when an entry change
+ * strands focus on <body>, the section takes it back.
+ */
+export function useStudySessionFocus(entryKey: string | undefined) {
+	const sectionRef = useRef<HTMLElement>(null);
+	const previousKey = useRef(entryKey);
+	useEffect(() => {
+		if (previousKey.current === entryKey) return;
+		previousKey.current = entryKey;
+		if (document.activeElement === document.body) sectionRef.current?.focus();
+	}, [entryKey]);
+	return sectionRef;
+}
 
 /**
  * Asks the AI for help with the item on screen — a hint before answering, a

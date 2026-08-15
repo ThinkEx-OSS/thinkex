@@ -10,6 +10,7 @@ import { StudyRichText } from "#/features/workspaces/components/study/StudyRichT
 import {
 	StudyAiActionButton,
 	StudyNavButton,
+	useStudySessionFocus,
 } from "#/features/workspaces/components/study/StudySessionControls";
 import { StudyToolbar } from "#/features/workspaces/components/study/StudyToolbar";
 import { useWorkspaceItemToolbar } from "#/features/workspaces/components/WorkspaceItemToolbarSlot";
@@ -119,6 +120,7 @@ function QuizStudySession({
 		? questions.findIndex((question) => question.id === currentQuestion.id) + 1
 		: 0;
 	const answer = currentQuestion ? getQuizAnswer(currentQuestion, studyState) : undefined;
+	const sectionRef = useStudySessionFocus(currentQuestion?.id);
 	const quizProgress = useMemo(
 		() => summarizeQuizStudyProgress(questions, studyState),
 		[questions, studyState],
@@ -299,6 +301,7 @@ function QuizStudySession({
 
 	return (
 		<section
+			ref={sectionRef}
 			className="flex h-full min-h-0 flex-col bg-background px-4 py-5 sm:px-8 sm:py-7"
 			aria-label={`${item.name} quiz session`}
 			tabIndex={0}
