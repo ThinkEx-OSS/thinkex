@@ -1,6 +1,6 @@
 import { spawn, spawnSync } from "node:child_process";
 
-import { getLocalPostgresConfig } from "./local-postgres-config.mjs";
+import { resolveLocalDatabase } from "./local-postgres-config.mjs";
 
 const secretsMode = process.argv.includes("--infisical") ? "infisical" : "environment";
 // "lite" (the default) runs the dev server with every Cloudflare binding emulated
@@ -12,11 +12,10 @@ const devProfile =
 	process.argv.includes("--full") || process.env.THINKEX_DEV_PROFILE?.trim() === "full"
 		? "full"
 		: "lite";
-const localPostgres = getLocalPostgresConfig();
-const configuredDatabaseUrl =
-	process.env.CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE?.trim();
-const localDatabaseUrl = configuredDatabaseUrl || localPostgres.url;
-const shouldPrepareLocalDatabase = process.env.CONDUCTOR_IS_LOCAL !== "0" && !configuredDatabaseUrl;
+const localPostgres = resolveLocalDatabase();
+const localDatabaseUrl = localPostgres.url;
+const shouldPrepareLocalDatabase =
+	process.env.CONDUCTOR_IS_LOCAL !== "0" && !localPostgres.isConfigured;
 
 if (shouldPrepareLocalDatabase) {
 	run("node", ["scripts/ensure-local-postgres.mjs"], {

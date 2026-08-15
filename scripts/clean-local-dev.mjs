@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { rmSync, statSync } from "node:fs";
 import { Client } from "pg";
 
-import { getLocalPostgresConfig } from "./local-postgres-config.mjs";
+import { resolveLocalDatabase } from "./local-postgres-config.mjs";
 
 // Reclaims local development artifacts that nothing prunes on its own.
 //
@@ -101,48 +101,67 @@ if (includeDockerCache) {
 }
 
 // Postgres databases left behind by ports and workspace IDs used at some point
-// in the past. Guarded twice: never the database this checkout resolves to, and
-// never one with an open connection — which is how a running worktree, or a psql
-// session you forgot about, announces itself.
+// in the past. Guarded twice: never the database this checkout resolves to — via
+// resolveLocalDatabase, so a preset connection string is honoured rather than
+// re-derived — and never one with an open connection, which is how a running
+// worktree, or a psql session you forgot about, announces itself.
 if (includeDatabases) {
-	const current = getLocalPostgresConfig();
-	admin = new Client({ database: "postgres" });
-	await admin.connect();
+	const current = resolveLocalDatabase();
 
-	const { rows } = await admin.query(`
-		select d.datname,
-		       pg_database_size(d.datname) as bytes,
-		       (select count(*) from pg_stat_activity a where a.datname = d.datname) as connections
-		from pg_database d
-		where d.datname like 'thinkex\\_%'
-		order by d.datname
-	`);
+	if (current.isConfigured && !current.databaseName) {
+		console.log(
+			"skip  database cleanup — CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE is set\n" +
+				"      but its database name could not be parsed, so nothing here is safe to drop.",
+		);
+	} else {
+		// Pinned rather than inherited: `pg` reads PGHOST/PGPORT when host and port
+		// are omitted, and this script issues DROP. The connection string this repo
+		// generates is always localhost:5432, so target exactly that.
+		admin = new Client({ database: "postgres", host: "localhost", port: 5432 });
+		await admin.connect();
 
-	for (const row of rows) {
-		if (row.datname === current.databaseName) {
-			console.log(`keep  ${row.datname} — this checkout's database`);
-			continue;
+		const { rows } = await admin.query(`
+			select d.datname,
+			       pg_database_size(d.datname) as bytes,
+			       (select count(*) from pg_stat_activity a where a.datname = d.datname) as connections
+			from pg_database d
+			where d.datname like 'thinkex\\_%'
+			order by d.datname
+		`);
+
+		for (const row of rows) {
+			if (row.datname === current.databaseName) {
+				console.log(
+					`keep  ${row.datname} — this checkout's database${current.isConfigured ? " (explicitly configured)" : ""}`,
+				);
+				continue;
+			}
+
+			if (Number(row.connections) > 0) {
+				console.log(`keep  ${row.datname} — ${row.connections} open connection(s), in use`);
+				continue;
+			}
+
+			// Identifiers come from the catalog rather than our own sanitised
+			// derivation, and these are DROP statements — quote them properly.
+			const roleName = row.datname.replace(/^thinkex_/, "thinkex_local_");
+			const databaseIdentifier = admin.escapeIdentifier(row.datname);
+			const roleIdentifier = admin.escapeIdentifier(roleName);
+
+			plans.push({
+				label: `database ${row.datname} (+ role ${roleName})`,
+				bytes: Number(row.bytes),
+				run: async () => {
+					await admin.query(`drop database ${databaseIdentifier}`);
+
+					try {
+						await admin.query(`drop role ${roleIdentifier}`);
+					} catch (error) {
+						console.log(`  kept role ${roleName}: ${error.message}`);
+					}
+				},
+			});
 		}
-
-		if (Number(row.connections) > 0) {
-			console.log(`keep  ${row.datname} — ${row.connections} open connection(s), in use`);
-			continue;
-		}
-
-		const roleName = row.datname.replace(/^thinkex_/, "thinkex_local_");
-		plans.push({
-			label: `database ${row.datname} (+ role ${roleName})`,
-			bytes: Number(row.bytes),
-			run: async () => {
-				await admin.query(`drop database ${row.datname}`);
-
-				try {
-					await admin.query(`drop role ${roleName}`);
-				} catch (error) {
-					console.log(`  kept role ${roleName}: ${error.message}`);
-				}
-			},
-		});
 	}
 }
 

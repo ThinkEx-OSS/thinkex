@@ -17,7 +17,7 @@ export default defineConfig({
 				resolve: { tsconfigPaths: true },
 				test: {
 					name: "node",
-					include: ["src/**/*.test.{ts,tsx}"],
+					include: ["src/**/*.test.{ts,tsx}", "scripts/**/*.test.mjs"],
 					exclude: ["src/**/*.worker.test.ts"],
 					environment: "node",
 				},
