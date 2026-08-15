@@ -291,10 +291,9 @@ function QuizStudySession({
 	// outline. Wrong picks keep only the filled X — no row chrome — so they
 	// stay in the hairline list.
 	const outlinedOptionIds = new Set(
-		[
-			!graded ? selectedOptionId : null,
-			graded ? currentQuestion.correctOptionId : null,
-		].filter(Boolean),
+		[!graded ? selectedOptionId : null, graded ? currentQuestion.correctOptionId : null].filter(
+			Boolean,
+		),
 	);
 	const lastOption = currentQuestion.options.at(-1);
 
@@ -522,9 +521,26 @@ function QuizViewerSkeleton() {
 	return (
 		<div className="flex h-full min-h-0 flex-col px-4 py-5 sm:px-8 sm:py-7">
 			<div className="mx-auto flex min-h-0 w-full max-w-4xl flex-1 flex-col gap-4">
-				<Skeleton className="min-h-72 flex-1 rounded-2xl sm:min-h-96" />
+				<div className="min-h-0 flex-1 pt-1">
+					<div className="flex items-start justify-between gap-3 pb-5">
+						<Skeleton className="h-6 w-2/3" />
+						<Skeleton className="h-8 w-16 rounded-lg" />
+					</div>
+					{/* Widths vary so the rows read as answers rather than a block. */}
+					{["w-3/5", "w-2/5", "w-1/2", "w-4/6"].map((width) => (
+						<div key={width} className="border-t">
+							<div className="flex items-center gap-3 px-3 py-4">
+								<Skeleton className="size-6 shrink-0 rounded-full" />
+								<Skeleton className={cn("h-4", width)} />
+							</div>
+						</div>
+					))}
+					<div className="border-t" />
+				</div>
 				<div className="space-y-3">
-					<Skeleton className="h-2 w-full rounded-full" />
+					<div className="flex h-4 items-center">
+						<Skeleton className="h-1.5 w-full rounded-full" />
+					</div>
 					<div className="grid min-h-10 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
 						<Skeleton className="h-4 w-24 justify-self-start" />
 						<div className="col-start-2 flex items-center justify-center gap-1 sm:gap-2">
