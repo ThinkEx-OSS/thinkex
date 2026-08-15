@@ -9,7 +9,7 @@ ThinkEx is a Cloudflare Worker app managed by Vite+. The repo pins Node 24 and e
 
 - Node.js 24 (`>=24.11.0 <25`) through Vite+ managed mode
 - pnpm 11
-- Docker, because local startup declares Cloudflare Container bindings
+- Docker, only for the full dev profile (see [Dev server profiles](#dev-server-profiles))
 - Infisical access for core team members, or a local `.dev.vars` file for contributors
 
 If `node`, `pnpm`, or Corepack resolve to unexpected versions, run:
@@ -52,15 +52,38 @@ BETTER_AUTH_URL=http://localhost:3000
 
 The auth page shows **Continue as guest** in local development, so Google OAuth credentials are not required for normal UI testing.
 
-## Force Local Cloudflare Bindings
+## Dev server profiles
 
-Some bindings are remote by default. If you do not have Cloudflare credentials, run:
+`pnpm dev` and `pnpm serve:dev` run a **lite** profile by default:
+
+- Every Cloudflare binding is emulated locally. Nothing is proxied to the real account, so a normal session incurs no Workers AI, Browser Rendering, R2, or Email charges — and no invite email is delivered to a real inbox.
+- Containers are off, so Docker is never invoked and the three container images are neither built nor started.
+- Miniflare's local trace store is off, which is otherwise the largest thing in `.wrangler/`.
+
+Remote-only features are unavailable in this profile: browser rendering, PDF export, image-to-text extraction, and email invite delivery. Core workspace, document, and auth flows all run locally.
+
+<Warning>
+	**The lite profile is not "free" — it removes the charges you did not ask for, not the ones you trigger.**
+
+	Only Cloudflare *bindings* are forced local. Three paid services are reached over plain HTTPS with an API key rather than through a binding, so no dev profile affects them:
+
+	- **AI chat, thread titles, and compaction** — Vercel AI Gateway, billed per turn whenever `AI_GATEWAY_API_KEY` is set
+	- **`web_search` and research tools** — Firecrawl
+	- **PDF text extraction** — LlamaParse
+
+	Under `pnpm dev`, Infisical supplies those keys, so sending a chat message costs money in either profile. For a session that spends nothing at all, use `pnpm serve:dev` with a `.dev.vars` that omits those keys — the AI gateway then raises a clear error instead of billing.
+</Warning>
+
+When you need the production-shaped environment — testing image extraction, browser rendering, real R2 behavior, or anything running in a container — opt in explicitly:
 
 ```bash
-CLOUDFLARE_VITE_FORCE_LOCAL=true pnpm serve:dev
+pnpm dev:full
+# or, on either command:
+pnpm dev --full
+pnpm serve:dev --full
 ```
 
-This disables remote-only features such as deployed AI chat, browser rendering, and email invite delivery, but core workspace, document, and auth flows still run locally.
+**The full profile bills real usage** against the Cloudflare account, and sends real email. `THINKEX_DEV_PROFILE=full` is equivalent to `--full` for non-interactive callers.
 
 ## Database
 
@@ -79,7 +102,22 @@ development command uses it and deliberately skips automatic creation and migrat
 
 ## Docker
 
-Docker must be running before the dev server starts because the Worker declares Cloudflare Containers for code execution and file conversion. The first startup may pull or build large images.
+Docker is only needed for the full profile (`pnpm dev:full`), which declares Cloudflare Containers for code execution and file conversion — the first such startup may build large images. The default lite profile skips containers entirely, so Docker does not need to be running.
+
+## Reclaim local disk
+
+Local development artifacts accumulate per checkout and are never pruned automatically — Miniflare's trace store, locally built container images, and one PostgreSQL database per port and workspace ID ever used. To see what is reclaimable:
+
+```bash
+pnpm dev:clean
+```
+
+That is a dry run. Add `--yes` to apply it, and optionally:
+
+- `--databases` — also drop idle `thinkex_*` databases and their roles. Never drops this checkout's database, and never one with an open connection, so a running worktree is safe.
+- `--docker-cache` — also prune Docker's build cache. This is machine-wide, so other projects lose their cached layers too.
+
+Your local application data is never touched: `.wrangler/state/v3/do` (Durable Object storage — workspaces, documents, AI threads) and `.wrangler/state/v3/r2` (uploaded files) exist nowhere else, so no flag removes them.
 
 ## Validate Changes
 
@@ -87,15 +125,22 @@ Docker must be running before the dev server starts because the Worker declares 
 pnpm verify
 ```
 
-This runs Vite+ check, test, and build tasks with caching.
+This runs Vite+ check, test, and build tasks **through the task cache**, which fingerprints inputs and replays previous results instead of redoing work. Measured on an M-series laptop:
 
-For narrower local checks, use:
+| Command | Nothing changed | Sources changed |
+| --- | --- | --- |
+| `pnpm verify` | ~2 s | ~60 s |
+| `pnpm check` + `pnpm test` | ~38 s every time | ~38 s |
+
+So `pnpm verify` is the right habit for "is everything still OK", especially across several worktrees running the same checks on mostly-unchanged code. It is *slower* than the raw runners on a full cache miss, because it also fingerprints inputs and archives outputs — so while actively iterating, reach for the narrower commands instead:
 
 ```bash
-pnpm check
-pnpm test
-pnpm build
+pnpm test --project node   # ~6 s, 355 tests, skips the workerd pool entirely
+pnpm check                 # ~5 s, format + lint + types
+pnpm test                  # ~34 s, includes the 16 workerd test files
 pnpm doctor
 ```
+
+The workers test project is the slow part and is dominated by module transform and import inside `workerd`, one runtime per test file. It already runs in parallel across cores; raising `--maxWorkers` past the default makes it slower, not faster.
 
 `pnpm doctor` runs React Doctor against changed files. Use `pnpm doctor:full` when you intentionally want a full React scan.
