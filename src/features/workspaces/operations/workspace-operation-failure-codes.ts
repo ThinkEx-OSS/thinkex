@@ -14,7 +14,6 @@ export const createWorkspaceItemsFailureCodes = [
 	"path_not_absolute",
 	"path_not_folder",
 	"path_not_found",
-	...workspaceRelationFailureCodes,
 ] as const;
 
 export const deleteWorkspaceItemsFailureCodes = [

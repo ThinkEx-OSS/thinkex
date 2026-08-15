@@ -112,7 +112,6 @@ export interface CreateWorkspaceItemArgs {
 	color?: WorkspaceColor;
 	metadataJson?: Record<string, JsonValue>;
 	initialContent?: string;
-	initialRelations?: CreateWorkspaceRelationArgs[];
 	actorUserId?: string | null;
 }
 

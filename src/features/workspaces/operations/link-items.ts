@@ -9,29 +9,35 @@ import {
 	authorizeWorkspaceOperation,
 	resolveWorkspaceExistingItemPath,
 } from "#/features/workspaces/operations/workspace-operation-context";
+import type { CreateWorkspaceRelationArgs } from "#/features/workspaces/persistence/workspace-persistence-types";
 import {
 	linkWorkspaceItems,
 	resolveWorkspacePaths,
 } from "#/features/workspaces/persistence/workspace-items";
 
 export interface LinkWorkspaceItemsOperationInput {
-	path: string;
-	relations: WorkspaceRelationInput[];
+	items: Array<{
+		path: string;
+		relations: WorkspaceRelationInput[];
+	}>;
 }
 
 type LinkWorkspaceItemsFailureCode = (typeof linkWorkspaceItemsFailureCodes)[number];
 
-interface LinkWorkspaceItemsFailure {
+export interface LinkWorkspaceItemsFailure {
 	code: LinkWorkspaceItemsFailureCode;
+	index: number;
 	path: string;
+}
+
+export interface LinkedWorkspaceItem {
+	path: string;
+	type: WorkspaceItem["type"];
 }
 
 export interface LinkWorkspaceItemsOperationResult {
 	failed: LinkWorkspaceItemsFailure[];
-	item?: {
-		path: string;
-		type: WorkspaceItem["type"];
-	};
+	items: LinkedWorkspaceItem[];
 }
 
 export async function linkWorkspaceItemsOperation(
@@ -42,58 +48,78 @@ export async function linkWorkspaceItemsOperation(
 		access: "mutate",
 		context: accessContext,
 	});
-	const [pathResolution, ...relationTargets] = await resolveWorkspacePaths({
+
+	const paths = input.items.flatMap((item) => [
+		item.path,
+		...item.relations.map((relation) => relation.path),
+	]);
+	const resolutions = await resolveWorkspacePaths({
 		workspaceId: accessContext.workspaceId,
-		paths: [input.path, ...input.relations.map((relation) => relation.path)],
-	});
-	if (!pathResolution) {
-		throw new Error("Workspace persistence did not resolve the requested link source.");
-	}
-	const resolution = resolveWorkspaceExistingItemPath({
-		resolution: pathResolution,
-		rootFailureCode: "cannot_link_root",
+		paths,
 	});
 
-	if (resolution.status === "failed") {
-		return {
-			failed: [
-				{
-					code: resolution.failure.code,
-					path: resolution.failure.path,
-				},
-			],
-		};
-	}
+	const failed: LinkWorkspaceItemsFailure[] = [];
+	const items: LinkedWorkspaceItem[] = [];
+	const relationsToWrite: CreateWorkspaceRelationArgs[] = [];
+	let offset = 0;
 
-	const relations = resolveWorkspaceRelations({
-		excludeItemId: resolution.item.id,
-		fromItemId: resolution.item.id,
-		relations: input.relations,
-		targets: relationTargets,
-	});
+	for (const [index, itemInput] of input.items.entries()) {
+		const sourceResolution = resolutions[offset];
+		offset += 1;
+		const relationTargets = resolutions.slice(offset, offset + itemInput.relations.length);
+		offset += itemInput.relations.length;
 
-	if (relations.status === "failed") {
-		return {
-			failed: [
-				{
-					code: relations.failure.code,
-					path: relations.failure.path,
-				},
-			],
-		};
-	}
+		if (!sourceResolution) {
+			throw new Error("Workspace persistence did not resolve the requested link source.");
+		}
 
-	await linkWorkspaceItems({
-		relations: relations.relations,
-		actorUserId: accessContext.actor.userId,
-		workspaceId: accessContext.workspaceId,
-	});
+		const resolution = resolveWorkspaceExistingItemPath({
+			resolution: sourceResolution,
+			rootFailureCode: "cannot_link_root",
+		});
 
-	return {
-		failed: [],
-		item: {
+		if (resolution.status === "failed") {
+			failed.push({
+				code: resolution.failure.code,
+				index,
+				path: resolution.failure.path,
+			});
+			continue;
+		}
+
+		const relations = resolveWorkspaceRelations({
+			excludeItemId: resolution.item.id,
+			fromItemId: resolution.item.id,
+			relations: itemInput.relations,
+			targets: relationTargets,
+		});
+
+		if (relations.status === "failed") {
+			failed.push({
+				code: relations.failure.code,
+				index,
+				path: relations.failure.path,
+			});
+			continue;
+		}
+
+		relationsToWrite.push(...relations.relations);
+		items.push({
 			path: resolution.path,
 			type: resolution.item.type,
-		},
+		});
+	}
+
+	if (relationsToWrite.length > 0) {
+		await linkWorkspaceItems({
+			relations: relationsToWrite,
+			actorUserId: accessContext.actor.userId,
+			workspaceId: accessContext.workspaceId,
+		});
+	}
+
+	return {
+		failed,
+		items,
 	};
 }

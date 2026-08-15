@@ -51,7 +51,7 @@ const workspaceWidgetHtmlInstruction = `A widget is one interactive block inside
 
 export const workspaceDocumentHtmlInstruction = `Use semantic HTML with paragraphs, h1-h4, blockquotes, lists, code blocks, horizontal rules, tables, links, and standard text marks. ${workspaceHtmlMathInstruction} ${workspaceHtmlCodeInstruction} For checkboxes, use <ul data-type="taskList"><li data-type="taskItem" data-checked="false"><label><input type="checkbox"><span></span></label><div><p>Item</p></div></li></ul>. Documents cannot hold images: never use <img> or <figure>, and describe the visual in words instead. Cite workspace sources in documents exactly as in a chat reply, with <citation ref="wr_7Kp2Qa9x"></citation> placed after the claim it supports. ${workspaceWidgetHtmlInstruction}`;
 
-export const workspaceFlashcardHtmlInstruction = `Flashcard fronts and backs are HTML. Keep each side concise. Use paragraphs, lists, links, code blocks, and standard text marks only. ${workspaceHtmlMathInstruction} ${workspaceHtmlCodeInstruction} Do not use headings, tables, images, widgets, task lists, or citations inside a card. Use item-level relations for sources.`;
+export const workspaceFlashcardHtmlInstruction = `Flashcard fronts and backs are HTML. Keep each side concise. Use paragraphs, lists, links, code blocks, and standard text marks only. ${workspaceHtmlMathInstruction} ${workspaceHtmlCodeInstruction} Do not use headings, tables, images, widgets, task lists, or citations inside a card.`;
 
 const workspacePathSchema = z.string().min(1);
 const workspaceIndexSchema = z.number().int().nonnegative();
@@ -164,12 +164,22 @@ export const workspaceEditItemInputSchema = z.discriminatedUnion("type", [
 ]);
 
 export const workspaceLinkItemsInputSchema = z.object({
-	path: z.string().min(1).describe("Absolute path of the workspace item to link from."),
-	relations: z
-		.array(workspaceRelationInputSchema)
+	items: z
+		.array(
+			z.object({
+				path: z.string().min(1).describe("Absolute path of the workspace item to link from."),
+				relations: z
+					.array(workspaceRelationInputSchema)
+					.min(1)
+					.max(20)
+					.describe("Relationships from this item to other workspace items, at most 20."),
+			}),
+		)
 		.min(1)
 		.max(20)
-		.describe("Relationships from this item to other workspace items, at most 20."),
+		.describe(
+			"One or more existing items to link from, at most 20. Each can have up to 20 relations.",
+		),
 });
 
 export const workspaceRenameItemInputSchema = z.object({
@@ -201,25 +211,11 @@ export const workspaceCreateItemsInputSchema = z.object({
 				z.object({
 					type: z.literal("folder"),
 					path: z.string().min(1).describe("Final absolute path for the folder to create."),
-					relations: z
-						.array(workspaceRelationInputSchema)
-						.max(20)
-						.optional()
-						.describe(
-							"Optional relationships from this new folder to other workspace items, at most 20.",
-						),
 				}),
 				z
 					.object({
 						type: z.literal("document"),
 						path: z.string().min(1).describe("Final absolute path for the document to create."),
-						relations: z
-							.array(workspaceRelationInputSchema)
-							.max(20)
-							.optional()
-							.describe(
-								"Optional relationships from this new document to other workspace items, at most 20.",
-							),
 						initialContent: documentAiHtmlSchema
 							.describe(`Optional initial HTML content. ${workspaceDocumentHtmlInstruction}`)
 							.optional(),
@@ -239,11 +235,6 @@ export const workspaceCreateItemsInputSchema = z.object({
 							.min(1)
 							.max(100)
 							.describe(`Ordered cards. ${workspaceFlashcardHtmlInstruction}`),
-						relations: z
-							.array(workspaceRelationInputSchema)
-							.max(20)
-							.optional()
-							.describe("Optional relationships from this set to source items, at most 20."),
 					})
 					.describe("Flashcard set to create."),
 			]),
@@ -331,13 +322,6 @@ export const workspaceCreateItemsInputExamples = createInputExamples<
 			path: "/Demo Folder/Demo Document",
 			initialContent:
 				"<h1>Demo Document</h1><p>This document was created as part of a tool demo.</p>",
-			relations: [
-				{
-					kind: "derived_from",
-					path: "/Demo Folder/Demo PDF.pdf",
-					note: "Pages 1-3",
-				},
-			],
 		},
 		{
 			type: "flashcard",
@@ -406,12 +390,25 @@ export const workspaceEditItemInputExamples = createInputExamples<
 export const workspaceLinkItemsInputExamples = createInputExamples<
 	z.input<typeof workspaceLinkItemsInputSchema>
 >({
-	path: "/Demo Folder",
-	relations: [
+	items: [
 		{
-			kind: "references",
-			path: "/Demo Folder/Demo PDF.pdf",
-			note: "Source folder for related materials.",
+			path: "/Demo Folder/Demo Flashcards",
+			relations: [
+				{
+					kind: "derived_from",
+					path: "/Demo Folder/Demo PDF.pdf",
+					note: "Pages 1-3",
+				},
+			],
+		},
+		{
+			path: "/Demo Folder/Demo Document",
+			relations: [
+				{
+					kind: "derived_from",
+					path: "/Demo Folder/Demo PDF.pdf",
+				},
+			],
 		},
 	],
 });
@@ -479,7 +476,7 @@ export const workspaceEditItemOutputSchema = z.object({
 	),
 });
 
-export const workspaceLinkItemsOutputSchema = z.object({
-	item: workspacePathItemSchema.optional(),
-	failed: z.array(createFailureSchema(linkWorkspaceItemsFailureCodes, { includeIndex: false })),
+export const workspaceLinkItemsOutputSchema = createWorkspaceItemsResultSchema({
+	itemSchema: workspacePathItemSchema,
+	failureSchema: createFailureSchema(linkWorkspaceItemsFailureCodes),
 });

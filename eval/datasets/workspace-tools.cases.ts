@@ -47,6 +47,7 @@ export const workspaceToolCases: WorkspaceToolCase[] = [
 			"workspace_delete_items",
 			"workspace_create_items",
 			"workspace_edit_item",
+			"workspace_link_items",
 			"workspace_move_items",
 			"workspace_rename_item",
 		],
