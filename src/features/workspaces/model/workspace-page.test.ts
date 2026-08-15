@@ -27,6 +27,7 @@ function createItem(input: Pick<WorkspaceItem, "id"> & Partial<WorkspaceItem>): 
 		color: null,
 		createdAt: "2026-01-01T00:00:00.000Z",
 		id: input.id,
+		refKey: input.refKey ?? input.id,
 		metadataJson: {},
 		name: input.id,
 		parentId: input.parentId ?? null,

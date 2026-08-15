@@ -2,6 +2,7 @@ import { and, asc, desc, eq, inArray, or } from "drizzle-orm";
 
 import { workspaceItemContents, workspaceItemRelations, workspaceItems } from "#/db/schema";
 import { withDb } from "#/db/server";
+import { createWorkspaceItemRefKey } from "#/features/workspaces/locations/workspace-location";
 import {
 	type WorkspaceItem,
 	getWorkspaceItemContentKind,
@@ -123,6 +124,15 @@ export async function getWorkspaceItemPaths(input: WorkspaceScoped<GetWorkspaceI
 	});
 }
 
+/** Resolves an item address's refKey to the live item and its path. */
+export async function getWorkspaceItemByRefKey(input: WorkspaceScoped<{ refKey: string }>) {
+	const { items } = await readWorkspacePage({ workspaceId: input.workspaceId });
+	const item = items.find((candidate) => candidate.refKey === input.refKey);
+	if (!item) return undefined;
+	const path = buildWorkspaceItemPathIndex(items).get(item.id);
+	return path ? { item, path } : undefined;
+}
+
 export async function listWorkspaceItemRelations(
 	input: WorkspaceScoped<ListWorkspaceItemRelationsArgs>,
 ) {
@@ -228,6 +238,7 @@ export async function createWorkspaceItem(
 			type,
 			name: nameResolution.name,
 			nameKey: getWorkspaceItemNameKey(nameResolution.name),
+			refKey: createWorkspaceItemRefKey(),
 			color,
 			metadata: bootstrap.metadataJson,
 			sortOrder: await getNextWorkspaceSortOrder(transaction, input.workspaceId, parentId),

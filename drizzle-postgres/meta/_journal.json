@@ -29,6 +29,20 @@
       "when": 1786643511996,
       "tag": "0003_glorious_wolf_cub",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1786760670175,
+      "tag": "0004_charming_doomsday",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1786767401526,
+      "tag": "0005_dashing_masked_marvel",
+      "breakpoints": true
     }
   ]
 }

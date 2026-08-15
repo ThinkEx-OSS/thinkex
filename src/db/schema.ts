@@ -262,6 +262,16 @@ export const workspaceItems = pgTable(
 		type: text("type", { enum: WORKSPACE_ITEM_TYPES }).notNull(),
 		name: text("name").notNull(),
 		nameKey: text("name_key").notNull(),
+		// Short, stable, model-facing handle. The volatile default backfills
+		// existing rows from a ~47-bit alphanumeric space (base64 of random
+		// bytes, +/ mapped to letters) so the unique index cannot trip over
+		// hex-only birthday collisions; application code supplies 62^8 nanoid
+		// values on insert.
+		refKey: text("ref_key")
+			.notNull()
+			.default(
+				sql`substr(translate(encode(decode(md5(gen_random_uuid()::text), 'hex'), 'base64'), '+/', 'Aa'), 1, 8)`,
+			),
 		color: text("color"),
 		metadata: jsonb("metadata").$type<Record<string, unknown>>().default({}).notNull(),
 		sortOrder: integer("sort_order").notNull(),
@@ -281,6 +291,7 @@ export const workspaceItems = pgTable(
 		unique("workspace_items_workspace_id_id_unique").on(table.workspaceId, table.id),
 		index("workspace_items_tree_idx").on(table.workspaceId, table.parentId, table.sortOrder),
 		index("workspace_items_type_idx").on(table.workspaceId, table.type),
+		uniqueIndex("workspace_items_ref_key_unique").on(table.workspaceId, table.refKey),
 		uniqueIndex("workspace_items_root_name_unique")
 			.on(table.workspaceId, table.nameKey)
 			.where(sql`${table.parentId} is null`),

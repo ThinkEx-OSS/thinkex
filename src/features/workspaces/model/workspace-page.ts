@@ -9,6 +9,7 @@ import {
 	WORKSPACE_ITEM_SORT_STEP,
 } from "#/features/workspaces/defaults";
 import { buildWorkspaceItemCreateBootstrap } from "#/features/workspaces/model/workspace-item-create-bootstrap";
+import { createWorkspaceItemRefKey } from "#/features/workspaces/locations/workspace-location";
 import {
 	getWorkspaceRootItems,
 	getWorkspaceSubtreeItemIds,
@@ -32,12 +33,14 @@ export function createWorkspaceItemInPage(
 		initialContent: input.initialContent,
 	});
 
+	// Placeholder until the realtime upsert delivers the server-minted key.
 	return upsertWorkspaceItemInPage(page, {
 		id: input.id,
 		workspaceId: input.workspaceId,
 		parentId,
 		type: input.type,
 		name,
+		refKey: createWorkspaceItemRefKey(),
 		color: input.color ?? null,
 		metadataJson,
 		sortOrder: getNextWorkspaceItemSortOrder(page.items, parentId),
