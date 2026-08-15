@@ -8,12 +8,12 @@ import {
 import { replaceUniqueText } from "#/features/workspaces/content/replace-unique-text";
 import {
 	createFlashcardRevision,
-	flashcardSideHtmlSchema,
 	parseFlashcardSideHtml,
-	serializeFlashcardSideToHtml,
 	type Flashcard,
 	type FlashcardSetContent,
 } from "#/features/workspaces/flashcards/flashcard-content";
+import { entryRichTextHtmlSchema } from "#/features/workspaces/content/entry-rich-text";
+import { serializeTiptapDocumentToHtml } from "#/features/workspaces/documents/document-ai-html";
 import {
 	createWorkspaceEntryId,
 	workspaceUnitRefInputSchema,
@@ -25,15 +25,15 @@ export const flashcardEditSchema = z.union([
 	z.strictObject({
 		op: z.enum(["insert_before", "insert_after"]),
 		ref: workspaceUnitRefInputSchema,
-		front: flashcardSideHtmlSchema,
-		back: flashcardSideHtmlSchema,
+		front: entryRichTextHtmlSchema,
+		back: entryRichTextHtmlSchema,
 	}),
 	z
 		.strictObject({
 			op: z.literal("update"),
 			ref: workspaceUnitRefInputSchema,
-			front: flashcardSideHtmlSchema.optional(),
-			back: flashcardSideHtmlSchema.optional(),
+			front: entryRichTextHtmlSchema.optional(),
+			back: entryRichTextHtmlSchema.optional(),
 		})
 		.refine((value) => value.front !== undefined || value.back !== undefined, {
 			message: "Provide a new front or back.",
@@ -41,8 +41,8 @@ export const flashcardEditSchema = z.union([
 	z.strictObject({
 		op: z.literal("replace"),
 		ref: workspaceUnitRefInputSchema,
-		front: flashcardSideHtmlSchema,
-		back: flashcardSideHtmlSchema,
+		front: entryRichTextHtmlSchema,
+		back: entryRichTextHtmlSchema,
 	}),
 	z.strictObject({
 		op: z.literal("replace_text"),
@@ -70,12 +70,11 @@ export const flashcardEditSchema = z.union([
 ]);
 
 export type FlashcardEdit = z.output<typeof flashcardEditSchema>;
-export type FlashcardEditTarget = OrderedEntryEditTarget;
 
 export async function applyFlashcardEdits(
 	content: FlashcardSetContent,
 	edits: FlashcardEdit[],
-	targets: ReadonlyMap<string, FlashcardEditTarget>,
+	targets: ReadonlyMap<string, OrderedEntryEditTarget>,
 ) {
 	const result = await applyOrderedEntryEdits({
 		entries: content.cards,
@@ -122,7 +121,7 @@ function reviseCard(card: Flashcard, edit: FlashcardEdit): Flashcard {
 	}
 	if (edit.op === "replace_text") {
 		const replaced = replaceUniqueText(
-			serializeFlashcardSideToHtml(card[edit.side]),
+			serializeTiptapDocumentToHtml(card[edit.side]),
 			edit.find,
 			edit.replace,
 		);

@@ -23,8 +23,8 @@ import {
 } from "#/features/workspaces/documents/document-ai-edits";
 import { workspaceFileAssetKindSchema } from "#/features/workspaces/model/workspace-file";
 import { flashcardEditSchema } from "#/features/workspaces/flashcards/flashcard-edits";
-import { flashcardSideHtmlSchema } from "#/features/workspaces/flashcards/flashcard-content";
 import { quizEditSchema, quizQuestionInputSchema } from "#/features/workspaces/quizzes/quiz-edits";
+import { entryRichTextHtmlSchema } from "#/features/workspaces/content/entry-rich-text";
 
 export { workspaceReadItemsInputSchema, workspaceReadItemsOutputSchema };
 
@@ -240,8 +240,8 @@ export const workspaceCreateItemsInputSchema = z.object({
 						cards: z
 							.array(
 								z.object({
-									front: flashcardSideHtmlSchema.describe("HTML shown before the card flips."),
-									back: flashcardSideHtmlSchema.describe("HTML shown after the card flips."),
+									front: entryRichTextHtmlSchema.describe("HTML shown before the card flips."),
+									back: entryRichTextHtmlSchema.describe("HTML shown after the card flips."),
 								}),
 							)
 							.min(1)

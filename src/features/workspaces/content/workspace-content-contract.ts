@@ -35,7 +35,7 @@ const workspacePageRangeSchema = workspaceNumberRangeSchema.describe(
 	"Up to 20 physical pages from an extracted file, like 1, 3, 5-7, or 1,4-6.",
 );
 const workspaceEntryRangeSchema = workspaceNumberRangeSchema.describe(
-	"Up to 20 entry numbers — document blocks, flashcards, or quiz questions — like 1, 3, 5-7, or 1,4-6.",
+	"Up to 20 entry numbers. Flashcards and quiz questions take lists like 1, 3, 5-7; document blocks take one contiguous range like 5-12.",
 );
 
 /**

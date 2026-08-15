@@ -4,6 +4,7 @@ import {
 	type QuizStudyProgress,
 	type QuizStudyState,
 } from "#/features/workspaces/quizzes/quiz-study-state";
+import { shuffleInPlace } from "#/lib/shuffle";
 
 export type QuizStudyMode = "all" | "missed";
 
@@ -26,13 +27,7 @@ export function createQuizStudyQueue(
 		}
 	}
 
-	if (!input.shuffled) return questionIds;
-
-	for (let index = questionIds.length - 1; index > 0; index -= 1) {
-		const swapIndex = Math.floor(random() * (index + 1));
-		[questionIds[index], questionIds[swapIndex]] = [questionIds[swapIndex]!, questionIds[index]!];
-	}
-	return questionIds;
+	return input.shuffled ? shuffleInPlace(questionIds, random) : questionIds;
 }
 
 /** What the AI's live view context says about the open quiz. */

@@ -3,9 +3,9 @@ import { describe, expect, it } from "vitest";
 import {
 	createQuizQuestionRevision,
 	createQuizSetFromInputs,
-	serializeQuizRichTextToHtml,
 	type QuizQuestion,
 } from "#/features/workspaces/quizzes/quiz-content";
+import { serializeTiptapDocumentToHtml } from "#/features/workspaces/documents/document-ai-html";
 import { applyQuizEdits, quizEditSchema } from "#/features/workspaces/quizzes/quiz-edits";
 
 const firstQuestion = {
@@ -50,11 +50,11 @@ describe("applyQuizEdits", () => {
 		expect(result.applied).toBe(5);
 		expect(result.content.questions).toHaveLength(3);
 		const revisedSecond = result.content.questions.find((entry) => entry.id === second!.id)!;
-		expect(serializeQuizRichTextToHtml(revisedSecond.explanation)).toBe(
+		expect(serializeTiptapDocumentToHtml(revisedSecond.explanation)).toBe(
 			"<p>Updated explanation.</p>",
 		);
 		expect(
-			revisedSecond.options.map((option) => serializeQuizRichTextToHtml(option.text)),
+			revisedSecond.options.map((option) => serializeTiptapDocumentToHtml(option.text)),
 		).toContain("<p>The mitochondria</p>");
 		// replace keeps the id so citations to the question survive re-authoring.
 		expect(result.content.questions.some((entry) => entry.id === first!.id)).toBe(true);
@@ -82,7 +82,7 @@ describe("applyQuizEdits", () => {
 		expect(result.failed).toEqual([]);
 		const revised = result.content.questions[0]!;
 		const correct = revised.options.find((option) => option.id === revised.correctOptionId)!;
-		expect(serializeQuizRichTextToHtml(correct.text)).toBe("<p>Readily usable energy</p>");
+		expect(serializeTiptapDocumentToHtml(correct.text)).toBe("<p>Readily usable energy</p>");
 	});
 
 	it("rejects option fixes that match more than one option", async () => {

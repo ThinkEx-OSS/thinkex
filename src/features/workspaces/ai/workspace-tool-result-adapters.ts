@@ -1,5 +1,4 @@
 import type { JSONValue } from "ai";
-import { z } from "zod";
 
 import { workspaceReadItemsOutputSchema } from "#/features/workspaces/content/workspace-content-contract";
 import { createWorkspaceReadItemsModelOutput } from "#/features/workspaces/content/workspace-read-model-output";
@@ -13,41 +12,27 @@ import {
  * the model needs. Addresses are already self-describing, so projection is
  * only ever subtraction: internal item ids and app-side bookkeeping.
  */
-function defineWorkspaceToolResultAdapter<TSchema extends z.ZodTypeAny>(input: {
-	outputSchema: TSchema;
-	projectOutput: (output: z.output<TSchema>) => unknown;
-}) {
-	return {
-		projectOutput: (output: unknown) => {
-			return input.projectOutput(input.outputSchema.parse(output)) as JSONValue;
-		},
-	};
-}
-
-const workspaceReadItemsResultAdapter = defineWorkspaceToolResultAdapter({
-	outputSchema: workspaceReadItemsOutputSchema,
-	projectOutput: createWorkspaceReadItemsModelOutput,
-});
-
-const workspaceCreateItemsResultAdapter = defineWorkspaceToolResultAdapter({
-	outputSchema: workspaceCreateItemsOutputSchema,
-	projectOutput: (output) => ({
-		failed: output.failed,
-		items: output.items.map(({ itemId: _itemId, ...item }) => item),
-	}),
-});
-
-// The operation output also carries the durable item id used by the app's
-// review controls. Keep the model-facing receipt limited to actionable counts.
-const workspaceEditItemResultAdapter = defineWorkspaceToolResultAdapter({
-	outputSchema: workspaceEditItemOutputSchema,
-	projectOutput: ({ applied, failed, path }) => ({ applied, failed, path }),
-});
-
 const workspaceToolResultAdapters = {
-	workspace_create_items: workspaceCreateItemsResultAdapter,
-	workspace_edit_item: workspaceEditItemResultAdapter,
-	workspace_read_items: workspaceReadItemsResultAdapter,
+	workspace_create_items: {
+		projectOutput: (output: unknown): JSONValue => {
+			const { failed, items } = workspaceCreateItemsOutputSchema.parse(output);
+			return { failed, items: items.map(({ itemId: _itemId, ...item }) => item) } as JSONValue;
+		},
+	},
+	// The operation output also carries the durable item id used by the app's
+	// review controls. Keep the model-facing receipt limited to actionable counts.
+	workspace_edit_item: {
+		projectOutput: (output: unknown): JSONValue => {
+			const { applied, failed, path } = workspaceEditItemOutputSchema.parse(output);
+			return { applied, failed, path } as JSONValue;
+		},
+	},
+	workspace_read_items: {
+		projectOutput: (output: unknown): JSONValue =>
+			createWorkspaceReadItemsModelOutput(
+				workspaceReadItemsOutputSchema.parse(output),
+			) as JSONValue,
+	},
 } as const;
 
 export function getWorkspaceToolResultAdapter(name: string) {

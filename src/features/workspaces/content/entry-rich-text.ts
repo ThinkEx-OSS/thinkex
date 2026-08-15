@@ -1,9 +1,6 @@
 import { z } from "zod";
 
-import {
-	parseDocumentAiHtml,
-	serializeTiptapDocumentToHtml,
-} from "#/features/workspaces/documents/document-ai-html";
+import { parseDocumentAiHtml } from "#/features/workspaces/documents/document-ai-html";
 import {
 	coerceTiptapDocumentProjection,
 	type TiptapDocumentJson,
@@ -49,7 +46,6 @@ export function createEntryRichTextParser(messages: EntryRichTextMessages) {
 	}
 
 	return {
-		assertEntryRichText,
 		parseEntryRichTextHtml(html: string): TiptapDocumentJson {
 			const document = parseDocumentAiHtml(html);
 			assertEntryRichText(document);
@@ -64,10 +60,6 @@ export function createEntryRichTextParser(messages: EntryRichTextMessages) {
 			return projection.document;
 		},
 	};
-}
-
-export function serializeEntryRichTextToHtml(entry: TiptapDocumentJson) {
-	return serializeTiptapDocumentToHtml(entry);
 }
 
 function visitRichTextValue(value: unknown, messages: EntryRichTextMessages) {

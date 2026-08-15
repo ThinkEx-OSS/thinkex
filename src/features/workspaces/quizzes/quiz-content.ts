@@ -1,8 +1,5 @@
-import {
-	createEntryRichTextParser,
-	entryRichTextHtmlSchema,
-	serializeEntryRichTextToHtml,
-} from "#/features/workspaces/content/entry-rich-text";
+import { createEntryRichTextParser } from "#/features/workspaces/content/entry-rich-text";
+import { serializeTiptapDocumentToHtml } from "#/features/workspaces/documents/document-ai-html";
 import type { TiptapDocumentJson } from "#/features/workspaces/documents/tiptap-document";
 import {
 	createWorkspaceEntryId,
@@ -10,9 +7,9 @@ import {
 } from "#/features/workspaces/locations/workspace-location";
 import { sha256Base64UrlText } from "#/lib/binary";
 import { isRecord } from "#/lib/record";
+import { shuffleInPlace } from "#/lib/shuffle";
 
 export const QUIZ_SET_VERSION = 1;
-export const quizRichTextHtmlSchema = entryRichTextHtmlSchema;
 const quizIdSchema = workspaceEntryIdSchema;
 
 export const QUIZ_QUESTION_MIN_DISTRACTORS = 1;
@@ -182,10 +179,6 @@ export function stringifyQuizSetContent(content: QuizSetContent) {
 	return `${JSON.stringify(content)}\n`;
 }
 
-export function serializeQuizRichTextToHtml(value: TiptapDocumentJson) {
-	return serializeEntryRichTextToHtml(value);
-}
-
 export async function createQuizQuestionRevision(question: QuizQuestion) {
 	return (
 		await sha256Base64UrlText(
@@ -209,32 +202,23 @@ export interface QuizHtmlQuestion {
 export function serializeQuizSetToHtml(content: QuizSetContent): QuizHtmlQuestion[] {
 	return content.questions.map((question) => ({
 		id: question.id,
-		question: serializeQuizRichTextToHtml(question.question),
+		question: serializeTiptapDocumentToHtml(question.question),
 		options: question.options.map((option) => ({
 			id: option.id,
-			text: serializeQuizRichTextToHtml(option.text),
+			text: serializeTiptapDocumentToHtml(option.text),
 			correct: option.id === question.correctOptionId,
 		})),
-		explanation: serializeQuizRichTextToHtml(question.explanation),
+		explanation: serializeTiptapDocumentToHtml(question.explanation),
 	}));
 }
 
 function assertDistinctOptions(options: QuizOption[]) {
 	const seen = new Set<string>();
 	for (const option of options) {
-		const key = serializeEntryRichTextToHtml(option.text);
+		const key = serializeTiptapDocumentToHtml(option.text);
 		if (seen.has(key)) {
 			throw new Error("Every option in a question must be distinct.");
 		}
 		seen.add(key);
-	}
-}
-
-function shuffleInPlace<T>(values: T[]) {
-	for (let i = values.length - 1; i > 0; i--) {
-		const j = Math.floor(Math.random() * (i + 1));
-		const a = values[i]!;
-		values[i] = values[j]!;
-		values[j] = a;
 	}
 }

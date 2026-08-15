@@ -266,7 +266,14 @@ async function readFlashcards(
 		request: input.request,
 		targetEntryId: targetCardId,
 	});
-	if (!selection.ok) return { code: selection.code, path: input.path, status: "failed" };
+	if (!selection.ok) {
+		return {
+			code: selection.code,
+			...(selection.message ? { message: selection.message } : {}),
+			path: input.path,
+			status: "failed",
+		};
+	}
 
 	return {
 		cards: await Promise.all(
@@ -320,7 +327,14 @@ async function readQuiz(
 		request: input.request,
 		targetEntryId: targetQuestionId,
 	});
-	if (!selection.ok) return { code: selection.code, path: input.path, status: "failed" };
+	if (!selection.ok) {
+		return {
+			code: selection.code,
+			...(selection.message ? { message: selection.message } : {}),
+			path: input.path,
+			status: "failed",
+		};
+	}
 
 	return {
 		format: "html",
@@ -364,7 +378,15 @@ async function readQuiz(
 
 type OrderedEntrySelection<T> =
 	| { ok: true; selected: T[]; returned: number[] }
-	| { ok: false; code: "invalid_selection" | "ref_not_found" };
+	| {
+			ok: false;
+			code:
+				| "invalid_selection"
+				| "page_range_out_of_range"
+				| "page_selection_too_large"
+				| "ref_not_found";
+			message?: string;
+	  };
 
 /**
  * Shared selection for structured items: one targeted entry from an address,
@@ -391,7 +413,11 @@ function selectOrderedEntries<T extends { id: string }>(input: {
 			returned = parseWorkspacePageRange(request.range, entries.length);
 		} catch (error) {
 			if (error instanceof WorkspacePageSelectionError) {
-				return { ok: false, code: "invalid_selection" };
+				return {
+					ok: false,
+					code: error.code,
+					message: `The item has ${entries.length} entries; request up to 20 of them per read.`,
+				};
 			}
 			throw error;
 		}

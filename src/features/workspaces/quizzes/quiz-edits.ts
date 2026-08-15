@@ -10,30 +10,30 @@ import {
 	createQuizQuestionRevision,
 	materializeQuizQuestion,
 	parseQuizRichTextHtml,
-	quizRichTextHtmlSchema,
 	QUIZ_QUESTION_MAX_DISTRACTORS,
 	QUIZ_QUESTION_MIN_DISTRACTORS,
-	serializeQuizRichTextToHtml,
 	type QuizQuestion,
 	type QuizSetContent,
 } from "#/features/workspaces/quizzes/quiz-content";
+import { entryRichTextHtmlSchema } from "#/features/workspaces/content/entry-rich-text";
+import { serializeTiptapDocumentToHtml } from "#/features/workspaces/documents/document-ai-html";
 import { workspaceUnitRefInputSchema } from "#/features/workspaces/locations/workspace-location";
 
 const editTextSchema = z.string().max(8_000);
 
 const authoredQuestionFields = {
-	question: quizRichTextHtmlSchema.describe("HTML question stem."),
-	correctAnswer: quizRichTextHtmlSchema.describe(
+	question: entryRichTextHtmlSchema.describe("HTML question stem."),
+	correctAnswer: entryRichTextHtmlSchema.describe(
 		"HTML for the single correct option. Never mark it in the stem; its final position is shuffled server-side.",
 	),
 	distractors: z
-		.array(quizRichTextHtmlSchema)
+		.array(entryRichTextHtmlSchema)
 		.min(QUIZ_QUESTION_MIN_DISTRACTORS)
 		.max(QUIZ_QUESTION_MAX_DISTRACTORS)
 		.describe(
 			"HTML for each incorrect option: strictly wrong, plausible, and grounded in a specific misconception. Use 3 for a standard question, 1 for true/false.",
 		),
-	explanation: quizRichTextHtmlSchema.describe(
+	explanation: entryRichTextHtmlSchema.describe(
 		"Short HTML explanation of why the correct answer is right, touching on why the others are not.",
 	),
 };
@@ -51,8 +51,8 @@ export const quizEditSchema = z.union([
 		.strictObject({
 			op: z.literal("update"),
 			ref: workspaceUnitRefInputSchema,
-			question: quizRichTextHtmlSchema.optional().describe("New HTML question stem."),
-			explanation: quizRichTextHtmlSchema.optional().describe("New HTML explanation."),
+			question: entryRichTextHtmlSchema.optional().describe("New HTML question stem."),
+			explanation: entryRichTextHtmlSchema.optional().describe("New HTML explanation."),
 		})
 		.refine((value) => value.question !== undefined || value.explanation !== undefined, {
 			message: "Provide a new question or explanation.",
@@ -90,12 +90,11 @@ export const quizEditSchema = z.union([
 ]);
 
 export type QuizEdit = z.output<typeof quizEditSchema>;
-export type QuizEditTarget = OrderedEntryEditTarget;
 
 export async function applyQuizEdits(
 	content: QuizSetContent,
 	edits: QuizEdit[],
-	targets: ReadonlyMap<string, QuizEditTarget>,
+	targets: ReadonlyMap<string, OrderedEntryEditTarget>,
 ) {
 	const result = await applyOrderedEntryEdits({
 		entries: content.questions,
@@ -152,7 +151,7 @@ function replaceQuestionText(
 		let matchedTwiceInOne = false;
 		for (const [index, option] of question.options.entries()) {
 			const replaced = replaceUniqueText(
-				serializeQuizRichTextToHtml(option.text),
+				serializeTiptapDocumentToHtml(option.text),
 				edit.find,
 				edit.replace,
 			);
@@ -181,7 +180,7 @@ function replaceQuestionText(
 	}
 
 	const replaced = replaceUniqueText(
-		serializeQuizRichTextToHtml(question[edit.field]),
+		serializeTiptapDocumentToHtml(question[edit.field]),
 		edit.find,
 		edit.replace,
 	);

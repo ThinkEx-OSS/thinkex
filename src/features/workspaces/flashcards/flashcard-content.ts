@@ -1,8 +1,5 @@
-import {
-	createEntryRichTextParser,
-	entryRichTextHtmlSchema,
-	serializeEntryRichTextToHtml,
-} from "#/features/workspaces/content/entry-rich-text";
+import { createEntryRichTextParser } from "#/features/workspaces/content/entry-rich-text";
+import { serializeTiptapDocumentToHtml } from "#/features/workspaces/documents/document-ai-html";
 import type { TiptapDocumentJson } from "#/features/workspaces/documents/tiptap-document";
 import {
 	createWorkspaceEntryId,
@@ -12,7 +9,6 @@ import { sha256Base64UrlText } from "#/lib/binary";
 import { isRecord } from "#/lib/record";
 
 export const FLASHCARD_SET_VERSION = 1;
-export const flashcardSideHtmlSchema = entryRichTextHtmlSchema;
 const flashcardIdSchema = workspaceEntryIdSchema;
 
 export interface Flashcard {
@@ -93,10 +89,6 @@ export function stringifyFlashcardSetContent(content: FlashcardSetContent) {
 	return `${JSON.stringify(content)}\n`;
 }
 
-export function serializeFlashcardSideToHtml(side: TiptapDocumentJson) {
-	return serializeEntryRichTextToHtml(side);
-}
-
 export async function createFlashcardRevision(card: Flashcard) {
 	return (await sha256Base64UrlText(JSON.stringify({ front: card.front, back: card.back }))).slice(
 		0,
@@ -107,7 +99,7 @@ export async function createFlashcardRevision(card: Flashcard) {
 export function serializeFlashcardSetToHtml(content: FlashcardSetContent): FlashcardHtmlCard[] {
 	return content.cards.map((card) => ({
 		id: card.id,
-		front: serializeFlashcardSideToHtml(card.front),
-		back: serializeFlashcardSideToHtml(card.back),
+		front: serializeTiptapDocumentToHtml(card.front),
+		back: serializeTiptapDocumentToHtml(card.back),
 	}));
 }

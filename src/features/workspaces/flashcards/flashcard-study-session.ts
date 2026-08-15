@@ -4,6 +4,7 @@ import type {
 	FlashcardStudyRating,
 	FlashcardStudyState,
 } from "#/features/workspaces/flashcards/flashcard-study-state";
+import { shuffleInPlace } from "#/lib/shuffle";
 
 export type FlashcardStudyMode = "all" | "missed";
 
@@ -46,11 +47,5 @@ export function createFlashcardStudyQueue(
 		}
 	}
 
-	if (!input.shuffled) return cardIds;
-
-	for (let index = cardIds.length - 1; index > 0; index -= 1) {
-		const swapIndex = Math.floor(random() * (index + 1));
-		[cardIds[index], cardIds[swapIndex]] = [cardIds[swapIndex]!, cardIds[index]!];
-	}
-	return cardIds;
+	return input.shuffled ? shuffleInPlace(cardIds, random) : cardIds;
 }
