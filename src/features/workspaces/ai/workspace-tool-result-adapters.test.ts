@@ -6,13 +6,12 @@ describe("workspace tool result adapters", () => {
 	it("projects current results onto the model-facing shape", () => {
 		const output = {
 			failed: [],
-			items: [{ itemId: "itm_1", path: "/Notes/A", type: "document" }],
-			references: [{ location: { itemId: "itm_1", kind: "item", version: 1 }, ref: "wr_7Kp2Qa9x" }],
+			items: [{ itemId: "itm_1", path: "/Notes/A", ref: "Xk7p2Qa9", type: "document" }],
 		};
 
 		expect(getWorkspaceToolResultAdapter("workspace_create_items")?.projectOutput(output)).toEqual({
 			failed: [],
-			items: [{ path: "/Notes/A", ref: "wr_7Kp2Qa9x", type: "document" }],
+			items: [{ path: "/Notes/A", ref: "Xk7p2Qa9", type: "document" }],
 		});
 	});
 
@@ -27,7 +26,6 @@ describe("workspace tool result adapters", () => {
 				},
 			],
 			items: [],
-			references: [],
 		};
 
 		expect(getWorkspaceToolResultAdapter("workspace_create_items")?.projectOutput(output)).toEqual({
@@ -39,18 +37,12 @@ describe("workspace tool result adapters", () => {
 	it("projects create failures without exposing internal references", () => {
 		const output = {
 			failed: [{ code: "path_already_exists", index: 0, path: "/Old" }],
-			items: [{ itemId: "itm_internal", path: "/Old", type: "document" }],
-			references: [
-				{
-					location: { itemId: "itm_internal", kind: "item", version: 1 },
-					ref: "wr_7Kp2Qa9x",
-				},
-			],
+			items: [{ itemId: "itm_internal", path: "/Old", ref: "Xk7p2Qa9", type: "document" }],
 		};
 
 		expect(getWorkspaceToolResultAdapter("workspace_create_items")?.projectOutput(output)).toEqual({
 			failed: output.failed,
-			items: [{ path: "/Old", ref: "wr_7Kp2Qa9x", type: "document" }],
+			items: [{ path: "/Old", ref: "Xk7p2Qa9", type: "document" }],
 		});
 	});
 

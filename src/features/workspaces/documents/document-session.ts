@@ -51,7 +51,7 @@ import {
 	commitWorkspaceDocumentCheckpoint,
 	readWorkspaceDocumentCheckpoint,
 } from "#/features/workspaces/persistence/workspace-document-checkpoints";
-import { sha256Base64Url, sha256Base64UrlText } from "#/lib/binary";
+import { sha256Base64UrlText } from "#/lib/binary";
 
 const persistedYDocUpdateKey = "document-session:yjs-update";
 const latestDocumentEditReceiptKey = "document-session:ai-edit-receipt:latest";
@@ -354,14 +354,10 @@ export class DocumentSession extends YServer {
 
 	async readHtmlChunk(input: DocumentHtmlChunkReadInput): Promise<DocumentHtmlChunkReadResult> {
 		this.assertActive();
-		const { document, stateVector } = await this.getReferencedDocumentSnapshot();
-		const revision = await sha256Base64Url(stateVector);
-		if (input.expectedRevision && input.expectedRevision !== revision) {
-			return { status: "content_changed" };
-		}
+		const { document } = await this.getReferencedDocumentSnapshot();
 
-		const chunk = await readDocumentHtmlChunk(document, input.offset);
-		return chunk ? { ...chunk, revision, status: "ready" } : { status: "invalid_offset" };
+		const chunk = await readDocumentHtmlChunk(document, input.offset, input.maxBlocks);
+		return chunk ? { ...chunk, status: "ready" } : { status: "invalid_offset" };
 	}
 
 	/**

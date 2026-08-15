@@ -16,7 +16,7 @@ import { sha256Base64UrlText } from "#/lib/binary";
 
 const TEXT_NODE = 3;
 const documentBlockIdPattern = /^b_[A-Za-z0-9_-]{12}$/;
-const documentAiRefPattern = /^(b_[A-Za-z0-9_-]{12})\.r_([A-Za-z0-9_-]{10})$/;
+const documentAiRefPattern = /^(b_[A-Za-z0-9_-]{12})\.r_([A-Za-z0-9_-]{6})$/;
 export class DocumentAiHtmlError extends Error {}
 export class WidgetScriptSyntaxError extends DocumentAiHtmlError {}
 
@@ -108,22 +108,12 @@ export async function createDocumentAiRef(node: ProseMirrorNode) {
 	// second DOM pass per block per read, and the ref only has to change when
 	// the block's content does.
 	const content = JSON.stringify(withTiptapNodeAiRef(node, null).toJSON());
-	const revision = (await sha256Base64UrlText(content)).slice(0, 10);
+	const revision = (await sha256Base64UrlText(content)).slice(0, 6);
 	return `${blockId}.r_${revision}`;
 }
 
 export function parseDocumentAiRef(ref: string) {
 	return documentAiRefPattern.exec(ref)?.[1] ?? null;
-}
-
-export function readDocumentAiRefRevision(ref: string) {
-	return documentAiRefPattern.exec(ref)?.[2] ?? null;
-}
-
-export function readDocumentAiRefs(html: string) {
-	return Array.from(html.matchAll(/\sdata-ref="([^"]+)"/g), (match) => match[1]!).filter((ref) =>
-		documentAiRefPattern.test(ref),
-	);
 }
 
 export function ensureTiptapDocumentBlockIds(document: TiptapDocumentJson): {
@@ -374,6 +364,9 @@ export function applyDocumentCitationLocations(
 				break;
 			case "flashcard":
 				element.setAttribute("data-card-id", location.cardId);
+				break;
+			case "quiz-question":
+				element.setAttribute("data-question-id", location.questionId);
 				break;
 		}
 	}

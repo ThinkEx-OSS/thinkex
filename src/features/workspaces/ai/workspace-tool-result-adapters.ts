@@ -2,23 +2,22 @@ import type { JSONValue } from "ai";
 import { z } from "zod";
 
 import { workspaceReadItemsOutputSchema } from "#/features/workspaces/content/workspace-content-contract";
-import { createWorkspaceReadItemsModelOutput } from "#/features/workspaces/content/workspace-read-references";
-import type { WorkspaceReferenceRecord } from "#/features/workspaces/locations/workspace-location";
+import { createWorkspaceReadItemsModelOutput } from "#/features/workspaces/content/workspace-read-model-output";
 import {
 	workspaceCreateItemsOutputSchema,
 	workspaceEditItemOutputSchema,
 } from "#/features/workspaces/operations/workspace-tool-schemas";
 
+/**
+ * Model-facing projections for tool outputs whose rich form carries more than
+ * the model needs. Addresses are already self-describing, so projection is
+ * only ever subtraction: internal item ids and app-side bookkeeping.
+ */
 function defineWorkspaceToolResultAdapter<TSchema extends z.ZodTypeAny>(input: {
-	collectReferences?: (output: z.output<TSchema>) => readonly WorkspaceReferenceRecord[];
 	outputSchema: TSchema;
 	projectOutput: (output: z.output<TSchema>) => unknown;
 }) {
 	return {
-		collectReferences: (output: unknown) => {
-			const parsed = input.outputSchema.safeParse(output);
-			return parsed.success ? (input.collectReferences?.(parsed.data) ?? []) : [];
-		},
 		projectOutput: (output: unknown) => {
 			return input.projectOutput(input.outputSchema.parse(output)) as JSONValue;
 		},
@@ -26,30 +25,16 @@ function defineWorkspaceToolResultAdapter<TSchema extends z.ZodTypeAny>(input: {
 }
 
 const workspaceReadItemsResultAdapter = defineWorkspaceToolResultAdapter({
-	collectReferences: (output) => output.references,
 	outputSchema: workspaceReadItemsOutputSchema,
 	projectOutput: createWorkspaceReadItemsModelOutput,
 });
 
 const workspaceCreateItemsResultAdapter = defineWorkspaceToolResultAdapter({
-	collectReferences: (output) => output.references,
 	outputSchema: workspaceCreateItemsOutputSchema,
-	projectOutput: (output) => {
-		const refsByItemId = new Map(
-			output.references.flatMap((record) =>
-				record.location.kind === "item" ? [[record.location.itemId, record.ref] as const] : [],
-			),
-		);
-
-		return {
-			failed: output.failed,
-			items: output.items.map(({ itemId, path, type }) => {
-				const ref = refsByItemId.get(itemId);
-
-				return { path, ...(ref ? { ref } : {}), type };
-			}),
-		};
-	},
+	projectOutput: (output) => ({
+		failed: output.failed,
+		items: output.items.map(({ itemId: _itemId, ...item }) => item),
+	}),
 });
 
 // The operation output also carries the durable item id used by the app's

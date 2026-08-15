@@ -45,10 +45,10 @@ describe("workspace tool surface", () => {
 	}
 
 	it("gives documents and flashcards the same edit verbs and ref protocol", () => {
-		const documentRef = "wr_AAAAAAAA";
-		const otherDocumentRef = "wr_BBBBBBBB";
-		const flashcardRef = "wr_CCCCCCCC";
-		const otherFlashcardRef = "wr_DDDDDDDD";
+		const documentRef = "b_x7Kp2Qa9x8Lm.r_4f2a1b";
+		const otherDocumentRef = "b_y8Lq3Rb0y9Mn.r_9c3d2e";
+		const flashcardRef = "c_9xKp2Qab.r_4f2a1b";
+		const otherFlashcardRef = "c_8Lq3Rb0y.r_9c3d2e";
 		const sharedVerbs = [
 			"insert_before",
 			"insert_after",

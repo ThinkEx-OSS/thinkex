@@ -4,7 +4,7 @@ import {
 	workspaceReadItemsInputSchema,
 	workspaceReadItemsOutputSchema,
 } from "#/features/workspaces/content/workspace-content-contract";
-import { createWorkspaceReadItemsModelOutput } from "#/features/workspaces/content/workspace-read-references";
+import { createWorkspaceReadItemsModelOutput } from "#/features/workspaces/content/workspace-read-model-output";
 import { getWorkspaceFileSourceObject } from "#/features/workspaces/extraction/workspace-file-source";
 
 const maxPendingPdfBytes = 3.5 * 1024 * 1024;

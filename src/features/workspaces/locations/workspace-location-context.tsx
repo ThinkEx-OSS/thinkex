@@ -2,7 +2,11 @@ import { FileQuestion, type LucideIcon } from "lucide-react";
 import { createContext, type ReactNode, use, useCallback, useState } from "react";
 import { toast } from "sonner";
 
-import type { WorkspaceLocation } from "#/features/workspaces/locations/workspace-location";
+import {
+	parseWorkspaceAddress,
+	resolveWorkspaceAddressLocation,
+	type WorkspaceLocation,
+} from "#/features/workspaces/locations/workspace-location";
 import { getWorkspaceItemDisplay } from "#/features/workspaces/model/item-display";
 import type { WorkspaceItem } from "#/features/workspaces/contracts";
 
@@ -24,6 +28,8 @@ type WorkspaceLocationContextValue = {
 	completeRevealRequest: (request: WorkspaceLocationRevealRequest, revealed: boolean) => void;
 	getItem: (itemId: string) => WorkspaceItem | undefined;
 	getPresentation: (location: WorkspaceLocation) => WorkspaceLocationPresentation;
+	/** Resolves a self-describing address like `Xk7p2Qa9/p5` against the live workspace. */
+	resolveAddress: (ref: unknown) => WorkspaceLocation | undefined;
 	reveal: (location: WorkspaceLocation) => boolean;
 	revealRequest: WorkspaceLocationRevealRequest | null;
 };
@@ -55,6 +61,16 @@ export function WorkspaceLocationProvider({
 		completeRevealRequest,
 		getItem(itemId) {
 			return itemsById.get(itemId);
+		},
+		resolveAddress(ref) {
+			const address = typeof ref === "string" ? parseWorkspaceAddress(ref) : undefined;
+			if (!address) return undefined;
+			for (const item of itemsById.values()) {
+				if (item.refKey === address.refKey) {
+					return resolveWorkspaceAddressLocation(item, address);
+				}
+			}
+			return undefined;
 		},
 		getPresentation(location) {
 			const item = itemsById.get(location.itemId);
@@ -95,6 +111,9 @@ function getWorkspaceLocatorLabel(location: WorkspaceLocation) {
 			return `p. ${location.pageNumber}`;
 		case "document-block":
 		case "flashcard":
+		case "quiz-question":
+			// Content-positional labels ("Card 3", "Question 3") need the item's
+			// current content, so the citation component supplies them.
 			return undefined;
 	}
 }

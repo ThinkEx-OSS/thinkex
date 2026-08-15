@@ -17,18 +17,19 @@ export interface DocumentHtmlChunk {
 }
 
 export interface DocumentHtmlChunkReadInput {
-	expectedRevision?: string;
 	offset: number;
+	/** Stop after this many blocks even if the character budget has room. */
+	maxBlocks?: number;
 }
 
 export type DocumentHtmlChunkReadResult =
-	| { status: "content_changed" }
 	| { status: "invalid_offset" }
-	| ({ revision: string; status: "ready" } & DocumentHtmlChunk);
+	| ({ status: "ready" } & DocumentHtmlChunk);
 
 export async function readDocumentHtmlChunk(
 	document: ProseMirrorNode,
 	offset: number,
+	maxBlocks?: number,
 ): Promise<DocumentHtmlChunk | undefined> {
 	if (offset < 0 || offset >= document.childCount) {
 		return undefined;
@@ -38,6 +39,7 @@ export async function readDocumentHtmlChunk(
 	let characters = 0;
 	let endOffset = offset;
 	while (endOffset < document.childCount) {
+		if (maxBlocks !== undefined && endOffset - offset >= maxBlocks) break;
 		const block = await serializeTiptapNodeToAiHtml(document.child(endOffset));
 		const separatorCharacters = content.length > 0 ? 1 : 0;
 		if (

@@ -6,13 +6,10 @@ import {
 } from "#/features/workspaces/content/workspace-content-contract";
 import { readWorkspaceContent } from "#/features/workspaces/content/workspace-content-reader";
 import { recordWorkspaceFileReadOutcomes } from "#/features/workspaces/content/workspace-read-observability";
-import { createWorkspaceReadReferences } from "#/features/workspaces/content/workspace-read-references";
 import { getDocumentSessionFromEnv } from "#/features/workspaces/document-session-access";
 import { readFlashcardViewer } from "#/features/workspaces/flashcards/flashcard-study-persistence";
-import {
-	indexWorkspaceReferenceRecords,
-	parseWorkspaceReference,
-} from "#/features/workspaces/locations/workspace-location";
+import { readQuizViewer } from "#/features/workspaces/quizzes/quiz-study-persistence";
+import { getWorkspaceItemByRefKey } from "#/features/workspaces/persistence/workspace-items";
 import type { WorkspaceAccessContext } from "#/features/workspaces/operations/workspace-access-context";
 import { authorizeWorkspaceOperation } from "#/features/workspaces/operations/workspace-operation-context";
 
@@ -28,14 +25,6 @@ export async function readWorkspaceItemsOperation(
 		access: "read",
 		context: accessContext,
 	});
-	const requestedRefs = input.requests.flatMap((request) =>
-		request.mode === "ref" ? [request.ref] : [],
-	);
-	const referenceTargets = indexWorkspaceReferenceRecords(
-		requestedRefs.length > 0 && accessContext.resolveWorkspaceReferences
-			? await accessContext.resolveWorkspaceReferences(requestedRefs)
-			: [],
-	);
 	const results = await readWorkspaceContent({
 		bucket: env.WORKSPACE_FILES,
 		getDocumentSession: (itemId) =>
@@ -49,11 +38,14 @@ export async function readWorkspaceItemsOperation(
 				userId: accessContext.actor.userId,
 				workspaceId: accessContext.workspaceId,
 			}),
-		resolveReference: (itemId, ref) => {
-			const parsedRef = parseWorkspaceReference(ref);
-			const record = parsedRef ? referenceTargets.get(parsedRef) : undefined;
-			return record?.location.itemId === itemId ? record.location : undefined;
-		},
+		readQuizItem: (itemId) =>
+			readQuizViewer({
+				itemId,
+				userId: accessContext.actor.userId,
+				workspaceId: accessContext.workspaceId,
+			}),
+		resolveRefKey: (refKey) =>
+			getWorkspaceItemByRefKey({ refKey, workspaceId: accessContext.workspaceId }),
 		requests: input.requests,
 		workspaceId: accessContext.workspaceId,
 	});
@@ -65,8 +57,5 @@ export async function readWorkspaceItemsOperation(
 		workspaceId: accessContext.workspaceId,
 	});
 
-	return {
-		references: createWorkspaceReadReferences(results),
-		results,
-	};
+	return { results };
 }

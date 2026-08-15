@@ -105,7 +105,7 @@ exports[`workspace tool surface > workspace_create_items input schema is stable 
             "description": "Document to create.",
             "properties": {
               "initialContent": {
-                "description": "Optional initial HTML content. Use semantic HTML with paragraphs, h1-h4, blockquotes, lists, code blocks, horizontal rules, tables, links, and standard text marks. This is HTML, so math is markup rather than delimiters: use <span data-type="inline-math" data-latex="..."></span> or <div data-type="block-math" data-latex="..."></div>, and keep dollar signs out of the data-latex value. Put every subscript and superscript (exponents like 10^8, indices like x_1) inside math rather than <sub>/<sup> tags. Chemistry renders with \\ce{...} (e.g. \\ce{CH4 + 2 O2 -> CO2 + 2 H2O}) and quantities with units render with \\pu{...} (e.g. \\pu{9.81 m/s^2}), both inside data-latex. Write literal money as plain text ($30, never \\$30) — a backslash before a dollar sign shows on screen in HTML. For checkboxes, use <ul data-type="taskList"><li data-type="taskItem" data-checked="false"><label><input type="checkbox"><span></span></label><div><p>Item</p></div></li></ul>. Documents cannot hold images: never use <img> or <figure>, and describe the visual in words instead. Cite workspace sources in documents exactly as in a chat reply, with <citation ref="wr_7Kp2Qa9x"></citation> placed after the claim it supports. A widget is one interactive block inside a document. Use one when the user explicitly asks for a widget, asks for interaction or live computation, or wants a document visual that ordinary blocks cannot express. Keep ordinary content in ordinary blocks. Before authoring or editing widget source, activate the "widget-authoring" skill and follow its HTML, sandbox, layout, and editing contract. Serialize the result as <div data-type="widget" title="Short title">…HTML-escaped fragment…</div>.",
+                "description": "Optional initial HTML content. Use semantic HTML with paragraphs, h1-h4, blockquotes, lists, code blocks, horizontal rules, tables, links, and standard text marks. This is HTML, so math is markup rather than delimiters: use <span data-type="inline-math" data-latex="..."></span> or <div data-type="block-math" data-latex="..."></div>, and keep dollar signs out of the data-latex value. Put every subscript and superscript (exponents like 10^8, indices like x_1) inside math rather than <sub>/<sup> tags. Chemistry renders with \\ce{...} (e.g. \\ce{CH4 + 2 O2 -> CO2 + 2 H2O}) and quantities with units render with \\pu{...} (e.g. \\pu{9.81 m/s^2}), both inside data-latex. Write literal money as plain text ($30, never \\$30) — a backslash before a dollar sign shows on screen in HTML. For checkboxes, use <ul data-type="taskList"><li data-type="taskItem" data-checked="false"><label><input type="checkbox"><span></span></label><div><p>Item</p></div></li></ul>. Documents cannot hold images: never use <img> or <figure>, and describe the visual in words instead. Cite workspace sources in documents exactly as in a chat reply, with <citation ref="Xk7p2Qa9/b_x7Kp2Qa9x8Lm"></citation> placed after the claim it supports — the address is the item's ref, or ref/unit for a page, block, card, or question, with any .r_ suffix dropped. A widget is one interactive block inside a document. Use one when the user explicitly asks for a widget, asks for interaction or live computation, or wants a document visual that ordinary blocks cannot express. Keep ordinary content in ordinary blocks. Before authoring or editing widget source, activate the "widget-authoring" skill and follow its HTML, sandbox, layout, and editing contract. Serialize the result as <div data-type="widget" title="Short title">…HTML-escaped fragment…</div>.",
                 "maxLength": 512000,
                 "type": "string",
               },
@@ -240,6 +240,107 @@ exports[`workspace tool surface > workspace_create_items input schema is stable 
             ],
             "type": "object",
           },
+          {
+            "additionalProperties": false,
+            "description": "Quiz to create.",
+            "properties": {
+              "path": {
+                "description": "Final absolute path for the quiz.",
+                "minLength": 1,
+                "type": "string",
+              },
+              "questions": {
+                "description": "Ordered multiple-choice questions. Question stems, options, and explanations are HTML. Keep them concise. Use paragraphs, lists, links, code blocks, and standard text marks only. This is HTML, so math is markup rather than delimiters: use <span data-type="inline-math" data-latex="..."></span> or <div data-type="block-math" data-latex="..."></div>, and keep dollar signs out of the data-latex value. Put every subscript and superscript (exponents like 10^8, indices like x_1) inside math rather than <sub>/<sup> tags. Chemistry renders with \\ce{...} (e.g. \\ce{CH4 + 2 O2 -> CO2 + 2 H2O}) and quantities with units render with \\pu{...} (e.g. \\pu{9.81 m/s^2}), both inside data-latex. Write literal money as plain text ($30, never \\$30) — a backslash before a dollar sign shows on screen in HTML. Do not use headings, tables, images, widgets, task lists, or citations inside a question. Use item-level relations for sources. Write correctAnswer as its own field and never hint at it in the stem or option order: the server shuffles the options and records which one is correct. Every distractor must be strictly wrong yet plausible, reflect a specific misconception, and match the correct answer's length and tone. Prefer 3 distractors; use 1 for true/false. Questions should test understanding from the source material, not trivia recall.",
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "correctAnswer": {
+                      "description": "HTML for the single correct option. Never mark it in the stem; its final position is shuffled server-side.",
+                      "maxLength": 8000,
+                      "minLength": 1,
+                      "type": "string",
+                    },
+                    "distractors": {
+                      "description": "HTML for each incorrect option: strictly wrong, plausible, and grounded in a specific misconception. Use 3 for a standard question, 1 for true/false.",
+                      "items": {
+                        "maxLength": 8000,
+                        "minLength": 1,
+                        "type": "string",
+                      },
+                      "maxItems": 4,
+                      "minItems": 1,
+                      "type": "array",
+                    },
+                    "explanation": {
+                      "description": "Short HTML explanation of why the correct answer is right, touching on why the others are not.",
+                      "maxLength": 8000,
+                      "minLength": 1,
+                      "type": "string",
+                    },
+                    "question": {
+                      "description": "HTML question stem.",
+                      "maxLength": 8000,
+                      "minLength": 1,
+                      "type": "string",
+                    },
+                  },
+                  "required": [
+                    "question",
+                    "correctAnswer",
+                    "distractors",
+                    "explanation",
+                  ],
+                  "type": "object",
+                },
+                "maxItems": 100,
+                "minItems": 1,
+                "type": "array",
+              },
+              "relations": {
+                "description": "Optional relationships from this quiz to source items, at most 20.",
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "kind": {
+                      "description": "\`derived_from\` means this item was created or materially changed from the linked item. \`references\` means this item cites or points to the linked item.",
+                      "enum": [
+                        "derived_from",
+                        "references",
+                      ],
+                      "type": "string",
+                    },
+                    "note": {
+                      "description": "Optional short source detail, like pages 12-14 or section on photosynthesis.",
+                      "maxLength": 240,
+                      "type": "string",
+                    },
+                    "path": {
+                      "description": "Absolute path of the related ThinkEx workspace item.",
+                      "minLength": 1,
+                      "type": "string",
+                    },
+                  },
+                  "required": [
+                    "kind",
+                    "path",
+                  ],
+                  "type": "object",
+                },
+                "maxItems": 20,
+                "type": "array",
+              },
+              "type": {
+                "const": "quiz",
+                "type": "string",
+              },
+            },
+            "required": [
+              "type",
+              "path",
+              "questions",
+            ],
+            "type": "object",
+          },
         ],
       },
       "maxItems": 20,
@@ -286,7 +387,7 @@ exports[`workspace tool surface > workspace_edit_item input schema is stable 1`]
       "description": "Document edits.",
       "properties": {
         "edits": {
-          "description": "Ordered document edits using exact refs from a read. Available operations: insert_before, insert_after, update, replace, replace_text, move, and delete. update accepts exactly one top-level block; replace may replace one block with several. move requires exactly one of beforeRef or afterRef. Use semantic HTML with paragraphs, h1-h4, blockquotes, lists, code blocks, horizontal rules, tables, links, and standard text marks. This is HTML, so math is markup rather than delimiters: use <span data-type="inline-math" data-latex="..."></span> or <div data-type="block-math" data-latex="..."></div>, and keep dollar signs out of the data-latex value. Put every subscript and superscript (exponents like 10^8, indices like x_1) inside math rather than <sub>/<sup> tags. Chemistry renders with \\ce{...} (e.g. \\ce{CH4 + 2 O2 -> CO2 + 2 H2O}) and quantities with units render with \\pu{...} (e.g. \\pu{9.81 m/s^2}), both inside data-latex. Write literal money as plain text ($30, never \\$30) — a backslash before a dollar sign shows on screen in HTML. For checkboxes, use <ul data-type="taskList"><li data-type="taskItem" data-checked="false"><label><input type="checkbox"><span></span></label><div><p>Item</p></div></li></ul>. Documents cannot hold images: never use <img> or <figure>, and describe the visual in words instead. Cite workspace sources in documents exactly as in a chat reply, with <citation ref="wr_7Kp2Qa9x"></citation> placed after the claim it supports. A widget is one interactive block inside a document. Use one when the user explicitly asks for a widget, asks for interaction or live computation, or wants a document visual that ordinary blocks cannot express. Keep ordinary content in ordinary blocks. Before authoring or editing widget source, activate the "widget-authoring" skill and follow its HTML, sandbox, layout, and editing contract. Serialize the result as <div data-type="widget" title="Short title">…HTML-escaped fragment…</div>.",
+          "description": "Ordered document edits using exact refs from a read. Available operations: insert_before, insert_after, update, replace, replace_text, move, and delete. update accepts exactly one top-level block; replace may replace one block with several. move requires exactly one of beforeRef or afterRef. Use semantic HTML with paragraphs, h1-h4, blockquotes, lists, code blocks, horizontal rules, tables, links, and standard text marks. This is HTML, so math is markup rather than delimiters: use <span data-type="inline-math" data-latex="..."></span> or <div data-type="block-math" data-latex="..."></div>, and keep dollar signs out of the data-latex value. Put every subscript and superscript (exponents like 10^8, indices like x_1) inside math rather than <sub>/<sup> tags. Chemistry renders with \\ce{...} (e.g. \\ce{CH4 + 2 O2 -> CO2 + 2 H2O}) and quantities with units render with \\pu{...} (e.g. \\pu{9.81 m/s^2}), both inside data-latex. Write literal money as plain text ($30, never \\$30) — a backslash before a dollar sign shows on screen in HTML. For checkboxes, use <ul data-type="taskList"><li data-type="taskItem" data-checked="false"><label><input type="checkbox"><span></span></label><div><p>Item</p></div></li></ul>. Documents cannot hold images: never use <img> or <figure>, and describe the visual in words instead. Cite workspace sources in documents exactly as in a chat reply, with <citation ref="Xk7p2Qa9/b_x7Kp2Qa9x8Lm"></citation> placed after the claim it supports — the address is the item's ref, or ref/unit for a page, block, card, or question, with any .r_ suffix dropped. A widget is one interactive block inside a document. Use one when the user explicitly asks for a widget, asks for interaction or live computation, or wants a document visual that ordinary blocks cannot express. Keep ordinary content in ordinary blocks. Before authoring or editing widget source, activate the "widget-authoring" skill and follow its HTML, sandbox, layout, and editing contract. Serialize the result as <div data-type="widget" title="Short title">…HTML-escaped fragment…</div>.",
           "items": {
             "anyOf": [
               {
@@ -308,7 +409,7 @@ exports[`workspace tool surface > workspace_edit_item input schema is stable 1`]
                   },
                   "ref": {
                     "description": "Exact ref from a recent document or block read.",
-                    "pattern": "^wr_[0-9A-Za-z]{8}$",
+                    "pattern": "^([A-Za-z0-9_-]{1,40}?)\\.r_([A-Za-z0-9_-]{6})$",
                     "type": "string",
                   },
                 },
@@ -328,7 +429,7 @@ exports[`workspace tool surface > workspace_edit_item input schema is stable 1`]
                   },
                   "ref": {
                     "description": "Exact ref from a recent document or block read.",
-                    "pattern": "^wr_[0-9A-Za-z]{8}$",
+                    "pattern": "^([A-Za-z0-9_-]{1,40}?)\\.r_([A-Za-z0-9_-]{6})$",
                     "type": "string",
                   },
                 },
@@ -353,7 +454,7 @@ exports[`workspace tool surface > workspace_edit_item input schema is stable 1`]
                   },
                   "ref": {
                     "description": "Exact ref from a recent document or block read.",
-                    "pattern": "^wr_[0-9A-Za-z]{8}$",
+                    "pattern": "^([A-Za-z0-9_-]{1,40}?)\\.r_([A-Za-z0-9_-]{6})$",
                     "type": "string",
                   },
                   "replace": {
@@ -375,12 +476,12 @@ exports[`workspace tool surface > workspace_edit_item input schema is stable 1`]
                 "properties": {
                   "afterRef": {
                     "description": "Exact ref from a recent document or block read.",
-                    "pattern": "^wr_[0-9A-Za-z]{8}$",
+                    "pattern": "^([A-Za-z0-9_-]{1,40}?)\\.r_([A-Za-z0-9_-]{6})$",
                     "type": "string",
                   },
                   "beforeRef": {
                     "description": "Exact ref from a recent document or block read.",
-                    "pattern": "^wr_[0-9A-Za-z]{8}$",
+                    "pattern": "^([A-Za-z0-9_-]{1,40}?)\\.r_([A-Za-z0-9_-]{6})$",
                     "type": "string",
                   },
                   "op": {
@@ -389,7 +490,7 @@ exports[`workspace tool surface > workspace_edit_item input schema is stable 1`]
                   },
                   "ref": {
                     "description": "Exact ref from a recent document or block read.",
-                    "pattern": "^wr_[0-9A-Za-z]{8}$",
+                    "pattern": "^([A-Za-z0-9_-]{1,40}?)\\.r_([A-Za-z0-9_-]{6})$",
                     "type": "string",
                   },
                 },
@@ -451,7 +552,7 @@ exports[`workspace tool surface > workspace_edit_item input schema is stable 1`]
                     "type": "string",
                   },
                   "ref": {
-                    "pattern": "^wr_[0-9A-Za-z]{8}$",
+                    "pattern": "^([A-Za-z0-9_-]{1,40}?)\\.r_([A-Za-z0-9_-]{6})$",
                     "type": "string",
                   },
                 },
@@ -481,7 +582,7 @@ exports[`workspace tool surface > workspace_edit_item input schema is stable 1`]
                     "type": "string",
                   },
                   "ref": {
-                    "pattern": "^wr_[0-9A-Za-z]{8}$",
+                    "pattern": "^([A-Za-z0-9_-]{1,40}?)\\.r_([A-Za-z0-9_-]{6})$",
                     "type": "string",
                   },
                 },
@@ -509,7 +610,7 @@ exports[`workspace tool surface > workspace_edit_item input schema is stable 1`]
                     "type": "string",
                   },
                   "ref": {
-                    "pattern": "^wr_[0-9A-Za-z]{8}$",
+                    "pattern": "^([A-Za-z0-9_-]{1,40}?)\\.r_([A-Za-z0-9_-]{6})$",
                     "type": "string",
                   },
                 },
@@ -535,7 +636,7 @@ exports[`workspace tool surface > workspace_edit_item input schema is stable 1`]
                     "type": "string",
                   },
                   "ref": {
-                    "pattern": "^wr_[0-9A-Za-z]{8}$",
+                    "pattern": "^([A-Za-z0-9_-]{1,40}?)\\.r_([A-Za-z0-9_-]{6})$",
                     "type": "string",
                   },
                   "replace": {
@@ -564,11 +665,11 @@ exports[`workspace tool surface > workspace_edit_item input schema is stable 1`]
                 "additionalProperties": false,
                 "properties": {
                   "afterRef": {
-                    "pattern": "^wr_[0-9A-Za-z]{8}$",
+                    "pattern": "^([A-Za-z0-9_-]{1,40}?)\\.r_([A-Za-z0-9_-]{6})$",
                     "type": "string",
                   },
                   "beforeRef": {
-                    "pattern": "^wr_[0-9A-Za-z]{8}$",
+                    "pattern": "^([A-Za-z0-9_-]{1,40}?)\\.r_([A-Za-z0-9_-]{6})$",
                     "type": "string",
                   },
                   "op": {
@@ -576,7 +677,7 @@ exports[`workspace tool surface > workspace_edit_item input schema is stable 1`]
                     "type": "string",
                   },
                   "ref": {
-                    "pattern": "^wr_[0-9A-Za-z]{8}$",
+                    "pattern": "^([A-Za-z0-9_-]{1,40}?)\\.r_([A-Za-z0-9_-]{6})$",
                     "type": "string",
                   },
                 },
@@ -594,7 +695,7 @@ exports[`workspace tool surface > workspace_edit_item input schema is stable 1`]
                     "type": "string",
                   },
                   "ref": {
-                    "pattern": "^wr_[0-9A-Za-z]{8}$",
+                    "pattern": "^([A-Za-z0-9_-]{1,40}?)\\.r_([A-Za-z0-9_-]{6})$",
                     "type": "string",
                   },
                 },
@@ -617,6 +718,257 @@ exports[`workspace tool surface > workspace_edit_item input schema is stable 1`]
         },
         "type": {
           "const": "flashcard",
+          "type": "string",
+        },
+      },
+      "required": [
+        "type",
+        "path",
+        "edits",
+      ],
+      "type": "object",
+    },
+    {
+      "additionalProperties": false,
+      "description": "Quiz edits.",
+      "properties": {
+        "edits": {
+          "description": "Ordered quiz edits using exact refs from a read. Available operations: insert_before, insert_after, update, replace, replace_text, move, and delete. insert and replace take a full authored question and reshuffle its options; update changes only the stem or explanation in place; replace_text requires question, options, or explanation as field and never reshuffles; move requires exactly one of beforeRef or afterRef. Question stems, options, and explanations are HTML. Keep them concise. Use paragraphs, lists, links, code blocks, and standard text marks only. This is HTML, so math is markup rather than delimiters: use <span data-type="inline-math" data-latex="..."></span> or <div data-type="block-math" data-latex="..."></div>, and keep dollar signs out of the data-latex value. Put every subscript and superscript (exponents like 10^8, indices like x_1) inside math rather than <sub>/<sup> tags. Chemistry renders with \\ce{...} (e.g. \\ce{CH4 + 2 O2 -> CO2 + 2 H2O}) and quantities with units render with \\pu{...} (e.g. \\pu{9.81 m/s^2}), both inside data-latex. Write literal money as plain text ($30, never \\$30) — a backslash before a dollar sign shows on screen in HTML. Do not use headings, tables, images, widgets, task lists, or citations inside a question. Use item-level relations for sources. Write correctAnswer as its own field and never hint at it in the stem or option order: the server shuffles the options and records which one is correct. Every distractor must be strictly wrong yet plausible, reflect a specific misconception, and match the correct answer's length and tone. Prefer 3 distractors; use 1 for true/false. Questions should test understanding from the source material, not trivia recall.",
+          "items": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "correctAnswer": {
+                    "description": "HTML for the single correct option. Never mark it in the stem; its final position is shuffled server-side.",
+                    "maxLength": 8000,
+                    "minLength": 1,
+                    "type": "string",
+                  },
+                  "distractors": {
+                    "description": "HTML for each incorrect option: strictly wrong, plausible, and grounded in a specific misconception. Use 3 for a standard question, 1 for true/false.",
+                    "items": {
+                      "maxLength": 8000,
+                      "minLength": 1,
+                      "type": "string",
+                    },
+                    "maxItems": 4,
+                    "minItems": 1,
+                    "type": "array",
+                  },
+                  "explanation": {
+                    "description": "Short HTML explanation of why the correct answer is right, touching on why the others are not.",
+                    "maxLength": 8000,
+                    "minLength": 1,
+                    "type": "string",
+                  },
+                  "op": {
+                    "enum": [
+                      "insert_before",
+                      "insert_after",
+                    ],
+                    "type": "string",
+                  },
+                  "question": {
+                    "description": "HTML question stem.",
+                    "maxLength": 8000,
+                    "minLength": 1,
+                    "type": "string",
+                  },
+                  "ref": {
+                    "pattern": "^([A-Za-z0-9_-]{1,40}?)\\.r_([A-Za-z0-9_-]{6})$",
+                    "type": "string",
+                  },
+                },
+                "required": [
+                  "op",
+                  "ref",
+                  "question",
+                  "correctAnswer",
+                  "distractors",
+                  "explanation",
+                ],
+                "type": "object",
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "explanation": {
+                    "description": "New HTML explanation.",
+                    "maxLength": 8000,
+                    "minLength": 1,
+                    "type": "string",
+                  },
+                  "op": {
+                    "const": "update",
+                    "type": "string",
+                  },
+                  "question": {
+                    "description": "New HTML question stem.",
+                    "maxLength": 8000,
+                    "minLength": 1,
+                    "type": "string",
+                  },
+                  "ref": {
+                    "pattern": "^([A-Za-z0-9_-]{1,40}?)\\.r_([A-Za-z0-9_-]{6})$",
+                    "type": "string",
+                  },
+                },
+                "required": [
+                  "op",
+                  "ref",
+                ],
+                "type": "object",
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "correctAnswer": {
+                    "description": "HTML for the single correct option. Never mark it in the stem; its final position is shuffled server-side.",
+                    "maxLength": 8000,
+                    "minLength": 1,
+                    "type": "string",
+                  },
+                  "distractors": {
+                    "description": "HTML for each incorrect option: strictly wrong, plausible, and grounded in a specific misconception. Use 3 for a standard question, 1 for true/false.",
+                    "items": {
+                      "maxLength": 8000,
+                      "minLength": 1,
+                      "type": "string",
+                    },
+                    "maxItems": 4,
+                    "minItems": 1,
+                    "type": "array",
+                  },
+                  "explanation": {
+                    "description": "Short HTML explanation of why the correct answer is right, touching on why the others are not.",
+                    "maxLength": 8000,
+                    "minLength": 1,
+                    "type": "string",
+                  },
+                  "op": {
+                    "const": "replace",
+                    "type": "string",
+                  },
+                  "question": {
+                    "description": "HTML question stem.",
+                    "maxLength": 8000,
+                    "minLength": 1,
+                    "type": "string",
+                  },
+                  "ref": {
+                    "pattern": "^([A-Za-z0-9_-]{1,40}?)\\.r_([A-Za-z0-9_-]{6})$",
+                    "type": "string",
+                  },
+                },
+                "required": [
+                  "op",
+                  "ref",
+                  "question",
+                  "correctAnswer",
+                  "distractors",
+                  "explanation",
+                ],
+                "type": "object",
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "field": {
+                    "description": "Where to look: the stem, all options together, or the explanation.",
+                    "enum": [
+                      "question",
+                      "options",
+                      "explanation",
+                    ],
+                    "type": "string",
+                  },
+                  "find": {
+                    "description": "Exact HTML text from the selected field. It must appear exactly once.",
+                    "maxLength": 8000,
+                    "minLength": 1,
+                    "type": "string",
+                  },
+                  "op": {
+                    "const": "replace_text",
+                    "type": "string",
+                  },
+                  "ref": {
+                    "pattern": "^([A-Za-z0-9_-]{1,40}?)\\.r_([A-Za-z0-9_-]{6})$",
+                    "type": "string",
+                  },
+                  "replace": {
+                    "description": "Replacement text. May be empty.",
+                    "maxLength": 8000,
+                    "type": "string",
+                  },
+                },
+                "required": [
+                  "op",
+                  "ref",
+                  "field",
+                  "find",
+                  "replace",
+                ],
+                "type": "object",
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "afterRef": {
+                    "pattern": "^([A-Za-z0-9_-]{1,40}?)\\.r_([A-Za-z0-9_-]{6})$",
+                    "type": "string",
+                  },
+                  "beforeRef": {
+                    "pattern": "^([A-Za-z0-9_-]{1,40}?)\\.r_([A-Za-z0-9_-]{6})$",
+                    "type": "string",
+                  },
+                  "op": {
+                    "const": "move",
+                    "type": "string",
+                  },
+                  "ref": {
+                    "pattern": "^([A-Za-z0-9_-]{1,40}?)\\.r_([A-Za-z0-9_-]{6})$",
+                    "type": "string",
+                  },
+                },
+                "required": [
+                  "op",
+                  "ref",
+                ],
+                "type": "object",
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "op": {
+                    "const": "delete",
+                    "type": "string",
+                  },
+                  "ref": {
+                    "pattern": "^([A-Za-z0-9_-]{1,40}?)\\.r_([A-Za-z0-9_-]{6})$",
+                    "type": "string",
+                  },
+                },
+                "required": [
+                  "op",
+                  "ref",
+                ],
+                "type": "object",
+              },
+            ],
+          },
+          "maxItems": 100,
+          "minItems": 1,
+          "type": "array",
+        },
+        "path": {
+          "description": "Absolute path of one actual ThinkEx quiz to edit.",
+          "minLength": 1,
+          "type": "string",
+        },
+        "type": {
+          "const": "quiz",
           "type": "string",
         },
       },
@@ -779,7 +1131,7 @@ exports[`workspace tool surface > workspace_read_items input schema is stable 1`
                 "type": "string",
               },
               "range": {
-                "description": "Up to 20 physical pages from an extracted file, like 1, 3, 5-7, or 1,4-6. Defaults to page 1.",
+                "description": "Up to 20 physical pages from an extracted file, like 1, 3, 5-7, or 1,4-6.",
                 "minLength": 1,
                 "pattern": "^\\d+(?:\\s*-\\s*\\d+)?(?:\\s*,\\s*\\d+(?:\\s*-\\s*\\d+)?)*$",
                 "type": "string",
@@ -796,7 +1148,7 @@ exports[`workspace tool surface > workspace_read_items input schema is stable 1`
             "additionalProperties": false,
             "properties": {
               "mode": {
-                "const": "cards",
+                "const": "entries",
                 "type": "string",
               },
               "path": {
@@ -805,7 +1157,7 @@ exports[`workspace tool surface > workspace_read_items input schema is stable 1`
                 "type": "string",
               },
               "range": {
-                "description": "Up to 20 card numbers from a flashcard set, like 1, 3, 5-7, or 1,4-6.",
+                "description": "Up to 20 entry numbers — document blocks, flashcards, or quiz questions — like 1, 3, 5-7, or 1,4-6.",
                 "minLength": 1,
                 "pattern": "^\\d+(?:\\s*-\\s*\\d+)?(?:\\s*,\\s*\\d+(?:\\s*-\\s*\\d+)?)*$",
                 "type": "string",
@@ -815,32 +1167,6 @@ exports[`workspace tool surface > workspace_read_items input schema is stable 1`
               "path",
               "mode",
               "range",
-            ],
-            "type": "object",
-          },
-          {
-            "additionalProperties": false,
-            "properties": {
-              "cursor": {
-                "description": "Opaque cursor returned by a previous read.",
-                "maxLength": 4096,
-                "minLength": 1,
-                "type": "string",
-              },
-              "mode": {
-                "const": "continue",
-                "type": "string",
-              },
-              "path": {
-                "description": "Absolute path of the workspace item to read.",
-                "minLength": 1,
-                "type": "string",
-              },
-            },
-            "required": [
-              "path",
-              "cursor",
-              "mode",
             ],
             "type": "object",
           },
@@ -851,21 +1177,15 @@ exports[`workspace tool surface > workspace_read_items input schema is stable 1`
                 "const": "ref",
                 "type": "string",
               },
-              "path": {
-                "description": "Absolute path of the workspace item to read.",
-                "minLength": 1,
-                "type": "string",
-              },
               "ref": {
-                "description": "Ref from an earlier read. Returns the exact content it identifies with a current ref.",
-                "pattern": "^wr_[0-9A-Za-z]{8}$",
+                "description": "Address from an earlier read or citation, like itemRef or itemRef/unit.",
+                "pattern": "^([0-9A-Za-z]{8})(?:\\/([A-Za-z0-9_-]{1,40}?))?(?:\\.r_([A-Za-z0-9_-]{6}))?$",
                 "type": "string",
               },
             },
             "required": [
-              "path",
-              "ref",
               "mode",
+              "ref",
             ],
             "type": "object",
           },

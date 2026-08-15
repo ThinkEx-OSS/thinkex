@@ -13,13 +13,9 @@ describe("workspace read tool schemas", () => {
 				requests: [
 					{ mode: "start", path: "/Notes" },
 					{ mode: "pages", path: "/Book.pdf", range: "1-3" },
-					{ mode: "cards", path: "/Biology", range: "1-3" },
-					{ cursor: "opaque", mode: "continue", path: "/Notes" },
-					{
-						ref: "wr_AAAAAAAA",
-						mode: "ref",
-						path: "/Notes",
-					},
+					{ mode: "entries", path: "/Biology", range: "1-3" },
+					{ mode: "ref", ref: "Xk7p2Qa9/b_x7Kp2Qa9x8Lm" },
+					{ mode: "ref", ref: "Xk7p2Qa9" },
 				],
 			}).success,
 		).toBe(true);
@@ -30,6 +26,11 @@ describe("workspace read tool schemas", () => {
 		).toBe(false);
 		expect(
 			workspaceReadItemsInputSchema.safeParse({ requests: [{ path: "/Notes" }] }).success,
+		).toBe(false);
+		expect(
+			workspaceReadItemsInputSchema.safeParse({
+				requests: [{ mode: "ref", ref: "not an address" }],
+			}).success,
 		).toBe(false);
 	});
 
@@ -46,11 +47,10 @@ describe("workspace read tool schemas", () => {
 							{ additionalProperties: false, required: ["path", "mode", "range"] },
 							{
 								additionalProperties: false,
-								properties: { mode: { const: "cards" } },
+								properties: { mode: { const: "entries" } },
 								required: ["path", "mode", "range"],
 							},
-							{ additionalProperties: false, required: ["path", "cursor", "mode"] },
-							{ additionalProperties: false, required: ["path", "ref", "mode"] },
+							{ additionalProperties: false, required: ["mode", "ref"] },
 						],
 					},
 				},
@@ -63,14 +63,14 @@ describe("workspace read tool schemas", () => {
 	it("keeps document and file result shapes disjoint", () => {
 		expect(
 			workspaceReadItemsOutputSchema.safeParse({
-				references: [],
 				results: [
 					{
-						content: '<h1 data-ref="b_abcdefghijkl.r_0123456789">Notes</h1>',
+						content: '<h1 data-ref="b_abcdefghijkl.r_012345">Notes</h1>',
 						format: "html",
 						itemId: "notes",
 						location: { endBlock: 1, kind: "blocks", startBlock: 1, totalBlocks: 1 },
 						path: "/Notes",
+						ref: "Xk7p2Qa9",
 						status: "ready",
 						type: "document",
 					},
@@ -81,6 +81,7 @@ describe("workspace read tool schemas", () => {
 						itemId: "book",
 						location: { kind: "pages", requested: "1", returned: [1], total: 1 },
 						path: "/Book.pdf",
+						ref: "Yk7p2Qa9",
 						status: "ready",
 						type: "file",
 					},
@@ -89,7 +90,6 @@ describe("workspace read tool schemas", () => {
 		).toBe(true);
 		expect(
 			workspaceReadItemsOutputSchema.safeParse({
-				references: [],
 				results: [
 					{
 						content: "Page one",
@@ -97,6 +97,7 @@ describe("workspace read tool schemas", () => {
 						itemId: "notes",
 						location: { kind: "pages", requested: "1", returned: [1], total: 1 },
 						path: "/Notes",
+						ref: "Xk7p2Qa9",
 						status: "ready",
 						type: "document",
 					},

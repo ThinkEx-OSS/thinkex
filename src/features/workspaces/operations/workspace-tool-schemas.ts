@@ -17,7 +17,6 @@ import {
 	workspaceItemTypeSchema,
 	workspaceRelationKindSchema,
 } from "#/features/workspaces/contracts";
-import { workspaceReferenceRecordSchema } from "#/features/workspaces/locations/workspace-location";
 import {
 	documentAiEditSchema,
 	documentAiHtmlSchema,
@@ -25,6 +24,7 @@ import {
 import { workspaceFileAssetKindSchema } from "#/features/workspaces/model/workspace-file";
 import { flashcardEditSchema } from "#/features/workspaces/flashcards/flashcard-edits";
 import { flashcardSideHtmlSchema } from "#/features/workspaces/flashcards/flashcard-content";
+import { quizEditSchema, quizQuestionInputSchema } from "#/features/workspaces/quizzes/quiz-edits";
 
 export { workspaceReadItemsInputSchema, workspaceReadItemsOutputSchema };
 
@@ -42,9 +42,11 @@ const workspaceHtmlMathInstruction =
  */
 const workspaceWidgetHtmlInstruction = `A widget is one interactive block inside a document. Use one when the user explicitly asks for a widget, asks for interaction or live computation, or wants a document visual that ordinary blocks cannot express. Keep ordinary content in ordinary blocks. Before authoring or editing widget source, activate the "widget-authoring" skill and follow its HTML, sandbox, layout, and editing contract. Serialize the result as <div data-type="widget" title="Short title">…HTML-escaped fragment…</div>.`;
 
-export const workspaceDocumentHtmlInstruction = `Use semantic HTML with paragraphs, h1-h4, blockquotes, lists, code blocks, horizontal rules, tables, links, and standard text marks. ${workspaceHtmlMathInstruction} For checkboxes, use <ul data-type="taskList"><li data-type="taskItem" data-checked="false"><label><input type="checkbox"><span></span></label><div><p>Item</p></div></li></ul>. Documents cannot hold images: never use <img> or <figure>, and describe the visual in words instead. Cite workspace sources in documents exactly as in a chat reply, with <citation ref="wr_7Kp2Qa9x"></citation> placed after the claim it supports. ${workspaceWidgetHtmlInstruction}`;
+export const workspaceDocumentHtmlInstruction = `Use semantic HTML with paragraphs, h1-h4, blockquotes, lists, code blocks, horizontal rules, tables, links, and standard text marks. ${workspaceHtmlMathInstruction} For checkboxes, use <ul data-type="taskList"><li data-type="taskItem" data-checked="false"><label><input type="checkbox"><span></span></label><div><p>Item</p></div></li></ul>. Documents cannot hold images: never use <img> or <figure>, and describe the visual in words instead. Cite workspace sources in documents exactly as in a chat reply, with <citation ref="Xk7p2Qa9/b_x7Kp2Qa9x8Lm"></citation> placed after the claim it supports — the address is the item's ref, or ref/unit for a page, block, card, or question, with any .r_ suffix dropped. ${workspaceWidgetHtmlInstruction}`;
 
 export const workspaceFlashcardHtmlInstruction = `Flashcard fronts and backs are HTML. Keep each side concise. Use paragraphs, lists, links, code blocks, and standard text marks only. ${workspaceHtmlMathInstruction} Do not use headings, tables, images, widgets, task lists, or citations inside a card. Use item-level relations for sources.`;
+
+export const workspaceQuizHtmlInstruction = `Question stems, options, and explanations are HTML. Keep them concise. Use paragraphs, lists, links, code blocks, and standard text marks only. ${workspaceHtmlMathInstruction} Do not use headings, tables, images, widgets, task lists, or citations inside a question. Use item-level relations for sources. Write correctAnswer as its own field and never hint at it in the stem or option order: the server shuffles the options and records which one is correct. Every distractor must be strictly wrong yet plausible, reflect a specific misconception, and match the correct answer's length and tone. Prefer 3 distractors; use 1 for true/false. Questions should test understanding from the source material, not trivia recall.`;
 
 const workspacePathSchema = z.string().min(1);
 const workspaceIndexSchema = z.number().int().nonnegative();
@@ -154,6 +156,19 @@ export const workspaceEditItemInputSchema = z.discriminatedUnion("type", [
 				),
 		})
 		.describe("Flashcard edits."),
+	z
+		.object({
+			type: z.literal("quiz"),
+			path: z.string().min(1).describe("Absolute path of one actual ThinkEx quiz to edit."),
+			edits: z
+				.array(quizEditSchema)
+				.min(1)
+				.max(100)
+				.describe(
+					`Ordered quiz edits using exact refs from a read. Available operations: insert_before, insert_after, update, replace, replace_text, move, and delete. insert and replace take a full authored question and reshuffle its options; update changes only the stem or explanation in place; replace_text requires question, options, or explanation as field and never reshuffles; move requires exactly one of beforeRef or afterRef. ${workspaceQuizHtmlInstruction}`,
+				),
+		})
+		.describe("Quiz edits."),
 ]);
 
 export const workspaceLinkItemsInputSchema = z.object({
@@ -239,6 +254,22 @@ export const workspaceCreateItemsInputSchema = z.object({
 							.describe("Optional relationships from this set to source items, at most 20."),
 					})
 					.describe("Flashcard set to create."),
+				z
+					.object({
+						type: z.literal("quiz"),
+						path: z.string().min(1).describe("Final absolute path for the quiz."),
+						questions: z
+							.array(quizQuestionInputSchema)
+							.min(1)
+							.max(100)
+							.describe(`Ordered multiple-choice questions. ${workspaceQuizHtmlInstruction}`),
+						relations: z
+							.array(workspaceRelationInputSchema)
+							.max(20)
+							.optional()
+							.describe("Optional relationships from this quiz to source items, at most 20."),
+					})
+					.describe("Quiz to create."),
 			]),
 		)
 		.min(1)
@@ -275,7 +306,10 @@ export const workspaceReadItemsInputExamples = createInputExamples<
 		requests: [{ mode: "start", path: "/Demo Folder/Demo Flashcards" }],
 	},
 	{
-		requests: [{ mode: "cards", path: "/Demo Folder/Demo Flashcards", range: "1-3" }],
+		requests: [{ mode: "entries", path: "/Demo Folder/Demo Flashcards", range: "1-3" }],
+	},
+	{
+		requests: [{ mode: "start", path: "/Demo Folder/Demo Quiz" }],
 	},
 	{
 		requests: [
@@ -289,9 +323,8 @@ export const workspaceReadItemsInputExamples = createInputExamples<
 	{
 		requests: [
 			{
-				ref: "wr_7Kp2Qa9x",
+				ref: "Xk7p2Qa9/b_x7Kp2Qa9x8Lm",
 				mode: "ref",
-				path: "/Demo Folder/Demo Document",
 			},
 		],
 	},
@@ -337,6 +370,23 @@ export const workspaceCreateItemsInputExamples = createInputExamples<
 			path: "/Demo Folder/Demo Flashcards",
 			cards: [{ front: "<p>What is ATP?</p>", back: "<p>The cell's main energy carrier.</p>" }],
 		},
+		{
+			type: "quiz",
+			path: "/Demo Folder/Demo Quiz",
+			questions: [
+				{
+					question: "<p>What does ATP primarily provide to a cell?</p>",
+					correctAnswer: "<p>Readily usable chemical energy</p>",
+					distractors: [
+						"<p>Long-term energy storage</p>",
+						"<p>Structural support for the membrane</p>",
+						"<p>Genetic information for protein synthesis</p>",
+					],
+					explanation:
+						"<p>ATP transfers readily usable energy; fats store energy long-term, membranes get structure from lipids and proteins, and genetic information lives in DNA.</p>",
+				},
+			],
+		},
 	],
 });
 
@@ -354,7 +404,7 @@ export const workspaceEditItemInputExamples = createInputExamples<
 		path: "/Demo Folder/Demo Document",
 		edits: [
 			{
-				ref: "wr_7Kp2Qa9x",
+				ref: "b_x7Kp2Qa9x8Lm.r_4f2a1b",
 				op: "replace",
 				html: "<p>Updated paragraph.</p>",
 			},
@@ -365,8 +415,8 @@ export const workspaceEditItemInputExamples = createInputExamples<
 		path: "/Demo Folder/Demo Document",
 		edits: [
 			{
-				ref: "wr_7Kp2Qa9x",
-				afterRef: "wr_8Lq3Rb0y",
+				ref: "b_x7Kp2Qa9x8Lm.r_4f2a1b",
+				afterRef: "b_y8Lq3Rb0y9Mn.r_9c3d2e",
 				op: "move",
 			},
 		],
@@ -376,7 +426,7 @@ export const workspaceEditItemInputExamples = createInputExamples<
 		path: "/Demo Folder/Demo Document",
 		edits: [
 			{
-				ref: "wr_7Kp2Qa9x",
+				ref: "b_x7Kp2Qa9x8Lm.r_4f2a1b",
 				op: "replace_text",
 				find: "gravity = 9.8",
 				replace: "gravity = 3.7",
@@ -389,8 +439,21 @@ export const workspaceEditItemInputExamples = createInputExamples<
 		edits: [
 			{
 				op: "update",
-				ref: "wr_7Kp2Qa9x",
+				ref: "c_9xKp2Qab.r_4f2a1b",
 				back: "<p>The cell's main energy carrier.</p>",
+			},
+		],
+	},
+	{
+		type: "quiz",
+		path: "/Demo Folder/Demo Quiz",
+		edits: [
+			{
+				op: "replace_text",
+				ref: "q_8Lq3Rb0y.r_9c3d2e",
+				field: "options",
+				find: "Long-term energy storage",
+				replace: "Long-term energy reserves",
 			},
 		],
 	},
@@ -424,13 +487,12 @@ export const workspaceListItemsOutputSchema = z.object({
 export const workspaceCreateItemsOutputSchema = createWorkspaceItemsResultSchema({
 	itemSchema: workspacePathItemSchema.extend({
 		itemId: z.string().min(1),
-		type: z.enum(["document", "flashcard", "folder"]),
+		ref: z.string().min(1).describe("The item's durable address for citations and reads."),
+		type: z.enum(["document", "flashcard", "folder", "quiz"]),
 	}),
 	failureSchema: createFailureSchema(createWorkspaceItemsFailureCodes).extend({
 		detail: z.string().optional().describe("Why this item was refused, when the reason is known."),
 	}),
-}).extend({
-	references: z.array(workspaceReferenceRecordSchema),
 });
 
 export const workspaceDeleteItemsOutputSchema = createWorkspaceItemsResultSchema({
@@ -456,7 +518,7 @@ export const workspaceEditItemOutputSchema = z.object({
 	path: workspacePathSchema,
 	applied: z.number().int().min(0),
 	itemId: z.string().optional(),
-	itemType: z.enum(["document", "flashcard"]).optional(),
+	itemType: z.enum(["document", "flashcard", "quiz"]).optional(),
 	lineChanges: z
 		.object({ added: z.number().int().min(0), removed: z.number().int().min(0) })
 		.optional(),

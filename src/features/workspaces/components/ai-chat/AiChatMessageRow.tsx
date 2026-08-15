@@ -11,10 +11,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "#/comp
 import { AiChatMessagePartView } from "#/features/workspaces/components/ai-chat/AiChatMessagePartView";
 import { AiChatDocumentEditActions } from "#/features/workspaces/components/ai-chat/AiChatDocumentEditActions";
 import { getAiChatDocumentEditGroups } from "#/features/workspaces/components/ai-chat/ai-chat-document-edit-actions";
-import {
-	getWorkspaceCitationLocations,
-	stripWorkspaceCitationTags,
-} from "#/features/workspaces/ai/workspace-references";
+import { stripWorkspaceCitationTags } from "#/features/workspaces/ai/workspace-references";
 import {
 	type AiChatRenderablePart,
 	type AssistantRowDisplay,
@@ -49,8 +46,6 @@ export default function AiChatMessageRow({
 	message: AiChatMessage;
 	onRegenerate?: () => void;
 }) {
-	const workspaceCitationLocations = getWorkspaceCitationLocations(message);
-
 	if (message.role === "assistant" && display?.kind === "hidden") {
 		return null;
 	}
@@ -86,7 +81,6 @@ export default function AiChatMessageRow({
 									isStreaming={isStreaming}
 									message={message}
 									onRegenerate={onRegenerate}
-									workspaceCitationLocations={workspaceCitationLocations}
 								/>
 							) : (
 								<UserMessageBody message={message} parts={userBodyParts} />
@@ -209,13 +203,11 @@ function AssistantMessageBody({
 	isStreaming,
 	message,
 	onRegenerate,
-	workspaceCitationLocations,
 }: {
 	display: AssistantRowDisplay;
 	isStreaming: boolean;
 	message: AiChatMessage;
 	onRegenerate?: () => void;
-	workspaceCitationLocations: ReturnType<typeof getWorkspaceCitationLocations>;
 }) {
 	if (display.kind === "content") {
 		return (
@@ -226,7 +218,6 @@ function AssistantMessageBody({
 						interruptUnfinishedTools={display.interruptUnfinishedTools}
 						isStreaming={isStreaming}
 						part={part}
-						workspaceCitationLocations={workspaceCitationLocations}
 					/>
 				))}
 			</div>

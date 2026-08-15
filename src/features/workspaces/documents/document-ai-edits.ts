@@ -19,9 +19,9 @@ import {
 	type TiptapDocumentJson,
 } from "#/features/workspaces/documents/tiptap-document";
 import { getTiptapDocumentSchema } from "#/features/workspaces/documents/tiptap-schema";
-import { workspaceReferenceInputSchema } from "#/features/workspaces/locations/workspace-location";
+import { workspaceUnitRefInputSchema } from "#/features/workspaces/locations/workspace-location";
 
-const documentRefSchema = workspaceReferenceInputSchema.describe(
+const documentRefSchema = workspaceUnitRefInputSchema.describe(
 	"Exact ref from a recent document or block read.",
 );
 export const documentAiHtmlSchema = z
