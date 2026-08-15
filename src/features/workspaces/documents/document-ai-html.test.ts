@@ -19,7 +19,7 @@ describe("document AI HTML", () => {
 		).document;
 		const html = await serializeTiptapDocumentToAiHtml(document);
 
-		expect(html).toMatch(/^<h1 data-ref="b_[A-Za-z0-9_-]{12}\.r_[A-Za-z0-9_-]{10}">Notes<\/h1>/);
+		expect(html).toMatch(/^<h1 data-ref="b_[A-Za-z0-9_-]{12}\.r_[A-Za-z0-9_-]{6}">Notes<\/h1>/);
 		expect(html).toContain("<strong>bold</strong>");
 		expect(html).toContain('data-type="inline-math"');
 		expect(html).toContain('data-type="taskItem"');
@@ -47,7 +47,7 @@ describe("document AI HTML", () => {
 		);
 
 		expect(html).not.toContain("b_modelchosen1");
-		expect(html).toMatch(/data-ref="b_[A-Za-z0-9_-]{12}\.r_[A-Za-z0-9_-]{10}"/);
+		expect(html).toMatch(/data-ref="b_[A-Za-z0-9_-]{12}\.r_[A-Za-z0-9_-]{6}"/);
 	});
 
 	it("normalizes malformed but recoverable HTML", () => {

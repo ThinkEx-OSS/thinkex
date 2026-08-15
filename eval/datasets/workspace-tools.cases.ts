@@ -38,6 +38,15 @@ export const workspaceToolCases: WorkspaceToolCase[] = [
 		requiresTargetedEditFromRead: true,
 	},
 	{
+		name: "create a quiz without leaking the answer key into the stems",
+		input: {
+			prompt:
+				"Create a quiz at /Study/Photosynthesis Quiz with 3 multiple-choice questions about photosynthesis basics.",
+		},
+		expectedTools: ["workspace_create_items"],
+		forbiddenTools: ["workspace_delete_items"],
+	},
+	{
 		name: "respects a read-only turn",
 		input: {
 			canMutate: false,

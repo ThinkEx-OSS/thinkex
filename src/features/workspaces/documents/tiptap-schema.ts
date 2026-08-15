@@ -34,6 +34,7 @@ export const Citation = Node.create({
 			itemId: { default: null, parseHTML: (el) => el.getAttribute("data-item-id") },
 			blockId: { default: null, parseHTML: (el) => el.getAttribute("data-block-id") },
 			cardId: { default: null, parseHTML: (el) => el.getAttribute("data-card-id") },
+			questionId: { default: null, parseHTML: (el) => el.getAttribute("data-question-id") },
 			pageNumber: {
 				default: null,
 				parseHTML: (el) => {
@@ -55,6 +56,7 @@ export const Citation = Node.create({
 				"data-item-id": node.attrs.itemId,
 				...(node.attrs.blockId ? { "data-block-id": String(node.attrs.blockId) } : {}),
 				...(node.attrs.cardId ? { "data-card-id": String(node.attrs.cardId) } : {}),
+				...(node.attrs.questionId ? { "data-question-id": String(node.attrs.questionId) } : {}),
 				...(node.attrs.pageNumber ? { "data-page": String(node.attrs.pageNumber) } : {}),
 			},
 		];
@@ -67,13 +69,15 @@ export function getWorkspaceCitationLocation(
 	const itemId = typeof attrs.itemId === "string" ? attrs.itemId : null;
 	if (!itemId) return undefined;
 
-	const location = attrs.cardId
-		? { cardId: attrs.cardId, itemId, kind: "flashcard", version: 1 }
-		: attrs.blockId
-			? { blockId: attrs.blockId, itemId, kind: "document-block", version: 1 }
-			: attrs.pageNumber
-				? { itemId, kind: "pdf-page", pageNumber: attrs.pageNumber, version: 1 }
-				: { itemId, kind: "item", version: 1 };
+	const location = attrs.questionId
+		? { itemId, kind: "quiz-question", questionId: attrs.questionId, version: 1 }
+		: attrs.cardId
+			? { cardId: attrs.cardId, itemId, kind: "flashcard", version: 1 }
+			: attrs.blockId
+				? { blockId: attrs.blockId, itemId, kind: "document-block", version: 1 }
+				: attrs.pageNumber
+					? { itemId, kind: "pdf-page", pageNumber: attrs.pageNumber, version: 1 }
+					: { itemId, kind: "item", version: 1 };
 	const parsed = workspaceLocationSchema.safeParse(location);
 
 	return parsed.success ? parsed.data : undefined;

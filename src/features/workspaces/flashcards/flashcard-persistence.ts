@@ -14,17 +14,9 @@ import {
 	withWorkspaceTransaction,
 } from "#/features/workspaces/persistence/workspace-postgres-support";
 import { notifyWorkspaceRoom } from "#/features/workspaces/realtime/workspace-room-notifier";
-import { assertCanReadWorkspace } from "#/features/workspaces/server/permissions";
 
-export async function readFlashcardSet(input: {
-	itemId: string;
-	workspaceId: string;
-	userId?: string;
-}) {
+export async function readFlashcardSet(input: { itemId: string; workspaceId: string }) {
 	return await withDb(async (db) => {
-		if (input.userId) {
-			await assertCanReadWorkspace(db, { workspaceId: input.workspaceId, userId: input.userId });
-		}
 		const [row] = await db
 			.select({ content: workspaceItemContents.content })
 			.from(workspaceItems)

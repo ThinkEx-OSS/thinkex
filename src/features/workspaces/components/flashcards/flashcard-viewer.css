@@ -47,9 +47,11 @@
 	}
 
 	.workspace-flashcard-prose {
+		width: 100%;
 		max-width: 42rem;
+		margin-inline: auto;
 		font-size: clamp(1.4rem, 3vw, 2rem);
-		text-align: center;
+		text-align: left;
 	}
 
 	.workspace-flashcard-prose.is-dense {
@@ -58,12 +60,6 @@
 
 	.workspace-flashcard-prose.is-very-dense {
 		font-size: clamp(0.95rem, 1.7vw, 1.2rem);
-	}
-
-	.workspace-flashcard-prose ul,
-	.workspace-flashcard-prose ol {
-		display: inline-block;
-		text-align: left;
 	}
 
 	@media (prefers-reduced-motion: reduce) {

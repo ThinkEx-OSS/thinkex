@@ -364,6 +364,7 @@ export const workspaceItemSchema = z.object({
 	parentId: z.string().nullable(),
 	type: workspaceItemTypeSchema,
 	name: z.string(),
+	refKey: z.string(),
 	color: z.string().nullable(),
 	metadataJson: z.record(z.string(), jsonValueSchema),
 	sortOrder: z.number(),

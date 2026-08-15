@@ -242,6 +242,7 @@ export function mapWorkspaceItem(row: ItemRow): WorkspaceItem {
 		parentId: row.parentId,
 		type,
 		name: row.name,
+		refKey: row.refKey,
 		color: row.color,
 		metadataJson: toWorkspaceMetadata(row.metadata),
 		sortOrder: row.sortOrder,

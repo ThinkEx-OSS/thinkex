@@ -18,9 +18,10 @@ import {
 	stringifyFlashcardSetContent,
 } from "#/features/workspaces/flashcards/flashcard-content";
 import {
-	createWorkspaceReferenceRecords,
-	type WorkspaceReferenceRecord,
-} from "#/features/workspaces/locations/workspace-location";
+	createQuizSetFromInputs,
+	stringifyQuizSetContent,
+	type QuizQuestionInput,
+} from "#/features/workspaces/quizzes/quiz-content";
 import {
 	getParentWorkspacePath,
 	getWorkspacePathName,
@@ -40,6 +41,11 @@ export type CreateWorkspaceItemOperationInput =
 			type: "flashcard";
 			path: string;
 			cards: Array<{ front: string; back: string }>;
+	  }
+	| {
+			type: "quiz";
+			path: string;
+			questions: QuizQuestionInput[];
 	  };
 
 export interface CreateWorkspaceItemsOperationInput {
@@ -58,13 +64,14 @@ export interface CreateWorkspaceItemsFailure {
 export interface CreatedWorkspaceItem {
 	itemId: string;
 	path: string;
-	type: "document" | "flashcard" | "folder";
+	/** The item's durable address, for citations and later reads. */
+	ref: string;
+	type: "document" | "flashcard" | "folder" | "quiz";
 }
 
 export interface CreateWorkspaceItemsOperationResult {
 	items: CreatedWorkspaceItem[];
 	failed: CreateWorkspaceItemsFailure[];
-	references: WorkspaceReferenceRecord[];
 }
 
 type CreateWorkspaceItemPathResolution =
@@ -177,17 +184,12 @@ export async function createWorkspaceItemsOperation(
 		items.push({
 			itemId: id,
 			path: createdPath,
+			ref: command.result.refKey,
 			type: itemInput.type,
 		});
 	}
 
-	return {
-		items,
-		failed,
-		references: createWorkspaceReferenceRecords(
-			items.map((item) => ({ itemId: item.itemId, kind: "item", version: 1 })),
-		),
-	};
+	return { items, failed };
 }
 
 function resolveCreateWorkspaceItemParent(resolution: WorkspacePathResolution):
@@ -278,10 +280,13 @@ function getCreateWorkspaceItemInitialContent(input: CreateWorkspaceItemOperatio
 			detail?: string;
 			status: "failed";
 	  } {
-	if (input.type === "flashcard") {
+	if (input.type === "flashcard" || input.type === "quiz") {
 		try {
 			return {
-				content: stringifyFlashcardSetContent(createFlashcardSetFromHtml(input.cards)),
+				content:
+					input.type === "flashcard"
+						? stringifyFlashcardSetContent(createFlashcardSetFromHtml(input.cards))
+						: stringifyQuizSetContent(createQuizSetFromInputs(input.questions)),
 				status: "ready",
 			};
 		} catch (error) {

@@ -1,4 +1,4 @@
-import { Layers3 } from "lucide-react";
+import { Layers3, ListChecks } from "lucide-react";
 import { useId } from "react";
 
 import { Button } from "#/components/ui/button";
@@ -15,12 +15,36 @@ import { NativeSelect, NativeSelectOption } from "#/components/ui/native-select"
 import { Textarea } from "#/components/ui/textarea";
 import { sendComposerPrompt } from "#/features/workspaces/composer/workspace-composer-actions";
 
-export function CreateFlashcardsDialog({
+export type StudyItemDialogType = "flashcard" | "quiz";
+
+const studyItemDialogConfigs = {
+	flashcard: {
+		Icon: Layers3,
+		iconClassName: "text-violet-500",
+		title: "Create flashcards",
+		countLabel: "Number of cards",
+		prompt: (count: number, locationPhrase: string, topic: string) =>
+			`Create a flashcard set with exactly ${count} cards ${locationPhrase}. Cover: ${topic}`,
+	},
+	quiz: {
+		Icon: ListChecks,
+		iconClassName: "text-emerald-500",
+		title: "Create a quiz",
+		countLabel: "Number of questions",
+		prompt: (count: number, locationPhrase: string, topic: string) =>
+			`Create a quiz with exactly ${count} multiple-choice questions ${locationPhrase}. Cover: ${topic}`,
+	},
+} as const satisfies Record<StudyItemDialogType, unknown>;
+
+/** Collects a topic and size, then hands the AI composer the create request. */
+export function CreateStudyItemDialog({
+	type,
 	open,
 	parentPath,
 	workspaceId,
 	onOpenChange,
 }: {
+	type: StudyItemDialogType;
 	open: boolean;
 	parentPath: string;
 	workspaceId: string;
@@ -28,6 +52,7 @@ export function CreateFlashcardsDialog({
 }) {
 	const topicId = useId();
 	const countId = useId();
+	const config = studyItemDialogConfigs[type];
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
@@ -43,7 +68,7 @@ export function CreateFlashcardsDialog({
 							if (
 								!sendComposerPrompt(
 									workspaceId,
-									`Create a flashcard set with exactly ${count} cards ${describeFlashcardLocation(parentPath)}. Cover: ${topic}`,
+									config.prompt(count, describeStudyItemLocation(parentPath), topic),
 								)
 							)
 								return;
@@ -52,14 +77,14 @@ export function CreateFlashcardsDialog({
 					>
 						<DialogHeader>
 							<DialogTitle className="flex items-center gap-2">
-								<Layers3 className="size-5 text-violet-500" aria-hidden="true" />
-								Create flashcards
+								<config.Icon className={`size-5 ${config.iconClassName}`} aria-hidden="true" />
+								{config.title}
 							</DialogTitle>
-							<DialogDescription>AI will create the set in your current chat.</DialogDescription>
+							<DialogDescription>AI will create it in your current chat.</DialogDescription>
 						</DialogHeader>
 						<FieldGroup>
 							<Field>
-								<FieldLabel htmlFor={topicId}>What should the cards cover?</FieldLabel>
+								<FieldLabel htmlFor={topicId}>What should it cover?</FieldLabel>
 								<Textarea
 									id={topicId}
 									name="topic"
@@ -70,7 +95,7 @@ export function CreateFlashcardsDialog({
 								/>
 							</Field>
 							<Field orientation="horizontal" className="items-center justify-between">
-								<FieldLabel htmlFor={countId}>Number of cards</FieldLabel>
+								<FieldLabel htmlFor={countId}>{config.countLabel}</FieldLabel>
 								<NativeSelect id={countId} name="count" defaultValue="10" size="sm">
 									<NativeSelectOption value="5">5</NativeSelectOption>
 									<NativeSelectOption value="10">10</NativeSelectOption>
@@ -92,7 +117,7 @@ export function CreateFlashcardsDialog({
 	);
 }
 
-function describeFlashcardLocation(parentPath: string) {
+function describeStudyItemLocation(parentPath: string) {
 	if (parentPath === "/") return "in this workspace";
 	return `in the “${parentPath.slice(1).replaceAll("/", " › ")}” folder`;
 }

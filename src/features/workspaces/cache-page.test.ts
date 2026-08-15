@@ -75,6 +75,7 @@ function createItem(input: Partial<WorkspaceItem> = {}): WorkspaceItem {
 	return {
 		color: input.color ?? null,
 		createdAt: "2026-01-01T00:00:00.000Z",
+		refKey: "ref-item-1",
 		id: "folder-1",
 		metadataJson: {},
 		name: input.name ?? "Folder",

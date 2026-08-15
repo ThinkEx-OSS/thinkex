@@ -10,7 +10,7 @@ import {
 	scoreToolInputsValid,
 } from "./support/scorers";
 
-const STANDUP_LIST_REF = "wr_AAAAAAAA";
+const STANDUP_LIST_REF = "b_standupList1.r_4f2a1b";
 const STANDUP_PATH = "/Notes/Standup.md";
 
 describe("workspace eval scorers", () => {

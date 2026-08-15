@@ -3,10 +3,10 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { WorkspaceItem } from "#/features/workspaces/contracts";
 import { createWorkspaceExportStream } from "#/features/workspaces/export/workspace-export-archive";
-import { createFlashcardSetFromHtml } from "#/features/workspaces/flashcards/flashcard-content";
 
 const baseItem = {
 	workspaceId: "workspace-1",
+	refKey: "ref-item-1",
 	color: null,
 	metadataJson: {},
 	sortOrder: 0,
@@ -54,11 +54,9 @@ describe("workspace export archive", () => {
 					content: [{ type: "paragraph", content: [{ type: "text", text: "Hello" }] }],
 				}),
 				readFile: vi.fn().mockResolvedValue(new Blob(["PDF bytes"]).stream()),
-				readFlashcards: vi
+				readStructuredMarkdown: vi
 					.fn()
-					.mockReturnValue(
-						createFlashcardSetFromHtml([{ front: "<p>Term</p>", back: "<p>Definition</p>" }]),
-					),
+					.mockReturnValue("# Key terms\n\n## Card 1\n\nTerm\n\n**Answer**\n\nDefinition\n"),
 			}),
 		).arrayBuffer();
 		const files = unzipSync(new Uint8Array(archive));
@@ -103,7 +101,7 @@ describe("workspace export archive", () => {
 			createWorkspaceExportStream(items, {
 				readDocument: vi.fn().mockReturnValue({ type: "doc" }),
 				readFile: vi.fn().mockResolvedValue(new Blob(["file"]).stream()),
-				readFlashcards: vi.fn(),
+				readStructuredMarkdown: vi.fn(),
 			}),
 		).arrayBuffer();
 

@@ -25,7 +25,7 @@ describe("flashcard content", () => {
 	it("rejects document-only nodes", () => {
 		expect(() =>
 			createFlashcardSetFromHtml([{ front: "<h2>Heading</h2>", back: "<p>A</p>" }]),
-		).toThrow("Flashcards do not support heading content yet.");
+		).toThrow("Flashcard content cannot contain heading nodes.");
 	});
 
 	it("rejects empty sets and malformed stored rich text", () => {

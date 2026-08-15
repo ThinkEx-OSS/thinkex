@@ -1,8 +1,4 @@
-import {
-	type WorkspaceItem,
-	getWorkspaceItemContentKind,
-	isWorkspaceItemContainer,
-} from "#/features/workspaces/contracts";
+import { type WorkspaceItem, isWorkspaceItemContainer } from "#/features/workspaces/contracts";
 import type {
 	WorkspaceContentReadRequest,
 	WorkspaceContentReadResult,
@@ -30,23 +26,34 @@ import {
 	WorkspacePageSelectionError,
 } from "#/features/workspaces/read-page-selection";
 import {
-	decodeWorkspaceContentCursor,
-	encodeWorkspaceContentCursor,
-} from "#/features/workspaces/content/workspace-content-cursor";
-import {
 	createFlashcardRevision,
 	type Flashcard,
 	serializeFlashcardSetToHtml,
 } from "#/features/workspaces/flashcards/flashcard-content";
-import type { WorkspaceLocation } from "#/features/workspaces/locations/workspace-location";
+import {
+	parseWorkspaceAddress,
+	resolveWorkspaceAddressLocation,
+} from "#/features/workspaces/locations/workspace-location";
 import {
 	summarizeFlashcardStudyProgress,
 	type FlashcardStudyState,
 } from "#/features/workspaces/flashcards/flashcard-study-state";
-import { sha256Base64UrlText } from "#/lib/binary";
+import {
+	createQuizQuestionRevision,
+	serializeQuizSetToHtml,
+	type QuizQuestion,
+} from "#/features/workspaces/quizzes/quiz-content";
+import {
+	getQuizAnswer,
+	summarizeQuizStudyProgress,
+	type QuizStudyState,
+} from "#/features/workspaces/quizzes/quiz-study-state";
 
-const maxWorkspaceContentBatchBytes = 2 * 1024 * 1024 + 64 * 1024;
-const targetFlashcardChunkCharacters = 48_000;
+// A context-sized ceiling for one whole read call, not a transport limit: once
+// a call has returned this much content, further requests in it fail fast and
+// say to read fewer units at a time.
+const maxWorkspaceReadCharacters = 200_000;
+const targetEntryChunkCharacters = 48_000;
 
 interface DocumentContentReader {
 	readHtmlChunk(input: DocumentHtmlChunkReadInput): Promise<DocumentHtmlChunkReadResult>;
@@ -61,6 +68,12 @@ type FlashcardItemReader = (
 	| { cards: Flashcard[]; studyState: FlashcardStudyState }
 	| Promise<{ cards: Flashcard[]; studyState: FlashcardStudyState }>;
 
+type QuizItemReader = (
+	itemId: string,
+) =>
+	| { questions: QuizQuestion[]; studyState: QuizStudyState }
+	| Promise<{ questions: QuizQuestion[]; studyState: QuizStudyState }>;
+
 interface PendingReadyResult {
 	item: WorkspaceItem;
 	read: Extract<WorkspaceContentReadResult, { status: "ready" }>;
@@ -71,90 +84,71 @@ export async function readWorkspaceContent(input: {
 	bucket: R2Bucket;
 	getDocumentSession: (itemId: string) => DocumentContentReader | Promise<DocumentContentReader>;
 	readFlashcardItem: FlashcardItemReader;
-	resolveReference?: (itemId: string, ref: string) => WorkspaceLocation | undefined;
+	readQuizItem: QuizItemReader;
+	/** Resolves an item address's refKey to a live item and its path. */
+	resolveRefKey: (refKey: string) => Promise<{ item: WorkspaceItem; path: string } | undefined>;
 	requests: WorkspaceContentReadRequest[];
 	workspaceId: string;
 }): Promise<WorkspaceContentReadResult[]> {
 	const { requests } = input;
-	const encoder = new TextEncoder();
-	const resolutions = await resolveWorkspacePaths({
-		paths: requests.map((request) => request.path),
+	const pathResolutions = await resolveWorkspacePaths({
+		paths: requests.flatMap((request) => ("path" in request ? [request.path] : [])),
 		workspaceId: input.workspaceId,
 	});
 	const results: WorkspaceContentReadResult[] = [];
 	const readyResults: PendingReadyResult[] = [];
-	let returnedContentBytes = 0;
-	let readBudgetExhausted = false;
+	let returnedCharacters = 0;
+	let pathIndex = 0;
 
-	// Reads stay ordered so each body is consumed before the shared byte budget advances.
-	for (const [index, resolution] of resolutions.entries()) {
-		const request = requests[index];
-		if (!request) {
-			throw new Error("Workspace content resolution did not match its request.");
-		}
-		if (resolution.status === "invalid_path") {
-			results.push({ code: resolution.code, path: resolution.path, status: "failed" });
+	// Reads stay ordered so each body is consumed before the shared budget advances.
+	for (const request of requests) {
+		const resolved =
+			"path" in request
+				? resolvePathRequest(pathResolutions[pathIndex++], request.path)
+				: await resolveRefRequest(input.resolveRefKey, request.ref);
+		if ("failure" in resolved) {
+			results.push(resolved.failure);
 			continue;
 		}
-		if (resolution.status === "root") {
-			results.push({ code: "path_is_folder", path: resolution.path, status: "failed" });
-			continue;
-		}
-		if (resolution.status === "not_found") {
-			results.push({ code: "path_not_found", path: resolution.path, status: "failed" });
-			continue;
-		}
-		if (isWorkspaceItemContainer(resolution.item.type)) {
-			results.push({ code: "path_is_folder", path: resolution.path, status: "failed" });
-			continue;
-		}
-		const readBudgetFailure = {
-			code: "read_budget_exceeded" as const,
-			path: resolution.path,
-			status: "failed" as const,
-			...(getWorkspaceItemContentKind(resolution.item.type) === "file"
-				? { type: "file" as const }
-				: {}),
-		};
-		if (readBudgetExhausted) {
-			results.push(readBudgetFailure);
+
+		if (returnedCharacters >= maxWorkspaceReadCharacters) {
+			results.push({
+				code: "read_budget_exceeded",
+				message: "This call already returned as much as fits. Read fewer units per call.",
+				path: resolved.path,
+				status: "failed",
+			});
 			continue;
 		}
 
 		try {
 			const read = await readWorkspaceItem({
 				...input,
-				item: resolution.item,
+				item: resolved.item,
 				request,
-				path: resolution.path,
+				path: resolved.path,
 			});
 			if (read.status !== "ready") {
 				results.push(read);
 				continue;
 			}
-			const contentBytes = encoder.encode(
-				"content" in read ? read.content : JSON.stringify(read.cards),
-			).byteLength;
-			if (returnedContentBytes + contentBytes > maxWorkspaceContentBatchBytes) {
-				readBudgetExhausted = true;
-				results.push(readBudgetFailure);
-				continue;
-			}
-			returnedContentBytes += contentBytes;
+			returnedCharacters +=
+				"content" in read
+					? read.content.length
+					: JSON.stringify("cards" in read ? read.cards : read.questions).length;
 
-			const pending = {
-				item: resolution.item,
+			readyResults.push({
+				item: resolved.item,
 				read,
 				relations: listWorkspaceItemRelations({
-					itemId: resolution.item.id,
+					itemId: resolved.item.id,
 					workspaceId: input.workspaceId,
 				}),
-			};
-			readyResults.push(pending);
+			});
 			results.push(read);
 		} catch (error) {
 			if (error instanceof WorkspacePageSelectionError) {
-				results.push({ code: error.code, path: resolution.path, status: "failed" });
+				results.push({ code: error.code, path: resolved.path, status: "failed" });
 				continue;
 			}
 			throw error;
@@ -165,18 +159,52 @@ export async function readWorkspaceContent(input: {
 	return results;
 }
 
+function resolvePathRequest(
+	resolution: Awaited<ReturnType<typeof resolveWorkspacePaths>>[number] | undefined,
+	path: string,
+): { item: WorkspaceItem; path: string } | { failure: WorkspaceContentReadResult } {
+	if (!resolution) {
+		throw new Error("Workspace content resolution did not match its request.");
+	}
+	if (resolution.status === "invalid_path") {
+		return { failure: { code: resolution.code, path: resolution.path, status: "failed" } };
+	}
+	if (resolution.status === "root") {
+		return { failure: { code: "path_is_folder", path: resolution.path, status: "failed" } };
+	}
+	if (resolution.status === "not_found") {
+		return { failure: { code: "path_not_found", path: resolution.path, status: "failed" } };
+	}
+	if (isWorkspaceItemContainer(resolution.item.type)) {
+		return { failure: { code: "path_is_folder", path, status: "failed" } };
+	}
+	return { item: resolution.item, path: resolution.path };
+}
+
+async function resolveRefRequest(
+	resolveRefKey: (refKey: string) => Promise<{ item: WorkspaceItem; path: string } | undefined>,
+	ref: string,
+): Promise<{ item: WorkspaceItem; path: string } | { failure: WorkspaceContentReadResult }> {
+	const address = parseWorkspaceAddress(ref);
+	const resolved = address ? await resolveRefKey(address.refKey) : undefined;
+	if (!resolved || isWorkspaceItemContainer(resolved.item.type)) {
+		return { failure: { code: "ref_not_found", ref, status: "failed" } };
+	}
+	return resolved;
+}
+
 async function readWorkspaceItem(input: {
 	bucket: R2Bucket;
 	getDocumentSession: (itemId: string) => DocumentContentReader | Promise<DocumentContentReader>;
 	readFlashcardItem: FlashcardItemReader;
-	resolveReference?: (itemId: string, ref: string) => WorkspaceLocation | undefined;
+	readQuizItem: QuizItemReader;
 	item: WorkspaceItem;
 	path: string;
 	request: WorkspaceContentReadRequest;
 	workspaceId: string;
 }): Promise<WorkspaceContentReadResult> {
 	if (input.request.mode === "ref") {
-		return readWorkspaceReference(input, input.request.ref);
+		return readWorkspaceUnit(input, input.request.ref);
 	}
 	switch (input.item.type) {
 		case "document":
@@ -187,36 +215,36 @@ async function readWorkspaceItem(input: {
 			return { code: "unsupported_item_type", path: input.path, status: "failed" };
 		case "flashcard":
 			return readFlashcards(input);
+		case "quiz":
+			return readQuiz(input);
 	}
 }
 
-async function readWorkspaceReference(
+/** Reads the exact content an address identifies: one page, block, or entry. */
+async function readWorkspaceUnit(
 	input: Parameters<typeof readWorkspaceItem>[0],
 	ref: string,
 ): Promise<WorkspaceContentReadResult> {
-	const location = input.resolveReference?.(input.item.id, ref);
-	if (!location || location.itemId !== input.item.id) {
-		return { code: "ref_not_found", path: input.path, status: "failed" };
+	const address = parseWorkspaceAddress(ref);
+	const location = address ? resolveWorkspaceAddressLocation(input.item, address) : undefined;
+	if (!location) {
+		return { code: "ref_not_found", ref, status: "failed" };
 	}
 
 	switch (location.kind) {
 		case "item":
 			return readWorkspaceItem({ ...input, request: { mode: "start", path: input.path } });
 		case "pdf-page":
-			return input.item.type === "file"
-				? readFile({
-						...input,
-						request: { mode: "pages", path: input.path, range: String(location.pageNumber) },
-					})
-				: { code: "ref_not_found", path: input.path, status: "failed" };
+			return readFile({
+				...input,
+				request: { mode: "pages", path: input.path, range: String(location.pageNumber) },
+			});
 		case "document-block":
-			return input.item.type === "document"
-				? readDocumentBlock(input, location.blockId)
-				: { code: "ref_not_found", path: input.path, status: "failed" };
+			return readDocumentBlock(input, location.blockId);
 		case "flashcard":
-			return input.item.type === "flashcard"
-				? readFlashcards(input, location.cardId)
-				: { code: "ref_not_found", path: input.path, status: "failed" };
+			return readFlashcards(input, location.cardId);
+		case "quiz-question":
+			return readQuiz(input, location.questionId);
 	}
 }
 
@@ -230,73 +258,30 @@ async function readFlashcards(
 	},
 	targetCardId?: string,
 ): Promise<WorkspaceContentReadResult> {
-	if (
-		!targetCardId &&
-		input.request.mode !== "start" &&
-		input.request.mode !== "continue" &&
-		input.request.mode !== "cards"
-	) {
-		return { code: "invalid_selection", path: input.path, status: "failed" };
-	}
-
 	const { cards, studyState } = await input.readFlashcardItem(input.item.id);
 	const cardsById = new Map(cards.map((card) => [card.id, card]));
-	const serializedCards = serializeFlashcardSetToHtml({ cards, version: 1 });
-	let selectedCards: typeof serializedCards;
-	let returned: number[];
-	let nextCursor: string | undefined;
-
-	if (targetCardId) {
-		const cardIndex = serializedCards.findIndex((card) => card.id === targetCardId);
-		if (cardIndex < 0) return { code: "ref_not_found", path: input.path, status: "failed" };
-		selectedCards = [serializedCards[cardIndex]!];
-		returned = [cardIndex + 1];
-	} else if (input.request.mode === "cards") {
-		try {
-			returned = parseWorkspacePageRange(input.request.range, cards.length);
-		} catch (error) {
-			if (error instanceof WorkspacePageSelectionError) {
-				return { code: "invalid_selection", path: input.path, status: "failed" };
-			}
-			throw error;
-		}
-		selectedCards = returned.map((cardNumber) => serializedCards[cardNumber - 1]!);
-	} else {
-		const encodedCursor = input.request.mode === "continue" ? input.request.cursor : undefined;
-		const cursor = encodedCursor ? decodeWorkspaceContentCursor(encodedCursor) : undefined;
-		if (encodedCursor && (!cursor || cursor.kind !== "flashcard" || cursor.path !== input.path)) {
-			return { code: "invalid_cursor", path: input.path, status: "failed" };
-		}
-
-		const revision = await sha256Base64UrlText(JSON.stringify(cards));
-		if (cursor?.kind === "flashcard" && cursor.revision !== revision) {
-			return { code: "content_changed", path: input.path, status: "failed" };
-		}
-
-		const offset = cursor?.kind === "flashcard" ? cursor.offset : 0;
-		const chunk = readFlashcardChunk(serializedCards, offset);
-		if (!chunk) return { code: "invalid_cursor", path: input.path, status: "failed" };
-		selectedCards = chunk.cards;
-		returned = Array.from({ length: chunk.endOffset - offset }, (_, index) => offset + index + 1);
-		if (chunk.endOffset < cards.length) {
-			nextCursor = encodeWorkspaceContentCursor({
-				kind: "flashcard",
-				offset: chunk.endOffset,
-				path: input.path,
-				revision,
-				version: 1,
-			});
-		}
+	const selection = selectOrderedEntries({
+		entries: serializeFlashcardSetToHtml({ cards, version: 1 }),
+		measure: (card) => card.front.length + card.back.length,
+		request: input.request,
+		targetEntryId: targetCardId,
+	});
+	if (!selection.ok) {
+		return {
+			code: selection.code,
+			...(selection.message ? { message: selection.message } : {}),
+			path: input.path,
+			status: "failed",
+		};
 	}
 
 	return {
 		cards: await Promise.all(
-			selectedCards.map(async (card) => {
+			selection.selected.map(async (card) => {
 				const source = cardsById.get(card.id);
 				if (!source) throw new Error("Serialized flashcard does not match its source set.");
 				return {
-					cardId: card.id,
-					revision: await createFlashcardRevision(source),
+					ref: `${card.id}.r_${await createFlashcardRevision(source)}`,
 					front: card.front,
 					back: card.back,
 					...(studyState.cards[card.id] ? { study: studyState.cards[card.id] } : {}),
@@ -306,35 +291,160 @@ async function readFlashcards(
 		format: "html",
 		itemId: input.item.id,
 		location: {
-			kind: "cards",
-			returned,
+			kind: "entries",
+			returned: selection.returned,
 			total: cards.length,
 		},
-		...(nextCursor ? { nextCursor } : {}),
 		path: input.path,
 		progress: summarizeFlashcardStudyProgress(
 			cards.map((card) => card.id),
 			studyState,
 		),
+		ref: input.item.refKey,
 		status: "ready",
 		type: "flashcard",
 	};
 }
 
-function readFlashcardChunk(cards: ReturnType<typeof serializeFlashcardSetToHtml>, offset: number) {
-	if (offset < 0 || offset >= cards.length) return null;
+async function readQuiz(
+	input: {
+		item: WorkspaceItem;
+		path: string;
+		readQuizItem: QuizItemReader;
+		request: WorkspaceContentReadRequest;
+		workspaceId: string;
+	},
+	targetQuestionId?: string,
+): Promise<WorkspaceContentReadResult> {
+	const { questions, studyState } = await input.readQuizItem(input.item.id);
+	const questionsById = new Map(questions.map((question) => [question.id, question]));
+	const selection = selectOrderedEntries({
+		entries: serializeQuizSetToHtml({ questions, version: 1 }),
+		measure: (question) =>
+			question.question.length +
+			question.explanation.length +
+			question.options.reduce((total, option) => total + option.text.length, 0),
+		request: input.request,
+		targetEntryId: targetQuestionId,
+	});
+	if (!selection.ok) {
+		return {
+			code: selection.code,
+			...(selection.message ? { message: selection.message } : {}),
+			path: input.path,
+			status: "failed",
+		};
+	}
+
+	return {
+		format: "html",
+		itemId: input.item.id,
+		location: {
+			kind: "entries",
+			returned: selection.returned,
+			total: questions.length,
+		},
+		path: input.path,
+		progress: summarizeQuizStudyProgress(questions, studyState),
+		questions: await Promise.all(
+			selection.selected.map(async (question) => {
+				const source = questionsById.get(question.id);
+				if (!source) throw new Error("Serialized quiz question does not match its source set.");
+				const answer = getQuizAnswer(source, studyState);
+				const selectedIndex = answer
+					? source.options.findIndex((option) => option.id === answer.selectedOptionId)
+					: -1;
+				return {
+					ref: `${question.id}.r_${await createQuizQuestionRevision(source)}`,
+					question: question.question,
+					options: question.options.map(({ text, correct }) => ({ text, correct })),
+					explanation: question.explanation,
+					...(answer && selectedIndex >= 0
+						? {
+								answer: {
+									selected: selectedIndex + 1,
+									correct: answer.selectedOptionId === source.correctOptionId,
+								},
+							}
+						: {}),
+				};
+			}),
+		),
+		ref: input.item.refKey,
+		status: "ready",
+		type: "quiz",
+	};
+}
+
+type OrderedEntrySelection<T> =
+	| { ok: true; selected: T[]; returned: number[] }
+	| {
+			ok: false;
+			code:
+				| "invalid_selection"
+				| "page_range_out_of_range"
+				| "page_selection_too_large"
+				| "ref_not_found";
+			message?: string;
+	  };
+
+/**
+ * Shared selection for structured items: one targeted entry from an address,
+ * an explicit entry range, or the first character-budgeted chunk on `start`.
+ * Every result names the entry numbers it covered, so continuing is just the
+ * next range — no cursor to carry.
+ */
+function selectOrderedEntries<T extends { id: string }>(input: {
+	entries: T[];
+	measure: (entry: T) => number;
+	request: WorkspaceContentReadRequest;
+	targetEntryId?: string;
+}): OrderedEntrySelection<T> {
+	const { entries, request, targetEntryId } = input;
+
+	if (targetEntryId) {
+		const entryIndex = entries.findIndex((entry) => entry.id === targetEntryId);
+		if (entryIndex < 0) return { ok: false, code: "ref_not_found" };
+		return { ok: true, selected: [entries[entryIndex]!], returned: [entryIndex + 1] };
+	}
+	if (request.mode === "entries") {
+		let returned: number[];
+		try {
+			returned = parseWorkspacePageRange(request.range, entries.length);
+		} catch (error) {
+			if (error instanceof WorkspacePageSelectionError) {
+				return {
+					ok: false,
+					code: error.code,
+					message: `The item has ${entries.length} entries; request up to 20 of them per read.`,
+				};
+			}
+			throw error;
+		}
+		return {
+			ok: true,
+			selected: returned.map((entryNumber) => entries[entryNumber - 1]!),
+			returned,
+		};
+	}
+	if (request.mode !== "start") {
+		return { ok: false, code: "invalid_selection" };
+	}
 
 	let characters = 0;
-	let endOffset = offset;
-	while (endOffset < cards.length) {
-		const card = cards[endOffset]!;
-		const cardCharacters = card.front.length + card.back.length;
-		if (endOffset > offset && characters + cardCharacters > targetFlashcardChunkCharacters) break;
-		characters += cardCharacters;
+	let endOffset = 0;
+	while (endOffset < entries.length) {
+		const entryCharacters = input.measure(entries[endOffset]!);
+		if (endOffset > 0 && characters + entryCharacters > targetEntryChunkCharacters) break;
+		characters += entryCharacters;
 		endOffset += 1;
 	}
 
-	return { cards: cards.slice(offset, endOffset), endOffset };
+	return {
+		ok: true,
+		selected: entries.slice(0, endOffset),
+		returned: Array.from({ length: endOffset }, (_, index) => index + 1),
+	};
 }
 
 /**
@@ -364,6 +474,7 @@ async function readDocumentBlock(
 		format: "html",
 		itemId: input.item.id,
 		path: input.path,
+		ref: input.item.refKey,
 		status: "ready",
 		type: "block",
 	};
@@ -376,26 +487,31 @@ async function readDocument(input: {
 	request: WorkspaceContentReadRequest;
 	workspaceId: string;
 }): Promise<WorkspaceContentReadResult> {
-	if (input.request.mode !== "start" && input.request.mode !== "continue") {
+	let chunkInput: DocumentHtmlChunkReadInput;
+	if (input.request.mode === "start") {
+		chunkInput = { offset: 0 };
+	} else if (input.request.mode === "entries") {
+		// Blocks are contiguous prose; a scattered range has no meaningful join.
+		const range = /^(\d+)(?:\s*-\s*(\d+))?$/.exec(input.request.range);
+		const startBlock = range ? Number(range[1]) : 0;
+		const endBlock = range?.[2] ? Number(range[2]) : startBlock;
+		if (!range || startBlock < 1 || endBlock < startBlock) {
+			return {
+				code: "invalid_selection",
+				message: "Document entries must be one block number or one contiguous range like 5-12.",
+				path: input.path,
+				status: "failed",
+			};
+		}
+		chunkInput = { offset: startBlock - 1, maxBlocks: endBlock - startBlock + 1 };
+	} else {
 		return { code: "invalid_selection", path: input.path, status: "failed" };
 	}
 
-	const encodedCursor = input.request.mode === "continue" ? input.request.cursor : undefined;
-	const cursor = encodedCursor ? decodeWorkspaceContentCursor(encodedCursor) : undefined;
-	if (encodedCursor && (!cursor || cursor.kind !== "document" || cursor.path !== input.path)) {
-		return { code: "invalid_cursor", path: input.path, status: "failed" };
-	}
-
 	const documentSession = await input.getDocumentSession(input.item.id);
-	const chunk = await documentSession.readHtmlChunk({
-		expectedRevision: cursor?.kind === "document" ? cursor.revision : undefined,
-		offset: cursor?.kind === "document" ? cursor.offset : 0,
-	});
-	if (chunk.status === "content_changed") {
-		return { code: "content_changed", path: input.path, status: "failed" };
-	}
+	const chunk = await documentSession.readHtmlChunk(chunkInput);
 	if (chunk.status === "invalid_offset") {
-		return { code: "invalid_cursor", path: input.path, status: "failed" };
+		return { code: "invalid_selection", path: input.path, status: "failed" };
 	}
 
 	return {
@@ -403,18 +519,8 @@ async function readDocument(input: {
 		format: "html",
 		itemId: input.item.id,
 		location: { kind: "blocks", ...chunk.location },
-		...(chunk.nextOffset === undefined
-			? {}
-			: {
-					nextCursor: encodeWorkspaceContentCursor({
-						kind: "document",
-						offset: chunk.nextOffset,
-						path: input.path,
-						revision: chunk.revision,
-						version: 3,
-					}),
-				}),
 		path: input.path,
+		ref: input.item.refKey,
 		status: "ready",
 		type: "document",
 	};
@@ -427,11 +533,7 @@ async function readFile(input: {
 	request: WorkspaceContentReadRequest;
 	workspaceId: string;
 }): Promise<WorkspaceContentReadResult> {
-	if (
-		input.request.mode !== "start" &&
-		input.request.mode !== "continue" &&
-		input.request.mode !== "pages"
-	) {
+	if (input.request.mode !== "start" && input.request.mode !== "pages") {
 		return { code: "invalid_selection", path: input.path, status: "failed" };
 	}
 	const fileType = resolveWorkspaceFileTypeFromItem(input.item);
@@ -450,25 +552,12 @@ async function readFile(input: {
 		return describeUnreadableProjection(projection, input.path, input.item.id);
 	}
 
-	const encodedCursor = input.request.mode === "continue" ? input.request.cursor : undefined;
-	const cursor = encodedCursor ? decodeWorkspaceContentCursor(encodedCursor) : undefined;
-	if (encodedCursor && (!cursor || cursor.kind !== "file" || cursor.path !== input.path)) {
-		return { code: "invalid_cursor", path: input.path, status: "failed" };
-	}
-	if (cursor?.kind === "file" && cursor.sourceHash !== projection.sourceHash) {
-		return { code: "content_changed", path: input.path, status: "failed" };
-	}
 	let pageRead: Awaited<ReturnType<typeof readWorkspacePageProjection>>;
 	try {
 		pageRead = await readWorkspacePageProjection({
 			itemId: input.item.id,
 			pageCount: projection.pageCount,
-			pages:
-				cursor?.kind === "file"
-					? String(cursor.nextPage)
-					: input.request.mode === "pages"
-						? input.request.range
-						: undefined,
+			pages: input.request.mode === "pages" ? input.request.range : undefined,
 			workspaceId: input.workspaceId,
 		});
 	} catch (error) {
@@ -477,7 +566,6 @@ async function readFile(input: {
 		}
 		return { code: "projection_failed", path: input.path, status: "failed", type: "file" };
 	}
-	const nextPage = Math.max(...pageRead.pages.returned) + 1;
 	return {
 		assetKind: fileType.assetKind,
 		content: pageRead.content,
@@ -485,19 +573,9 @@ async function readFile(input: {
 		format: "markdown",
 		itemId: input.item.id,
 		location: { kind: "pages", ...pageRead.pages },
-		...(nextPage > pageRead.pages.total
-			? {}
-			: {
-					nextCursor: encodeWorkspaceContentCursor({
-						kind: "file",
-						nextPage,
-						path: input.path,
-						sourceHash: projection.sourceHash,
-						version: 2,
-					}),
-				}),
 		path: input.path,
 		...(projection.provisional ? { provisional: true } : {}),
+		ref: input.item.refKey,
 		status: "ready",
 		type: "file",
 	};

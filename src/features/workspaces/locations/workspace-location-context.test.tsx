@@ -30,6 +30,7 @@ describe("WorkspaceLocationProvider", () => {
 			type: "file",
 			name: "Book.pdf",
 			color: null,
+			refKey: "ref-file-1",
 			metadataJson: {},
 			sortOrder: 1,
 			createdAt: "2026-08-13T00:00:00.000Z",

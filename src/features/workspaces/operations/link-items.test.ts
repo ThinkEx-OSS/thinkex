@@ -61,6 +61,7 @@ const documentItem: WorkspaceItem = {
 	parentId: null,
 	type: "document",
 	name: "Cell Notes",
+	refKey: "Xk7p2Qa9",
 	color: null,
 	metadataJson: {},
 	sortOrder: 1,

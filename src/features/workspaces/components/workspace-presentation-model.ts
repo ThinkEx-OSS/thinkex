@@ -11,7 +11,7 @@ export interface WorkspacePresentationProps {
 }
 
 export interface WorkspaceCreateItemRequest {
-	type: "document" | "flashcard" | "folder";
+	type: "document" | "flashcard" | "folder" | "quiz";
 	parentId: string | null;
 }
 

@@ -5,6 +5,7 @@ import { buildWorkspaceAiContextSnapshot } from "#/features/workspaces/model/wor
 
 const item: WorkspaceItem = {
 	color: null,
+	refKey: "ref-cards-1",
 	createdAt: "2026-08-13T00:00:00.000Z",
 	id: "cards-1",
 	metadataJson: {},

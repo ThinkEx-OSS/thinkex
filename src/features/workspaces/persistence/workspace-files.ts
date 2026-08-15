@@ -1,5 +1,7 @@
 import { and, asc, eq, inArray } from "drizzle-orm";
 
+import { createWorkspaceItemRefKey } from "#/features/workspaces/locations/workspace-location";
+
 import {
 	workspaceFileAssets,
 	workspaceItemPages,
@@ -102,6 +104,7 @@ export async function createWorkspaceFileFromUpload(
 			type: "file",
 			name: nameResolution.name,
 			nameKey: getWorkspaceItemNameKey(nameResolution.name),
+			refKey: createWorkspaceItemRefKey(),
 			color: null,
 			metadata,
 			sortOrder: await getNextWorkspaceSortOrder(transaction, input.workspaceId, parentId),

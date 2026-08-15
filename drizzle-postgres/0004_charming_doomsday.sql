@@ -1,0 +1,2 @@
+ALTER TABLE "workspace_items" DROP CONSTRAINT "workspace_items_type_check";--> statement-breakpoint
+ALTER TABLE "workspace_items" ADD CONSTRAINT "workspace_items_type_check" CHECK ("workspace_items"."type" in ('folder', 'document', 'flashcard', 'quiz', 'file'));

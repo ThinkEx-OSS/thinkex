@@ -5,16 +5,19 @@ import type { WorkspaceItem } from "#/features/workspaces/contracts";
 import { flashcardViewerQueryOptions } from "#/features/workspaces/flashcards/flashcard-queries";
 import type { WorkspaceLocation } from "#/features/workspaces/locations/workspace-location";
 import { useWorkspaceLocationActions } from "#/features/workspaces/locations/workspace-location-context";
+import { quizViewerQueryOptions } from "#/features/workspaces/quizzes/quiz-queries";
 import { cn } from "#/lib/utils";
 
 export function WorkspaceCitation({ location }: { readonly location: WorkspaceLocation }) {
 	const item = useWorkspaceLocationActions().getItem(location.itemId);
 
-	return location.kind === "flashcard" && item?.type === "flashcard" ? (
-		<FlashcardCitation item={item} location={location} />
-	) : (
-		<CitationButton location={location} />
-	);
+	if (location.kind === "flashcard" && item?.type === "flashcard") {
+		return <FlashcardCitation item={item} location={location} />;
+	}
+	if (location.kind === "quiz-question" && item?.type === "quiz") {
+		return <QuizCitation item={item} location={location} />;
+	}
+	return <CitationButton location={location} />;
 }
 
 function FlashcardCitation({
@@ -37,6 +40,31 @@ function FlashcardCitation({
 		<CitationButton
 			location={location}
 			locatorLabel={cardNumber ? `Card ${cardNumber}` : undefined}
+		/>
+	);
+}
+
+function QuizCitation({
+	item,
+	location,
+}: {
+	item: WorkspaceItem;
+	location: Extract<WorkspaceLocation, { kind: "quiz-question" }>;
+}) {
+	const { data: questionNumber } = useQuery({
+		...quizViewerQueryOptions({
+			itemId: item.id,
+			updatedAt: item.updatedAt,
+			workspaceId: item.workspaceId,
+		}),
+		select: ({ questions }) =>
+			questions.findIndex((question) => question.id === location.questionId) + 1,
+	});
+
+	return (
+		<CitationButton
+			location={location}
+			locatorLabel={questionNumber ? `Question ${questionNumber}` : undefined}
 		/>
 	);
 }

@@ -1,15 +1,11 @@
 import { cjk } from "@streamdown/cjk";
 import { createMathPlugin } from "@streamdown/math";
-import { createContext, type ComponentProps, use, useEffect } from "react";
+import { type ComponentProps, useEffect } from "react";
 import { Streamdown, type StreamdownProps } from "streamdown";
 import "katex/dist/katex.min.css";
 // Extends the shared KaTeX instance with \ce{} chemistry and \pu{} units.
 import "katex/contrib/mhchem";
-import {
-	parseWorkspaceReference,
-	type WorkspaceLocation,
-	type WorkspaceReference,
-} from "#/features/workspaces/locations/workspace-location";
+import { useWorkspaceLocationActions } from "#/features/workspaces/locations/workspace-location-context";
 import { MarkdownCodeBlock } from "#/features/workspaces/components/ai-chat/ai-chat-code-block";
 import { normalizeLlmMarkdown } from "#/features/workspaces/components/ai-chat/normalize-llm-markdown";
 import { WorkspaceCitation } from "#/features/workspaces/components/WorkspaceCitation";
@@ -20,7 +16,6 @@ type AiChatMessageResponseProps = Omit<
 	"allowedTags" | "literalTagContent"
 > & {
 	isStreaming?: boolean;
-	workspaceCitationLocations?: ReadonlyMap<WorkspaceReference, WorkspaceLocation>;
 };
 
 const math = createMathPlugin({
@@ -31,10 +26,6 @@ const streamdownPlugins = { cjk, math };
 const streamdownComponents = { code: MarkdownCodeBlock };
 const streamdownAllowedTags = { citation: ["ref"] };
 const streamdownLiteralTagContent = ["citation"];
-const emptyWorkspaceCitationLocations = new Map<WorkspaceReference, WorkspaceLocation>();
-const WorkspaceCitationLocationsContext = createContext<
-	ReadonlyMap<WorkspaceReference, WorkspaceLocation>
->(emptyWorkspaceCitationLocations);
 const streamdownAnimation = {
 	animation: "fadeIn",
 	duration: 160,
@@ -50,6 +41,7 @@ type StreamdownCitationProps = Record<string, unknown> & {
 };
 
 function StreamdownWorkspaceCitation(citationProps: StreamdownCitationProps) {
+	const { resolveAddress } = useWorkspaceLocationActions();
 	const children = citationProps.children;
 	if (typeof children === "string" && children.trim().length > 0) {
 		return children;
@@ -58,13 +50,7 @@ function StreamdownWorkspaceCitation(citationProps: StreamdownCitationProps) {
 		return null;
 	}
 
-	const ref = parseWorkspaceReference(citationProps.node?.properties?.ref);
-	if (!ref) {
-		return null;
-	}
-
-	const locations = use(WorkspaceCitationLocationsContext);
-	const location = locations.get(ref);
+	const location = resolveAddress(citationProps.node?.properties?.ref);
 	return location ? <WorkspaceCitation location={location} /> : null;
 }
 
@@ -73,7 +59,6 @@ export function AiChatMessageResponse({
 	className,
 	components,
 	isStreaming = false,
-	workspaceCitationLocations = emptyWorkspaceCitationLocations,
 	...props
 }: AiChatMessageResponseProps) {
 	useEffect(() => {
@@ -90,21 +75,19 @@ export function AiChatMessageResponse({
 		typeof children === "string" ? normalizeLlmMarkdown(children) : children;
 
 	return (
-		<WorkspaceCitationLocationsContext value={workspaceCitationLocations}>
-			<Streamdown
-				animated={streamdownAnimation}
-				className={cn("[&>ol]:pl-2 [&>ul]:pl-2", className)}
-				components={mergedComponents}
-				isAnimating={isStreaming}
-				linkSafety={{ enabled: false }}
-				mode="streaming"
-				plugins={streamdownPlugins}
-				{...props}
-				allowedTags={streamdownAllowedTags}
-				literalTagContent={streamdownLiteralTagContent}
-			>
-				{normalizedChildren}
-			</Streamdown>
-		</WorkspaceCitationLocationsContext>
+		<Streamdown
+			animated={streamdownAnimation}
+			className={cn("[&>ol]:pl-2 [&>ul]:pl-2", className)}
+			components={mergedComponents}
+			isAnimating={isStreaming}
+			linkSafety={{ enabled: false }}
+			mode="streaming"
+			plugins={streamdownPlugins}
+			{...props}
+			allowedTags={streamdownAllowedTags}
+			literalTagContent={streamdownLiteralTagContent}
+		>
+			{normalizedChildren}
+		</Streamdown>
 	);
 }

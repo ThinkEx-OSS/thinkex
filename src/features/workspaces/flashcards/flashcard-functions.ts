@@ -1,6 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
+import { workspaceEntryIdSchema } from "#/features/workspaces/locations/workspace-location";
+
 import {
 	readFlashcardViewer,
 	recordFlashcardStudyRating,
@@ -23,7 +25,7 @@ export const getFlashcardViewerFn = createServerFn({ method: "GET" })
 export const recordFlashcardStudyRatingFn = createServerFn({ method: "POST" })
 	.validator(
 		flashcardItemInputSchema.extend({
-			cardId: z.uuid(),
+			cardId: workspaceEntryIdSchema,
 			rating: flashcardStudyRatingSchema,
 		}),
 	)

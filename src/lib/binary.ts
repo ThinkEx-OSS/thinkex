@@ -21,10 +21,6 @@ export function decodeBase64Url(value: string) {
 	return Uint8Array.from(atob(padded), (character) => character.charCodeAt(0));
 }
 
-export function encodeBase64UrlText(value: string) {
-	return encodeBase64Url(textEncoder.encode(value));
-}
-
 export function decodeBase64UrlText(value: string) {
 	return textDecoder.decode(decodeBase64Url(value));
 }

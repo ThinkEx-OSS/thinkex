@@ -12,20 +12,22 @@ import { resolveDocumentCitations } from "#/features/workspaces/operations/docum
 import {
 	applyFlashcardEdits,
 	type FlashcardEdit,
-	type FlashcardEditTarget,
 } from "#/features/workspaces/flashcards/flashcard-edits";
 import { updateFlashcardSet } from "#/features/workspaces/flashcards/flashcard-persistence";
+import { applyQuizEdits, type QuizEdit } from "#/features/workspaces/quizzes/quiz-edits";
+import { updateQuizSet } from "#/features/workspaces/quizzes/quiz-persistence";
+import type { OrderedEntryEditTarget } from "#/features/workspaces/content/ordered-entry-edits";
 import {
-	indexWorkspaceReferenceRecords,
-	parseWorkspaceReference,
-	type WorkspaceReferenceRecord,
+	parseWorkspaceUnitRef,
+	workspaceEntryIdSchema,
 } from "#/features/workspaces/locations/workspace-location";
 
 type EditWorkspaceItemFailureCode = (typeof editWorkspaceItemFailureCodes)[number];
 
 export type EditWorkspaceItemOperationInput =
 	| { edits: DocumentAiEdit[]; path: string; type: "document" }
-	| { edits: FlashcardEdit[]; path: string; type: "flashcard" };
+	| { edits: FlashcardEdit[]; path: string; type: "flashcard" }
+	| { edits: QuizEdit[]; path: string; type: "quiz" };
 
 interface EditWorkspaceItemFailure {
 	code: EditWorkspaceItemFailureCode;
@@ -37,7 +39,7 @@ export interface EditWorkspaceItemOperationResult {
 	applied: number;
 	failed: EditWorkspaceItemFailure[];
 	itemId?: string;
-	itemType?: "document" | "flashcard";
+	itemType?: "document" | "flashcard" | "quiz";
 	lineChanges?: DocumentEditLineChanges;
 	path: string;
 }
@@ -77,66 +79,51 @@ export async function editWorkspaceItemOperation(
 		};
 	}
 
-	if (input.type === "flashcard") {
-		const targets = await resolveEditTargets<FlashcardEdit, FlashcardEditTarget>(
-			accessContext,
-			input.edits,
-			(record) =>
-				record.location.kind === "flashcard" &&
-				record.location.itemId === resolution.item.id &&
-				record.revision
-					? { cardId: record.location.cardId, revision: record.revision }
-					: undefined,
-		);
+	if (input.type === "flashcard" || input.type === "quiz") {
+		const itemId = resolution.item.id;
+		const targets = collectEntryEditTargets(input.edits);
 		const { env } = await import("cloudflare:workers");
-		const result = await updateFlashcardSet(
-			env,
-			{
-				actorUserId: accessContext.actor.userId,
-				itemId: resolution.item.id,
-				workspaceId: accessContext.workspaceId,
-			},
-			async (content) => {
-				const applied = await applyFlashcardEdits(content, input.edits, targets);
-				return { changed: applied.applied > 0, content: applied.content, result: applied };
-			},
-		);
+		const persistenceInput = {
+			actorUserId: accessContext.actor.userId,
+			itemId,
+			workspaceId: accessContext.workspaceId,
+		};
+		const result =
+			input.type === "flashcard"
+				? await updateFlashcardSet(env, persistenceInput, async (content) => {
+						const applied = await applyFlashcardEdits(content, input.edits, targets);
+						return { changed: applied.applied > 0, content: applied.content, result: applied };
+					})
+				: await updateQuizSet(env, persistenceInput, async (content) => {
+						const applied = await applyQuizEdits(content, input.edits, targets);
+						return { changed: applied.applied > 0, content: applied.content, result: applied };
+					});
 		return {
 			applied: result.applied,
 			failed: result.failed,
-			itemId: resolution.item.id,
-			itemType: "flashcard",
+			itemId,
+			itemType: input.type,
 			path: resolution.path,
 		};
 	}
-	const [targets, documentSession] = await Promise.all([
-		resolveEditTargets(accessContext, input.edits, (record) =>
-			record.location.kind === "document-block" &&
-			record.location.itemId === resolution.item.id &&
-			record.revision
-				? `${record.location.blockId}.r_${record.revision}`
-				: undefined,
-		),
-		getDocumentSession({
-			itemId: resolution.item.id,
-			workspaceId: accessContext.workspaceId,
-		}),
-	]);
+	const documentSession = await getDocumentSession({
+		itemId: resolution.item.id,
+		workspaceId: accessContext.workspaceId,
+	});
 
 	const result = await documentSession.applyEdits({
 		edits: await Promise.all(
-			input.edits.map(async (edit) => {
-				const contentEdit = replacePublicRefs(edit, targets);
-				return "html" in contentEdit
+			input.edits.map(async (edit) =>
+				"html" in edit
 					? {
-							...contentEdit,
+							...edit,
 							html: await resolveDocumentCitations({
 								context: accessContext,
-								html: contentEdit.html,
+								html: edit.html,
 							}),
 						}
-					: contentEdit;
-			}),
+					: edit,
+			),
 		),
 		operationId: accessContext.operationId,
 	});
@@ -151,50 +138,25 @@ export async function editWorkspaceItemOperation(
 	};
 }
 
-async function resolveEditTargets<
-	TEdit extends { ref: string; afterRef?: string; beforeRef?: string },
-	TTarget,
->(
-	context: WorkspaceAccessContext,
-	edits: readonly TEdit[],
-	toTarget: (record: WorkspaceReferenceRecord) => TTarget | undefined,
+/**
+ * Parses every entry ref an edit batch mentions. A unit ref is self-contained
+ * — entry id plus content revision — so targeting needs no lookup; a ref whose
+ * unit is not an entry id simply resolves to nothing and the edit engine
+ * reports `ref_not_found` at the right index.
+ */
+function collectEntryEditTargets(
+	edits: readonly { ref: string; afterRef?: string; beforeRef?: string }[],
 ) {
-	const refs = [...new Set(edits.flatMap(getReferencedRefs))];
-	const records =
-		refs.length > 0 && context.resolveWorkspaceReferences
-			? await context.resolveWorkspaceReferences(refs)
-			: [];
-	const recordsByRef = indexWorkspaceReferenceRecords(records);
-	const targets = new Map<string, TTarget>();
-	for (const ref of refs) {
-		const parsedRef = parseWorkspaceReference(ref);
-		const record = parsedRef ? recordsByRef.get(parsedRef) : undefined;
-		const target = record ? toTarget(record) : undefined;
-		if (target) targets.set(ref, target);
+	const targets = new Map<string, OrderedEntryEditTarget>();
+	for (const edit of edits) {
+		for (const ref of [edit.ref, edit.beforeRef, edit.afterRef]) {
+			if (!ref || targets.has(ref)) continue;
+			const parsed = parseWorkspaceUnitRef(ref);
+			if (!parsed || !workspaceEntryIdSchema.safeParse(parsed.unit).success) continue;
+			targets.set(ref, { entryId: parsed.unit, revision: parsed.revision });
+		}
 	}
-
 	return targets;
-}
-
-function replacePublicRefs<TEdit extends { ref: string; afterRef?: string; beforeRef?: string }>(
-	edit: TEdit,
-	targets: ReadonlyMap<string, string>,
-): TEdit {
-	// Unresolved refs stay invalid so the document engine reports them at their original edit index.
-	return {
-		...edit,
-		ref: targets.get(edit.ref) ?? edit.ref,
-		...(edit.beforeRef ? { beforeRef: targets.get(edit.beforeRef) ?? edit.beforeRef } : {}),
-		...(edit.afterRef ? { afterRef: targets.get(edit.afterRef) ?? edit.afterRef } : {}),
-	};
-}
-
-function getReferencedRefs(edit: { ref: string; afterRef?: string; beforeRef?: string }) {
-	return [
-		edit.ref,
-		...(edit.beforeRef ? [edit.beforeRef] : []),
-		...(edit.afterRef ? [edit.afterRef] : []),
-	];
 }
 
 async function getDocumentSession(input: { itemId: string; workspaceId: string }) {

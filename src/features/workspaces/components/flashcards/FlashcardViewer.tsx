@@ -1,16 +1,23 @@
 import { useQuery } from "@tanstack/react-query";
-import type { JSONContent } from "@tiptap/core";
-import { EditorContent, useEditor } from "@tiptap/react";
-import { Check, ChevronLeft, ChevronRight, Lightbulb, X } from "lucide-react";
+import { Check, X } from "lucide-react";
 import { domAnimation, LazyMotion, m, MotionConfig } from "motion/react";
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 
 import { Button } from "#/components/ui/button";
 import { Skeleton } from "#/components/ui/skeleton";
 import { sendComposerPrompt } from "#/features/workspaces/composer/workspace-composer-actions";
-import { FlashcardToolbar } from "#/features/workspaces/components/flashcards/FlashcardToolbar";
+import {
+	StudyProgressStrip,
+	type StudyProgressTone,
+} from "#/features/workspaces/components/study/StudyProgressStrip";
+import { StudyRichText } from "#/features/workspaces/components/study/StudyRichText";
+import {
+	StudyAiActionButton,
+	StudyNavButton,
+	useStudySessionFocus,
+} from "#/features/workspaces/components/study/StudySessionControls";
+import { StudyToolbar } from "#/features/workspaces/components/study/StudyToolbar";
 import { useWorkspaceItemToolbar } from "#/features/workspaces/components/WorkspaceItemToolbarSlot";
-import { getTiptapDocumentBaseExtensions } from "#/features/workspaces/documents/tiptap-extensions";
 import type { TiptapDocumentJson } from "#/features/workspaces/documents/tiptap-document";
 import {
 	flashcardViewerQueryOptions,
@@ -178,9 +185,17 @@ function FlashcardStudySession({
 	}, [resetProgress, startSession]);
 	const toolbar = useMemo(
 		() => (
-			<FlashcardToolbar
+			<StudyToolbar
 				canReset={studyProgress.reviewedCount > 0}
 				isResetting={isResetting}
+				labels={{
+					allLabel: "All cards",
+					mobileLabel: "Flashcard study options",
+					resetAriaLabel: "Reset flashcard progress",
+					resetDescription:
+						"This clears every saved response for this set. The cards themselves will not change.",
+					resetTitle: "Reset flashcard progress?",
+				}}
 				missedCount={studyProgress.missedCount}
 				mode={mode}
 				shuffled={shuffled}
@@ -407,6 +422,7 @@ function FlashcardStudySurface({
 	studyCards: Flashcard[];
 	studyState: FlashcardStudyState;
 }) {
+	const sectionRef = useStudySessionFocus(currentCard.id);
 	const settling = ratingFeedback !== null;
 	const nextCard = ratingFeedback ? studyCards[currentIndex + 1] : undefined;
 	const isLastCardRating = ratingFeedback !== null && !nextCard;
@@ -441,6 +457,7 @@ function FlashcardStudySurface({
 		<LazyMotion features={domAnimation}>
 			<MotionConfig reducedMotion="user">
 				<section
+					ref={sectionRef}
 					className="flex h-full min-h-0 flex-col bg-background px-4 py-5 sm:px-8 sm:py-7"
 					aria-label={`${item.name} study session`}
 					onKeyDown={(event) => {
@@ -565,7 +582,8 @@ function FlashcardStudySurface({
 											label="Front"
 											content={currentCard.front}
 											action={
-												<FlashcardAiAction
+												<StudyAiActionButton
+													className="absolute top-4 right-4 z-10"
 													label="Hint"
 													onSend={() =>
 														sendComposerPrompt(
@@ -582,7 +600,8 @@ function FlashcardStudySurface({
 											label="Back"
 											content={currentCard.back}
 											action={
-												<FlashcardAiAction
+												<StudyAiActionButton
+													className="absolute top-4 right-4 z-10"
 													label="Explain"
 													onSend={() =>
 														sendComposerPrompt(
@@ -599,30 +618,28 @@ function FlashcardStudySurface({
 						</div>
 
 						<div className="space-y-3">
-							<FlashcardStatusStrip
-								cards={studyCards}
+							<StudyProgressStrip
+								ariaLabel={`${gotItCount} got it, ${missedCount} missed, ${studyCards.length - gotItCount - missedCount} not reviewed`}
 								currentIndex={currentIndex}
-								gotItCount={gotItCount}
-								missedCount={missedCount}
 								onSelect={onGoTo}
-								reviewsByCardId={studyState.cards}
+								segments={studyCards.map((card, index) => {
+									const { label, tone } = describeFlashcardRating(
+										studyState.cards[card.id]?.lastRating,
+									);
+									return { id: card.id, label: `Card ${index + 1}: ${label}`, tone };
+								})}
 							/>
 							<div className="grid min-h-10 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
 								<span className="justify-self-start text-xs text-muted-foreground tabular-nums sm:text-sm">
 									{gotItCount + missedCount} reviewed
 								</span>
 								<div className="col-start-2 flex items-center justify-center gap-1 sm:gap-2">
-									<Button
-										variant="ghost"
-										size="icon-lg"
-										aria-label="Previous card"
-										title="Previous card (Left arrow)"
+									<StudyNavButton
+										direction="previous"
+										noun="card"
 										disabled={settling || currentIndex === 0}
-										className="size-11 rounded-xl [&_svg]:size-4.5 sm:size-12 sm:[&_svg]:size-5"
 										onClick={() => onGoTo(currentIndex - 1)}
-									>
-										<ChevronLeft />
-									</Button>
+									/>
 									<Button
 										variant="outline"
 										aria-label="Review again"
@@ -655,17 +672,12 @@ function FlashcardStudySurface({
 									>
 										<Check /> Yes
 									</Button>
-									<Button
-										variant="ghost"
-										size="icon-lg"
-										aria-label="Next card"
-										title="Next card (Right arrow)"
+									<StudyNavButton
+										direction="next"
+										noun="card"
 										disabled={settling || currentIndex === studyCards.length - 1}
-										className="size-11 rounded-xl [&_svg]:size-4.5 sm:size-12 sm:[&_svg]:size-5"
 										onClick={() => onGoTo(currentIndex + 1)}
-									>
-										<ChevronRight />
-									</Button>
+									/>
 								</div>
 								<span className="col-start-3 justify-self-end text-xs text-muted-foreground tabular-nums sm:text-sm">
 									{currentIndex + 1} of {studyCards.length}
@@ -679,66 +691,6 @@ function FlashcardStudySurface({
 	);
 }
 
-function FlashcardStatusStrip({
-	cards,
-	currentIndex,
-	gotItCount,
-	missedCount,
-	onSelect,
-	reviewsByCardId,
-}: {
-	cards: Flashcard[];
-	currentIndex: number;
-	gotItCount: number;
-	missedCount: number;
-	onSelect: (index: number) => void;
-	reviewsByCardId: FlashcardStudyState["cards"];
-}) {
-	const unseenCount = cards.length - gotItCount - missedCount;
-	const gap = cards.length <= 50 ? 3 : cards.length <= 120 ? 2 : cards.length <= 300 ? 1 : 0;
-
-	return (
-		<div
-			role="group"
-			aria-label={`${gotItCount} got it, ${missedCount} missed, ${unseenCount} not reviewed`}
-			className="mx-auto grid h-4 w-full items-center"
-			style={{
-				columnGap: gap,
-				gridTemplateColumns: `repeat(${cards.length}, minmax(0, 1fr))`,
-				maxWidth: `${cards.length * 64}px`,
-			}}
-		>
-			{cards.map((card, index) => {
-				const rating = reviewsByCardId[card.id]?.lastRating;
-				const status = getFlashcardRatingLabel(rating);
-				return (
-					<button
-						key={card.id}
-						type="button"
-						aria-current={index === currentIndex ? "step" : undefined}
-						aria-label={`Card ${index + 1}: ${status}`}
-						tabIndex={index === currentIndex ? 0 : -1}
-						onClick={() => onSelect(index)}
-						className="group flex h-4 min-w-0 cursor-pointer items-center focus-visible:outline-none"
-					>
-						<span
-							aria-hidden="true"
-							className={cn(
-								"h-1.5 w-full min-w-0 rounded-full bg-border transition-[height,background-color,box-shadow,filter] duration-150 group-hover:h-2.5 group-hover:brightness-125",
-								rating === "again" && "bg-red-500/75",
-								rating === "hard" && "bg-amber-500/75",
-								(rating === "good" || rating === "easy") && "bg-emerald-500/75",
-								index === currentIndex &&
-									"h-2.5 ring-1 ring-foreground/70 ring-offset-1 ring-offset-background",
-							)}
-						/>
-					</button>
-				);
-			})}
-		</div>
-	);
-}
-
 function getStudyCards(cardIds: string[], cardsById: ReadonlyMap<string, Flashcard>): Flashcard[] {
 	const cards: Flashcard[] = [];
 	for (const cardId of cardIds) {
@@ -748,18 +700,21 @@ function getStudyCards(cardIds: string[], cardsById: ReadonlyMap<string, Flashca
 	return cards;
 }
 
-function getFlashcardRatingLabel(rating: FlashcardStudyRating | undefined): string {
+function describeFlashcardRating(rating: FlashcardStudyRating | undefined): {
+	label: string;
+	tone: StudyProgressTone;
+} {
 	switch (rating) {
 		case "again":
-			return "Missed";
+			return { label: "Missed", tone: "missed" };
 		case "hard":
-			return "Hard";
+			return { label: "Hard", tone: "hard" };
 		case "good":
-			return "Got it";
+			return { label: "Got it", tone: "correct" };
 		case "easy":
-			return "Easy";
+			return { label: "Easy", tone: "correct" };
 		default:
-			return "Not reviewed";
+			return { label: "Not reviewed", tone: "unseen" };
 	}
 }
 
@@ -779,23 +734,6 @@ function FlashcardFace({
 	const textLength = countFlashcardText(content);
 	const densityClass =
 		textLength > 500 ? "is-very-dense" : textLength > 220 ? "is-dense" : undefined;
-	const editor = useEditor(
-		{
-			content: content as unknown as JSONContent,
-			editable: false,
-			immediatelyRender: false,
-			extensions: getTiptapDocumentBaseExtensions(),
-			editorProps: {
-				attributes: {
-					class: cn(
-						"workspace-document-prose workspace-flashcard-prose outline-none",
-						densityClass,
-					),
-				},
-			},
-		},
-		[content],
-	);
 
 	return (
 		<div
@@ -807,26 +745,12 @@ function FlashcardFace({
 				{label}
 			</span>
 			{action}
-			<EditorContent editor={editor} />
+			<StudyRichText
+				className="w-full"
+				content={content}
+				proseClassName={cn("workspace-flashcard-prose", densityClass)}
+			/>
 		</div>
-	);
-}
-
-function FlashcardAiAction({ label, onSend }: { label: string; onSend: () => void }) {
-	return (
-		<Button
-			variant="ghost"
-			size="sm"
-			className="absolute top-4 right-4 z-10 text-amber-600 hover:bg-amber-500/10 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300"
-			onClick={(event) => {
-				event.stopPropagation();
-				onSend();
-			}}
-			onKeyDown={(event) => event.stopPropagation()}
-		>
-			<Lightbulb />
-			{label}
-		</Button>
 	);
 }
 

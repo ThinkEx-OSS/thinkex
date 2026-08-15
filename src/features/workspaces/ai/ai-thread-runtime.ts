@@ -15,7 +15,6 @@ import type {
 	AIThreadContext,
 	AIThreadPromptScope,
 } from "#/features/workspaces/ai/ai-thread-metadata";
-import type { WorkspaceReferenceRecord } from "#/features/workspaces/locations/workspace-location";
 import {
 	requireAiToolDefinition,
 	type AiToolModelPolicy,
@@ -52,11 +51,11 @@ const AI_THREAD_VIEW_ONLY_WORKSPACE_LINE =
 	"- Workspace access: view-only. Do not create, rename, edit, move, or delete workspace items.";
 const AI_THREAD_WORKSPACE_CITATION_PROMPT = [
 	"# Workspace Citations",
-	"- Workspace reads may include short refs such as `wr_7Kp2Qa9x`.",
-	'- After a quote or important claim supported by a ref, place an empty `<citation ref="wr_7Kp2Qa9x"></citation>` immediately after that text.',
-	"- Copy refs exactly. Never invent, alter, reuse a ref for different material, or cite web/unsupported claims with workspace tags. Omit the tag when no ref was provided.",
+	"- Every workspace read returns the item's durable ref (like `Xk7p2Qa9`), and units inside it — pages, blocks, cards, questions — have unit refs.",
+	'- After a quote or important claim supported by workspace content, place an empty citation immediately after that text: `<citation ref="Xk7p2Qa9"></citation>` for the item, or `<citation ref="Xk7p2Qa9/p5"></citation>` for a unit (join the item ref and the unit with a slash, dropping any `.r_` suffix).',
+	"- Copy refs exactly. Never invent or alter one, and never cite web/unsupported claims with workspace tags. Omit the tag when you did not read the content.",
 	"- Cite selectively: important claims, conclusions, summaries, and direct quotes, not every sentence or common knowledge.",
-	"- When you mention a newly created workspace item and creation returned a ref, cite the item name with that ref.",
+	"- When you mention a newly created workspace item, cite its name with the ref creation returned.",
 	"- Workspace names and paths are not URLs. Never build Markdown links to workspace items from a name, path, or app origin.",
 ].join("\n");
 const WORKSPACE_FS_METHOD_NAMES = [
@@ -83,8 +82,6 @@ export function createAIThreadTools(input: {
 	threadId: string;
 	workspace: WorkspaceLike;
 	getThreadContext: () => Promise<AIThreadContext | null>;
-	onWorkspaceReferences?: (records: readonly WorkspaceReferenceRecord[]) => void;
-	resolveWorkspaceReferences?: (refs: readonly string[]) => Promise<WorkspaceReferenceRecord[]>;
 	timeZone?: string;
 }): ToolSet {
 	return createAIThreadToolCatalog(input).tools;
@@ -98,8 +95,6 @@ export function createAIThreadTurnToolConfig(input: {
 	getThreadContext: () => Promise<AIThreadContext | null>;
 	canMutate: boolean;
 	onOrchestrationRuntime?: Parameters<typeof createAIThreadOrchestrationTool>[0]["onRuntime"];
-	onWorkspaceReferences?: (records: readonly WorkspaceReferenceRecord[]) => void;
-	resolveWorkspaceReferences?: (refs: readonly string[]) => Promise<WorkspaceReferenceRecord[]>;
 	timeZone?: string;
 }) {
 	const toolCatalog = createAIThreadToolCatalog(input);
@@ -135,8 +130,6 @@ function createAIThreadToolCatalog(input: {
 	threadId: string;
 	workspace: WorkspaceLike;
 	getThreadContext: () => Promise<AIThreadContext | null>;
-	onWorkspaceReferences?: (records: readonly WorkspaceReferenceRecord[]) => void;
-	resolveWorkspaceReferences?: (refs: readonly string[]) => Promise<WorkspaceReferenceRecord[]>;
 	timeZone?: string;
 }) {
 	const sandboxTools = createSandboxTools(input.workspace);
@@ -152,8 +145,6 @@ function createAIThreadToolCatalog(input: {
 	const workspaceTools = createAIThreadWorkspaceTools({
 		env: input.env,
 		getThreadContext: input.getThreadContext,
-		onWorkspaceReferences: input.onWorkspaceReferences,
-		resolveWorkspaceReferences: input.resolveWorkspaceReferences,
 	});
 	const entries: AIThreadToolEntry[] = [];
 

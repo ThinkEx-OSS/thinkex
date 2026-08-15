@@ -24,10 +24,6 @@ import {
 	AI_THREAD_COMPACTION_TOKEN_THRESHOLD,
 	createAIThreadCompactFunction,
 } from "#/features/workspaces/ai/ai-compaction";
-import {
-	collectWorkspaceReferenceRecords,
-	reconcileWorkspaceMessageReferences,
-} from "#/features/workspaces/ai/workspace-references";
 import { resolveChatAttachmentModelMessages } from "#/features/workspaces/ai/chat-attachment-model";
 import { classifyAIThreadChatError } from "#/features/workspaces/ai/chat-error-classification";
 import type { AIThreadContext } from "#/features/workspaces/ai/ai-thread-metadata";
@@ -48,7 +44,6 @@ import {
 	type WorkspaceAiChatModelId,
 } from "#/features/workspaces/ai/models";
 import type { UserAIStore } from "#/features/workspaces/ai/user-ai-agents";
-import type { WorkspaceReferenceRecord } from "#/features/workspaces/locations/workspace-location";
 import {
 	checkWorkspaceAiMessageAccess,
 	trackWorkspaceAiMessageUsage,
@@ -103,7 +98,6 @@ export function createAIThreadClass(getUserAIStore: () => typeof UserAIStore) {
 		private shouldRefreshSessionPrompt = false;
 		private activeRunStartedAt: number | undefined;
 		private activeUsageContext: AIThreadUsageContext | undefined;
-		private activeWorkspaceReferences: WorkspaceReferenceRecord[] = [];
 		private readonly telemetry = new AIThreadTelemetryRecorder({
 			env: this.env,
 			schedule: (task) => {
@@ -164,10 +158,6 @@ export function createAIThreadClass(getUserAIStore: () => typeof UserAIStore) {
 				threadId: this.name,
 				workspace: this.workspace,
 				getThreadContext: () => this._getThreadContext(),
-				onWorkspaceReferences: (records) => {
-					this._recordWorkspaceReferences(records);
-				},
-				resolveWorkspaceReferences: (refs) => this._resolveWorkspaceReferences(refs),
 			});
 		}
 
@@ -186,7 +176,6 @@ export function createAIThreadClass(getUserAIStore: () => typeof UserAIStore) {
 			}
 
 			if (!ctx.continuation) {
-				this.activeWorkspaceReferences = [];
 				this.activeRunStartedAt = await directory.recordThreadRunStarted(this.name, {
 					isUserMessage: true,
 				});
@@ -295,9 +284,6 @@ export function createAIThreadClass(getUserAIStore: () => typeof UserAIStore) {
 		override async onChatResponse(result: ChatResponseResult) {
 			this.telemetry.recordTurnFinished(result);
 			this._trackCompletedMessageUsage(result);
-			if (result.status === "completed") {
-				await this._reconcileWorkspaceReferences(result.message);
-			}
 			if (!this._shouldSettleRunAfterResponse(result)) {
 				await this._refreshSessionPromptIfNeeded();
 				return;
@@ -352,10 +338,6 @@ export function createAIThreadClass(getUserAIStore: () => typeof UserAIStore) {
 				onOrchestrationRuntime: (runtime) => {
 					this.codemode = runtime;
 				},
-				onWorkspaceReferences: (records) => {
-					this._recordWorkspaceReferences(records);
-				},
-				resolveWorkspaceReferences: (refs) => this._resolveWorkspaceReferences(refs),
 				timeZone,
 			});
 		}
@@ -420,54 +402,7 @@ export function createAIThreadClass(getUserAIStore: () => typeof UserAIStore) {
 			} finally {
 				this.activeRunStartedAt = undefined;
 				this.activeUsageContext = undefined;
-				this.activeWorkspaceReferences = [];
 				await this._refreshSessionPromptIfNeeded();
-			}
-		}
-
-		private _recordWorkspaceReferences(records: readonly WorkspaceReferenceRecord[]) {
-			this.activeWorkspaceReferences.push(...records);
-		}
-
-		/**
-		 * Looks up the refs a read handed the assistant, so a tool can turn one
-		 * into the location it stands for. Reads from this turn are not in the
-		 * transcript yet, which is exactly when a document usually cites them.
-		 */
-		private async _resolveWorkspaceReferences(refs: readonly string[]) {
-			const wanted = new Set(refs);
-			const records = [
-				...collectWorkspaceReferenceRecords(await this.getMessages()),
-				...this.activeWorkspaceReferences,
-			];
-
-			return records.filter((record) => wanted.has(record.ref));
-		}
-
-		private async _reconcileWorkspaceReferences(message: ChatResponseResult["message"]) {
-			try {
-				const transcriptReferences = collectWorkspaceReferenceRecords(await this.getMessages());
-				const reconciled = reconcileWorkspaceMessageReferences(
-					message,
-					[...transcriptReferences, ...this.activeWorkspaceReferences],
-					this.activeWorkspaceReferences,
-				);
-
-				if (reconciled !== message) {
-					await this.addMessages([reconciled], { mode: "upsert" });
-				}
-			} catch (error) {
-				const thread = this.activeUsageContext?.thread;
-				recordOperationalFailure({
-					distinctId: thread?.userId,
-					error,
-					event: "ai_citation_finalization",
-					fields: {
-						thread_id: this.name,
-						user_id: thread?.userId,
-						workspace_id: thread?.workspaceId,
-					},
-				});
 			}
 		}
 

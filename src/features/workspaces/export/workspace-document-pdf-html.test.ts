@@ -70,4 +70,25 @@ describe("renderWorkspaceDocumentPdfHtml", () => {
 		expect(html).toContain("math-fallback");
 		expect(html).toContain("$\\definitelynotacommand{$");
 	});
+
+	// A PDF cannot draw the diagram, and its source is authoring material the
+	// reader never asked for, so the block leaves nothing behind.
+	it("drops a mermaid diagram rather than printing its source", async () => {
+		const html = await renderWorkspaceDocumentPdfHtml({
+			type: "doc",
+			content: [
+				{
+					type: "codeBlock",
+					attrs: { language: "mermaid" },
+					content: [{ type: "text", text: "flowchart TD; A[Start] --> B[End]" }],
+				},
+				{ type: "paragraph", content: [{ type: "text", text: "Prose survives." }] },
+			],
+		});
+
+		expect(html).toContain("Prose survives.");
+		expect(html).not.toContain("flowchart");
+		expect(html).not.toContain("Mermaid");
+		expect(html).not.toContain("language-mermaid");
+	});
 });

@@ -26,7 +26,7 @@ import {
 } from "#/features/workspaces/documents/document-ai-html";
 import { getTiptapDocumentSchema } from "#/features/workspaces/documents/tiptap-schema";
 import type { WorkspaceContentReadResult } from "#/features/workspaces/content/workspace-content-contract";
-import { createWorkspaceReadReferences } from "#/features/workspaces/content/workspace-read-references";
+import { parseWorkspaceAddress } from "#/features/workspaces/locations/workspace-location";
 
 /** A single tool call the model emitted, graded against the real zod schema. */
 export interface WorkspaceAgentToolCall {
@@ -55,11 +55,11 @@ export interface WorkspaceAgentInput {
 }
 
 const STANDUP_PATH = "/Notes/Standup.md";
+const STANDUP_REF_KEY = "standup1";
 
 type EvalStandupFixture = {
 	blocks: Map<string, string>;
 	content: string;
-	references: ReturnType<typeof createWorkspaceReadReferences>;
 };
 
 let evalStandupFixture: Promise<EvalStandupFixture> | undefined;
@@ -86,16 +86,7 @@ async function createEvalStandupFixture(): Promise<EvalStandupFixture> {
 		content.push(await serializeTiptapNodeToAiHtml(node));
 	}
 
-	const result = {
-		content: content.join(""),
-		format: "html" as const,
-		itemId: "standup-document",
-		location: { endBlock: 2, kind: "blocks" as const, startBlock: 1, totalBlocks: 2 },
-		path: STANDUP_PATH,
-		status: "ready" as const,
-		type: "document" as const,
-	};
-	return { blocks, content: result.content, references: createWorkspaceReadReferences([result]) };
+	return { blocks, content: content.join("") };
 }
 
 // Per-tool stubbed outputs. Reads return the realistic item for the requested
@@ -107,18 +98,15 @@ async function evalToolFixture(toolName: string, input: unknown): Promise<unknow
 		const requests = (input as { requests?: Array<{ ref?: string; mode?: string; path?: string }> })
 			?.requests;
 		const results: WorkspaceContentReadResult[] = (requests ?? []).map((request) => {
-			if (request.path !== STANDUP_PATH) {
-				return { code: "path_not_found", path: request.path ?? "", status: "failed" };
-			}
 			if (request.mode === "ref") {
-				const record = fixture.references.find(({ ref }) => ref === request.ref);
+				const address = request.ref ? parseWorkspaceAddress(request.ref) : undefined;
 				const contentRef =
-					record?.location.kind === "document-block" && record.revision
-						? `${record.location.blockId}.r_${record.revision}`
-						: "";
-				const content = fixture.blocks.get(contentRef);
-				if (!content) {
-					return { code: "ref_not_found", path: STANDUP_PATH, status: "failed" };
+					address?.refKey === STANDUP_REF_KEY && address.unit
+						? [...fixture.blocks.keys()].find((key) => key.startsWith(`${address.unit}.`))
+						: undefined;
+				const content = contentRef ? fixture.blocks.get(contentRef) : undefined;
+				if (!contentRef || !content) {
+					return { code: "ref_not_found", ref: request.ref ?? "", status: "failed" };
 				}
 
 				return {
@@ -127,9 +115,13 @@ async function evalToolFixture(toolName: string, input: unknown): Promise<unknow
 					format: "html",
 					itemId: "standup-document",
 					path: STANDUP_PATH,
+					ref: STANDUP_REF_KEY,
 					status: "ready",
 					type: "block",
 				};
+			}
+			if (request.path !== STANDUP_PATH) {
+				return { code: "path_not_found", path: request.path ?? "", status: "failed" };
 			}
 			if (request.mode !== "start") {
 				return { code: "invalid_selection", path: STANDUP_PATH, status: "failed" };
@@ -141,12 +133,13 @@ async function evalToolFixture(toolName: string, input: unknown): Promise<unknow
 				itemId: "standup-document",
 				location: { endBlock: 2, kind: "blocks", startBlock: 1, totalBlocks: 2 },
 				path: STANDUP_PATH,
+				ref: STANDUP_REF_KEY,
 				status: "ready",
 				type: "document",
 			};
 		});
 
-		return { references: fixture.references, results };
+		return { results };
 	}
 	return { ok: true, note: "eval stub — no real mutation" };
 }

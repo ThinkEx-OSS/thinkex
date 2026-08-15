@@ -6,10 +6,6 @@ import { AiChatMessageResponse } from "#/features/workspaces/components/ai-chat/
 import type { TiptapDocumentJson } from "#/features/workspaces/documents/tiptap-document";
 import { flashcardViewerQueryOptions } from "#/features/workspaces/flashcards/flashcard-queries";
 import { createEmptyFlashcardStudyState } from "#/features/workspaces/flashcards/flashcard-study-state";
-import type {
-	WorkspaceLocation,
-	WorkspaceReference,
-} from "#/features/workspaces/locations/workspace-location";
 import { WorkspaceLocationProvider } from "#/features/workspaces/locations/workspace-location-context";
 import type { WorkspaceItem } from "#/features/workspaces/contracts";
 
@@ -18,9 +14,15 @@ vi.mock("#/features/workspaces/flashcards/flashcard-functions", () => ({
 	recordFlashcardStudyRatingFn: vi.fn(),
 	resetFlashcardStudyProgressFn: vi.fn(),
 }));
+vi.mock("#/features/workspaces/quizzes/quiz-functions", () => ({
+	getQuizViewerFn: vi.fn(),
+	recordQuizAnswerFn: vi.fn(),
+	resetQuizStudyProgressFn: vi.fn(),
+}));
 
 const documentItem: WorkspaceItem = {
 	color: null,
+	refKey: "refdoc01",
 	createdAt: "2026-01-01T00:00:00.000Z",
 	id: "document-1",
 	metadataJson: {},
@@ -35,6 +37,7 @@ const documentItem: WorkspaceItem = {
 const flashcardItem: WorkspaceItem = {
 	...documentItem,
 	id: "flashcard-1",
+	refKey: "refcard1",
 	name: "Biology",
 	type: "flashcard",
 };
@@ -44,7 +47,6 @@ function renderMessage(
 	options: {
 		isStreaming?: boolean;
 		items?: WorkspaceItem[];
-		locations?: ReadonlyMap<WorkspaceReference, WorkspaceLocation>;
 		queryClient?: QueryClient;
 	} = {},
 ) {
@@ -54,38 +56,42 @@ function renderMessage(
 				itemsById={new Map(options.items?.map((item) => [item.id, item]))}
 				navigate={() => "tab-1"}
 			>
-				<AiChatMessageResponse
-					isStreaming={options.isStreaming}
-					workspaceCitationLocations={options.locations}
-				>
-					{children}
-				</AiChatMessageResponse>
+				<AiChatMessageResponse isStreaming={options.isStreaming}>{children}</AiChatMessageResponse>
 			</WorkspaceLocationProvider>
 		</QueryClientProvider>,
 	);
 }
 
 describe("AI chat message response citations", () => {
-	it("renders a validated citation as an app-owned source button", () => {
-		const ref = "wr_AAAAAAAA" as WorkspaceReference;
-		const html = renderMessage(`Claim <citation ref="${ref}"></citation>`, {
-			locations: new Map([
-				[ref, { itemId: "missing-pdf", kind: "pdf-page", pageNumber: 12, version: 1 }],
-			]),
+	it("renders a resolvable page citation as an app-owned source button", () => {
+		const fileItem: WorkspaceItem = {
+			...documentItem,
+			id: "file-1",
+			refKey: "reffile1",
+			name: "Book.pdf",
+			type: "file",
+		};
+		const html = renderMessage(`Claim <citation ref="reffile1/p12"></citation>`, {
+			items: [fileItem],
 		});
 
 		expect(html).toContain("<button");
-		expect(html).toContain("Open Source unavailable · p. 12");
-		expect(html).toContain(">Source unavailable</span>");
 		expect(html).toContain(">· p. 12</span>");
 		expect(html).not.toContain("<citation");
 	});
 
-	it("reuses the workspace item's icon and color", () => {
-		const ref = "wr_BBBBBBBB" as WorkspaceReference;
-		const html = renderMessage(`Claim <citation ref="${ref}"></citation>`, {
+	it("renders nothing for an address no live item answers to", () => {
+		const html = renderMessage(`Claim <citation ref="zzZZzzZZ/p12"></citation>`, {
 			items: [documentItem],
-			locations: new Map([[ref, { itemId: documentItem.id, kind: "item", version: 1 }]]),
+		});
+
+		expect(html).not.toContain("<button");
+		expect(html).not.toContain("<citation");
+	});
+
+	it("reuses the workspace item's icon and color", () => {
+		const html = renderMessage(`Claim <citation ref="refdoc01"></citation>`, {
+			items: [documentItem],
 		});
 
 		expect(html).toContain("<svg");
@@ -94,7 +100,6 @@ describe("AI chat message response citations", () => {
 	});
 
 	it("shows a flashcard's authored position", () => {
-		const ref = "wr_CCCCCCCC" as WorkspaceReference;
 		const cardId = "f67080f9-0158-4565-86a9-4c90ed6809d2";
 		const queryClient = new QueryClient();
 		const query = flashcardViewerQueryOptions({
@@ -110,11 +115,8 @@ describe("AI chat message response citations", () => {
 			],
 			studyState: createEmptyFlashcardStudyState(),
 		});
-		const html = renderMessage(`Claim <citation ref="${ref}"></citation>`, {
+		const html = renderMessage(`Claim <citation ref="refcard1/${cardId}"></citation>`, {
 			items: [flashcardItem],
-			locations: new Map([
-				[ref, { cardId, itemId: flashcardItem.id, kind: "flashcard", version: 1 }],
-			]),
 			queryClient,
 		});
 
@@ -123,17 +125,18 @@ describe("AI chat message response citations", () => {
 	});
 
 	it("does not expose an incomplete streamed citation tag", () => {
-		const html = renderMessage('Claim <citation ref="wr_AAAAAAAA', { isStreaming: true });
+		const html = renderMessage('Claim <citation ref="refdoc01/b_x7Kp2Qa9x8L', {
+			isStreaming: true,
+		});
 
 		expect(html).toContain("Claim");
 		expect(html).not.toContain("citation");
-		expect(html).not.toContain("wr_AAAAAAAA");
+		expect(html).not.toContain("refdoc01");
 	});
 
 	it("renders non-empty citation markup as inert text", () => {
-		const ref = "wr_AAAAAAAA" as WorkspaceReference;
-		const html = renderMessage(`Claim <citation ref="${ref}">not a citation</citation>`, {
-			locations: new Map([[ref, { itemId: "document-1", kind: "item", version: 1 }]]),
+		const html = renderMessage(`Claim <citation ref="refdoc01">not a citation</citation>`, {
+			items: [documentItem],
 		});
 
 		expect(html).toContain("not a citation");

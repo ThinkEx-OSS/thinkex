@@ -27,12 +27,23 @@ import {
 	WorkspaceToolbarIconButton,
 	WorkspaceToolbarTextButton,
 } from "#/features/workspaces/components/WorkspaceToolbar";
-import type { FlashcardStudyMode } from "#/features/workspaces/flashcards/flashcard-study-session";
 import { cn } from "#/lib/utils";
 
-export function FlashcardToolbar({
+export type StudyMode = "all" | "missed";
+
+/** The per-type copy on an otherwise identical study toolbar. */
+export interface StudyToolbarLabels {
+	allLabel: string;
+	mobileLabel: string;
+	resetAriaLabel: string;
+	resetDescription: string;
+	resetTitle: string;
+}
+
+export function StudyToolbar({
 	canReset,
 	isResetting,
+	labels,
 	missedCount,
 	mode,
 	shuffled,
@@ -42,10 +53,11 @@ export function FlashcardToolbar({
 }: {
 	canReset: boolean;
 	isResetting: boolean;
+	labels: StudyToolbarLabels;
 	missedCount: number;
-	mode: FlashcardStudyMode;
+	mode: StudyMode;
 	shuffled: boolean;
-	onModeChange: (mode: FlashcardStudyMode) => void;
+	onModeChange: (mode: StudyMode) => void;
 	onReset: () => void;
 	onShuffleToggle: () => void;
 }) {
@@ -53,22 +65,50 @@ export function FlashcardToolbar({
 	return (
 		<>
 			<WorkspaceResponsiveToolbar
-				mobileLabel="Flashcard study options"
+				mobileLabel={labels.mobileLabel}
 				scrollable
 				mobileContent={
-					<FlashcardActionsMenuContent
-						canReset={canReset}
-						isResetting={isResetting}
-						missedCount={missedCount}
-						mode={mode}
-						shuffled={shuffled}
-						onModeChange={onModeChange}
-						onReset={() => setIsConfirmingReset(true)}
-						onShuffleToggle={onShuffleToggle}
-					/>
+					<>
+						<StudyModeItems
+							allLabel={labels.allLabel}
+							missedCount={missedCount}
+							mode={mode}
+							onModeChange={onModeChange}
+						/>
+						<DropdownMenuSeparator />
+						<DropdownMenuGroup>
+							<DropdownMenuItem onClick={onShuffleToggle}>
+								<Shuffle />
+								Shuffle
+								{shuffled ? (
+									<span className="ml-auto text-xs text-muted-foreground">On</span>
+								) : null}
+							</DropdownMenuItem>
+							<DropdownMenuItem
+								disabled={!canReset || isResetting}
+								onClick={() => setIsConfirmingReset(true)}
+							>
+								{isResetting ? <LoaderCircle className="animate-spin" /> : <RotateCcw />}
+								Reset progress…
+							</DropdownMenuItem>
+						</DropdownMenuGroup>
+					</>
 				}
 			>
-				<FlashcardModeMenu missedCount={missedCount} mode={mode} onModeChange={onModeChange} />
+				<DropdownMenu>
+					<DropdownMenuTrigger render={<WorkspaceToolbarTextButton />}>
+						{mode === "all" ? <List /> : <XCircle />}
+						{mode === "all" ? labels.allLabel : "Missed"}
+					</DropdownMenuTrigger>
+					<DropdownMenuContent className="w-48" align="end">
+						<StudyModeItems
+							allLabel={labels.allLabel}
+							missedCount={missedCount}
+							mode={mode}
+							onModeChange={onModeChange}
+						/>
+					</DropdownMenuContent>
+				</DropdownMenu>
 				<WorkspaceToolbarTextButton
 					aria-pressed={shuffled}
 					className={cn(shuffled && "bg-accent text-foreground")}
@@ -78,7 +118,7 @@ export function FlashcardToolbar({
 					Shuffle
 				</WorkspaceToolbarTextButton>
 				<WorkspaceToolbarIconButton
-					aria-label="Reset flashcard progress"
+					aria-label={labels.resetAriaLabel}
 					title="Reset progress"
 					disabled={!canReset || isResetting}
 					onClick={() => setIsConfirmingReset(true)}
@@ -89,10 +129,8 @@ export function FlashcardToolbar({
 			<AlertDialog open={isConfirmingReset} onOpenChange={setIsConfirmingReset}>
 				<AlertDialogContent>
 					<AlertDialogHeader>
-						<AlertDialogTitle>Reset flashcard progress?</AlertDialogTitle>
-						<AlertDialogDescription>
-							This clears every saved response for this set. The cards themselves will not change.
-						</AlertDialogDescription>
+						<AlertDialogTitle>{labels.resetTitle}</AlertDialogTitle>
+						<AlertDialogDescription>{labels.resetDescription}</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
 						<AlertDialogCancel disabled={isResetting}>Keep progress</AlertDialogCancel>
@@ -113,74 +151,16 @@ export function FlashcardToolbar({
 	);
 }
 
-function FlashcardModeMenu({
+function StudyModeItems({
+	allLabel,
 	missedCount,
 	mode,
 	onModeChange,
 }: {
+	allLabel: string;
 	missedCount: number;
-	mode: FlashcardStudyMode;
-	onModeChange: (mode: FlashcardStudyMode) => void;
-}) {
-	return (
-		<DropdownMenu>
-			<DropdownMenuTrigger render={<WorkspaceToolbarTextButton />}>
-				{mode === "all" ? <List /> : <XCircle />}
-				{mode === "all" ? "All cards" : "Missed"}
-			</DropdownMenuTrigger>
-			<DropdownMenuContent className="w-48" align="end">
-				<FlashcardModeItems missedCount={missedCount} mode={mode} onModeChange={onModeChange} />
-			</DropdownMenuContent>
-		</DropdownMenu>
-	);
-}
-
-function FlashcardActionsMenuContent({
-	canReset,
-	isResetting,
-	missedCount,
-	mode,
-	shuffled,
-	onModeChange,
-	onReset,
-	onShuffleToggle,
-}: {
-	canReset: boolean;
-	isResetting: boolean;
-	missedCount: number;
-	mode: FlashcardStudyMode;
-	shuffled: boolean;
-	onModeChange: (mode: FlashcardStudyMode) => void;
-	onReset: () => void;
-	onShuffleToggle: () => void;
-}) {
-	return (
-		<>
-			<FlashcardModeItems missedCount={missedCount} mode={mode} onModeChange={onModeChange} />
-			<DropdownMenuSeparator />
-			<DropdownMenuGroup>
-				<DropdownMenuItem onClick={onShuffleToggle}>
-					<Shuffle />
-					Shuffle
-					{shuffled ? <span className="ml-auto text-xs text-muted-foreground">On</span> : null}
-				</DropdownMenuItem>
-				<DropdownMenuItem disabled={!canReset || isResetting} onClick={onReset}>
-					{isResetting ? <LoaderCircle className="animate-spin" /> : <RotateCcw />}
-					Reset progress…
-				</DropdownMenuItem>
-			</DropdownMenuGroup>
-		</>
-	);
-}
-
-function FlashcardModeItems({
-	missedCount,
-	mode,
-	onModeChange,
-}: {
-	missedCount: number;
-	mode: FlashcardStudyMode;
-	onModeChange: (mode: FlashcardStudyMode) => void;
+	mode: StudyMode;
+	onModeChange: (mode: StudyMode) => void;
 }) {
 	return (
 		<DropdownMenuGroup>
@@ -192,7 +172,7 @@ function FlashcardModeItems({
 			>
 				<DropdownMenuRadioItem value="all">
 					<List />
-					All cards
+					{allLabel}
 				</DropdownMenuRadioItem>
 				<DropdownMenuRadioItem value="missed" disabled={missedCount === 0}>
 					<XCircle />

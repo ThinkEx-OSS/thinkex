@@ -5,6 +5,7 @@ import { parseHTML } from "linkedom";
 import {
 	getCodeLanguageLabel,
 	highlightCodeTokens,
+	isMermaidCodeLanguage,
 } from "#/features/workspaces/documents/code-block-shiki/highlighter";
 import type { TiptapDocumentJson } from "#/features/workspaces/documents/tiptap-document";
 import { getTiptapDocumentSchema } from "#/features/workspaces/documents/tiptap-schema";
@@ -102,10 +103,28 @@ export async function renderWorkspaceDocumentPdfHtml(document: TiptapDocumentJso
 	return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>${pdfDocumentStyles}</style></head><body>${article.outerHTML}</body></html>`;
 }
 
+/**
+ * What a printed page cannot carry. A citation has nothing to link to; a
+ * widget is markup that has to run; a mermaid block is an instruction for
+ * drawing rather than the drawing. Falling back to source for the last two
+ * would put authoring material in front of a reader who asked for a document,
+ * so all three leave nothing behind.
+ */
 function removeUnexportedNodes(article: Element) {
 	for (const node of article.querySelectorAll('citation, [data-type="widget"]')) {
 		node.remove();
 	}
+	for (const code of article.querySelectorAll("pre > code")) {
+		if (isMermaidCodeLanguage(readCodeBlockLanguage(code))) {
+			code.parentElement?.remove();
+		}
+	}
+}
+
+/** The language a code block declares, exactly as it was written. */
+function readCodeBlockLanguage(element: Element) {
+	const languageClass = Array.from(element.classList).find((name) => name.startsWith("language-"));
+	return languageClass?.slice("language-".length) || null;
 }
 
 function renderMath(article: Element) {
@@ -133,11 +152,8 @@ async function renderCodeBlocks(htmlDocument: Document, article: Element) {
 	const codeBlocks = Array.from(article.querySelectorAll("pre > code"));
 	const rendered = await Promise.all(
 		codeBlocks.map(async (element) => {
-			const languageClass = Array.from(element.classList).find((name) =>
-				name.startsWith("language-"),
-			);
 			const code = element.textContent ?? "";
-			const language = languageClass?.slice("language-".length) || null;
+			const language = readCodeBlockLanguage(element);
 			return {
 				code,
 				element,

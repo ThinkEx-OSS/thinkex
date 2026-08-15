@@ -103,7 +103,7 @@ describe("document AI edits", () => {
 
 		expect(rewritten.document.content?.at(-1)).toMatchObject({ type: "paragraph" });
 		expect(await serializeTiptapDocumentToAiHtml(rewritten.document)).toMatch(
-			/<\/ul><p data-ref="b_[A-Za-z0-9_-]{12}\.r_[A-Za-z0-9_-]{10}"><\/p>$/,
+			/<\/ul><p data-ref="b_[A-Za-z0-9_-]{12}\.r_[A-Za-z0-9_-]{6}"><\/p>$/,
 		);
 	});
 

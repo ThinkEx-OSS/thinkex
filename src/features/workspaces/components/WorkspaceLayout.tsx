@@ -4,7 +4,10 @@ import { workspacePageQueryKey } from "#/features/workspaces/cache-keys";
 import { applyWorkspacePageDeltaToCache } from "#/features/workspaces/cache-page";
 import AiChatPanel from "#/features/workspaces/components/AiChatPanel";
 import WorkspaceChatLayout from "#/features/workspaces/components/WorkspaceChatLayout";
-import { CreateFlashcardsDialog } from "#/features/workspaces/components/flashcards/CreateFlashcardsDialog";
+import {
+	CreateStudyItemDialog,
+	type StudyItemDialogType,
+} from "#/features/workspaces/components/study/CreateStudyItemDialog";
 import WorkspaceContextBar from "#/features/workspaces/components/WorkspaceContextBar";
 import { hasActiveWorkspaceCapture } from "#/features/workspaces/components/WorkspaceCaptureChrome";
 import WorkspaceDragProvider from "#/features/workspaces/components/WorkspaceDragProvider";
@@ -70,7 +73,10 @@ export function WorkspaceShell({
 	const queryClient = useQueryClient();
 	const createWorkspaceItemMutation = useCreateWorkspaceItemMutation();
 	const moveWorkspaceItemsMutation = useMoveWorkspaceItemsMutation();
-	const [flashcardParentId, setFlashcardParentId] = useState<string | null | undefined>();
+	const [studyDraft, setStudyDraft] = useState<{
+		type: StudyItemDialogType;
+		parentId: string | null;
+	}>();
 	const persistedStoresHydrated = useWorkspacePersistedStoresHydrated();
 	const ensureWorkspaceUiSession = useWorkspaceUiStore((state) => state.ensureWorkspaceSession);
 	const itemViewStatesByViewInstanceId = useWorkspaceItemViewStatesByViewInstance(workspace.id);
@@ -135,8 +141,8 @@ export function WorkspaceShell({
 			return;
 		}
 
-		if (input.type === "flashcard") {
-			setFlashcardParentId(input.parentId);
+		if (input.type === "flashcard" || input.type === "quiz") {
+			setStudyDraft({ type: input.type, parentId: input.parentId });
 			return;
 		}
 		createWorkspaceItemMutation.mutate({
@@ -297,11 +303,10 @@ export function WorkspaceShell({
 			</WorkspaceFileIntakeProvider>
 		</WorkspaceFileUploadProvider>
 	);
-	const flashcardParent = flashcardParentId ? itemsById.get(flashcardParentId) : undefined;
-	const flashcardDialogOpen = flashcardParentId === null || flashcardParent !== undefined;
-	const flashcardParentPath = flashcardParent
-		? getWorkspaceItemPath(flashcardParent, itemsById)
-		: "/";
+	const studyParent = studyDraft?.parentId ? itemsById.get(studyDraft.parentId) : undefined;
+	const studyDialogOpen =
+		studyDraft !== undefined && (studyDraft.parentId === null || studyParent !== undefined);
+	const studyParentPath = studyParent ? getWorkspaceItemPath(studyParent, itemsById) : "/";
 
 	return (
 		<WorkspaceMutationAccessProvider membershipRole={workspace.membershipRole}>
@@ -310,12 +315,13 @@ export function WorkspaceShell({
 					<WorkspacePdfEngineProvider active={hasHeavyViewerRuntimeItems}>
 						{workspaceInteractionContent}
 					</WorkspacePdfEngineProvider>
-					<CreateFlashcardsDialog
-						open={flashcardDialogOpen}
-						parentPath={flashcardParentPath}
+					<CreateStudyItemDialog
+						type={studyDraft?.type ?? "flashcard"}
+						open={studyDialogOpen}
+						parentPath={studyParentPath}
 						workspaceId={workspace.id}
 						onOpenChange={(open) => {
-							if (!open) setFlashcardParentId(undefined);
+							if (!open) setStudyDraft(undefined);
 						}}
 					/>
 				</DocumentEditReviewProvider>

@@ -144,7 +144,7 @@ export const workspaceToolDefinitions = [
 		name: "workspace_read_items",
 		access: "read",
 		description:
-			"Read ThinkEx documents, flashcard sets, and extracted files by absolute path. Document chunks and flashcards include short, freshness-checked refs. Flashcard reads also return HTML fronts and backs plus the current user's study progress; again means missed, while hard, good, and easy mean got it. Use mode cards with a card-number range for targeted flashcard reads. Continue long documents, flashcard sets, or files with nextCursor. Use mode ref to read the exact content identified by an earlier ref; this returns elided widget source in full before editing. Files also support physical-page selections.",
+			"Read ThinkEx documents, flashcard sets, quizzes, and extracted files. Every item is an ordered list of units — document blocks, cards, questions, or physical pages — and every result names the numbered units it covered plus the total, so continue by requesting the next range: mode entries for blocks, cards, or questions; mode pages for file pages. mode start returns the first chunk. Each result carries the item's durable ref, and blocks, cards, and questions carry unit refs with a current .r_ revision — copy them exactly into edits, and cite as ref or ref/unit. Use mode ref with an address to read one unit in full; that is how elided widget source is fetched before editing. Flashcard reads include the current user's study progress (again means missed; hard, good, and easy mean got it). Quiz reads return options in user-visible order with the correct one marked, plus the user's answers and score.",
 		inputSchema: workspaceReadItemsInputSchema,
 		inputExamples: workspaceReadItemsInputExamples,
 		outputSchema: workspaceReadItemsOutputSchema,
@@ -192,7 +192,7 @@ export const workspaceToolDefinitions = [
 		name: "workspace_create_items",
 		access: "write",
 		description:
-			"Create folders, documents, or flashcard sets at exact absolute paths. A slash separates folders, so use another character inside an item name. Set type and provide that branch's fields. If a path already exists, creation fails instead of renaming. After creating items from sources, record those sources with workspace_link_items.",
+			"Create folders, documents, flashcard sets, or quizzes at exact absolute paths. A slash separates folders, so use another character inside an item name. Set type and provide that branch's fields. If a path already exists, creation fails instead of renaming. After creating items from sources, record those sources with workspace_link_items.",
 		inputSchema: workspaceCreateItemsInputSchema,
 		inputExamples: workspaceCreateItemsInputExamples,
 		outputSchema: workspaceCreateItemsOutputSchema,
@@ -223,7 +223,7 @@ export const workspaceToolDefinitions = [
 		name: "workspace_edit_item",
 		access: "write",
 		description:
-			"Edit one document or flashcard set by absolute path. Read it first, then copy the exact refs it returned. The same refs also work for citations and navigation. Flashcard edits apply immediately; document edits retain their review flow. Use workspace_link_items for item-level relationships.",
+			"Edit one document, flashcard set, or quiz by absolute path. Read it first, then copy each target's exact unit ref (like b_x7Kp2Qa9x8Lm.r_4f2a1b) from that read; the .r_ revision is how a stale edit fails loudly instead of hitting the wrong content. Flashcard and quiz edits apply immediately; document edits retain their review flow. Use workspace_link_items for item-level relationships.",
 		inputSchema: workspaceEditItemInputSchema,
 		inputExamples: workspaceEditItemInputExamples,
 		outputSchema: workspaceEditItemOutputSchema,

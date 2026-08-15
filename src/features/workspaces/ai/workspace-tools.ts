@@ -7,23 +7,16 @@ import {
 	isPendingPdfFallbackInput,
 } from "#/features/workspaces/ai/workspace-read-file-fallback";
 import { getWorkspaceToolResultAdapter } from "#/features/workspaces/ai/workspace-tool-result-adapters";
-import type { WorkspaceReferenceRecord } from "#/features/workspaces/locations/workspace-location";
 import {
 	workspaceToolDefinitions,
 	getWorkspaceToolScopes,
 } from "#/features/workspaces/operations/workspace-tool-definitions";
-import {
-	createWorkspaceAccessContext,
-	type WorkspaceAccessContext,
-	type WorkspaceAccessScope,
-} from "#/features/workspaces/operations/workspace-access-context";
+import { createWorkspaceAccessContext } from "#/features/workspaces/operations/workspace-access-context";
 
 type WorkspaceThreadToolConfig = {
 	definition: (typeof workspaceToolDefinitions)[number];
 	env: Cloudflare.Env;
 	getThreadContext: () => Promise<AIThreadContext | null>;
-	onWorkspaceReferences?: (records: readonly WorkspaceReferenceRecord[]) => void;
-	resolveWorkspaceReferences?: (refs: readonly string[]) => Promise<WorkspaceReferenceRecord[]>;
 };
 
 function createWorkspaceThreadTool(input: WorkspaceThreadToolConfig) {
@@ -65,18 +58,14 @@ function createWorkspaceThreadTool(input: WorkspaceThreadToolConfig) {
 
 			const output = await definition.executeUnknown(
 				args,
-				createThreadWorkspaceAccessContext(
-					thread,
-					getWorkspaceToolScopes(definition.access),
-					context.invocationId,
-					input.resolveWorkspaceReferences,
-				),
+				createWorkspaceAccessContext({
+					operationId: context.invocationId,
+					scopes: getWorkspaceToolScopes(definition.access),
+					userId: thread.userId,
+					workspaceId: thread.workspaceId,
+				}),
 			);
 
-			const references = resultAdapter?.collectReferences(output) ?? [];
-			if (references.length > 0 && input.onWorkspaceReferences) {
-				input.onWorkspaceReferences(references);
-			}
 			if (freshWorkspaceIds && isPendingPdfFallbackInput(args)) {
 				freshWorkspaceIds.set(context.invocationId, thread.workspaceId);
 			}
@@ -89,8 +78,6 @@ function createWorkspaceThreadTool(input: WorkspaceThreadToolConfig) {
 export function createAIThreadWorkspaceTools(input: {
 	env: Cloudflare.Env;
 	getThreadContext: () => Promise<AIThreadContext | null>;
-	onWorkspaceReferences?: (records: readonly WorkspaceReferenceRecord[]) => void;
-	resolveWorkspaceReferences?: (refs: readonly string[]) => Promise<WorkspaceReferenceRecord[]>;
 }): ToolSet {
 	return Object.fromEntries(
 		workspaceToolDefinitions.map((definition) => [
@@ -99,8 +86,6 @@ export function createAIThreadWorkspaceTools(input: {
 				definition,
 				env: input.env,
 				getThreadContext: input.getThreadContext,
-				onWorkspaceReferences: input.onWorkspaceReferences,
-				resolveWorkspaceReferences: input.resolveWorkspaceReferences,
 			}),
 		]),
 	) as ToolSet;
@@ -114,19 +99,4 @@ async function requireThreadContext(getThreadContext: () => Promise<AIThreadCont
 	}
 
 	return thread;
-}
-
-function createThreadWorkspaceAccessContext(
-	thread: AIThreadContext,
-	scopes: readonly WorkspaceAccessScope[],
-	operationId: string,
-	resolveWorkspaceReferences?: (refs: readonly string[]) => Promise<WorkspaceReferenceRecord[]>,
-): WorkspaceAccessContext {
-	return createWorkspaceAccessContext({
-		operationId,
-		...(resolveWorkspaceReferences ? { resolveWorkspaceReferences } : {}),
-		scopes,
-		userId: thread.userId,
-		workspaceId: thread.workspaceId,
-	});
 }
