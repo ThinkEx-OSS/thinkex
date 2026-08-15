@@ -29,55 +29,53 @@ const allowedNodeTypes = new Set([
 
 const allowedMarkTypes = new Set(["bold", "italic", "strike", "code", "link", "underline"]);
 
-interface EntryRichTextMessages {
-	/** e.g. "Flashcards do not support heading content yet." */
-	unsupportedNode: (nodeType: string) => string;
-	unsupportedMark: string;
-	invalidStored: string;
+/**
+ * Parses one HTML fragment the model authored for an entry. `itemLabel` names
+ * the item type in errors — "Flashcard", "Quiz".
+ *
+ * The allowlist is not cosmetic: study viewers render with the full document
+ * schema, so an unchecked widget or table really would embed itself inside a
+ * card face or an answer row. Rejecting costs the model one retry, which is
+ * cheaper than the alternatives — silently dropping the node loses content the
+ * model believed it wrote, and coercing it needs a rule per node type.
+ */
+export function parseEntryRichTextHtml(html: string, itemLabel: string): TiptapDocumentJson {
+	const document = parseDocumentAiHtml(html);
+	visitRichTextValue(document, itemLabel);
+	return document;
 }
 
 /**
- * One parser per item type so validation failures name the item the model
- * (or a stored blob) actually violated.
+ * Reads back content this module wrote earlier. Structure still has to hold,
+ * but the allowlist is deliberately not re-applied: it guards what the model
+ * may author, and re-running it on storage would let one odd entry — written
+ * by an older build, or by a later one that allows more — make the whole item
+ * unopenable.
  */
-export function createEntryRichTextParser(messages: EntryRichTextMessages) {
-	function assertEntryRichText(value: unknown) {
-		visitRichTextValue(value, messages);
+export function parseStoredEntryRichText(value: unknown, itemLabel: string): TiptapDocumentJson {
+	const projection = coerceTiptapDocumentProjection(value);
+	if (projection.warnings.length > 0) {
+		throw new Error(`${itemLabel} content contains invalid rich text.`);
 	}
-
-	return {
-		parseEntryRichTextHtml(html: string): TiptapDocumentJson {
-			const document = parseDocumentAiHtml(html);
-			assertEntryRichText(document);
-			return document;
-		},
-		parseStoredEntryRichText(value: unknown): TiptapDocumentJson {
-			const projection = coerceTiptapDocumentProjection(value);
-			if (projection.warnings.length > 0) {
-				throw new Error(messages.invalidStored);
-			}
-			assertEntryRichText(projection.document);
-			return projection.document;
-		},
-	};
+	return projection.document;
 }
 
-function visitRichTextValue(value: unknown, messages: EntryRichTextMessages) {
+function visitRichTextValue(value: unknown, itemLabel: string) {
 	if (Array.isArray(value)) {
-		for (const entry of value) visitRichTextValue(entry, messages);
+		for (const entry of value) visitRichTextValue(entry, itemLabel);
 		return;
 	}
 	if (!isRecord(value)) return;
 
 	if (typeof value.type === "string" && !allowedNodeTypes.has(value.type)) {
-		throw new Error(messages.unsupportedNode(value.type));
+		throw new Error(`${itemLabel} content cannot contain ${value.type} nodes.`);
 	}
 	if (Array.isArray(value.marks)) {
 		for (const mark of value.marks) {
 			if (!isRecord(mark) || typeof mark.type !== "string" || !allowedMarkTypes.has(mark.type)) {
-				throw new Error(messages.unsupportedMark);
+				throw new Error(`${itemLabel} content contains an unsupported text mark.`);
 			}
 		}
 	}
-	if ("content" in value) visitRichTextValue(value.content, messages);
+	if ("content" in value) visitRichTextValue(value.content, itemLabel);
 }

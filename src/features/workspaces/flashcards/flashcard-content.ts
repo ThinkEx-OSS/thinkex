@@ -1,4 +1,7 @@
-import { createEntryRichTextParser } from "#/features/workspaces/content/entry-rich-text";
+import {
+	parseEntryRichTextHtml,
+	parseStoredEntryRichText,
+} from "#/features/workspaces/content/entry-rich-text";
 import { serializeTiptapDocumentToHtml } from "#/features/workspaces/documents/document-ai-html";
 import type { TiptapDocumentJson } from "#/features/workspaces/documents/tiptap-document";
 import {
@@ -28,12 +31,6 @@ interface FlashcardHtmlCard {
 	back: string;
 }
 
-const flashcardRichText = createEntryRichTextParser({
-	invalidStored: "Flashcard content contains invalid rich text.",
-	unsupportedMark: "Flashcard content contains an unsupported text mark.",
-	unsupportedNode: (nodeType) => `Flashcards do not support ${nodeType} content yet.`,
-});
-
 export function createFlashcardSetFromHtml(cards: Array<{ front: string; back: string }>) {
 	if (cards.length === 0) throw new Error("A flashcard set needs at least one card.");
 	return {
@@ -47,7 +44,7 @@ export function createFlashcardSetFromHtml(cards: Array<{ front: string; back: s
 }
 
 export function parseFlashcardSideHtml(html: string) {
-	return flashcardRichText.parseEntryRichTextHtml(html);
+	return parseEntryRichTextHtml(html, "Flashcard");
 }
 
 export function parseFlashcardSetContent(content: string | null): FlashcardSetContent {
@@ -77,8 +74,8 @@ export function parseFlashcardSetContent(content: string | null): FlashcardSetCo
 		}
 		seenIds.add(cardId.data);
 
-		const front = flashcardRichText.parseStoredEntryRichText(card.front);
-		const back = flashcardRichText.parseStoredEntryRichText(card.back);
+		const front = parseStoredEntryRichText(card.front, "Flashcard");
+		const back = parseStoredEntryRichText(card.back, "Flashcard");
 		return { id: cardId.data, front, back };
 	});
 

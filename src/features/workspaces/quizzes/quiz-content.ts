@@ -1,4 +1,7 @@
-import { createEntryRichTextParser } from "#/features/workspaces/content/entry-rich-text";
+import {
+	parseEntryRichTextHtml,
+	parseStoredEntryRichText,
+} from "#/features/workspaces/content/entry-rich-text";
 import { serializeTiptapDocumentToHtml } from "#/features/workspaces/documents/document-ai-html";
 import type { TiptapDocumentJson } from "#/features/workspaces/documents/tiptap-document";
 import {
@@ -52,14 +55,8 @@ export interface QuizQuestionInput {
 	explanation: string;
 }
 
-const quizRichText = createEntryRichTextParser({
-	invalidStored: "Quiz content contains invalid rich text.",
-	unsupportedMark: "Quiz content contains an unsupported text mark.",
-	unsupportedNode: (nodeType) => `Quizzes do not support ${nodeType} content yet.`,
-});
-
 export function parseQuizRichTextHtml(html: string) {
-	return quizRichText.parseEntryRichTextHtml(html);
+	return parseEntryRichTextHtml(html, "Quiz");
 }
 
 export function createQuizSetFromInputs(questions: QuizQuestionInput[]) {
@@ -87,13 +84,13 @@ export function materializeQuizQuestion(input: QuizQuestionInput): QuizQuestion 
 
 	const correct = {
 		id: crypto.randomUUID(),
-		text: quizRichText.parseEntryRichTextHtml(input.correctAnswer),
+		text: parseEntryRichTextHtml(input.correctAnswer, "Quiz"),
 	};
 	const options = [
 		correct,
 		...input.distractors.map((distractor) => ({
 			id: crypto.randomUUID(),
-			text: quizRichText.parseEntryRichTextHtml(distractor),
+			text: parseEntryRichTextHtml(distractor, "Quiz"),
 		})),
 	];
 	assertDistinctOptions(options);
@@ -102,10 +99,10 @@ export function materializeQuizQuestion(input: QuizQuestionInput): QuizQuestion 
 	return {
 		id: createWorkspaceEntryId("q"),
 		kind: "multiple_choice",
-		question: quizRichText.parseEntryRichTextHtml(input.question),
+		question: parseEntryRichTextHtml(input.question, "Quiz"),
 		options,
 		correctOptionId: correct.id,
-		explanation: quizRichText.parseEntryRichTextHtml(input.explanation),
+		explanation: parseEntryRichTextHtml(input.explanation, "Quiz"),
 	};
 }
 
@@ -153,7 +150,7 @@ export function parseQuizSetContent(content: string | null): QuizSetContent {
 				throw new Error("Quiz content contains an invalid option ID.");
 			}
 			seenOptionIds.add(optionId.data);
-			return { id: optionId.data, text: quizRichText.parseStoredEntryRichText(option.text) };
+			return { id: optionId.data, text: parseStoredEntryRichText(option.text, "Quiz") };
 		});
 		if (
 			typeof question.correctOptionId !== "string" ||
@@ -165,10 +162,10 @@ export function parseQuizSetContent(content: string | null): QuizSetContent {
 		return {
 			id: questionId.data,
 			kind: "multiple_choice" as const,
-			question: quizRichText.parseStoredEntryRichText(question.question),
+			question: parseStoredEntryRichText(question.question, "Quiz"),
 			options,
 			correctOptionId: question.correctOptionId,
-			explanation: quizRichText.parseStoredEntryRichText(question.explanation),
+			explanation: parseStoredEntryRichText(question.explanation, "Quiz"),
 		};
 	});
 

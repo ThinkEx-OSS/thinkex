@@ -49,7 +49,7 @@ describe("materializeQuizQuestion", () => {
 	it("rejects content outside the entry rich-text dialect", () => {
 		expect(() =>
 			materializeQuizQuestion({ ...atpQuestion, question: "<h1>Heading stem</h1>" }),
-		).toThrow("Quizzes do not support heading content yet.");
+		).toThrow("Quiz content cannot contain heading nodes.");
 	});
 });
 
