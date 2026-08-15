@@ -21,7 +21,7 @@ import {
 	type AiChatToolReceiptSegment,
 } from "#/features/workspaces/components/ai-chat/ai-chat-tool-receipts";
 
-export type AssistantPendingKind = "thinking" | "working" | "recovering";
+export type AssistantPendingKind = "thinking" | "recovering";
 
 /**
  * Every `orchestrate` call in a message collapses into one row: the header
@@ -42,7 +42,11 @@ export function isAiChatToolGroupPart(part: AiChatRenderablePart): part is AiCha
 }
 
 export type AssistantRowDisplay =
-	| { interruptUnfinishedTools: boolean; kind: "content"; parts: AiChatRenderablePart[] }
+	| {
+			interruptUnfinishedTools: boolean;
+			kind: "content";
+			parts: AiChatRenderablePart[];
+	  }
 	| { kind: "empty-terminal"; canRegenerate: boolean }
 	| { kind: "hidden" };
 
@@ -91,17 +95,17 @@ export function deriveAiChatPresentation(
 	const assistantTailIsEmpty =
 		lastMessage?.role === "assistant" && getDisplayableParts(lastMessage).length === 0;
 	const hasVisibleAssistantTail = hasAssistantTail && !assistantTailIsEmpty;
-	const tailPending = isRecovering
-		? hasVisibleAssistantTail
-			? "working"
-			: "recovering"
-		: awaitingFirstToken
-			? "thinking"
-			: !isBusy
-				? null
-				: !hasVisibleAssistantTail
-					? "thinking"
-					: "working";
+	// Once the reply is actually rendering, the status row goes away — the text
+	// arriving is its own progress indicator. Keeping a row up for the length of
+	// the reply also means removing it at the end, and that shrink shifts the
+	// transcript no matter how promptly the tail spacer compensates.
+	const tailPending = hasVisibleAssistantTail
+		? null
+		: isRecovering
+			? "recovering"
+			: isBusy || awaitingFirstToken
+				? "thinking"
+				: null;
 
 	return {
 		isBusy,

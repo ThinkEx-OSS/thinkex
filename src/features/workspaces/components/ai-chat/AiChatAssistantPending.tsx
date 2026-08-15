@@ -34,10 +34,6 @@ function AiChatAssistantPendingBody({ pending }: { pending: AssistantPendingKind
 		);
 	}
 
-	if (pending === "working") {
-		return <AiChatWorkingLoader />;
-	}
-
 	return <AiChatThinkingLoader />;
 }
 
@@ -52,23 +48,11 @@ function AiChatThinkingLoader() {
 	);
 }
 
-function AiChatWorkingLoader() {
-	return (
-		<Marker role="status" aria-label="Still working" aria-live="polite" className="gap-0 py-1.5">
-			<MarkerIcon className="size-[18px]">
-				<ThinkExThinkingMark />
-			</MarkerIcon>
-		</Marker>
-	);
-}
-
-export function ThinkExThinkingMark({ className }: { className?: string }) {
+function ThinkExThinkingMark() {
 	return (
 		<svg
 			viewBox="0 0 512 512"
-			className={
-				className ?? "thinkex-thinking-mark size-[18px] shrink-0 self-center text-foreground"
-			}
+			className="thinkex-thinking-mark size-[18px] shrink-0 self-center text-foreground"
 			aria-hidden="true"
 		>
 			<ThinkExThinkingBlock name="top-left">
