@@ -9,7 +9,7 @@ import { recordWorkspaceFileReadOutcomes } from "#/features/workspaces/content/w
 import { getDocumentSessionFromEnv } from "#/features/workspaces/document-session-access";
 import { readFlashcardViewer } from "#/features/workspaces/flashcards/flashcard-study-persistence";
 import { readQuizViewer } from "#/features/workspaces/quizzes/quiz-study-persistence";
-import { getWorkspaceItemByRefKey } from "#/features/workspaces/persistence/workspace-items";
+import { getWorkspaceItemRefKeyIndex } from "#/features/workspaces/persistence/workspace-items";
 import type { WorkspaceAccessContext } from "#/features/workspaces/operations/workspace-access-context";
 import { authorizeWorkspaceOperation } from "#/features/workspaces/operations/workspace-operation-context";
 
@@ -25,6 +25,8 @@ export async function readWorkspaceItemsOperation(
 		access: "read",
 		context: accessContext,
 	});
+	// Lazy so path-only batches skip it; shared so N ref requests cost one page read.
+	let refKeyIndex: ReturnType<typeof getWorkspaceItemRefKeyIndex> | undefined;
 	const results = await readWorkspaceContent({
 		bucket: env.WORKSPACE_FILES,
 		getDocumentSession: (itemId) =>
@@ -44,8 +46,10 @@ export async function readWorkspaceItemsOperation(
 				userId: accessContext.actor.userId,
 				workspaceId: accessContext.workspaceId,
 			}),
-		resolveRefKey: (refKey) =>
-			getWorkspaceItemByRefKey({ refKey, workspaceId: accessContext.workspaceId }),
+		resolveRefKey: async (refKey) => {
+			refKeyIndex ??= getWorkspaceItemRefKeyIndex({ workspaceId: accessContext.workspaceId });
+			return (await refKeyIndex).get(refKey);
+		},
 		requests: input.requests,
 		workspaceId: accessContext.workspaceId,
 	});

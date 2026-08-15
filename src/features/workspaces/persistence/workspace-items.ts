@@ -124,13 +124,20 @@ export async function getWorkspaceItemPaths(input: WorkspaceScoped<GetWorkspaceI
 	});
 }
 
-/** Resolves an item address's refKey to the live item and its path. */
-export async function getWorkspaceItemByRefKey(input: WorkspaceScoped<{ refKey: string }>) {
+/**
+ * Resolves item address refKeys to live items and their paths. Costs one
+ * workspace page read however many refKeys the caller then looks up, so
+ * callers with several refs to resolve share a single index.
+ */
+export async function getWorkspaceItemRefKeyIndex(input: WorkspaceScoped<object>) {
 	const { items } = await readWorkspacePage({ workspaceId: input.workspaceId });
-	const item = items.find((candidate) => candidate.refKey === input.refKey);
-	if (!item) return undefined;
-	const path = buildWorkspaceItemPathIndex(items).get(item.id);
-	return path ? { item, path } : undefined;
+	const paths = buildWorkspaceItemPathIndex(items);
+	return new Map(
+		items.flatMap((item) => {
+			const path = paths.get(item.id);
+			return path ? [[item.refKey, { item, path }] as const] : [];
+		}),
+	);
 }
 
 export async function listWorkspaceItemRelations(

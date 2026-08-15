@@ -7,7 +7,7 @@ import {
 	resolveWorkspaceAddressLocation,
 	type WorkspaceLocation,
 } from "#/features/workspaces/locations/workspace-location";
-import { getWorkspaceItemByRefKey } from "#/features/workspaces/persistence/workspace-items";
+import { getWorkspaceItemRefKeyIndex } from "#/features/workspaces/persistence/workspace-items";
 import type { WorkspaceAccessContext } from "#/features/workspaces/operations/workspace-access-context";
 
 /**
@@ -28,14 +28,14 @@ export async function resolveDocumentCitations(input: {
 		return input.html;
 	}
 
+	const refKeyIndex = await getWorkspaceItemRefKeyIndex({
+		workspaceId: input.context.workspaceId,
+	});
 	const locations = new Map<string, WorkspaceLocation>();
 	for (const ref of new Set(refs)) {
 		const address = parseWorkspaceAddress(ref);
 		if (!address) continue;
-		const resolved = await getWorkspaceItemByRefKey({
-			refKey: address.refKey,
-			workspaceId: input.context.workspaceId,
-		});
+		const resolved = refKeyIndex.get(address.refKey);
 		const location = resolved ? resolveWorkspaceAddressLocation(resolved.item, address) : undefined;
 		if (location) locations.set(ref, location);
 	}
