@@ -515,6 +515,15 @@
 	}
 
 	/*
+	 * Prose inside a surface that already supplies its own measure and padding —
+	 * a quiz question or answer row — where the reading-measure padding above
+	 * would read as a stray indent.
+	 */
+	.workspace-document-prose.is-flush {
+		padding-inline: 0;
+	}
+
+	/*
 	 * Review marks follow word-processor tracked changes rather than a code diff:
 	 * new text is underlined in the app's accent, removed text is struck through
 	 * and faded. Retune every mark from this one variable.
@@ -605,6 +614,15 @@
 	.workspace-document-prose p {
 		min-height: 1.65rem;
 		line-height: 1.7;
+	}
+
+	/*
+	 * That min-height is a click target for empty paragraphs while editing. In a
+	 * read-only render it only adds space under the last line, which pushes the
+	 * text off-centre against anything aligned beside it — a quiz option's letter.
+	 */
+	.workspace-document-prose[contenteditable="false"] p {
+		min-height: 0;
 	}
 
 	.workspace-document-prose ul,

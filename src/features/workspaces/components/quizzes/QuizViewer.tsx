@@ -1,15 +1,18 @@
 import { useQuery } from "@tanstack/react-query";
-import type { JSONContent } from "@tiptap/core";
-import { EditorContent, useEditor } from "@tiptap/react";
-import { Check, ChevronLeft, ChevronRight, Lightbulb, X } from "lucide-react";
+import { Check, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Button } from "#/components/ui/button";
 import { Skeleton } from "#/components/ui/skeleton";
 import { sendComposerPrompt } from "#/features/workspaces/composer/workspace-composer-actions";
+import { StudyProgressStrip } from "#/features/workspaces/components/study/StudyProgressStrip";
+import { StudyRichText } from "#/features/workspaces/components/study/StudyRichText";
+import {
+	StudyAiActionButton,
+	StudyNavButton,
+} from "#/features/workspaces/components/study/StudySessionControls";
 import { StudyToolbar } from "#/features/workspaces/components/study/StudyToolbar";
 import { useWorkspaceItemToolbar } from "#/features/workspaces/components/WorkspaceItemToolbarSlot";
-import { getTiptapDocumentBaseExtensions } from "#/features/workspaces/documents/tiptap-extensions";
 import type { TiptapDocumentJson } from "#/features/workspaces/documents/tiptap-document";
 import type { WorkspaceItem } from "#/features/workspaces/contracts";
 import { useWorkspaceRevealRequest } from "#/features/workspaces/locations/workspace-location-context";
@@ -36,6 +39,8 @@ interface QuizSessionState {
 	questionIds: string[];
 	currentIndex: number;
 	mode: QuizStudyMode;
+	/** The option picked but not yet submitted for the current question. */
+	pendingOptionId: string | null;
 	shuffled: boolean;
 }
 
@@ -93,9 +98,10 @@ function QuizStudySession({
 		questionIds: createQuizStudyQueue({ questions, mode: "all", shuffled: false, studyState }),
 		currentIndex: 0,
 		mode: "all",
+		pendingOptionId: null,
 		shuffled: false,
 	}));
-	const { questionIds, currentIndex, mode, shuffled } = session;
+	const { questionIds, currentIndex, mode, pendingOptionId, shuffled } = session;
 	const questionsById = useMemo(
 		() => new Map(questions.map((question) => [question.id, question])),
 		[questions],
@@ -141,6 +147,7 @@ function QuizStudySession({
 				}),
 				currentIndex: 0,
 				mode: nextMode,
+				pendingOptionId: null,
 				shuffled: nextShuffled,
 			});
 		},
@@ -150,6 +157,7 @@ function QuizStudySession({
 		setSession((current) => ({
 			...current,
 			currentIndex: Math.min(Math.max(index, 0), current.questionIds.length - 1),
+			pendingOptionId: null,
 		}));
 	}, []);
 	const resetStudyProgress = useCallback(() => {
@@ -230,6 +238,7 @@ function QuizStudySession({
 					questionIds: nextQuestionIds,
 					currentIndex: questionIndex,
 					mode: nextQuestionIds === questionIds ? current.mode : "all",
+					pendingOptionId: null,
 				}));
 			}
 			completeRevealRequest(revealRequest, questionIndex >= 0);
@@ -274,185 +283,259 @@ function QuizStudySession({
 	}
 	if (!currentQuestion) return null;
 
+	const graded = answer !== undefined;
 	const isCorrect = answer?.selectedOptionId === currentQuestion.correctOptionId;
+	const selectedOptionId = graded ? answer.selectedOptionId : pendingOptionId;
+	const isLastQuestion = currentIndex >= studyQuestions.length - 1;
+	// Khan-style: the pending pick, and the correct option once graded, get an
+	// outline. Wrong picks keep only the filled X — no row chrome — so they
+	// stay in the hairline list.
+	const outlinedOptionIds = new Set(
+		[
+			!graded ? selectedOptionId : null,
+			graded ? currentQuestion.correctOptionId : null,
+		].filter(Boolean),
+	);
+	const lastOption = currentQuestion.options.at(-1);
 
 	return (
-		<div
-			className="mx-auto flex h-full w-full max-w-2xl flex-col gap-4 overflow-y-auto p-4 sm:p-6"
+		<section
+			className="flex h-full min-h-0 flex-col bg-background px-4 py-5 sm:px-8 sm:py-7"
+			aria-label={`${item.name} quiz session`}
+			tabIndex={0}
 			onKeyDown={(event) => {
-				if (event.key === "ArrowLeft") goTo(currentIndex - 1);
-				if (event.key === "ArrowRight") goTo(currentIndex + 1);
+				if ((event.target as HTMLElement).closest("input, textarea, select")) return;
+				if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+					event.preventDefault();
+					goTo(currentIndex + (event.key === "ArrowLeft" ? -1 : 1));
+				}
 			}}
 		>
-			<div className="flex items-baseline justify-between gap-2">
-				<span className="text-sm font-medium text-muted-foreground">
-					Question {sourceQuestionNumber} of {questions.length}
-				</span>
-				<span className="text-sm text-muted-foreground tabular-nums">
-					{quizProgress.correctCount}/{quizProgress.answeredCount} correct
-				</span>
-			</div>
-
-			<div className="rounded-2xl border bg-card p-5">
-				<QuizRichText content={currentQuestion.question} />
-				{answer === undefined ? (
-					<Button
-						variant="ghost"
-						size="sm"
-						className="mt-2 -ml-2 text-amber-600 hover:bg-amber-500/10 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300"
-						onClick={() =>
-							sendComposerPrompt(
-								item.workspaceId,
-								`Give me a helpful hint for question ${sourceQuestionNumber} in “${itemPath}” without revealing the answer.`,
-							)
-						}
-					>
-						<Lightbulb />
-						Hint
-					</Button>
-				) : null}
-			</div>
-
-			<div className="grid gap-2" role="radiogroup" aria-label="Answer options">
-				{currentQuestion.options.map((option, optionIndex) => {
-					const isSelected = answer?.selectedOptionId === option.id;
-					const isCorrectOption = option.id === currentQuestion.correctOptionId;
-					const graded = answer !== undefined;
-					return (
-						<button
-							key={option.id}
-							type="button"
-							role="radio"
-							aria-checked={isSelected}
-							disabled={graded || recordAnswer.isPending}
-							className={cn(
-								"flex w-full items-start gap-3 rounded-xl border bg-card p-4 text-left transition-colors",
-								!graded && "cursor-pointer hover:border-foreground/30 hover:bg-accent/50",
-								graded && isCorrectOption && "border-emerald-500/60 bg-emerald-500/10",
-								graded && isSelected && !isCorrectOption && "border-red-500/60 bg-red-500/10",
-								graded && !isSelected && !isCorrectOption && "opacity-60",
-							)}
-							onClick={() =>
-								recordAnswer.mutate({
-									questionId: currentQuestion.id,
-									selectedOptionId: option.id,
-								})
-							}
-						>
-							<span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border text-xs font-medium text-muted-foreground">
-								{graded && isCorrectOption ? (
-									<Check className="size-3.5 text-emerald-600 dark:text-emerald-400" />
-								) : graded && isSelected ? (
-									<X className="size-3.5 text-red-600 dark:text-red-400" />
-								) : (
-									String.fromCharCode(65 + optionIndex)
-								)}
-							</span>
-							<QuizRichText content={option.text} compact />
-						</button>
-					);
-				})}
-			</div>
-
-			{answer !== undefined ? (
-				<div
-					className={cn(
-						"rounded-xl border p-4",
-						isCorrect ? "border-emerald-500/40 bg-emerald-500/5" : "border-red-500/40 bg-red-500/5",
-					)}
-				>
-					<div className="mb-1 flex items-center justify-between gap-2">
-						<span
-							className={cn(
-								"text-sm font-medium",
-								isCorrect
-									? "text-emerald-700 dark:text-emerald-400"
-									: "text-red-700 dark:text-red-400",
-							)}
-						>
-							{isCorrect ? "Correct" : "Incorrect"}
-						</span>
-						<Button
-							variant="ghost"
-							size="sm"
-							className="text-amber-600 hover:bg-amber-500/10 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300"
-							onClick={() =>
-								sendComposerPrompt(
-									item.workspaceId,
-									`Explain the answer to question ${sourceQuestionNumber} in “${itemPath}” in more depth.`,
-								)
-							}
-						>
-							<Lightbulb />
-							Explain more
-						</Button>
+			<div className="mx-auto flex min-h-0 w-full max-w-4xl flex-1 flex-col gap-4">
+				{/* Keyed by question so a scrolled-down long question does not leave the
+				    next one scrolled past its stem. pt-1 leaves the Hint button's focus
+				    ring room inside the scroller, which clips both axes once
+				    overflow-y is set. */}
+				<div key={currentQuestion.id} className="min-h-0 flex-1 overflow-y-auto pt-1">
+					<div className="flex items-start justify-between gap-3 pb-5">
+						<QuizRichText content={currentQuestion.question} />
+						{/* The slot keeps its height once grading removes the Hint, so the
+						    options below do not jump up. */}
+						<div className="flex h-8 shrink-0 items-center">
+							{!graded ? (
+								<StudyAiActionButton
+									label="Hint"
+									onSend={() =>
+										sendComposerPrompt(
+											item.workspaceId,
+											`Give me a helpful hint for question ${sourceQuestionNumber} in “${itemPath}” without revealing the answer.`,
+										)
+									}
+								/>
+							) : null}
+						</div>
 					</div>
-					<QuizRichText content={currentQuestion.explanation} compact />
-				</div>
-			) : null}
 
-			<div className="mt-auto grid min-h-10 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 pb-2">
-				<span className="justify-self-start text-xs text-muted-foreground tabular-nums sm:text-sm">
-					{quizProgress.answeredCount} of {quizProgress.totalQuestions} answered
-				</span>
-				<div className="col-start-2 flex items-center justify-center gap-1 sm:gap-2">
-					<Button
-						variant="ghost"
-						size="icon-lg"
-						aria-label="Previous question"
-						title="Previous question (Left arrow)"
-						disabled={currentIndex === 0}
-						onClick={() => goTo(currentIndex - 1)}
-					>
-						<ChevronLeft />
-					</Button>
-					<span className="text-sm text-muted-foreground tabular-nums">
-						{currentIndex + 1} / {studyQuestions.length}
-					</span>
-					<Button
-						variant="ghost"
-						size="icon-lg"
-						aria-label="Next question"
-						title="Next question (Right arrow)"
-						disabled={currentIndex >= studyQuestions.length - 1}
-						onClick={() => goTo(currentIndex + 1)}
-					>
-						<ChevronRight />
-					</Button>
+					<div role="radiogroup" aria-label="Answer options">
+						{currentQuestion.options.map((option, optionIndex) => {
+							const isSelected = option.id === selectedOptionId;
+							const isCorrectOption = option.id === currentQuestion.correctOptionId;
+							const previousOption = currentQuestion.options[optionIndex - 1];
+							return (
+								<div key={option.id}>
+									<QuizOptionRule
+										visible={
+											!outlinedOptionIds.has(option.id) &&
+											!(previousOption && outlinedOptionIds.has(previousOption.id))
+										}
+									/>
+									<button
+										type="button"
+										role="radio"
+										aria-checked={isSelected}
+										disabled={graded || recordAnswer.isPending}
+										className={cn(
+											"flex w-full items-center gap-3 rounded-xl border border-transparent px-3 py-4 text-left transition-colors",
+											!graded && "cursor-pointer hover:bg-accent/40",
+											!graded && isSelected && "border-primary/60 bg-primary/5",
+											graded && isCorrectOption && "border-emerald-500/60 bg-emerald-500/10",
+											graded && !isSelected && !isCorrectOption && "opacity-60",
+										)}
+										onClick={() =>
+											setSession((current) => ({ ...current, pendingOptionId: option.id }))
+										}
+									>
+										<span
+											className={cn(
+												"flex size-6 shrink-0 items-center justify-center rounded-full border text-xs font-semibold text-muted-foreground",
+												!graded &&
+													isSelected &&
+													"border-primary bg-primary text-primary-foreground",
+												graded &&
+													isCorrectOption &&
+													"border-emerald-600 bg-emerald-600 text-white dark:border-emerald-500 dark:bg-emerald-500",
+												graded &&
+													isSelected &&
+													!isCorrectOption &&
+													"border-red-600 bg-red-600 text-white dark:border-red-500 dark:bg-red-500",
+											)}
+										>
+											{graded && isCorrectOption ? (
+												<Check className="size-3.5" />
+											) : graded && isSelected ? (
+												<X className="size-3.5" />
+											) : (
+												String.fromCharCode(65 + optionIndex)
+											)}
+										</span>
+										<QuizRichText content={option.text} compact />
+									</button>
+								</div>
+							);
+						})}
+						<QuizOptionRule visible={!lastOption || !outlinedOptionIds.has(lastOption.id)} />
+					</div>
+
+					{graded ? (
+						<div
+							className={cn(
+								"mt-4 mb-3 rounded-xl border p-4",
+								isCorrect
+									? "border-emerald-500/40 bg-emerald-500/5"
+									: "border-red-500/40 bg-red-500/5",
+							)}
+						>
+							<div className="mb-1 flex items-center justify-between gap-2">
+								<span
+									className={cn(
+										"text-sm font-medium",
+										isCorrect
+											? "text-emerald-700 dark:text-emerald-400"
+											: "text-red-700 dark:text-red-400",
+									)}
+								>
+									{isCorrect ? "Correct" : "Incorrect"}
+								</span>
+								<StudyAiActionButton
+									label="Explain more"
+									onSend={() =>
+										sendComposerPrompt(
+											item.workspaceId,
+											`Explain the answer to question ${sourceQuestionNumber} in “${itemPath}” in more depth.`,
+										)
+									}
+								/>
+							</div>
+							<QuizRichText content={currentQuestion.explanation} compact />
+						</div>
+					) : null}
+				</div>
+
+				<div className="space-y-3">
+					<StudyProgressStrip
+						ariaLabel={`${quizProgress.correctCount} correct, ${quizProgress.incorrectCount} missed, ${quizProgress.unansweredCount} unanswered`}
+						currentIndex={currentIndex}
+						onSelect={goTo}
+						segments={studyQuestions.map((question, index) => {
+							const questionAnswer = getQuizAnswer(question, studyState);
+							const questionCorrect = questionAnswer?.selectedOptionId === question.correctOptionId;
+							return {
+								id: question.id,
+								label: `Question ${index + 1}: ${
+									!questionAnswer ? "Unanswered" : questionCorrect ? "Correct" : "Missed"
+								}`,
+								tone: !questionAnswer ? "unseen" : questionCorrect ? "correct" : "missed",
+							};
+						})}
+					/>
+					<div className="grid min-h-10 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
+						<span className="justify-self-start text-xs text-muted-foreground tabular-nums sm:text-sm">
+							{quizProgress.answeredCount} answered
+						</span>
+						<div className="col-start-2 flex items-center justify-center gap-1 sm:gap-2">
+							<StudyNavButton
+								direction="previous"
+								noun="question"
+								disabled={currentIndex === 0}
+								onClick={() => goTo(currentIndex - 1)}
+							/>
+							<span className="text-sm text-muted-foreground tabular-nums">
+								{currentIndex + 1} of {studyQuestions.length}
+							</span>
+							<StudyNavButton
+								direction="next"
+								noun="question"
+								disabled={isLastQuestion}
+								onClick={() => goTo(currentIndex + 1)}
+							/>
+						</div>
+						{graded ? (
+							<Button
+								variant="outline"
+								className="col-start-3 h-11 justify-self-end rounded-xl px-5 text-sm font-medium sm:h-12 sm:px-6 sm:text-base"
+								disabled={isLastQuestion}
+								onClick={() => goTo(currentIndex + 1)}
+							>
+								Next question
+							</Button>
+						) : (
+							<Button
+								className="col-start-3 h-11 justify-self-end rounded-xl px-5 text-sm font-medium sm:h-12 sm:px-6 sm:text-base"
+								disabled={!pendingOptionId || recordAnswer.isPending}
+								onClick={() => {
+									if (!pendingOptionId) return;
+									recordAnswer.mutate({
+										questionId: currentQuestion.id,
+										selectedOptionId: pendingOptionId,
+									});
+								}}
+							>
+								Submit
+							</Button>
+						)}
+					</div>
 				</div>
 			</div>
-		</div>
+		</section>
 	);
 }
 
 function QuizRichText({ content, compact }: { content: TiptapDocumentJson; compact?: boolean }) {
-	const editor = useEditor(
-		{
-			content: content as unknown as JSONContent,
-			editable: false,
-			immediatelyRender: false,
-			extensions: getTiptapDocumentBaseExtensions(),
-			editorProps: {
-				attributes: {
-					class: cn("workspace-document-prose outline-none", compact && "text-sm"),
-				},
-			},
-		},
-		[content],
+	return (
+		<StudyRichText
+			className="min-w-0 flex-1"
+			content={content}
+			proseClassName={cn("is-flush", compact && "text-sm")}
+		/>
 	);
+}
 
-	return <EditorContent editor={editor} className="min-w-0 flex-1" />;
+/**
+ * Hairline between answer rows. Always in the flow and hidden by colour rather
+ * than by unmounting, so rows never shift as the outline moves between them.
+ */
+function QuizOptionRule({ visible }: { visible: boolean }) {
+	return <div className={cn("border-t", !visible && "border-transparent")} />;
 }
 
 function QuizViewerSkeleton() {
 	return (
-		<div className="mx-auto flex w-full max-w-2xl flex-col gap-4 p-4 sm:p-6">
-			<Skeleton className="h-5 w-40" />
-			<Skeleton className="h-28 w-full rounded-2xl" />
-			<Skeleton className="h-14 w-full rounded-xl" />
-			<Skeleton className="h-14 w-full rounded-xl" />
-			<Skeleton className="h-14 w-full rounded-xl" />
-			<Skeleton className="h-14 w-full rounded-xl" />
+		<div className="flex h-full min-h-0 flex-col px-4 py-5 sm:px-8 sm:py-7">
+			<div className="mx-auto flex min-h-0 w-full max-w-4xl flex-1 flex-col gap-4">
+				<Skeleton className="min-h-72 flex-1 rounded-2xl sm:min-h-96" />
+				<div className="space-y-3">
+					<Skeleton className="h-2 w-full rounded-full" />
+					<div className="grid min-h-10 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
+						<Skeleton className="h-4 w-24 justify-self-start" />
+						<div className="col-start-2 flex items-center justify-center gap-1 sm:gap-2">
+							<Skeleton className="size-11 rounded-xl sm:size-12" />
+							<Skeleton className="h-4 w-14" />
+							<Skeleton className="size-11 rounded-xl sm:size-12" />
+						</div>
+						<Skeleton className="col-start-3 h-11 w-24 justify-self-end rounded-xl sm:h-12" />
+					</div>
+				</div>
+			</div>
 		</div>
 	);
 }
