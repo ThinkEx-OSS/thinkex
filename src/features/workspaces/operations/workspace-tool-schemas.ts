@@ -45,16 +45,23 @@ const workspaceHtmlDiagramInstruction =
 	'Draw a diagram as a mermaid code block: <pre><code class="language-mermaid">flowchart TD; A[Start] --> B[End]</code></pre>. It renders as a diagram wherever the item is read or studied, and is left out of a PDF export entirely, so never let a diagram carry a point the surrounding text does not also make. Keep it to about ten nodes with short labels, and include concise accTitle and accDescr lines — they become the diagram\'s alt text. No frontmatter, init directives, custom styles, HTML, links, or images inside the diagram.';
 
 /**
+ * The one code-block detail HTML does not make obvious. Every reader
+ * normalizes aliases and casing, so the class prefix is the whole contract.
+ */
+const workspaceHtmlCodeInstruction =
+	'A code block carries its language as a class on the inner <code>: <pre><code class="language-python">…</code></pre>. Without that class the block renders unhighlighted and unlabelled.';
+
+/**
  * Keep discovery and serialization beside the document tool. The activated
  * skill owns the authoring contract so the two prompts cannot drift apart.
  */
 const workspaceWidgetHtmlInstruction = `A widget is one interactive block inside a document. Use one when the user explicitly asks for a widget, asks for interaction or live computation, or wants a document visual that ordinary blocks cannot express. Keep ordinary content in ordinary blocks. Before authoring or editing widget source, activate the "widget-authoring" skill and follow its HTML, sandbox, layout, and editing contract. Serialize the result as <div data-type="widget" title="Short title">…HTML-escaped fragment…</div>.`;
 
-export const workspaceDocumentHtmlInstruction = `Use semantic HTML with paragraphs, h1-h4, blockquotes, lists, code blocks, horizontal rules, tables, links, and standard text marks. ${workspaceHtmlMathInstruction} For checkboxes, use <ul data-type="taskList"><li data-type="taskItem" data-checked="false"><label><input type="checkbox"><span></span></label><div><p>Item</p></div></li></ul>. Documents cannot hold images: never use <img> or <figure> — draw a diagram or describe the visual in words instead. ${workspaceHtmlDiagramInstruction} Cite workspace sources in documents exactly as in a chat reply, with <citation ref="Xk7p2Qa9/b_x7Kp2Qa9x8Lm"></citation> placed after the claim it supports — the address is the item's ref, or ref/unit for a page, block, card, or question, with any .r_ suffix dropped. ${workspaceWidgetHtmlInstruction}`;
+export const workspaceDocumentHtmlInstruction = `Use semantic HTML with paragraphs, h1-h4, blockquotes, lists, code blocks, horizontal rules, tables, links, and standard text marks. ${workspaceHtmlMathInstruction} ${workspaceHtmlCodeInstruction} For checkboxes, use <ul data-type="taskList"><li data-type="taskItem" data-checked="false"><label><input type="checkbox"><span></span></label><div><p>Item</p></div></li></ul>. Documents cannot hold images: never use <img> or <figure> — draw a diagram or describe the visual in words instead. ${workspaceHtmlDiagramInstruction} Cite workspace sources in documents exactly as in a chat reply, with <citation ref="Xk7p2Qa9/b_x7Kp2Qa9x8Lm"></citation> placed after the claim it supports — the address is the item's ref, or ref/unit for a page, block, card, or question, with any .r_ suffix dropped. ${workspaceWidgetHtmlInstruction}`;
 
-export const workspaceFlashcardHtmlInstruction = `Flashcard fronts and backs are HTML. Keep each side concise. Use paragraphs, lists, links, code blocks, and standard text marks only. ${workspaceHtmlMathInstruction} Do not use headings, tables, images, widgets, task lists, or citations inside a card. ${workspaceHtmlDiagramInstruction} Use item-level relations for sources.`;
+export const workspaceFlashcardHtmlInstruction = `Flashcard fronts and backs are HTML. Keep each side concise. Use paragraphs, lists, links, code blocks, and standard text marks only. ${workspaceHtmlMathInstruction} ${workspaceHtmlCodeInstruction} Do not use headings, tables, images, widgets, task lists, or citations inside a card. ${workspaceHtmlDiagramInstruction}`;
 
-export const workspaceQuizHtmlInstruction = `Question stems, options, and explanations are HTML. Keep them concise. Use paragraphs, lists, links, code blocks, and standard text marks only. ${workspaceHtmlMathInstruction} Do not use headings, tables, images, widgets, task lists, or citations inside a question. ${workspaceHtmlDiagramInstruction} A diagram usually belongs in the stem or the explanation; if one option needs it, give them all one, since an option taller than the rest hints at the answer. Use item-level relations for sources. Write correctAnswer as its own field and never hint at it in the stem or option order: the server shuffles the options and records which one is correct. Every distractor must be strictly wrong yet plausible, reflect a specific misconception, and match the correct answer's length and tone. Prefer 3 distractors; use 1 for true/false. Questions should test understanding from the source material, not trivia recall.`;
+export const workspaceQuizHtmlInstruction = `Question stems, options, and explanations are HTML. Keep them concise. Use paragraphs, lists, links, code blocks, and standard text marks only. ${workspaceHtmlMathInstruction} ${workspaceHtmlCodeInstruction} Do not use headings, tables, images, widgets, task lists, or citations inside a question. ${workspaceHtmlDiagramInstruction} A diagram usually belongs in the stem or the explanation; if one option needs it, give them all one, since an option taller than the rest hints at the answer. Write correctAnswer as its own field and never hint at it in the stem or option order: the server shuffles the options and records which one is correct. Every distractor must be strictly wrong yet plausible, reflect a specific misconception, and match the correct answer's length and tone. Prefer 3 distractors; use 1 for true/false. Questions should test understanding from the source material, not trivia recall.`;
 
 const workspacePathSchema = z.string().min(1);
 const workspaceIndexSchema = z.number().int().nonnegative();
@@ -180,12 +187,22 @@ export const workspaceEditItemInputSchema = z.discriminatedUnion("type", [
 ]);
 
 export const workspaceLinkItemsInputSchema = z.object({
-	path: z.string().min(1).describe("Absolute path of the workspace item to link from."),
-	relations: z
-		.array(workspaceRelationInputSchema)
+	items: z
+		.array(
+			z.object({
+				path: z.string().min(1).describe("Absolute path of the workspace item to link from."),
+				relations: z
+					.array(workspaceRelationInputSchema)
+					.min(1)
+					.max(20)
+					.describe("Relationships from this item to other workspace items, at most 20."),
+			}),
+		)
 		.min(1)
 		.max(20)
-		.describe("Relationships from this item to other workspace items, at most 20."),
+		.describe(
+			"One or more existing items to link from, at most 20. Each can have up to 20 relations.",
+		),
 });
 
 export const workspaceRenameItemInputSchema = z.object({
@@ -217,25 +234,11 @@ export const workspaceCreateItemsInputSchema = z.object({
 				z.object({
 					type: z.literal("folder"),
 					path: z.string().min(1).describe("Final absolute path for the folder to create."),
-					relations: z
-						.array(workspaceRelationInputSchema)
-						.max(20)
-						.optional()
-						.describe(
-							"Optional relationships from this new folder to other workspace items, at most 20.",
-						),
 				}),
 				z
 					.object({
 						type: z.literal("document"),
 						path: z.string().min(1).describe("Final absolute path for the document to create."),
-						relations: z
-							.array(workspaceRelationInputSchema)
-							.max(20)
-							.optional()
-							.describe(
-								"Optional relationships from this new document to other workspace items, at most 20.",
-							),
 						initialContent: documentAiHtmlSchema
 							.describe(`Optional initial HTML content. ${workspaceDocumentHtmlInstruction}`)
 							.optional(),
@@ -255,11 +258,6 @@ export const workspaceCreateItemsInputSchema = z.object({
 							.min(1)
 							.max(100)
 							.describe(`Ordered cards. ${workspaceFlashcardHtmlInstruction}`),
-						relations: z
-							.array(workspaceRelationInputSchema)
-							.max(20)
-							.optional()
-							.describe("Optional relationships from this set to source items, at most 20."),
 					})
 					.describe("Flashcard set to create."),
 				z
@@ -271,11 +269,6 @@ export const workspaceCreateItemsInputSchema = z.object({
 							.min(1)
 							.max(100)
 							.describe(`Ordered multiple-choice questions. ${workspaceQuizHtmlInstruction}`),
-						relations: z
-							.array(workspaceRelationInputSchema)
-							.max(20)
-							.optional()
-							.describe("Optional relationships from this quiz to source items, at most 20."),
 					})
 					.describe("Quiz to create."),
 			]),
@@ -365,13 +358,6 @@ export const workspaceCreateItemsInputExamples = createInputExamples<
 			path: "/Demo Folder/Demo Document",
 			initialContent:
 				"<h1>Demo Document</h1><p>This document was created as part of a tool demo.</p>",
-			relations: [
-				{
-					kind: "derived_from",
-					path: "/Demo Folder/Demo PDF.pdf",
-					note: "Pages 1-3",
-				},
-			],
 		},
 		{
 			type: "flashcard",
@@ -470,12 +456,25 @@ export const workspaceEditItemInputExamples = createInputExamples<
 export const workspaceLinkItemsInputExamples = createInputExamples<
 	z.input<typeof workspaceLinkItemsInputSchema>
 >({
-	path: "/Demo Folder",
-	relations: [
+	items: [
 		{
-			kind: "references",
-			path: "/Demo Folder/Demo PDF.pdf",
-			note: "Source folder for related materials.",
+			path: "/Demo Folder/Demo Flashcards",
+			relations: [
+				{
+					kind: "derived_from",
+					path: "/Demo Folder/Demo PDF.pdf",
+					note: "Pages 1-3",
+				},
+			],
+		},
+		{
+			path: "/Demo Folder/Demo Document",
+			relations: [
+				{
+					kind: "derived_from",
+					path: "/Demo Folder/Demo PDF.pdf",
+				},
+			],
 		},
 	],
 });
@@ -542,7 +541,7 @@ export const workspaceEditItemOutputSchema = z.object({
 	),
 });
 
-export const workspaceLinkItemsOutputSchema = z.object({
-	item: workspacePathItemSchema.optional(),
-	failed: z.array(createFailureSchema(linkWorkspaceItemsFailureCodes, { includeIndex: false })),
+export const workspaceLinkItemsOutputSchema = createWorkspaceItemsResultSchema({
+	itemSchema: workspacePathItemSchema,
+	failureSchema: createFailureSchema(linkWorkspaceItemsFailureCodes),
 });

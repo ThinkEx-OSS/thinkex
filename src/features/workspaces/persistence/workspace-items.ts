@@ -231,13 +231,6 @@ export async function createWorkspaceItem(
 			return nameResolution;
 		}
 
-		for (const relation of input.initialRelations ?? []) {
-			if (relation.fromItemId !== input.id) {
-				throw new Error("Initial workspace relations must originate from the created item.");
-			}
-			await requireActiveWorkspaceItemRow(transaction, input.workspaceId, relation.toItemId);
-		}
-
 		await transaction.insert(workspaceItems).values({
 			id: input.id,
 			workspaceId: input.workspaceId,
@@ -259,20 +252,6 @@ export async function createWorkspaceItem(
 				itemId: input.id,
 				content: bootstrap.initialContent,
 			});
-		}
-
-		const initialRelations = input.initialRelations ?? [];
-		if (initialRelations.length > 0) {
-			await transaction.insert(workspaceItemRelations).values(
-				initialRelations.map((relation) => ({
-					id: crypto.randomUUID(),
-					workspaceId: input.workspaceId,
-					fromItemId: input.id,
-					toItemId: relation.toItemId,
-					kind: workspaceRelationKindSchema.parse(relation.kind),
-					note: relation.note?.trim() ?? "",
-				})),
-			);
 		}
 
 		const item = await requireActiveWorkspaceItem(transaction, input.workspaceId, input.id);

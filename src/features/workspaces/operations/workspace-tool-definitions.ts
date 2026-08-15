@@ -192,7 +192,7 @@ export const workspaceToolDefinitions = [
 		name: "workspace_create_items",
 		access: "write",
 		description:
-			"Create folders, documents, flashcard sets, or quizzes at exact absolute paths. A slash separates folders, so use another character inside an item name. Set type and provide that branch's fields. If a path already exists, creation fails instead of renaming.",
+			"Create folders, documents, flashcard sets, or quizzes at exact absolute paths. A slash separates folders, so use another character inside an item name. Set type and provide that branch's fields. If a path already exists, creation fails instead of renaming. After creating items from sources, record those sources with workspace_link_items.",
 		inputSchema: workspaceCreateItemsInputSchema,
 		inputExamples: workspaceCreateItemsInputExamples,
 		outputSchema: workspaceCreateItemsOutputSchema,
@@ -237,16 +237,15 @@ export const workspaceToolDefinitions = [
 		name: "workspace_link_items",
 		access: "write",
 		description:
-			"Maintain internal navigation and provenance relationships between actual ThinkEx workspace items by absolute path. Use routine relationships silently as workspace context; do not announce them as separate work unless the user asked about relationships or one materially affects the answer.",
+			"Maintain internal navigation and provenance relationships between actual ThinkEx workspace items by absolute path. Link one or more existing items in one call. Use routine relationships silently as workspace context; do not announce them as separate work unless the user asked about relationships or one materially affects the answer.",
 		inputSchema: workspaceLinkItemsInputSchema,
 		inputExamples: workspaceLinkItemsInputExamples,
 		outputSchema: workspaceLinkItemsOutputSchema,
-		summarizeResult: summarizeWorkspaceItemResult,
+		summarizeResult: summarizeWorkspaceCollectionResult,
 		effects: { destructive: false, idempotent: false },
-		execute: async ({ path, relations }, context) => {
+		execute: async ({ items }, context) => {
 			return await linkWorkspaceItemsOperation(context, {
-				path,
-				relations,
+				items,
 			});
 		},
 	}),

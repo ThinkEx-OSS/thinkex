@@ -3,10 +3,6 @@ import {
 	createWorkspaceItem,
 	resolveWorkspacePaths,
 } from "#/features/workspaces/persistence/workspace-items";
-import {
-	resolveWorkspaceRelations,
-	type WorkspaceRelationInput,
-} from "#/features/workspaces/operations/relations";
 import { createWorkspaceItemsFailureCodes } from "#/features/workspaces/operations/workspace-operation-failure-codes";
 import type { WorkspaceAccessContext } from "#/features/workspaces/operations/workspace-access-context";
 import type { WorkspacePathResolution } from "#/features/workspaces/persistence/workspace-persistence-types";
@@ -35,24 +31,21 @@ import {
 } from "#/features/workspaces/model/workspace-paths";
 
 export type CreateWorkspaceItemOperationInput =
-	| { type: "folder"; path: string; relations?: WorkspaceRelationInput[] }
+	| { type: "folder"; path: string }
 	| {
 			type: "document";
 			path: string;
 			initialContent?: string;
-			relations?: WorkspaceRelationInput[];
 	  }
 	| {
 			type: "flashcard";
 			path: string;
 			cards: Array<{ front: string; back: string }>;
-			relations?: WorkspaceRelationInput[];
 	  }
 	| {
 			type: "quiz";
 			path: string;
 			questions: QuizQuestionInput[];
-			relations?: WorkspaceRelationInput[];
 	  };
 
 export interface CreateWorkspaceItemsOperationInput {
@@ -119,9 +112,9 @@ export async function createWorkspaceItemsOperation(
 			continue;
 		}
 
-		const [parentResolution, ...relationTargets] = await resolveWorkspacePaths({
+		const [parentResolution] = await resolveWorkspacePaths({
 			workspaceId: accessContext.workspaceId,
-			paths: [path.parentPath, ...(itemInput.relations ?? []).map((relation) => relation.path)],
+			paths: [path.parentPath],
 		});
 		if (!parentResolution) {
 			throw new Error("Workspace persistence did not resolve the requested create parent.");
@@ -159,21 +152,6 @@ export async function createWorkspaceItemsOperation(
 			continue;
 		}
 
-		const relations = resolveWorkspaceRelations({
-			fromItemId: id,
-			relations: itemInput.relations,
-			targets: relationTargets,
-		});
-
-		if (relations.status === "failed") {
-			failed.push({
-				code: relations.failure.code,
-				index,
-				path: relations.failure.path,
-			});
-			continue;
-		}
-
 		const { env } = await import("cloudflare:workers");
 		const outcome = await createWorkspaceItem(env, {
 			id,
@@ -183,7 +161,6 @@ export async function createWorkspaceItemsOperation(
 			name: path.name,
 			onNameConflict: "error",
 			initialContent: initialContent.content,
-			initialRelations: relations.relations,
 			actorUserId: accessContext.actor.userId,
 		});
 
