@@ -118,6 +118,16 @@ export const codeLanguageOptions: CodeLanguageOption[] = codeLanguageDefinitions
 	({ label, value }) => ({ label, value }),
 );
 
+/**
+ * Mermaid is deliberately not one of the languages above. It is never syntax
+ * highlighted, never offered in the language picker, and never read as source
+ * — every surface draws it instead — so registering a grammar for it would
+ * only ship a parser nothing looks at.
+ */
+export function isMermaidCodeLanguage(language: string | null | undefined) {
+	return language?.trim().toLowerCase() === "mermaid";
+}
+
 export const supportedCodeFileExtensions = [
 	...new Set(codeLanguageDefinitionList.flatMap((definition) => definition.extensions ?? [])),
 ].sort((left, right) => left.localeCompare(right));

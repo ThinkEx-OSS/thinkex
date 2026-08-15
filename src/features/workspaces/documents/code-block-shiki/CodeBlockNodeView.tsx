@@ -13,17 +13,55 @@ import {
 	CodeBlockLanguageSelectorValue,
 	CodeBlockTitle,
 } from "#/components/code-block/code-block-chrome";
+import { MermaidDiagram } from "#/components/code-block/mermaid-diagram";
 import {
 	codeLanguageOptions,
 	getCodeLanguageLabel,
+	isMermaidCodeLanguage,
 	normalizeCodeLanguage,
 	type SupportedCodeLanguage,
 } from "#/features/workspaces/documents/code-block-shiki/highlighter";
 
-export function CodeBlockNodeView({ node, updateAttributes }: ReactNodeViewProps) {
+export function CodeBlockNodeView({
+	editor,
+	getPos,
+	node,
+	selected,
+	updateAttributes,
+}: ReactNodeViewProps) {
 	const language = normalizeCodeLanguage(node.attrs.language as string | null);
 	const code = node.textContent;
 	const codeLanguage = language ?? "text";
+
+	/**
+	 * A diagram is only ever the drawing, never the mermaid source that made
+	 * it. Nobody hand-writes that syntax — the assistant authors and edits it —
+	 * so a click selects the whole block to move or delete, the way an image
+	 * behaves. The content stays mounted but hidden because ProseMirror still
+	 * needs somewhere to keep the node's text.
+	 */
+	if (isMermaidCodeLanguage(node.attrs.language as string | null)) {
+		return (
+			<NodeViewWrapper
+				className="workspace-document-diagram"
+				contentEditable={false}
+				data-selected={selected ? "true" : undefined}
+				onClick={() => {
+					const position = getPos();
+					if (position !== undefined && editor.isEditable) {
+						// Focus first: a click on non-editable content leaves the
+						// editor blurred, and an unfocused selection ignores Backspace.
+						editor.chain().focus().setNodeSelection(position).run();
+					}
+				}}
+			>
+				<MermaidDiagram source={code} />
+				{/* Same bargain as a widget's source: ProseMirror has to render the
+				    node's text somewhere, and the drawing is its visible form. */}
+				<NodeViewContent className="workspace-document-diagram-source" />
+			</NodeViewWrapper>
+		);
+	}
 
 	return (
 		<NodeViewWrapper

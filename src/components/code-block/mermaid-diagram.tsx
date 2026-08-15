@@ -1,6 +1,5 @@
 import { Check, Copy, GitBranch, Maximize2, Minimize2, Minus, Plus } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
-import { useIsCodeFenceIncomplete } from "streamdown";
 
 import { useTheme } from "#/components/theme-provider";
 import {
@@ -27,6 +26,24 @@ type MermaidRenderResult =
 	| { requestKey: string; status: "error" };
 
 let mermaidRenderQueue = Promise.resolve();
+
+/**
+ * Rendered SVGs keyed by theme and source. Study surfaces mount the same
+ * diagram over and over — flipping a card back and forth, stepping through
+ * questions, or any edit that rebuilds the editor — and re-running mermaid
+ * each time would flash a placeholder over artwork the reader just saw.
+ * Cleared wholesale past a generous ceiling: an eviction policy would cost
+ * more than the few kilobytes it saves.
+ */
+const mermaidImageCache = new Map<string, MermaidImage>();
+const MAX_CACHED_DIAGRAMS = 64;
+
+function cacheMermaidImage(requestKey: string, image: MermaidImage) {
+	if (mermaidImageCache.size >= MAX_CACHED_DIAGRAMS) {
+		mermaidImageCache.clear();
+	}
+	mermaidImageCache.set(requestKey, image);
+}
 
 function enqueueMermaidRender(input: { darkMode: boolean; id: string; source: string }) {
 	const render = mermaidRenderQueue.then(async () => {
@@ -146,17 +163,30 @@ function useNearViewport() {
 	return { containerRef, isNearViewport };
 }
 
-export function AiChatMermaidDiagram({ source }: { source: string }) {
-	const isIncomplete = useIsCodeFenceIncomplete();
+/**
+ * Renders one mermaid source block as a diagram. Shared by chat, where the
+ * source streams in, and by document code blocks, where it arrives whole —
+ * hence `isIncomplete` as a prop rather than a hook: only chat can observe a
+ * half-written fence, and a document must not wait for a stream that has
+ * already ended.
+ */
+export function MermaidDiagram({
+	isIncomplete = false,
+	source,
+}: {
+	isIncomplete?: boolean;
+	source: string;
+}) {
 	const { resolvedTheme } = useTheme();
 	const reactId = useId();
 	const { containerRef, isNearViewport } = useNearViewport();
 	const requestKey = `${resolvedTheme}:${source}`;
 	const sourceIsTooLarge = source.length > MAX_MERMAID_SOURCE_LENGTH;
+	const cachedImage = mermaidImageCache.get(requestKey);
 	const [result, setResult] = useState<MermaidRenderResult | null>(null);
 
 	useEffect(() => {
-		if (!isNearViewport || isIncomplete || sourceIsTooLarge) {
+		if (!isNearViewport || isIncomplete || sourceIsTooLarge || cachedImage) {
 			return;
 		}
 
@@ -174,13 +204,15 @@ export function AiChatMermaidDiagram({ source }: { source: string }) {
 					return;
 				}
 
-				setResult({ image: prepareMermaidImage(svg), requestKey, status: "ready" });
+				const image = prepareMermaidImage(svg);
+				cacheMermaidImage(requestKey, image);
+				setResult({ image, requestKey, status: "ready" });
 			} catch (error: unknown) {
 				if (cancelled) {
 					return;
 				}
 
-				console.warn("[AiChatMermaidDiagram] Failed to render diagram", error);
+				console.warn("[MermaidDiagram] Failed to render diagram", error);
 				setResult({ requestKey, status: "error" });
 			}
 		})();
@@ -188,16 +220,39 @@ export function AiChatMermaidDiagram({ source }: { source: string }) {
 		return () => {
 			cancelled = true;
 		};
-	}, [isIncomplete, isNearViewport, reactId, requestKey, resolvedTheme, source, sourceIsTooLarge]);
+	}, [
+		cachedImage,
+		isIncomplete,
+		isNearViewport,
+		reactId,
+		requestKey,
+		resolvedTheme,
+		source,
+		sourceIsTooLarge,
+	]);
 
-	const state: MermaidRenderResult | { status: "loading" } = sourceIsTooLarge
-		? { requestKey, status: "error" }
-		: isIncomplete || result?.requestKey !== requestKey
-			? { status: "loading" }
-			: result;
+	// A cache hit is read straight through to the render rather than copied
+	// into state, so a remount paints finished artwork on the first frame.
+	// This render's own result still outranks it: an <img> that failed to
+	// decode must not be answered with the cached image that just failed.
+	const state = ((): MermaidRenderResult | { status: "loading" } => {
+		if (sourceIsTooLarge) {
+			return { requestKey, status: "error" };
+		}
+		if (isIncomplete) {
+			return { status: "loading" };
+		}
+		if (result?.requestKey === requestKey) {
+			return result;
+		}
+		if (cachedImage) {
+			return { image: cachedImage, requestKey, status: "ready" };
+		}
+		return { status: "loading" };
+	})();
 
 	return (
-		<div className="my-4" data-ai-chat-mermaid={state.status} ref={containerRef}>
+		<div className="my-4" data-mermaid={state.status} ref={containerRef}>
 			{state.status === "loading" ? <MermaidLoading /> : null}
 			{state.status === "error" ? <MermaidError source={source} /> : null}
 			{state.status === "ready" ? (
@@ -233,7 +288,7 @@ function MermaidError({ source }: { source: string }) {
 				<span className="font-medium">Diagram unavailable</span>
 			</div>
 			<div className="px-3 py-3 text-muted-foreground text-sm">
-				<p>This diagram couldn’t be displayed, but the rest of the response is unaffected.</p>
+				<p>This diagram couldn’t be displayed. Its source is unchanged.</p>
 				<details className="mt-2">
 					<summary className="w-fit cursor-pointer text-xs underline-offset-4 hover:underline">
 						View diagram source
@@ -260,7 +315,7 @@ function MermaidDiagramCard({
 	const [zoom, setZoom] = useState(1);
 	const { copied, copy } = useCopyToClipboard({
 		onError: (error) => {
-			console.warn("[AiChatMermaidDiagram] Failed to copy source", error);
+			console.warn("[MermaidDiagram] Failed to copy source", error);
 		},
 	});
 

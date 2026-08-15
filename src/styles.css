@@ -745,6 +745,21 @@
 		display: none;
 	}
 
+	/* A mermaid diagram, drawn from a code block. Nobody edits the syntax by
+	   hand, so the block behaves like an image: click to select, then move or
+	   delete it whole. */
+	.workspace-document-prose .workspace-document-diagram[data-selected="true"] {
+		outline: 2px solid var(--ring);
+		outline-offset: 1px;
+		border-radius: var(--radius);
+	}
+
+	/* The mermaid source, which ProseMirror must render somewhere but the reader
+	   should never see. The drawing is the visible form of this text. */
+	.workspace-document-prose .workspace-document-diagram-source {
+		display: none;
+	}
+
 	/* Collapsible sections. The Details node view renders a toggle button next to
 	   the summary and hides the content div, so it only needs layout here — the
 	   AI writes <details> and there is no toolbar affordance for inserting one. */

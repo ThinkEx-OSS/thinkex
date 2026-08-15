@@ -13,6 +13,7 @@ import { createJavaScriptRegexEngine } from "shiki/engine/javascript";
 export {
 	codeLanguageOptions,
 	getCodeLanguageLabel,
+	isMermaidCodeLanguage,
 	normalizeCodeLanguage,
 	type CodeLanguageOption,
 	type SupportedCodeLanguage,

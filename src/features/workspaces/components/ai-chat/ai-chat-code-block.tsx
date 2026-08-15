@@ -2,6 +2,7 @@ import type { CSSProperties, HTMLAttributes, ReactNode } from "react";
 import { isValidElement, useEffect, useState } from "react";
 import type { ThemedToken } from "shiki/core";
 import { ClientOnly } from "@tanstack/react-router";
+import { useIsCodeFenceIncomplete } from "streamdown";
 import {
 	CodeBlockActions,
 	CodeBlockCopyButton,
@@ -13,10 +14,11 @@ import {
 import {
 	getCodeLanguageLabel,
 	highlightCodeTokens,
+	isMermaidCodeLanguage,
 	normalizeCodeLanguage,
 	type SupportedCodeLanguage,
 } from "#/features/workspaces/documents/code-block-shiki/highlighter";
-import { AiChatMermaidDiagram } from "#/features/workspaces/components/ai-chat/AiChatMermaidDiagram";
+import { MermaidDiagram } from "#/components/code-block/mermaid-diagram";
 import { cn } from "#/lib/utils.ts";
 
 // Shiki uses bitflags for font styles: 1=italic, 2=bold, 4=underline
@@ -358,6 +360,9 @@ export const MarkdownCodeBlock = ({
 	"data-block": dataBlock,
 	...props
 }: MarkdownCodeBlockProps) => {
+	// Only chat can see a half-written fence, so the streaming state is read
+	// here and handed to the shared diagram rather than looked up inside it.
+	const isFenceIncomplete = useIsCodeFenceIncomplete();
 	const isBlock = dataBlock !== undefined;
 
 	if (!isBlock) {
@@ -375,10 +380,10 @@ export const MarkdownCodeBlock = ({
 		getLanguageFromClassName(className) ?? getLanguageFromClassName(node?.properties?.className);
 	const code = getTextContent(children).replace(/\n$/, "");
 
-	if (rawLanguage?.toLowerCase() === "mermaid") {
+	if (isMermaidCodeLanguage(rawLanguage)) {
 		return (
 			<ClientOnly>
-				<AiChatMermaidDiagram source={code} />
+				<MermaidDiagram isIncomplete={isFenceIncomplete} source={code} />
 			</ClientOnly>
 		);
 	}
