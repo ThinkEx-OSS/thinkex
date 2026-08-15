@@ -45,7 +45,7 @@ exports[`workspace tool surface > workspace_create_items input schema is stable 
   "additionalProperties": false,
   "properties": {
     "items": {
-      "description": "One or more folders, documents, or flashcard sets to create in order, at most 20. Parent folders must already exist or be created earlier in the same request.",
+      "description": "One or more workspace items to create in order, at most 20. Parent folders must already exist or be created earlier in the same request.",
       "items": {
         "oneOf": [
           {

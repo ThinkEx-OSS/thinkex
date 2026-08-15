@@ -283,7 +283,7 @@ export const workspaceCreateItemsInputSchema = z.object({
 		.min(1)
 		.max(20)
 		.describe(
-			"One or more folders, documents, or flashcard sets to create in order, at most 20. Parent folders must already exist or be created earlier in the same request.",
+			"One or more workspace items to create in order, at most 20. Parent folders must already exist or be created earlier in the same request.",
 		),
 });
 
