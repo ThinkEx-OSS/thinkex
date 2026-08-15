@@ -10,8 +10,7 @@ import type {
 	MessageScrollerProviderProps,
 	MessageScrollerViewportProps,
 } from "./types";
-import { useMessageScrollerController } from "./use-message-scroller-controller";
-import { composeRefs, useLatest } from "./utils";
+import { useMessageScroller } from "./use-message-scroller";
 
 const MessageScrollerContext = React.createContext<MessageScrollerContextValue | null>(null);
 
@@ -25,22 +24,22 @@ function useMessageScrollerContext() {
 	return context;
 }
 
+function applyRef<T>(ref: React.Ref<T> | undefined, value: T | null) {
+	if (typeof ref === "function") {
+		ref(value);
+	} else if (ref) {
+		ref.current = value;
+	}
+}
+
 function MessageScrollerProvider({
 	appendedAnchorScrollBehavior,
-	autoScroll = false,
 	children,
-	defaultScrollPosition = "end",
-	scrollEdgeThreshold,
 	scrollPreviousItemPeek,
-	scrollMargin,
 }: MessageScrollerProviderProps) {
-	const { context } = useMessageScrollerController({
+	const context = useMessageScroller({
 		appendedAnchorScrollBehavior,
-		autoScroll,
-		defaultScrollPosition,
-		scrollEdgeThreshold,
 		scrollPreviousItemPeek,
-		scrollMargin,
 	});
 
 	return (
@@ -48,21 +47,8 @@ function MessageScrollerProvider({
 	);
 }
 
-function MessageScroller({ children, ref, ...props }: MessageScrollerProps) {
-	const { setRootElement } = useMessageScrollerContext();
-	const setRootRef = React.useCallback(
-		(element: HTMLDivElement | null) => {
-			setRootElement(element);
-			composeRefs(ref)?.(element);
-		},
-		[ref, setRootElement],
-	);
-
-	return (
-		<div {...props} ref={setRootRef}>
-			{children}
-		</div>
-	);
+function MessageScroller(props: MessageScrollerProps) {
+	return <div {...props} />;
 }
 
 function MessageScrollerViewport({
@@ -73,30 +59,18 @@ function MessageScrollerViewport({
 	onScroll,
 	onTouchMove,
 	onWheel,
-	preserveScrollOnPrepend = true,
 	ref,
 	role,
 	tabIndex,
 	...props
 }: MessageScrollerViewportProps) {
-	const {
-		handleResize,
-		preserveScrollOnPrependRef,
-		setViewportElement,
-		syncAfterScroll,
-		userScrollIntent,
-		viewportRef,
-	} = useMessageScrollerContext();
+	const { handleResize, setViewportElement, syncAfterScroll, userScrollIntent, viewportRef } =
+		useMessageScrollerContext();
 	const pointerScrollIntentRef = React.useRef(false);
-
-	React.useLayoutEffect(() => {
-		preserveScrollOnPrependRef.current = preserveScrollOnPrepend;
-	}, [preserveScrollOnPrepend, preserveScrollOnPrependRef]);
-
 	const setViewportRef = React.useCallback(
 		(element: HTMLDivElement | null) => {
 			setViewportElement(element);
-			composeRefs(ref)?.(element);
+			applyRef(ref, element);
 		},
 		[ref, setViewportElement],
 	);
@@ -181,12 +155,11 @@ function MessageScrollerContent({
 	const { handleContentChange, handleResize, setContentElement, setSpacerElement } =
 		useMessageScrollerContext();
 	const contentRef = React.useRef<HTMLDivElement | null>(null);
-
 	const setContentRef = React.useCallback(
 		(element: HTMLDivElement | null) => {
 			contentRef.current = element;
 			setContentElement(element);
-			composeRefs(ref)?.(element);
+			applyRef(ref, element);
 		},
 		[ref, setContentElement],
 	);
@@ -204,9 +177,7 @@ function MessageScrollerContent({
 			return;
 		}
 
-		const observer = new MutationObserver(() => {
-			handleContentChange();
-		});
+		const observer = new MutationObserver(handleContentChange);
 
 		observer.observe(content, { childList: true });
 
@@ -265,45 +236,32 @@ function MessageScrollerItem({
 function MessageScrollerButton({
 	behavior = "smooth",
 	children,
-	direction = "end",
 	onClick,
 	tabIndex,
 	type = "button",
 	...props
 }: MessageScrollerButtonProps) {
-	const { scrollToEnd, scrollToStart, stateStore } = useMessageScrollerContext();
-	const onClickRef = useLatest(onClick);
-	const subscribe = React.useCallback(
-		(listener: () => void) => stateStore.subscribe(listener),
-		[stateStore],
+	const { getCanScrollToEnd, scrollToEnd, subscribeCanScrollToEnd } = useMessageScrollerContext();
+	const isActive = React.useSyncExternalStore(
+		subscribeCanScrollToEnd,
+		getCanScrollToEnd,
+		getCanScrollToEnd,
 	);
-	const getSnapshot = React.useCallback(() => {
-		const state = stateStore.getSnapshot();
 
-		return direction === "start" ? state.start : state.end;
-	}, [direction, stateStore]);
-	const isActive = React.useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+	function handleClick(event: React.MouseEvent<HTMLButtonElement>) {
+		if (!isActive) {
+			return;
+		}
 
-	const handleClick = React.useCallback(
-		(event: React.MouseEvent<HTMLButtonElement>) => {
-			if (!isActive) {
-				return;
-			}
+		onClick?.(event);
 
-			onClickRef.current?.(event);
+		if (event.defaultPrevented) {
+			return;
+		}
 
-			if (!event.defaultPrevented) {
-				event.currentTarget.blur();
-
-				if (direction === "start") {
-					scrollToStart({ behavior });
-				} else {
-					scrollToEnd({ behavior });
-				}
-			}
-		},
-		[behavior, direction, isActive, onClickRef, scrollToEnd, scrollToStart],
-	);
+		event.currentTarget.blur();
+		scrollToEnd({ behavior });
+	}
 
 	return (
 		<button
@@ -312,10 +270,9 @@ function MessageScrollerButton({
 			inert={!isActive}
 			tabIndex={isActive ? tabIndex : -1}
 			data-active={isActive ? "true" : "false"}
-			data-direction={direction}
 			onClick={handleClick}
 		>
-			{children ?? <span>Scroll to {direction}</span>}
+			{children ?? <span>Scroll to end</span>}
 		</button>
 	);
 }

@@ -1,12 +1,5 @@
 import { Suspense, useState } from "react";
 import {
-	MessageScroller,
-	MessageScrollerContent,
-	MessageScrollerItem,
-	MessageScrollerProvider,
-	MessageScrollerViewport,
-} from "#/components/ui/message-scroller";
-import {
 	AiChatAttachmentDropProvider,
 	useAiChatAttachmentDrop,
 } from "#/features/workspaces/components/ai-chat/AiChatAttachmentDrop";
@@ -14,13 +7,11 @@ import AiChatPanelToolbar from "#/features/workspaces/components/ai-chat/AiChatP
 import AiChatThreadSkeleton from "#/features/workspaces/components/ai-chat/AiChatThreadSkeleton";
 import AiChatThreadView from "#/features/workspaces/components/ai-chat/AiChatThreadView";
 import AiChatTranscriptRail from "#/features/workspaces/components/ai-chat/AiChatTranscriptRail";
-import {
-	aiChatMessageScrollerContentClassName,
-	aiChatMessageScrollerViewportClassName,
-} from "#/features/workspaces/components/ai-chat/ai-chat-layout";
+import { aiChatMessageScrollerContentClassName } from "#/features/workspaces/components/ai-chat/ai-chat-layout";
 import { useAiChatPanelController } from "#/features/workspaces/components/ai-chat/useAiChatPanelController";
 import { WorkspaceFileDropOverlay } from "#/features/workspaces/components/WorkspaceFileDropOverlay";
 import type { WorkspaceAiContextScope } from "#/features/workspaces/model/workspace-ai-context-types";
+import { cn } from "#/lib/utils";
 
 interface AiChatPanelProps {
 	context: WorkspaceAiContextScope;
@@ -94,20 +85,14 @@ function AiChatPanelLayout({ context }: AiChatPanelProps) {
 	);
 }
 
+// A skeleton never scrolls, so it borrows the transcript's spacing rather than
+// its scroller.
 function AiChatPanelLoading() {
 	return (
-		<MessageScrollerProvider>
-			<MessageScroller className="h-full min-h-0">
-				<MessageScrollerViewport className={aiChatMessageScrollerViewportClassName}>
-					<MessageScrollerContent className={aiChatMessageScrollerContentClassName}>
-						<MessageScrollerItem>
-							<AiChatTranscriptRail>
-								<AiChatThreadSkeleton />
-							</AiChatTranscriptRail>
-						</MessageScrollerItem>
-					</MessageScrollerContent>
-				</MessageScrollerViewport>
-			</MessageScroller>
-		</MessageScrollerProvider>
+		<div className={cn("h-full min-h-0 overflow-hidden", aiChatMessageScrollerContentClassName)}>
+			<AiChatTranscriptRail>
+				<AiChatThreadSkeleton />
+			</AiChatTranscriptRail>
+		</div>
 	);
 }

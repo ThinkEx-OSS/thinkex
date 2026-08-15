@@ -15,10 +15,3 @@ export const MessageScroller = {
 	Item,
 	Button,
 };
-
-export type {
-	MessageScrollerDefaultScrollPosition,
-	MessageScrollerScrollAlign,
-	MessageScrollerScrollOptions,
-	MessageScrollerScrollable,
-} from "./types";

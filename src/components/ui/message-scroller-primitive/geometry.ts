@@ -1,65 +1,29 @@
-import { EMPTY_MESSAGE_SCROLLER_SCROLLABLE } from "./types";
-import type { MessageScrollerScrollable, MessageScrollerScrollAlign } from "./types";
+import { SCROLL_EDGE_THRESHOLD } from "./types";
 
-function getMessageScrollerScrollable({
+// Whether content is still hidden below the viewport. Measured from the rows
+// rather than scrollHeight so the tail spacer does not read as content.
+function canScrollToEnd({
 	content,
-	scrollEdgeThreshold,
 	spacer,
 	viewport,
 }: {
 	content: HTMLElement | null;
-	scrollEdgeThreshold: number;
 	spacer: HTMLElement | null;
 	viewport: HTMLElement | null;
-}): MessageScrollerScrollable {
+}) {
 	if (!viewport || !content) {
-		return EMPTY_MESSAGE_SCROLLER_SCROLLABLE;
+		return false;
 	}
 
 	const contentBottom = getContentBottom({ content, spacer, viewport });
 
-	return {
-		start: viewport.scrollTop > scrollEdgeThreshold,
-		end: contentBottom - viewport.scrollTop - viewport.clientHeight > scrollEdgeThreshold,
-	};
+	return contentBottom - viewport.scrollTop - viewport.clientHeight > SCROLL_EDGE_THRESHOLD;
 }
 
 function getMessageScrollerItems(content: HTMLElement, spacer: HTMLElement | null) {
 	return Array.from(content.children).filter(
 		(child): child is HTMLElement => child instanceof HTMLElement && child !== spacer,
 	);
-}
-
-function getNewScrollAnchor(items: HTMLElement[], previousItemCount: number) {
-	for (let index = previousItemCount; index < items.length; index++) {
-		const item = items[index];
-
-		if (item?.dataset.scrollAnchor === "true") {
-			return item;
-		}
-	}
-
-	return null;
-}
-
-function hasMultipleNewScrollAnchors(items: HTMLElement[], previousItemCount: number) {
-	let count = 0;
-
-	for (let index = previousItemCount; index < items.length; index++) {
-		const item = items[index];
-
-		if (item?.dataset.scrollAnchor !== "true") {
-			continue;
-		}
-
-		count += 1;
-
-		if (count > 1) {
-			return true;
-		}
-	}
-
-	return false;
 }
 
 function getLastScrollAnchor(items: HTMLElement[]) {
@@ -74,6 +38,9 @@ function getLastScrollAnchor(items: HTMLElement[]) {
 	return null;
 }
 
+// ponytail: linear scan from the top of the transcript. Costs one rect read per
+// row above the reader, so it is at its worst parked at the bottom of a long
+// thread. Index the rows if that ever shows up in a profile.
 function getFirstVisibleMessageItem({
 	content,
 	spacer,
@@ -100,66 +67,32 @@ function getFirstVisibleMessageItem({
 	return null;
 }
 
-function getElementScrollTop({
-	align,
+// scrollTop that puts a row at the top of the viewport, less the peek that keeps
+// the tail of the previous row in view.
+function getRowScrollTop({
+	content,
 	element,
-	scrollMargin,
-	spacer,
+	peek,
 	viewport,
 }: {
-	align: MessageScrollerScrollAlign;
+	content: HTMLElement;
 	element: HTMLElement;
-	scrollMargin: number;
-	spacer: HTMLElement | null;
+	peek: number;
 	viewport: HTMLElement;
 }) {
-	const elementTop = getElementTop(element, viewport);
-	const elementHeight = element.getBoundingClientRect().height;
-	const contentPadding = getContentBlockPadding(spacer);
-
-	if (align === "center") {
-		const insetHeight = Math.max(
-			0,
-			viewport.clientHeight - contentPadding.start - contentPadding.end,
-		);
-
-		return elementTop - contentPadding.start - (insetHeight - elementHeight) / 2 - scrollMargin;
-	}
-
-	if (align === "end") {
-		return elementTop - viewport.clientHeight + elementHeight + contentPadding.end + scrollMargin;
-	}
-
-	if (align === "nearest") {
-		const elementBottom = elementTop + elementHeight;
-		const viewportTop = viewport.scrollTop + contentPadding.start;
-		const viewportBottom = viewport.scrollTop + viewport.clientHeight - contentPadding.end;
-
-		if (elementTop >= viewportTop && elementBottom <= viewportBottom) {
-			return viewport.scrollTop;
-		}
-
-		if (elementTop < viewportTop) {
-			return elementTop - contentPadding.start - scrollMargin;
-		}
-
-		return elementBottom - viewport.clientHeight + contentPadding.end + scrollMargin;
-	}
-
-	return elementTop - contentPadding.start - scrollMargin;
-}
-
-function getElementTop(element: HTMLElement, viewport: HTMLElement) {
 	const elementRect = element.getBoundingClientRect();
 	const viewportRect = viewport.getBoundingClientRect();
+	const elementTop = elementRect.top - viewportRect.top + viewport.scrollTop;
 
-	return elementRect.top - viewportRect.top + viewport.scrollTop;
+	return elementTop - getBlockPadding(content).start - peek;
 }
 
 function getElementViewportTop(element: HTMLElement, viewport: HTMLElement) {
 	return element.getBoundingClientRect().top - viewport.getBoundingClientRect().top;
 }
 
+// Height the tail spacer needs so the row placed at scrollTop can sit at the top
+// of the viewport with nothing below it to scroll into.
 function getTailSpacerHeight({
 	content,
 	scrollTop,
@@ -171,11 +104,11 @@ function getTailSpacerHeight({
 	spacer: HTMLElement | null;
 	viewport: HTMLElement;
 }) {
-	const contentBottom = getContentBottom({ content, spacer, viewport });
-
-	return scrollTop + viewport.clientHeight - contentBottom;
+	return scrollTop + viewport.clientHeight - getContentBottom({ content, spacer, viewport });
 }
 
+// Where the rows end, ignoring the tail spacer. The rows are a flex column, so
+// the last one is the lowest — no need to measure the rest.
 function getContentBottom({
 	content,
 	spacer,
@@ -187,20 +120,19 @@ function getContentBottom({
 }) {
 	const items = getMessageScrollerItems(content, spacer);
 	const padding = getBlockPadding(content);
-	const viewportRect = viewport.getBoundingClientRect();
-	const scrollTop = viewport.scrollTop;
-	let contentBottom = padding.start + padding.end;
+	const lastItem = items[items.length - 1];
 
-	for (const item of items) {
-		const rect = item.getBoundingClientRect();
-
-		contentBottom = Math.max(
-			contentBottom,
-			rect.bottom - viewportRect.top + scrollTop + padding.end,
-		);
+	if (!lastItem) {
+		return padding.start + padding.end;
 	}
 
-	return contentBottom;
+	const bottom =
+		lastItem.getBoundingClientRect().bottom -
+		viewport.getBoundingClientRect().top +
+		viewport.scrollTop +
+		padding.end;
+
+	return Math.max(bottom, padding.start + padding.end);
 }
 
 function getMaxScrollTop(viewport: HTMLElement) {
@@ -214,19 +146,6 @@ function getBlockPadding(element: HTMLElement) {
 		end: readCssPixel(style.paddingBlockEnd || style.paddingBottom),
 		start: readCssPixel(style.paddingBlockStart || style.paddingTop),
 	};
-}
-
-function getContentBlockPadding(spacer: HTMLElement | null) {
-	const content = spacer?.parentElement;
-
-	if (!content) {
-		return {
-			end: 0,
-			start: 0,
-		};
-	}
-
-	return getBlockPadding(content);
 }
 
 function getFlexGap(element: HTMLElement | null) {
@@ -251,18 +170,13 @@ function readCssPixel(value: string | undefined) {
 }
 
 export {
-	getContentBlockPadding,
-	getContentBottom,
-	getElementScrollTop,
-	getElementTop,
+	canScrollToEnd,
 	getElementViewportTop,
 	getFirstVisibleMessageItem,
 	getFlexGap,
 	getLastScrollAnchor,
 	getMaxScrollTop,
 	getMessageScrollerItems,
-	getMessageScrollerScrollable,
-	getNewScrollAnchor,
+	getRowScrollTop,
 	getTailSpacerHeight,
-	hasMultipleNewScrollAnchors,
 };
