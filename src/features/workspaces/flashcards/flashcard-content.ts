@@ -1,19 +1,19 @@
-import { z } from "zod";
-
 import {
-	parseDocumentAiHtml,
-	serializeTiptapDocumentToHtml,
-} from "#/features/workspaces/documents/document-ai-html";
+	createEntryRichTextParser,
+	entryRichTextHtmlSchema,
+	serializeEntryRichTextToHtml,
+} from "#/features/workspaces/content/entry-rich-text";
+import type { TiptapDocumentJson } from "#/features/workspaces/documents/tiptap-document";
 import {
-	coerceTiptapDocumentProjection,
-	type TiptapDocumentJson,
-} from "#/features/workspaces/documents/tiptap-document";
+	createWorkspaceEntryId,
+	workspaceEntryIdSchema,
+} from "#/features/workspaces/locations/workspace-location";
 import { sha256Base64UrlText } from "#/lib/binary";
 import { isRecord } from "#/lib/record";
 
 export const FLASHCARD_SET_VERSION = 1;
-export const flashcardSideHtmlSchema = z.string().trim().min(1).max(8_000);
-const flashcardIdSchema = z.uuid();
+export const flashcardSideHtmlSchema = entryRichTextHtmlSchema;
+const flashcardIdSchema = workspaceEntryIdSchema;
 
 export interface Flashcard {
 	id: string;
@@ -32,27 +32,18 @@ interface FlashcardHtmlCard {
 	back: string;
 }
 
-const allowedNodeTypes = new Set([
-	"doc",
-	"paragraph",
-	"text",
-	"bulletList",
-	"orderedList",
-	"listItem",
-	"codeBlock",
-	"hardBreak",
-	"inlineMath",
-	"blockMath",
-]);
-
-const allowedMarkTypes = new Set(["bold", "italic", "strike", "code", "link", "underline"]);
+const flashcardRichText = createEntryRichTextParser({
+	invalidStored: "Flashcard content contains invalid rich text.",
+	unsupportedMark: "Flashcard content contains an unsupported text mark.",
+	unsupportedNode: (nodeType) => `Flashcards do not support ${nodeType} content yet.`,
+});
 
 export function createFlashcardSetFromHtml(cards: Array<{ front: string; back: string }>) {
 	if (cards.length === 0) throw new Error("A flashcard set needs at least one card.");
 	return {
 		version: FLASHCARD_SET_VERSION,
 		cards: cards.map((card) => ({
-			id: crypto.randomUUID(),
+			id: createWorkspaceEntryId("c"),
 			front: parseFlashcardSideHtml(card.front),
 			back: parseFlashcardSideHtml(card.back),
 		})),
@@ -60,9 +51,7 @@ export function createFlashcardSetFromHtml(cards: Array<{ front: string; back: s
 }
 
 export function parseFlashcardSideHtml(html: string) {
-	const document = parseDocumentAiHtml(html);
-	assertFlashcardRichText(document);
-	return document;
+	return flashcardRichText.parseEntryRichTextHtml(html);
 }
 
 export function parseFlashcardSetContent(content: string | null): FlashcardSetContent {
@@ -92,22 +81,12 @@ export function parseFlashcardSetContent(content: string | null): FlashcardSetCo
 		}
 		seenIds.add(cardId.data);
 
-		const front = parseStoredFlashcardSide(card.front);
-		const back = parseStoredFlashcardSide(card.back);
-		assertFlashcardRichText(front);
-		assertFlashcardRichText(back);
+		const front = flashcardRichText.parseStoredEntryRichText(card.front);
+		const back = flashcardRichText.parseStoredEntryRichText(card.back);
 		return { id: cardId.data, front, back };
 	});
 
 	return { version: FLASHCARD_SET_VERSION, cards };
-}
-
-function parseStoredFlashcardSide(value: unknown) {
-	const projection = coerceTiptapDocumentProjection(value);
-	if (projection.warnings.length > 0) {
-		throw new Error("Flashcard content contains invalid rich text.");
-	}
-	return projection.document;
 }
 
 export function stringifyFlashcardSetContent(content: FlashcardSetContent) {
@@ -115,13 +94,13 @@ export function stringifyFlashcardSetContent(content: FlashcardSetContent) {
 }
 
 export function serializeFlashcardSideToHtml(side: TiptapDocumentJson) {
-	return serializeTiptapDocumentToHtml(side);
+	return serializeEntryRichTextToHtml(side);
 }
 
 export async function createFlashcardRevision(card: Flashcard) {
 	return (await sha256Base64UrlText(JSON.stringify({ front: card.front, back: card.back }))).slice(
 		0,
-		10,
+		6,
 	);
 }
 
@@ -131,28 +110,4 @@ export function serializeFlashcardSetToHtml(content: FlashcardSetContent): Flash
 		front: serializeFlashcardSideToHtml(card.front),
 		back: serializeFlashcardSideToHtml(card.back),
 	}));
-}
-
-function assertFlashcardRichText(value: unknown) {
-	visitRichTextValue(value);
-}
-
-function visitRichTextValue(value: unknown) {
-	if (Array.isArray(value)) {
-		for (const entry of value) visitRichTextValue(entry);
-		return;
-	}
-	if (!isRecord(value)) return;
-
-	if (typeof value.type === "string" && !allowedNodeTypes.has(value.type)) {
-		throw new Error(`Flashcards do not support ${value.type} content yet.`);
-	}
-	if (Array.isArray(value.marks)) {
-		for (const mark of value.marks) {
-			if (!isRecord(mark) || typeof mark.type !== "string" || !allowedMarkTypes.has(mark.type)) {
-				throw new Error("Flashcard content contains an unsupported text mark.");
-			}
-		}
-	}
-	if ("content" in value) visitRichTextValue(value.content);
 }

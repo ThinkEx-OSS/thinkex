@@ -8,7 +8,7 @@ import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react
 import { Button } from "#/components/ui/button";
 import { Skeleton } from "#/components/ui/skeleton";
 import { sendComposerPrompt } from "#/features/workspaces/composer/workspace-composer-actions";
-import { FlashcardToolbar } from "#/features/workspaces/components/flashcards/FlashcardToolbar";
+import { StudyToolbar } from "#/features/workspaces/components/study/StudyToolbar";
 import { useWorkspaceItemToolbar } from "#/features/workspaces/components/WorkspaceItemToolbarSlot";
 import { getTiptapDocumentBaseExtensions } from "#/features/workspaces/documents/tiptap-extensions";
 import type { TiptapDocumentJson } from "#/features/workspaces/documents/tiptap-document";
@@ -178,9 +178,17 @@ function FlashcardStudySession({
 	}, [resetProgress, startSession]);
 	const toolbar = useMemo(
 		() => (
-			<FlashcardToolbar
+			<StudyToolbar
 				canReset={studyProgress.reviewedCount > 0}
 				isResetting={isResetting}
+				labels={{
+					allLabel: "All cards",
+					mobileLabel: "Flashcard study options",
+					resetAriaLabel: "Reset flashcard progress",
+					resetDescription:
+						"This clears every saved response for this set. The cards themselves will not change.",
+					resetTitle: "Reset flashcard progress?",
+				}}
 				missedCount={studyProgress.missedCount}
 				mode={mode}
 				shuffled={shuffled}

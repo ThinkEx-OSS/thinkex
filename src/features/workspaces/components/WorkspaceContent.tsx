@@ -11,6 +11,7 @@ import {
 } from "#/components/ui/empty";
 import { DocumentEditorSurface } from "#/features/workspaces/components/document-editor/DocumentEditorSurface";
 import { FlashcardViewer } from "#/features/workspaces/components/flashcards/FlashcardViewer";
+import { QuizViewer } from "#/features/workspaces/components/quizzes/QuizViewer";
 import { WorkspaceClipboardIntakeDialog } from "#/features/workspaces/components/WorkspaceClipboardIntakeDialog";
 import WorkspaceClickableEmptyState from "#/features/workspaces/components/WorkspaceClickableEmptyState";
 import { useWorkspaceClipboardIntake } from "#/features/workspaces/components/useWorkspaceClipboardIntake";
@@ -523,6 +524,10 @@ function WorkspaceItemView({
 
 	if (item.type === "flashcard") {
 		return <FlashcardViewer itemPath={itemPath} item={item} viewInstanceId={viewInstanceId} />;
+	}
+
+	if (item.type === "quiz") {
+		return <QuizViewer itemPath={itemPath} item={item} viewInstanceId={viewInstanceId} />;
 	}
 
 	const { Icon: ItemIcon, iconClassName, surfaceClassName } = getWorkspaceItemDisplay(item);

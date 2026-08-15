@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const WORKSPACE_ITEM_TYPES = ["folder", "document", "flashcard", "file"] as const;
+export const WORKSPACE_ITEM_TYPES = ["folder", "document", "flashcard", "quiz", "file"] as const;
 export const workspaceItemTypeSchema = z.enum(WORKSPACE_ITEM_TYPES);
 export type WorkspaceItemType = z.infer<typeof workspaceItemTypeSchema>;
 
@@ -48,6 +48,14 @@ const workspaceItemRegistry = {
 		isContainer: false,
 		label: "Flashcards",
 		menuLabel: "Flashcards",
+	},
+	quiz: {
+		color: "emerald",
+		contentKind: "structured",
+		defaultName: "New quiz",
+		isContainer: false,
+		label: "Quiz",
+		menuLabel: "Quiz",
 	},
 	file: {
 		color: "rose",

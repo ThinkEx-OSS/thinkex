@@ -8,15 +8,44 @@ import {
 } from "#/features/workspaces/documents/tiptap-document";
 import { createWorkspaceExportStream } from "#/features/workspaces/export/workspace-export-archive";
 import { type FlashcardSetContent } from "#/features/workspaces/flashcards/flashcard-content";
+import { serializeTiptapDocumentToMarkdown } from "#/features/workspaces/documents/document-markdown";
 import { canExportWorkspaceEstimate } from "#/features/workspaces/export/workspace-export-limit";
 import { readWorkspaceDocumentCheckpoint } from "#/features/workspaces/persistence/workspace-document-checkpoints";
 import { readFlashcardSet } from "#/features/workspaces/flashcards/flashcard-persistence";
+import { readQuizSet } from "#/features/workspaces/quizzes/quiz-persistence";
+import { type QuizSetContent } from "#/features/workspaces/quizzes/quiz-content";
 import { readWorkspaceFileSource } from "#/features/workspaces/persistence/workspace-files";
 import { WorkspaceForbiddenError } from "#/features/workspaces/server/permissions";
 import { getWorkspacePageForUser } from "#/features/workspaces/server/queries";
 import { getMetadataNumber } from "#/features/workspaces/model/workspace-file";
 
 const textEncoder = new TextEncoder();
+
+function serializeFlashcardSetToMarkdown(item: WorkspaceItem, set: FlashcardSetContent) {
+	const cards = set.cards.map((card, index) => {
+		const front = serializeTiptapDocumentToMarkdown(card.front);
+		const back = serializeTiptapDocumentToMarkdown(card.back);
+		return `## Card ${index + 1}\n\n${front}\n\n**Answer**\n\n${back}`;
+	});
+	return `# ${item.name}\n\n${cards.join("\n\n---\n\n")}\n`;
+}
+
+function serializeQuizSetToMarkdown(item: WorkspaceItem, set: QuizSetContent) {
+	const questions = set.questions.map((question, index) => {
+		const stem = serializeTiptapDocumentToMarkdown(question.question);
+		const options = question.options
+			.map((option, optionIndex) => {
+				const letter = String.fromCharCode(65 + optionIndex);
+				const text = serializeTiptapDocumentToMarkdown(option.text);
+				const marker = option.id === question.correctOptionId ? " ✓" : "";
+				return `${letter}. ${text}${marker}`;
+			})
+			.join("\n");
+		const explanation = serializeTiptapDocumentToMarkdown(question.explanation);
+		return `## Question ${index + 1}\n\n${stem}\n\n${options}\n\n**Explanation**\n\n${explanation}`;
+	});
+	return `# ${item.name}\n\n${questions.join("\n\n---\n\n")}\n`;
+}
 
 export class WorkspaceExportTooLargeError extends Error {
 	constructor() {
@@ -27,7 +56,7 @@ export class WorkspaceExportTooLargeError extends Error {
 
 interface PreparedWorkspaceExport {
 	documents: Map<string, TiptapDocumentJson>;
-	flashcards: Map<string, FlashcardSetContent>;
+	structuredMarkdown: Map<string, string>;
 	fileName: string;
 	fileObjectKeys: Map<string, string>;
 	items: WorkspaceItem[];
@@ -46,10 +75,10 @@ export async function createWorkspaceExport(input: { workspaceId: string; userId
 				}
 				return document;
 			},
-			readFlashcards: (item) => {
-				const set = prepared.flashcards.get(item.id);
-				if (!set) throw new Error(`Workspace flashcards were not prepared for ${item.name}.`);
-				return set;
+			readStructuredMarkdown: (item) => {
+				const markdown = prepared.structuredMarkdown.get(item.id);
+				if (!markdown) throw new Error(`Workspace content was not prepared for ${item.name}.`);
+				return markdown;
 			},
 			readFile: async (item) => {
 				const objectKey = prepared.fileObjectKeys.get(item.id);
@@ -94,7 +123,7 @@ async function prepareWorkspaceExport(input: { workspaceId: string; userId: stri
 	}
 
 	const documents = new Map<string, TiptapDocumentJson>();
-	const flashcards = new Map<string, FlashcardSetContent>();
+	const structuredMarkdown = new Map<string, string>();
 	const fileObjectKeys = new Map<string, string>();
 	let estimatedBytes = page.items.length * 512;
 
@@ -123,11 +152,19 @@ async function prepareWorkspaceExport(input: { workspaceId: string; userId: stri
 			fileObjectKeys.set(item.id, source.objectKey);
 			continue;
 		}
-		if (item.type === "flashcard") {
-			const set = await readFlashcardSet({ itemId: item.id, workspaceId: input.workspaceId });
-			const serialized = JSON.stringify(set);
-			estimatedBytes += textEncoder.encode(serialized).byteLength;
-			flashcards.set(item.id, set);
+		if (getWorkspaceItemContentKind(item.type) === "structured") {
+			const markdown =
+				item.type === "flashcard"
+					? serializeFlashcardSetToMarkdown(
+							item,
+							await readFlashcardSet({ itemId: item.id, workspaceId: input.workspaceId }),
+						)
+					: serializeQuizSetToMarkdown(
+							item,
+							await readQuizSet({ itemId: item.id, workspaceId: input.workspaceId }),
+						);
+			estimatedBytes += textEncoder.encode(markdown).byteLength;
+			structuredMarkdown.set(item.id, markdown);
 		}
 	}
 
@@ -137,7 +174,7 @@ async function prepareWorkspaceExport(input: { workspaceId: string; userId: stri
 
 	return {
 		documents,
-		flashcards,
+		structuredMarkdown,
 		fileName: `${normalizeWorkspaceItemName(page.workspace.name, "Workspace")}-${new Date().toISOString().slice(0, 10)}.zip`,
 		fileObjectKeys,
 		items: page.items,

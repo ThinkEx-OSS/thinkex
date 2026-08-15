@@ -166,7 +166,13 @@ export function getFinishedToolReceipt(input: {
 				successVerb: "Created",
 				typeFromItem: (item) => {
 					const type = getString(asRecord(item).type);
-					return type === "folder" ? "folder" : type === "flashcard" ? "flashcard set" : "document";
+					return type === "folder"
+						? "folder"
+						: type === "flashcard"
+							? "flashcard set"
+							: type === "quiz"
+								? "quiz"
+								: "document";
 				},
 			});
 		case "workspace_delete_items":

@@ -92,7 +92,7 @@ describe("applyFlashcardEdits", () => {
 		expect(result.failed).toMatchObject([
 			{ code: "no_change", index: 0 },
 			{ code: "no_change", index: 1 },
-			{ code: "cannot_delete_last_card", index: 2 },
+			{ code: "cannot_delete_last_entry", index: 2 },
 		]);
 		expect(result.content.cards).toEqual(set.cards);
 	});
@@ -162,7 +162,7 @@ async function createTargets(...cards: Flashcard[]) {
 				async (card, index) =>
 					[
 						refs[index]!,
-						{ cardId: card.id, revision: await createFlashcardRevision(card) },
+						{ entryId: card.id, revision: await createFlashcardRevision(card) },
 					] as const,
 			),
 		),

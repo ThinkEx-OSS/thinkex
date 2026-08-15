@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { workspaceEntryIdSchema } from "#/features/workspaces/locations/workspace-location";
+
 export const flashcardStudyRatingSchema = z.enum(["again", "hard", "good", "easy"]);
 export type FlashcardStudyRating = z.output<typeof flashcardStudyRatingSchema>;
 
@@ -11,7 +13,7 @@ export const flashcardReviewSchema = z.object({
 
 export const flashcardStudyStateSchema = z.object({
 	kind: z.literal("flashcard"),
-	cards: z.record(z.uuid(), flashcardReviewSchema),
+	cards: z.record(workspaceEntryIdSchema, flashcardReviewSchema),
 });
 
 export type FlashcardStudyState = z.output<typeof flashcardStudyStateSchema>;

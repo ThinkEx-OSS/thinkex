@@ -1,4 +1,4 @@
-import { FilePen, Folder, Layers3, Paperclip, Upload } from "lucide-react";
+import { FilePen, Folder, Layers3, ListChecks, Paperclip, Upload } from "lucide-react";
 
 import {
 	type WorkspaceItem,
@@ -15,6 +15,7 @@ const workspaceItemIcons = {
 	file: Paperclip,
 	flashcard: Layers3,
 	folder: Folder,
+	quiz: ListChecks,
 } satisfies Record<WorkspaceItemType, typeof FilePen>;
 
 /**
@@ -47,7 +48,7 @@ export function getWorkspaceItemDisplay(item: WorkspaceItem) {
 	};
 }
 
-function createWorkspaceItemAction(type: "document" | "flashcard" | "folder") {
+function createWorkspaceItemAction(type: "document" | "flashcard" | "folder" | "quiz") {
 	const display = getWorkspaceItemTypeDisplay(type);
 	return {
 		kind: "item" as const,
@@ -77,6 +78,6 @@ export const workspaceCreateMenuActionGroups = [
 	},
 	{
 		id: "study",
-		actions: [createWorkspaceItemAction("flashcard")],
+		actions: [createWorkspaceItemAction("flashcard"), createWorkspaceItemAction("quiz")],
 	},
 ] as const;

@@ -7,7 +7,6 @@ import {
 } from "#/features/workspaces/contracts";
 import { serializeTiptapDocumentToMarkdown } from "#/features/workspaces/documents/document-markdown";
 import type { TiptapDocumentJson } from "#/features/workspaces/documents/tiptap-document";
-import type { FlashcardSetContent } from "#/features/workspaces/flashcards/flashcard-content";
 import { buildWorkspaceItemPathIndex } from "#/features/workspaces/model/workspace-paths";
 
 const emptyBytes = new Uint8Array();
@@ -15,7 +14,8 @@ const textEncoder = new TextEncoder();
 
 interface WorkspaceExportReaders {
 	readDocument: (item: WorkspaceItem) => TiptapDocumentJson;
-	readFlashcards: (item: WorkspaceItem) => FlashcardSetContent;
+	/** Pre-rendered Markdown for structured items (flashcard sets, quizzes). */
+	readStructuredMarkdown: (item: WorkspaceItem) => string;
 	readFile: (item: WorkspaceItem) => Promise<ReadableStream<Uint8Array>>;
 }
 
@@ -65,8 +65,8 @@ async function writeWorkspaceExport(
 				await addZipBytes(zip, path, textEncoder.encode(`${markdown}\n`), () => output);
 				continue;
 			}
-			if (item.type === "flashcard") {
-				const markdown = serializeFlashcardsToMarkdown(item, readers.readFlashcards(item));
+			if (getWorkspaceItemContentKind(item.type) === "structured") {
+				const markdown = readers.readStructuredMarkdown(item);
 				await addZipBytes(zip, path, textEncoder.encode(markdown), () => output);
 				continue;
 			}
@@ -102,7 +102,8 @@ function buildArchivePathIndex(
 	}
 
 	for (const item of items) {
-		if (getWorkspaceItemContentKind(item.type) !== "document" && item.type !== "flashcard") {
+		const contentKind = getWorkspaceItemContentKind(item.type);
+		if (contentKind !== "document" && contentKind !== "structured") {
 			continue;
 		}
 		const workspacePath = workspacePaths.get(item.id)?.slice(1);
@@ -119,15 +120,6 @@ function buildArchivePathIndex(
 	}
 
 	return archivePaths;
-}
-
-function serializeFlashcardsToMarkdown(item: WorkspaceItem, set: FlashcardSetContent) {
-	const cards = set.cards.map((card, index) => {
-		const front = serializeTiptapDocumentToMarkdown(card.front);
-		const back = serializeTiptapDocumentToMarkdown(card.back);
-		return `## Card ${index + 1}\n\n${front}\n\n**Answer**\n\n${back}`;
-	});
-	return `# ${item.name}\n\n${cards.join("\n\n---\n\n")}\n`;
 }
 
 function reserveArchivePath(path: string, reservedPaths: ReadonlySet<string>) {
