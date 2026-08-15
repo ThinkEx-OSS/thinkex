@@ -37,14 +37,21 @@ const workspaceHtmlMathInstruction =
 	'This is HTML, so math is markup rather than delimiters: use <span data-type="inline-math" data-latex="..."></span> or <div data-type="block-math" data-latex="..."></div>, and keep dollar signs out of the data-latex value. Put every subscript and superscript (exponents like 10^8, indices like x_1) inside math rather than <sub>/<sup> tags. Chemistry renders with \\ce{...} (e.g. \\ce{CH4 + 2 O2 -> CO2 + 2 H2O}) and quantities with units render with \\pu{...} (e.g. \\pu{9.81 m/s^2}), both inside data-latex. Write literal money as plain text ($30, never \\$30) — a backslash before a dollar sign shows on screen in HTML.';
 
 /**
+ * The one code-block detail HTML does not make obvious. Every reader
+ * normalizes aliases and casing, so the class prefix is the whole contract.
+ */
+const workspaceHtmlCodeInstruction =
+	'A code block carries its language as a class on the inner <code>: <pre><code class="language-python">…</code></pre>. Without that class the block renders unhighlighted and unlabelled.';
+
+/**
  * Keep discovery and serialization beside the document tool. The activated
  * skill owns the authoring contract so the two prompts cannot drift apart.
  */
 const workspaceWidgetHtmlInstruction = `A widget is one interactive block inside a document. Use one when the user explicitly asks for a widget, asks for interaction or live computation, or wants a document visual that ordinary blocks cannot express. Keep ordinary content in ordinary blocks. Before authoring or editing widget source, activate the "widget-authoring" skill and follow its HTML, sandbox, layout, and editing contract. Serialize the result as <div data-type="widget" title="Short title">…HTML-escaped fragment…</div>.`;
 
-export const workspaceDocumentHtmlInstruction = `Use semantic HTML with paragraphs, h1-h4, blockquotes, lists, code blocks, horizontal rules, tables, links, and standard text marks. ${workspaceHtmlMathInstruction} For checkboxes, use <ul data-type="taskList"><li data-type="taskItem" data-checked="false"><label><input type="checkbox"><span></span></label><div><p>Item</p></div></li></ul>. Documents cannot hold images: never use <img> or <figure>, and describe the visual in words instead. Cite workspace sources in documents exactly as in a chat reply, with <citation ref="wr_7Kp2Qa9x"></citation> placed after the claim it supports. ${workspaceWidgetHtmlInstruction}`;
+export const workspaceDocumentHtmlInstruction = `Use semantic HTML with paragraphs, h1-h4, blockquotes, lists, code blocks, horizontal rules, tables, links, and standard text marks. ${workspaceHtmlMathInstruction} ${workspaceHtmlCodeInstruction} For checkboxes, use <ul data-type="taskList"><li data-type="taskItem" data-checked="false"><label><input type="checkbox"><span></span></label><div><p>Item</p></div></li></ul>. Documents cannot hold images: never use <img> or <figure>, and describe the visual in words instead. Cite workspace sources in documents exactly as in a chat reply, with <citation ref="wr_7Kp2Qa9x"></citation> placed after the claim it supports. ${workspaceWidgetHtmlInstruction}`;
 
-export const workspaceFlashcardHtmlInstruction = `Flashcard fronts and backs are HTML. Keep each side concise. Use paragraphs, lists, links, code blocks, and standard text marks only. ${workspaceHtmlMathInstruction} Do not use headings, tables, images, widgets, task lists, or citations inside a card. Use item-level relations for sources.`;
+export const workspaceFlashcardHtmlInstruction = `Flashcard fronts and backs are HTML. Keep each side concise. Use paragraphs, lists, links, code blocks, and standard text marks only. ${workspaceHtmlMathInstruction} ${workspaceHtmlCodeInstruction} Do not use headings, tables, images, widgets, task lists, or citations inside a card. Use item-level relations for sources.`;
 
 const workspacePathSchema = z.string().min(1);
 const workspaceIndexSchema = z.number().int().nonnegative();
