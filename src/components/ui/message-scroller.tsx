@@ -6,11 +6,7 @@ import { buttonVariants } from "#/components/ui/button.tsx";
 import { ArrowDownIcon } from "lucide-react";
 import type { VariantProps } from "class-variance-authority";
 
-function MessageScrollerProvider(
-	props: React.ComponentProps<typeof MessageScrollerPrimitive.Provider>,
-) {
-	return <MessageScrollerPrimitive.Provider {...props} />;
-}
+const MessageScrollerProvider = MessageScrollerPrimitive.Provider;
 
 function MessageScroller({
 	className,
@@ -36,7 +32,12 @@ function MessageScrollerViewport({
 		<MessageScrollerPrimitive.Viewport
 			data-slot="message-scroller-viewport"
 			className={cn(
-				"size-full min-h-0 min-w-0 scroll-fade scrollbar-thin scrollbar-gutter-stable overflow-y-auto overscroll-contain contain-content data-autoscrolling:scrollbar-none",
+				// Native scroll anchoring re-pins a bottom-parked transcript when the
+				// viewport shrinks — growing the composer by a chip row slides every
+				// message up by that height. Every position this scroller cares about is
+				// restored in JS (the opening scroll, the anchored turn, the reading
+				// anchor), so opt out and let those own the scroll offset.
+				"size-full min-h-0 min-w-0 scroll-fade scrollbar-thin scrollbar-gutter-stable overflow-y-auto overscroll-contain contain-content [overflow-anchor:none] data-autoscrolling:scrollbar-none",
 				className,
 			)}
 			{...props}
@@ -76,7 +77,6 @@ function MessageScrollerItem({
 }
 
 function MessageScrollerButton({
-	direction = "end",
 	className,
 	children,
 	variant = "secondary",
@@ -89,10 +89,9 @@ function MessageScrollerButton({
 			data-slot="message-scroller-button"
 			data-variant={variant}
 			data-size={size}
-			direction={direction}
 			className={cn(
 				buttonVariants({ variant, size }),
-				"absolute start-1/2 -translate-x-1/2 border-border bg-background text-foreground transition-[translate,scale,opacity] duration-200 hover:bg-muted hover:text-foreground data-[active=false]:pointer-events-none data-[active=false]:scale-95 data-[active=false]:opacity-0 data-[active=false]:duration-400 data-[active=false]:ease-[cubic-bezier(0.7,0,0.84,0)] data-[active=true]:translate-y-0 data-[active=true]:scale-100 data-[active=true]:opacity-100 data-[active=true]:ease-[cubic-bezier(0.23,1,0.32,1)] data-[direction=end]:bottom-4 data-[direction=end]:data-[active=false]:translate-y-full data-[direction=start]:top-4 data-[direction=start]:data-[active=false]:-translate-y-full rtl:translate-x-1/2 data-[direction=start]:[&_svg]:rotate-180",
+				"absolute bottom-4 start-1/2 -translate-x-1/2 border-border bg-background text-foreground transition-[translate,scale,opacity] duration-200 hover:bg-muted hover:text-foreground data-[active=false]:pointer-events-none data-[active=false]:translate-y-full data-[active=false]:scale-95 data-[active=false]:opacity-0 data-[active=false]:duration-400 data-[active=false]:ease-[cubic-bezier(0.7,0,0.84,0)] data-[active=true]:translate-y-0 data-[active=true]:scale-100 data-[active=true]:opacity-100 data-[active=true]:ease-[cubic-bezier(0.23,1,0.32,1)] rtl:translate-x-1/2",
 				className,
 			)}
 			{...props}
@@ -100,9 +99,7 @@ function MessageScrollerButton({
 			{children ?? (
 				<>
 					<ArrowDownIcon />
-					<span className="sr-only">
-						{direction === "end" ? "Scroll to end" : "Scroll to start"}
-					</span>
+					<span className="sr-only">Scroll to end</span>
 				</>
 			)}
 		</MessageScrollerPrimitive.Button>

@@ -129,11 +129,7 @@ export default function AiChatMessageList({
 
 	return (
 		<div ref={listRef} className="min-h-0 flex-1">
-			<MessageScrollerProvider
-				appendedAnchorScrollBehavior="smooth"
-				defaultScrollPosition="last-anchor"
-				scrollPreviousItemPeek={40}
-			>
+			<MessageScrollerProvider appendedAnchorScrollBehavior="smooth" scrollPreviousItemPeek={40}>
 				<MessageScroller>
 					{showEmptyState ? (
 						<div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center px-6">
