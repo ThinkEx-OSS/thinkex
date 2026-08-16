@@ -1,7 +1,7 @@
 import { useChat } from "@ai-sdk/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DefaultChatTransport, generateId } from "ai";
-import { useEffect, useEffectEvent } from "react";
+import { useEffect } from "react";
 
 import { getAiChatThreadUrl } from "#/features/workspaces/agent-routes";
 import {
@@ -31,14 +31,11 @@ interface UseWorkspaceAiChatOptions {
 // reconciliation. modelId, timeZone, and workspace context ride in the
 // request body — a plain HTTP endpoint we own.
 export function useWorkspaceAiChat({ modelId, threadId, workspaceId }: UseWorkspaceAiChatOptions) {
-	// The transport is stable per thread, but each request must carry the
-	// *current* model and workspace. useEffectEvent gives the request-time
-	// closure access to the latest props without recreating the transport.
-	const getRequestContext = useEffectEvent(() => ({ modelId, workspaceId }));
-	// No manual memo: the React Compiler memoizes this on its own (its inferred
-	// dependencies conflict with any hand-written list here), and both inputs
-	// are stable per thread.
-	const transport = createAiChatTransport(threadId, getRequestContext);
+	// The transport is static per thread. The *current* model and workspace
+	// ride each send's request body instead of living in the transport — the
+	// send/regenerate closures re-form every render, so they always carry the
+	// latest props without refs or effect events.
+	const transport = createAiChatTransport(threadId);
 
 	const chat = useChat<AiChatMessage>({
 		id: threadId,
@@ -75,15 +72,22 @@ export function useWorkspaceAiChat({ modelId, threadId, workspaceId }: UseWorksp
 	const transcriptData = transcriptQuery.data as AiChatMessage[] | undefined;
 
 	useEffect(() => {
-		if (!transcriptData || transcriptData.length === 0) {
+		if (!transcriptData || transcriptData.length === 0 || status !== "ready") {
 			return;
 		}
 
-		// Seed only while the live chat is idle and behind the stored transcript —
-		// never clobber an in-flight stream, and let live state win after a
-		// regenerate (where the stored transcript is intentionally shorter).
-		setMessages((current) => (current.length < transcriptData.length ? transcriptData : current));
-	}, [setMessages, transcriptData]);
+		// Seed only while the live chat is idle: adopt the stored transcript when
+		// it is longer (cold mount) or same-length-but-different (a remount seeded
+		// a stale cache entry that a background refetch then corrected — length
+		// alone can't see that). A shorter store never wins: mid-regenerate the
+		// server transcript is intentionally behind the live stream.
+		setMessages((current) =>
+			current.length < transcriptData.length ||
+			(current.length === transcriptData.length && current.at(-1)?.id !== transcriptData.at(-1)?.id)
+				? transcriptData
+				: current,
+		);
+	}, [setMessages, status, transcriptData]);
 
 	// Write settled transcripts back to the query cache so a remount paints the
 	// latest state instantly (the successor of the old client-side LRU cache).
@@ -126,11 +130,19 @@ export function useWorkspaceAiChat({ modelId, threadId, workspaceId }: UseWorksp
 		}
 
 		const isFirstMessage = messages.length === 0;
-		void sendChatMessage(message, options).then(() => {
-			// A draft thread's row materializes on its first message; refetch the
-			// sidebar so the new thread (and, shortly after, its title) appears.
+		const invalidateThreads = () =>
+			void queryClient.invalidateQueries({ queryKey: aiChatThreadsQueryKey(workspaceId) });
+
+		if (isFirstMessage) {
+			// The thread row materializes early in the turn (right after the user
+			// message persists), not at stream end — refetch the sidebar promptly so
+			// the thread appears and "new chat" works while the reply still streams.
+			setTimeout(invalidateThreads, 1000);
+		}
+
+		void sendChatMessage(message, withRequestContext(options)).then(() => {
 			if (isFirstMessage) {
-				void queryClient.invalidateQueries({ queryKey: aiChatThreadsQueryKey(workspaceId) });
+				invalidateThreads();
 			}
 		});
 	};
@@ -139,41 +151,54 @@ export function useWorkspaceAiChat({ modelId, threadId, workspaceId }: UseWorksp
 			return;
 		}
 
-		void regenerateChatMessage(options);
+		void regenerateChatMessage(withRequestContext(options));
+	};
+	const withRequestContext = (options?: AiChatSendMessageOptions): AiChatSendMessageOptions => ({
+		...options,
+		body: { modelId, workspaceId, ...options?.body },
+	});
+
+	// Stop is explicit and server-side: closing the SSE branch alone never
+	// aborts generation (Workers don't fire request.signal), so tell the server
+	// to clear the stream claim — the generator notices and aborts, persisting
+	// the partial as "interrupted".
+	const stopTurn = () => {
+		void fetch(`${getAiChatThreadUrl(threadId)}/stop`, { method: "POST" }).catch(() => {});
+		void stop();
+	};
+
+	// Remove an optimistic message that never reached the server (the queue
+	// restores its entry instead, so a failed drain stays retryable).
+	const discardMessage = (messageId: string) => {
+		setMessages((current) => current.filter((message) => message.id !== messageId));
 	};
 
 	return {
 		canSend,
 		connectionError,
+		discardMessage,
 		inputStatus,
 		messages,
 		presentation,
 		regenerate,
 		sendMessage,
-		stop,
+		stop: stopTurn,
 	};
 }
 
-function createAiChatTransport(
-	threadId: string,
-	getRequestContext: () => { modelId: AiChatModelId; workspaceId: string },
-) {
+function createAiChatTransport(threadId: string) {
 	return new DefaultChatTransport<AiChatMessage>({
 		api: getAiChatThreadUrl(threadId),
-		prepareSendMessagesRequest: (request) => {
-			const { modelId, workspaceId } = getRequestContext();
-
-			return {
-				body: {
-					message: request.messages.at(-1),
-					modelId,
-					workspaceId,
-					timeZone: getClientTimeZone(),
-					...(request.trigger === "regenerate-message" ? { trigger: "regenerate-message" } : {}),
-					...request.body,
-				},
-			};
-		},
+		// modelId and workspaceId arrive via request.body (merged in by
+		// withRequestContext at send time).
+		prepareSendMessagesRequest: (request) => ({
+			body: {
+				message: request.messages.at(-1),
+				timeZone: getClientTimeZone(),
+				...(request.trigger === "regenerate-message" ? { trigger: "regenerate-message" } : {}),
+				...request.body,
+			},
+		}),
 	});
 }
 

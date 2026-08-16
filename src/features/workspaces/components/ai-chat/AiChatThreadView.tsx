@@ -1,5 +1,5 @@
 import { generateId } from "ai";
-import { useEffect, useEffectEvent, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 
 import type { PromptInputMessage } from "#/features/workspaces/components/ai-chat/ai-chat-prompt-input";
 import AiChatMessageList from "#/features/workspaces/components/ai-chat/AiChatMessageList";
@@ -36,14 +36,13 @@ export default function AiChatThreadView({
 	onStartNewChat?: () => void;
 	threadId: string;
 }) {
-	// Option-zero spike: the chat runs on the Postgres/AI SDK endpoint instead
-	// of Think's AIThread. See AI-CHAT-RUNTIME-EVAL.md on the flue-spike branch.
 	const chat = useWorkspaceAiChat({ modelId, threadId, workspaceId: context.workspaceId });
 	const [sentMessageAnimationId, setSentMessageAnimationId] = useState<string | null>(null);
 	const [scrollAnchorMessageId, setScrollAnchorMessageId] = useState<string | null>(null);
 	const {
 		canSend,
 		connectionError,
+		discardMessage,
 		inputStatus,
 		messages,
 		presentation,
@@ -88,6 +87,10 @@ export default function AiChatThreadView({
 		setSentMessageAnimationId(chatMessage.id);
 		if (clearDraft) clearDraftArtifacts(context.workspaceId, threadId);
 	};
+	// The drained entry currently in flight. The AI SDK reports send failure
+	// through chat status, never the promise — so restoration on failure keys
+	// off the status transition below, not a try/catch around the send.
+	const inFlightQueueEntryRef = useRef<WorkspaceAiQueuedMessage | null>(null);
 	const sendQueuedEntry = useEffectEvent((entry: WorkspaceAiQueuedMessage) => {
 		const chatMessage = getChatMessageFromPrompt(
 			{ files: entry.files, text: entry.text },
@@ -98,18 +101,54 @@ export default function AiChatThreadView({
 			return;
 		}
 		try {
+			inFlightQueueEntryRef.current = entry;
 			sendChatMessage(chatMessage, {
 				body: {
 					workspaceAiContext: entry.contextSnapshot ?? buildWorkspaceAiContextSnapshot(context),
 				},
 			});
 		} catch {
+			inFlightQueueEntryRef.current = null;
 			restoreQueueHead(threadId, entry);
 			return;
 		}
 		setScrollAnchorMessageId(entry.promoted ? chatMessage.id : null);
 		setSentMessageAnimationId(chatMessage.id);
 	});
+	useEffect(() => {
+		const entry = inFlightQueueEntryRef.current;
+		if (!entry) {
+			return;
+		}
+		if (presentation.status === "error") {
+			// The send failed (409/429/network): put the entry back — paused, so it
+			// doesn't loop — and drop the optimistic bubble. Retrying is idempotent
+			// server-side (the entry id is the message id; the upsert dedupes).
+			inFlightQueueEntryRef.current = null;
+			discardMessage(entry.id);
+			restoreQueueHead(threadId, entry);
+			pauseQueue(threadId);
+		} else if (presentation.status === "ready" && !presentation.isBusy) {
+			inFlightQueueEntryRef.current = null;
+		}
+	}, [
+		discardMessage,
+		pauseQueue,
+		presentation.isBusy,
+		presentation.status,
+		restoreQueueHead,
+		threadId,
+	]);
+	// An entry that queued while the model allowance was exhausted must not
+	// auto-fire whenever the allowance later refreshes — pausing shifts the
+	// decision back to the user (the tray's resume). This is the one drain
+	// site, so it covers every enqueue path, including generated actions that
+	// have no hook access to allowance state.
+	useEffect(() => {
+		if (queueHead && isBlocked && !queuePaused) {
+			pauseQueue(threadId);
+		}
+	}, [isBlocked, pauseQueue, queueHead, queuePaused, threadId]);
 	useEffect(() => {
 		if (
 			!queueHead ||
@@ -134,7 +173,7 @@ export default function AiChatThreadView({
 		});
 	}, [canSend, assistantError?.kind, isBlocked, queueHead, queuePaused, takeQueueHead, threadId]);
 	const stopGeneration = () => {
-		void stop();
+		stop();
 	};
 	const handleUserStop = () => {
 		pauseQueue(threadId);

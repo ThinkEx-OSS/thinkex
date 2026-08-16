@@ -25,12 +25,20 @@ export function useWorkspaceAiChatThreads({ workspaceId }: UseWorkspaceAiChatThr
 				current?.filter((thread) => thread.id !== threadId),
 			);
 			queryClient.removeQueries({ queryKey: aiChatThreadMessagesQueryKey(threadId) });
+			// A refetch that started before the delete would resolve with the
+			// pre-delete list and resurrect the thread over the local filter above;
+			// invalidating cancels it and fetches fresh.
+			void queryClient.invalidateQueries({
+				queryKey: aiChatThreadsQueryOptions(workspaceId).queryKey,
+			});
 		},
 	});
 
 	return {
 		deleteThread: deleteThreadMutation.mutateAsync,
-		isReady: threadsQuery.isSuccess,
+		// Not isSuccess: a failed load must surface as ready-with-empty-list (the
+		// panel renders and errors elsewhere), not as an eternal skeleton.
+		isReady: !threadsQuery.isPending,
 		threads: threadsQuery.data ?? [],
 	};
 }

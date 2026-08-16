@@ -197,7 +197,7 @@ function shouldCollapseUserMessage(parts: AiChatMessagePart[]) {
 }
 
 function isAttachmentPart(part: AiChatMessagePart) {
-	return part.type === "file" || part.type === "source-document";
+	return part.type === "file";
 }
 
 function AssistantMessageBody({
@@ -336,10 +336,6 @@ function getMessagePartKey(messageId: string, part: AiChatMessagePart, index: nu
 
 	if (part.type === "file") {
 		return `${messageId}-file-${part.url}`;
-	}
-
-	if (part.type === "source-url" || part.type === "source-document") {
-		return `${messageId}-${part.type}-${part.sourceId}`;
 	}
 
 	if (part.type.startsWith("data-")) {

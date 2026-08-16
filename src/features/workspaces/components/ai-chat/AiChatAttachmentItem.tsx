@@ -211,10 +211,6 @@ function getAttachmentState(data: AttachmentData) {
 }
 
 function getAttachmentDescription(data: AttachmentData) {
-	if (data.type === "source-document") {
-		return "Source";
-	}
-
 	if (data.status === "loading") {
 		return "Preparing";
 	}

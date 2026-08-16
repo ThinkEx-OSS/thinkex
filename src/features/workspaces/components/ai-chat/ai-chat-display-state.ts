@@ -158,7 +158,7 @@ export function isDisplayableMessagePart(part: AiChatMessagePart): boolean {
 	// Deliberately excludes `data-*` parts: old transcripts can carry data parts
 	// from retired features, and counting one as displayable makes a message
 	// render as a blank bubble instead of falling through to "no response".
-	return part.type === "file" || part.type === "source-url" || part.type === "source-document";
+	return part.type === "file";
 }
 
 export function getToolActivityForPart(

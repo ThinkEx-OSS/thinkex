@@ -63,6 +63,34 @@ export function useAiChatPanelController({ workspaceId }: UseAiChatPanelControll
 		setActiveAiChatThread(workspaceId, threadId);
 	};
 
+	// A persisted "last visited" id can outlive its thread (deleted on another
+	// device, or another account's leftover in this browser's storage). Once
+	// the list has loaded, an explicit id with no row and a confirmed-empty
+	// transcript is a dead pointer — fall back to the draft instead of pinning
+	// the user to an unusable selection whose pristine guard also blocks
+	// "new chat".
+	useEffect(() => {
+		if (!explicitActiveThreadId || !areThreadsReady) {
+			return;
+		}
+		if (threads.some((thread) => thread.id === explicitActiveThreadId)) {
+			return;
+		}
+		const transcript = queryClient.getQueryState(
+			aiChatThreadMessagesQueryKey(explicitActiveThreadId),
+		);
+		if (transcript?.status === "success" && (transcript.data as unknown[])?.length === 0) {
+			setActiveAiChatThread(workspaceId, undefined);
+		}
+	}, [
+		areThreadsReady,
+		explicitActiveThreadId,
+		queryClient,
+		setActiveAiChatThread,
+		threads,
+		workspaceId,
+	]);
+
 	// Once the draft's first message lands, its row appears in the thread list:
 	// persist it as the active ("last visited") thread and mint a fresh draft,
 	// so reopening the workspace returns to this conversation.
