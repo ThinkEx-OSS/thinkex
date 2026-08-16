@@ -2,7 +2,7 @@ import type { FileUIPart } from "ai";
 import { nanoid } from "nanoid";
 import { useMemo } from "react";
 import { create } from "zustand";
-import { devtools, persist } from "zustand/middleware";
+import { devtools } from "zustand/middleware";
 import { deleteWorkspaceAiChatAttachment } from "#/features/workspaces/components/ai-chat/chat-attachment-upload";
 import type { WorkspaceAiContextSnapshot } from "#/features/workspaces/model/workspace-ai-context-types";
 import { zustandDevtoolsOptions } from "#/lib/zustand-devtools";
@@ -20,7 +20,6 @@ export type WorkspaceAiQueuedMessage = {
 	text: string;
 	files: FileUIPart[];
 	contextSnapshot?: WorkspaceAiContextSnapshot;
-	createdAt: number;
 };
 
 interface WorkspaceAiQueueState {
@@ -42,6 +41,8 @@ interface WorkspaceAiQueueState {
 	remove: (threadId: string, entryId: string) => WorkspaceAiQueuedMessage | null;
 	/** Removes and deletes the entry's uploaded attachments. */
 	discard: (threadId: string, entryId: string) => void;
+	/** Clears one deleted thread and discards every attachment still queued for it. */
+	clearThread: (threadId: string) => void;
 	moveToHead: (threadId: string, entryId: string) => void;
 	moveByIndex: (threadId: string, fromIndex: number, toIndex: number) => void;
 	pause: (threadId: string) => void;
@@ -52,131 +53,133 @@ const EMPTY_QUEUE: WorkspaceAiQueuedMessage[] = [];
 
 export const useWorkspaceAiQueueStore = create<WorkspaceAiQueueState>()(
 	devtools(
-		persist(
-			(set, get) => ({
-				queuesByThreadId: {},
-				pausedByThreadId: {},
-				enqueue: (threadId, input) => {
-					const text = input.text.trim();
-					const files = input.files ?? [];
-					if (!text && files.length === 0) {
-						return null;
-					}
+		(set, get) => ({
+			queuesByThreadId: {},
+			pausedByThreadId: {},
+			enqueue: (threadId, input) => {
+				const text = input.text.trim();
+				const files = input.files ?? [];
+				if (!text && files.length === 0) {
+					return null;
+				}
 
-					const entry: WorkspaceAiQueuedMessage = {
-						contextSnapshot: input.contextSnapshot,
-						createdAt: Date.now(),
-						files,
-						id: nanoid(),
-						text,
-					};
-					set((state) => {
-						const current = state.queuesByThreadId[threadId] ?? EMPTY_QUEUE;
-						return withQueue(
-							state,
-							threadId,
-							input.atHead ? [entry, ...current] : [...current, entry],
-						);
-					});
-					return entry.id;
-				},
-				takeHead: (threadId, entryId) => {
-					const current = get().queuesByThreadId[threadId] ?? EMPTY_QUEUE;
-					const head = current[0];
-					if (!head || head.id !== entryId) {
-						return null;
-					}
-
-					set((state) => withQueue(state, threadId, current.slice(1)));
-					return head;
-				},
-				restoreAtHead: (threadId, entry) =>
-					set((state) =>
-						withQueue(state, threadId, [
-							entry,
-							...(state.queuesByThreadId[threadId] ?? EMPTY_QUEUE),
-						]),
-					),
-				remove: (threadId, entryId) => {
-					const current = get().queuesByThreadId[threadId] ?? EMPTY_QUEUE;
-					const entry = current.find((item) => item.id === entryId);
-					if (!entry) {
-						return null;
-					}
-
-					set((state) =>
-						withQueue(
-							state,
-							threadId,
-							current.filter((item) => item.id !== entryId),
-						),
+				const entry: WorkspaceAiQueuedMessage = {
+					contextSnapshot: input.contextSnapshot,
+					files,
+					id: nanoid(),
+					text,
+				};
+				set((state) => {
+					const current = state.queuesByThreadId[threadId] ?? EMPTY_QUEUE;
+					return withQueue(
+						state,
+						threadId,
+						input.atHead ? [entry, ...current] : [...current, entry],
 					);
-					return entry;
-				},
-				discard: (threadId, entryId) => {
-					const entry = get().remove(threadId, entryId);
-					if (!entry) {
-						return;
-					}
+				});
+				return entry.id;
+			},
+			takeHead: (threadId, entryId) => {
+				const current = get().queuesByThreadId[threadId] ?? EMPTY_QUEUE;
+				const head = current[0];
+				if (!head || head.id !== entryId) {
+					return null;
+				}
 
+				set((state) => withQueue(state, threadId, current.slice(1)));
+				return head;
+			},
+			restoreAtHead: (threadId, entry) =>
+				set((state) =>
+					withQueue(state, threadId, [entry, ...(state.queuesByThreadId[threadId] ?? EMPTY_QUEUE)]),
+				),
+			remove: (threadId, entryId) => {
+				const current = get().queuesByThreadId[threadId] ?? EMPTY_QUEUE;
+				const entry = current.find((item) => item.id === entryId);
+				if (!entry) {
+					return null;
+				}
+
+				set((state) =>
+					withQueue(
+						state,
+						threadId,
+						current.filter((item) => item.id !== entryId),
+					),
+				);
+				return entry;
+			},
+			discard: (threadId, entryId) => {
+				const entry = get().remove(threadId, entryId);
+				if (!entry) {
+					return;
+				}
+
+				for (const file of entry.files) {
+					void discardQueuedAttachment(file.url);
+				}
+			},
+			clearThread: (threadId) => {
+				const entries = get().queuesByThreadId[threadId] ?? EMPTY_QUEUE;
+				set((state) => {
+					const queuesByThreadId = { ...state.queuesByThreadId };
+					const pausedByThreadId = { ...state.pausedByThreadId };
+					delete queuesByThreadId[threadId];
+					delete pausedByThreadId[threadId];
+
+					return { pausedByThreadId, queuesByThreadId };
+				});
+				for (const entry of entries) {
 					for (const file of entry.files) {
 						void discardQueuedAttachment(file.url);
 					}
-				},
-				moveToHead: (threadId, entryId) =>
-					set((state) => {
-						const current = state.queuesByThreadId[threadId] ?? EMPTY_QUEUE;
-						const entry = current.find((item) => item.id === entryId);
-						if (!entry || current[0] === entry) {
-							return state;
-						}
-
-						return withQueue(state, threadId, [
-							entry,
-							...current.filter((item) => item.id !== entryId),
-						]);
-					}),
-				moveByIndex: (threadId, fromIndex, toIndex) =>
-					set((state) => {
-						const current = state.queuesByThreadId[threadId] ?? EMPTY_QUEUE;
-						const boundedToIndex = Math.max(0, Math.min(toIndex, current.length - 1));
-						if (fromIndex < 0 || fromIndex >= current.length || fromIndex === boundedToIndex) {
-							return state;
-						}
-
-						const next = current.slice();
-						const [moved] = next.splice(fromIndex, 1);
-						if (!moved) {
-							return state;
-						}
-
-						next.splice(boundedToIndex, 0, moved);
-						return withQueue(state, threadId, next);
-					}),
-				pause: (threadId) =>
-					set((state) => ({
-						pausedByThreadId: { ...state.pausedByThreadId, [threadId]: true },
-					})),
-				resume: (threadId) =>
-					set((state) => {
-						if (!state.pausedByThreadId[threadId]) {
-							return state;
-						}
-
-						return {
-							pausedByThreadId: { ...state.pausedByThreadId, [threadId]: undefined },
-						};
-					}),
-			}),
-			{
-				name: "thinkex.workspace-ai-queue.v1",
-				skipHydration: true,
-				partialize: (state) => ({
-					pausedByThreadId: state.pausedByThreadId,
-					queuesByThreadId: state.queuesByThreadId,
-				}),
+				}
 			},
-		),
+			moveToHead: (threadId, entryId) =>
+				set((state) => {
+					const current = state.queuesByThreadId[threadId] ?? EMPTY_QUEUE;
+					const entry = current.find((item) => item.id === entryId);
+					if (!entry || current[0] === entry) {
+						return state;
+					}
+
+					return withQueue(state, threadId, [
+						entry,
+						...current.filter((item) => item.id !== entryId),
+					]);
+				}),
+			moveByIndex: (threadId, fromIndex, toIndex) =>
+				set((state) => {
+					const current = state.queuesByThreadId[threadId] ?? EMPTY_QUEUE;
+					const boundedToIndex = Math.max(0, Math.min(toIndex, current.length - 1));
+					if (fromIndex < 0 || fromIndex >= current.length || fromIndex === boundedToIndex) {
+						return state;
+					}
+
+					const next = current.slice();
+					const [moved] = next.splice(fromIndex, 1);
+					if (!moved) {
+						return state;
+					}
+
+					next.splice(boundedToIndex, 0, moved);
+					return withQueue(state, threadId, next);
+				}),
+			pause: (threadId) =>
+				set((state) => ({
+					pausedByThreadId: { ...state.pausedByThreadId, [threadId]: true },
+				})),
+			resume: (threadId) =>
+				set((state) => {
+					if (!state.pausedByThreadId[threadId]) {
+						return state;
+					}
+
+					return {
+						pausedByThreadId: { ...state.pausedByThreadId, [threadId]: undefined },
+					};
+				}),
+		}),
 		zustandDevtoolsOptions("WorkspaceAiQueueStore"),
 	),
 );

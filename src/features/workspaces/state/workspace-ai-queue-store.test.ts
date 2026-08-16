@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { useWorkspaceAiQueueStore } from "#/features/workspaces/state/workspace-ai-queue-store";
 
@@ -7,6 +7,10 @@ function getQueue(threadId: string) {
 }
 
 describe("workspace AI message queue", () => {
+	afterEach(() => {
+		vi.unstubAllGlobals();
+	});
+
 	it("enqueues in FIFO order and supports atHead", () => {
 		const threadId = crypto.randomUUID();
 		const store = useWorkspaceAiQueueStore.getState();
@@ -95,5 +99,35 @@ describe("workspace AI message queue", () => {
 		expect(useWorkspaceAiQueueStore.getState().pausedByThreadId[threadId]).toBe(true);
 		store.resume(threadId);
 		expect(useWorkspaceAiQueueStore.getState().pausedByThreadId[threadId]).toBeUndefined();
+	});
+
+	it("clears a deleted thread and discards its queued attachments", () => {
+		const threadId = crypto.randomUUID();
+		const survivingThreadId = crypto.randomUUID();
+		const fetchMock = vi.fn(async () => new Response(null, { status: 204 }));
+		vi.stubGlobal("fetch", fetchMock);
+		const store = useWorkspaceAiQueueStore.getState();
+
+		store.enqueue(threadId, {
+			files: [
+				{ mediaType: "image/png", type: "file", url: "https://r2.example/one.png" },
+				{ mediaType: "image/png", type: "file", url: "https://r2.example/two.png" },
+			],
+			text: "deleted",
+		});
+		store.pause(threadId);
+		store.enqueue(survivingThreadId, { text: "keep me" });
+		store.pause(survivingThreadId);
+
+		store.clearThread(threadId);
+
+		expect(getQueue(threadId)).toEqual([]);
+		expect(useWorkspaceAiQueueStore.getState().pausedByThreadId[threadId]).toBeUndefined();
+		expect(getQueue(survivingThreadId).map((entry) => entry.text)).toEqual(["keep me"]);
+		expect(useWorkspaceAiQueueStore.getState().pausedByThreadId[survivingThreadId]).toBe(true);
+		expect(fetchMock.mock.calls).toEqual([
+			["https://r2.example/one.png", { method: "DELETE" }],
+			["https://r2.example/two.png", { method: "DELETE" }],
+		]);
 	});
 });

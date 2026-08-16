@@ -1,8 +1,8 @@
 import { useDragDropMonitor } from "@dnd-kit/react";
-import { useSortable } from "@dnd-kit/react/sortable";
-import { GripVertical, Pencil, Play, X } from "lucide-react";
-import { LazyMotion, domAnimation, m } from "motion/react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { isSortableOperation, useSortable } from "@dnd-kit/react/sortable";
+import { ArrowUp, Pencil, X } from "lucide-react";
+import { AnimatePresence, LazyMotion, MotionConfig, domAnimation, m } from "motion/react";
+import { useState } from "react";
 
 import { Button } from "#/components/ui/button";
 import { WORKSPACE_SORTABLE_TAB_TRANSITION } from "#/features/workspaces/components/workspace-tab-motion";
@@ -40,63 +40,42 @@ export default function AiChatQueueTray({
 
 	useDragDropMonitor({
 		onDragEnd(event) {
-			const source = event.operation.source as {
-				type?: unknown;
-				index?: unknown;
-				initialIndex?: unknown;
-			} | null;
-			if (!source || source.type !== AI_CHAT_QUEUE_DRAG_TYPE || event.canceled) {
-				return;
-			}
+			const { operation } = event;
 			if (
-				typeof source.index !== "number" ||
-				typeof source.initialIndex !== "number" ||
-				source.index === source.initialIndex
+				event.canceled ||
+				!isSortableOperation(operation) ||
+				!operation.source ||
+				operation.source.type !== AI_CHAT_QUEUE_DRAG_TYPE ||
+				operation.source.initialGroup !== threadId
 			) {
 				return;
 			}
 
-			moveByIndex(threadId, source.initialIndex, source.index);
+			const { index, initialIndex } = operation.source;
+			if (index === initialIndex) {
+				return;
+			}
+
+			moveByIndex(threadId, initialIndex, index);
 		},
 	});
 
-	const [contentNode, setContentNode] = useState<HTMLDivElement | null>(null);
-	const [height, setHeight] = useState<number | "auto">("auto");
-	const contentRef = useCallback((node: HTMLDivElement | null) => {
-		setContentNode(node);
-	}, []);
-
-	useEffect(() => {
-		if (!contentNode) {
-			return;
-		}
-
-		const updateHeight = () => {
-			setHeight(contentNode.getBoundingClientRect().height);
-		};
-
-		updateHeight();
-		const observer = new ResizeObserver(updateHeight);
-		observer.observe(contentNode);
-		return () => observer.disconnect();
-	}, [contentNode]);
-
 	return (
 		<LazyMotion features={domAnimation}>
-			<m.div
-				animate={{ height }}
-				className="w-full min-w-0 overflow-hidden"
-				initial={false}
-				transition={trayTransition}
-			>
-				<div ref={contentRef} className="w-full min-w-0">
+			<MotionConfig reducedMotion="user">
+				<AnimatePresence initial={false} mode="popLayout">
 					{entries.length > 0 ? (
-						<div className="flex w-full min-w-0 flex-col gap-1.5 pt-3">
+						<m.div
+							key="queue-tray"
+							animate={{ opacity: 1, scale: 1, y: 0 }}
+							className="flex w-full min-w-0 origin-bottom flex-col gap-1.5 pt-3"
+							exit={{ opacity: 0, scale: 0.985, y: 4 }}
+							initial={{ opacity: 0, scale: 0.985, y: 4 }}
+							transition={trayTransition}
+						>
 							{paused ? (
 								<div className="flex items-center justify-between gap-2 rounded-lg border border-amber-300/60 bg-amber-50 px-2.5 py-1.5 text-xs text-amber-950 dark:border-amber-400/25 dark:bg-amber-400/10 dark:text-amber-100">
-									<span className="min-w-0">
-										Paused — these won&apos;t send until you press Resume.
-									</span>
+									<span className="min-w-0">Won&apos;t send until you resume.</span>
 									<Button
 										className="shrink-0"
 										size="xs"
@@ -108,52 +87,57 @@ export default function AiChatQueueTray({
 									</Button>
 								</div>
 							) : (
-								<p className="px-0.5 text-xs text-muted-foreground">
-									Waiting to send — {entries.length === 1 ? "this" : "these"} will go when the AI
-									finishes.
-								</p>
+								<p className="px-0.5 text-xs text-muted-foreground">Waiting to send</p>
 							)}
-							{entries.map((entry, index) => (
-								<AiChatQueueTrayItem
-									key={entry.id}
-									entry={entry}
-									index={index}
-									showHandle={entries.length > 1}
-									onEdit={() => onEdit(entry.id)}
-									onRemove={() => discard(threadId, entry.id)}
-									onSendNow={onSendNow ? () => onSendNow(entry.id) : undefined}
-								/>
-							))}
-						</div>
+							<ul
+								aria-label="Queued messages"
+								className="flex max-h-40 min-w-0 flex-col gap-1.5 overflow-y-auto overscroll-contain pr-1"
+							>
+								{entries.map((entry, index) => (
+									<AiChatQueueTrayItem
+										key={entry.id}
+										canReorder={entries.length > 1}
+										entry={entry}
+										group={threadId}
+										index={index}
+										onEdit={() => onEdit(entry.id)}
+										onRemove={() => discard(threadId, entry.id)}
+										onSendNow={onSendNow ? () => onSendNow(entry.id) : undefined}
+									/>
+								))}
+							</ul>
+						</m.div>
 					) : null}
-				</div>
-			</m.div>
+				</AnimatePresence>
+			</MotionConfig>
 		</LazyMotion>
 	);
 }
 
 function AiChatQueueTrayItem({
+	canReorder,
 	entry,
+	group,
 	index,
-	showHandle,
 	onEdit,
 	onRemove,
 	onSendNow,
 }: {
+	canReorder: boolean;
 	entry: WorkspaceAiQueuedMessage;
+	group: string;
 	index: number;
-	showHandle: boolean;
 	onEdit: () => void;
 	onRemove: () => void;
 	onSendNow?: () => void;
 }) {
 	const [element, setElement] = useState<Element | null>(null);
-	const handleRef = useRef<HTMLButtonElement | null>(null);
 	const { isDragSource, isDropTarget } = useSortable({
 		id: entry.id,
+		group,
 		index,
 		element,
-		handle: handleRef,
+		disabled: !canReorder,
 		type: AI_CHAT_QUEUE_DRAG_TYPE,
 		accept: AI_CHAT_QUEUE_DRAG_TYPE,
 		transition: {
@@ -169,24 +153,15 @@ function AiChatQueueTrayItem({
 				: `${entry.files.length} attachments`;
 
 	return (
-		<div
+		<li
 			ref={setElement}
 			className={cn(
 				"flex w-full min-w-0 items-center gap-1.5 rounded-lg bg-muted/60 py-1 pr-1 pl-2 text-xs motion-safe:will-change-transform dark:bg-input/30",
-				isDragSource && "opacity-70",
+				canReorder && "cursor-grab",
+				isDragSource && "cursor-grabbing opacity-70",
 				isDropTarget && !isDragSource && "bg-muted",
 			)}
 		>
-			{showHandle ? (
-				<button
-					ref={handleRef}
-					aria-label="Drag to reorder"
-					className="-ml-1 flex size-6 shrink-0 cursor-grab items-center justify-center rounded text-muted-foreground/70 hover:text-foreground"
-					type="button"
-				>
-					<GripVertical className="size-3.5" />
-				</button>
-			) : null}
 			<div className="min-w-0 flex-1" title={entry.text || undefined}>
 				<p className="truncate">{entry.text || attachmentSummary}</p>
 				{entry.text && attachmentSummary ? (
@@ -195,14 +170,14 @@ function AiChatQueueTrayItem({
 			</div>
 			{onSendNow ? (
 				<Button
+					aria-label="Send now"
 					className="shrink-0 text-muted-foreground hover:text-foreground"
-					size="xs"
+					size="icon-xs"
 					type="button"
 					variant="ghost"
 					onClick={onSendNow}
 				>
-					<Play data-icon="inline-start" />
-					Send now
+					<ArrowUp />
 				</Button>
 			) : null}
 			<Button
@@ -225,6 +200,6 @@ function AiChatQueueTrayItem({
 			>
 				<X />
 			</Button>
-		</div>
+		</li>
 	);
 }

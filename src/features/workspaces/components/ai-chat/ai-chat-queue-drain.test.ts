@@ -4,10 +4,7 @@ import { canDrainQueuedMessage } from "#/features/workspaces/components/ai-chat/
 
 const ready = {
 	canSend: true,
-	hasAssistantError: false,
-	hasConnectionError: false,
-	hasHead: true,
-	inputStatus: "ready",
+	errorKind: undefined,
 	isBlocked: false,
 	paused: false,
 } as const;
@@ -17,16 +14,21 @@ describe("canDrainQueuedMessage", () => {
 		expect(canDrainQueuedMessage(ready)).toBe(true);
 	});
 
+	it("drains an explicitly promoted message after the active run is aborted", () => {
+		expect(
+			canDrainQueuedMessage({
+				...ready,
+				errorKind: "aborted",
+			}),
+		).toBe(true);
+	});
+
 	it.each([
-		["no head", { hasHead: false }],
 		["paused", { paused: true }],
 		["blocked", { isBlocked: true }],
-		["connection error", { hasConnectionError: true }],
-		["assistant error", { hasAssistantError: true }],
+		["connection error", { errorKind: "connection" }],
+		["assistant error", { errorKind: "assistant" }],
 		["cannot send", { canSend: false }],
-		["streaming", { inputStatus: "streaming" }],
-		["submitted", { inputStatus: "submitted" }],
-		["error status", { inputStatus: "error" }],
 	] as const)("waits while %s", (_label, override) => {
 		expect(canDrainQueuedMessage({ ...ready, ...override })).toBe(false);
 	});

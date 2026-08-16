@@ -10,6 +10,7 @@ import {
 	useWorkspaceAiChatSurfaceMode,
 	useWorkspaceUiStore,
 } from "#/features/workspaces/state/workspace-ui-store";
+import { useWorkspaceAiQueueStore } from "#/features/workspaces/state/workspace-ai-queue-store";
 import { getErrorMessage } from "#/lib/error-message";
 
 type UseAiChatPanelControllerInput = {
@@ -82,6 +83,7 @@ export function useAiChatPanelController({ workspaceId }: UseAiChatPanelControll
 			return;
 		}
 
+		useWorkspaceAiQueueStore.getState().clearThread(threadId);
 		evictWorkspaceAiTranscript(threadId);
 		toast.success("Chat deleted.");
 		if (wasActive && !survivorId) {

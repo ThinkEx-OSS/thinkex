@@ -139,15 +139,15 @@ export default function AiChatThreadView({
 		setSentMessageAnimationId(chatMessage.id);
 		if (clearDraft) clearDraftArtifacts(context.workspaceId, threadId);
 	};
-	// takeHead's id guard makes duplicate effect runs (strict mode) send-once,
-	// and the microtask send below cannot be interrupted by an unmount, so a
-	// taken entry is never stranded.
 	const sendQueuedEntry = useEffectEvent((entry: WorkspaceAiQueuedMessage) => {
 		const chatMessage = getChatMessageFromPrompt(
 			{ files: entry.files, text: entry.text },
 			entry.id,
 		);
-		if (!chatMessage) return;
+		if (!chatMessage) {
+			restoreQueueHead(threadId, entry);
+			return;
+		}
 		try {
 			sendChatMessage(chatMessage, {
 				body: {
@@ -161,16 +161,12 @@ export default function AiChatThreadView({
 		trackPendingSend(chatMessage);
 		setSentMessageAnimationId(chatMessage.id);
 	});
-	const hasAssistantError = assistantError !== null;
 	useEffect(() => {
 		if (
 			!queueHead ||
 			!canDrainQueuedMessage({
 				canSend,
-				hasAssistantError,
-				hasConnectionError: Boolean(connectionError),
-				hasHead: true,
-				inputStatus,
+				errorKind: assistantError?.kind,
 				isBlocked,
 				paused: queuePaused,
 			})
@@ -178,19 +174,15 @@ export default function AiChatThreadView({
 			return;
 		}
 
-		const entry = takeQueueHead(threadId, queueHead.id);
-		if (entry) queueMicrotask(() => sendQueuedEntry(entry));
-	}, [
-		canSend,
-		connectionError,
-		hasAssistantError,
-		inputStatus,
-		isBlocked,
-		queueHead,
-		queuePaused,
-		takeQueueHead,
-		threadId,
-	]);
+		// Take and send in the same microtask: the id guard makes duplicate effect
+		// schedules harmless, while no render can drain the next head in between.
+		queueMicrotask(() => {
+			const entry = takeQueueHead(threadId, queueHead.id);
+			if (entry) {
+				sendQueuedEntry(entry);
+			}
+		});
+	}, [canSend, assistantError?.kind, isBlocked, queueHead, queuePaused, takeQueueHead, threadId]);
 	const stopGeneration = () => {
 		void stop();
 	};
