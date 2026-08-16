@@ -68,6 +68,9 @@ export type AiChatAssistantErrorState =
 			stage?: ChatErrorContext["stage"] | null;
 	  }
 	| {
+			kind: "aborted";
+	  }
+	| {
 			kind: "connection";
 	  };
 
@@ -435,6 +438,10 @@ function getChatErrorMessage({
 }) {
 	if (errorState.kind === "connection") {
 		return "The chat connection closed before the response could finish. Refresh the page to reconnect.";
+	}
+
+	if (errorState.kind === "aborted") {
+		return "The response was stopped before it started.";
 	}
 
 	if (errorState.classification === "context_overflow") {

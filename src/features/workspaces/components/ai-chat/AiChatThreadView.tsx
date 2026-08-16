@@ -69,6 +69,7 @@ export default function AiChatThreadView({
 	const assistantError = deriveAiChatAssistantErrorState({
 		chatStatus: presentation.status,
 		hasConnectionError: Boolean(connectionError),
+		lastMessageRole: messages.at(-1)?.role,
 		threadSummary,
 	});
 	const sendMessage = (message: PromptInputMessage, clearDraft = true) => {

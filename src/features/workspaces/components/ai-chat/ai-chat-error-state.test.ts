@@ -30,6 +30,36 @@ describe("AI chat error state", () => {
 		});
 	});
 
+	it("flags a run stopped before the first token so the send visibly ended", () => {
+		expect(
+			deriveAiChatAssistantErrorState({
+				chatStatus: "ready",
+				hasConnectionError: false,
+				lastMessageRole: "user",
+				threadSummary: {
+					lastErrorClassification: null,
+					lastErrorStage: null,
+					lastRunResult: "aborted",
+				},
+			}),
+		).toEqual({ kind: "aborted" });
+	});
+
+	it("stays quiet for a mid-stream stop that kept its partial reply", () => {
+		expect(
+			deriveAiChatAssistantErrorState({
+				chatStatus: "ready",
+				hasConnectionError: false,
+				lastMessageRole: "assistant",
+				threadSummary: {
+					lastErrorClassification: null,
+					lastErrorStage: null,
+					lastRunResult: "aborted",
+				},
+			}),
+		).toBeNull();
+	});
+
 	it("keeps a terminal connection error distinct", () => {
 		expect(
 			deriveAiChatAssistantErrorState({

@@ -1,6 +1,6 @@
 import type { AIThreadSummary } from "#/features/workspaces/ai/user-ai-agents";
 import type { AiChatAssistantErrorState } from "#/features/workspaces/components/ai-chat/AiChatMessageList";
-import type { AiChatStatus } from "#/features/workspaces/components/ai-chat/types";
+import type { AiChatMessage, AiChatStatus } from "#/features/workspaces/components/ai-chat/types";
 
 type AIThreadErrorSummary = Pick<
 	AIThreadSummary,
@@ -10,6 +10,7 @@ type AIThreadErrorSummary = Pick<
 export function deriveAiChatAssistantErrorState(input: {
 	chatStatus: AiChatStatus;
 	hasConnectionError: boolean;
+	lastMessageRole?: AiChatMessage["role"];
 	threadSummary?: AIThreadErrorSummary;
 }): AiChatAssistantErrorState | null {
 	if (input.hasConnectionError) {
@@ -34,6 +35,15 @@ export function deriveAiChatAssistantErrorState(input: {
 					}
 				: {}),
 			kind: "assistant",
+		};
+	}
+
+	// A run stopped before the first token leaves the user message as the tail
+	// with nothing after it — without this row there is no sign the send ended.
+	// A mid-stream stop keeps its partial assistant tail, so no row is needed.
+	if (input.threadSummary?.lastRunResult === "aborted" && input.lastMessageRole === "user") {
+		return {
+			kind: "aborted",
 		};
 	}
 
