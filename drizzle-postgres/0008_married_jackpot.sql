@@ -1,2 +1,0 @@
-ALTER TABLE "ai_chat_messages" DROP CONSTRAINT "ai_chat_messages_pkey";--> statement-breakpoint
-ALTER TABLE "ai_chat_messages" ADD CONSTRAINT "ai_chat_messages_thread_id_id_pk" PRIMARY KEY("thread_id","id");

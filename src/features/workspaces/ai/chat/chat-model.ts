@@ -15,16 +15,18 @@ export interface AiChatThreadSummary {
 	id: string;
 	workspaceId: string;
 	title: string;
-	isRunning: boolean;
 	lastActivityAt: string;
 }
 
 export const FALLBACK_THREAD_TITLE = "New chat";
 
 export function normalizeGeneratedThreadTitle(value: string | undefined) {
+	// Whitespace first: the quote-strip anchors to the string ends, so a title
+	// arriving as '\n"Title"\n' would otherwise keep its quotes.
 	const title = value
-		?.replace(/^["'`]+|["'`.]+$/g, "")
-		.replace(/\s+/g, " ")
+		?.replace(/\s+/g, " ")
+		.trim()
+		.replace(/^["'`]+|["'`.]+$/g, "")
 		.trim();
 
 	if (!title) {

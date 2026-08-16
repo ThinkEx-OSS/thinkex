@@ -225,6 +225,10 @@ export async function saveMessage(input: {
 					metadata: input.message.metadata ?? null,
 					status: input.status ?? "complete",
 				},
+				// The upsert exists for the assistant-row lifecycle (onEnd re-saving
+				// its own id). A client-supplied id colliding with a different role's
+				// row must not overwrite history — the mismatch makes this a no-op.
+				setWhere: sql`${aiChatMessages.role} = ${input.message.role}`,
 			});
 		await db
 			.update(aiChatThreads)
@@ -295,6 +299,47 @@ export async function claimStream(input: {
 					input.replaceStreamId
 						? eq(aiChatThreads.activeStreamId, input.replaceStreamId)
 						: sql`${aiChatThreads.activeStreamId} is null`,
+				),
+			)
+			.returning({ id: aiChatThreads.id });
+
+		return result.length > 0;
+	});
+}
+
+// Liveness ping AND stop-observation in one query: refreshing the claim keeps
+// `updatedAt` moving (so a live long turn is never mistaken for a crashed
+// one), and a false return means the claim was lost — the user hit stop, or a
+// stale-takeover replaced us — so the caller must abort its generation.
+export async function pingStreamClaim(input: {
+	threadId: string;
+	streamId: string;
+}): Promise<boolean> {
+	return await withDb(async (db) => {
+		const result = await db
+			.update(aiChatThreads)
+			.set({ activeStreamId: input.streamId })
+			.where(
+				and(eq(aiChatThreads.id, input.threadId), eq(aiChatThreads.activeStreamId, input.streamId)),
+			)
+			.returning({ id: aiChatThreads.id });
+
+		return result.length > 0;
+	});
+}
+
+// Explicit stop: clearing the claim is the stop signal. The generating isolate
+// notices on its next ping and aborts. User-scoped — only the owner can stop.
+export async function stopStream(input: { threadId: string; userId: string }): Promise<boolean> {
+	return await withDb(async (db) => {
+		const result = await db
+			.update(aiChatThreads)
+			.set({ activeStreamId: null })
+			.where(
+				and(
+					eq(aiChatThreads.id, input.threadId),
+					eq(aiChatThreads.userId, input.userId),
+					sql`${aiChatThreads.activeStreamId} is not null`,
 				),
 			)
 			.returning({ id: aiChatThreads.id });
@@ -445,26 +490,22 @@ export async function deleteThread(input: { threadId: string; userId: string }) 
 	});
 }
 
-// Account lifecycle. Thread and message rows are removed here; the caller owns
-// R2 attachment cleanup (it needs the rows returned to know the prefixes).
+// Account lifecycle. Messages and attachments cascade with the thread rows —
+// the delete is the whole cleanup.
 export async function deleteUserThreads(input: { userId: string }) {
-	return await withDb(async (db) => {
-		return await db
-			.delete(aiChatThreads)
-			.where(eq(aiChatThreads.userId, input.userId))
-			.returning({ id: aiChatThreads.id, workspaceId: aiChatThreads.workspaceId });
+	await withDb(async (db) => {
+		await db.delete(aiChatThreads).where(eq(aiChatThreads.userId, input.userId));
 	});
 }
 
-// Anonymous → account linking: reassign the anonymous user's threads. R2
-// attachment objects are keyed by user id, so the caller moves those.
+// Anonymous → account linking: reassign the anonymous user's threads.
+// Attachments hang off the thread rows, so they move with them.
 export async function transferUserThreads(input: { fromUserId: string; toUserId: string }) {
-	return await withDb(async (db) => {
-		return await db
+	await withDb(async (db) => {
+		await db
 			.update(aiChatThreads)
 			.set({ userId: input.toUserId, updatedAt: sql`${aiChatThreads.updatedAt}` })
-			.where(eq(aiChatThreads.userId, input.fromUserId))
-			.returning({ id: aiChatThreads.id, workspaceId: aiChatThreads.workspaceId });
+			.where(eq(aiChatThreads.userId, input.fromUserId));
 	});
 }
 
@@ -473,10 +514,6 @@ function toThreadSummary(row: typeof aiChatThreads.$inferSelect): AiChatThreadSu
 		id: row.id,
 		workspaceId: row.workspaceId,
 		title: row.title ?? FALLBACK_THREAD_TITLE,
-		// A generation currently holds this thread's claim (OpenCode exposes the
-		// same as its active-sessions map). Not rendered yet; groundwork for
-		// second-tab composer gating and the resume component.
-		isRunning: row.activeStreamId !== null,
 		lastActivityAt: row.updatedAt.toISOString(),
 	};
 }

@@ -516,8 +516,10 @@ const AI_CHAT_MESSAGE_ROLES = ["user", "assistant", "system"] as const;
 const AI_CHAT_MESSAGE_STATUSES = ["complete", "interrupted", "error"] as const;
 
 // Postgres-backed AI chat. One row per chat thread; threads, transcripts, and
-// the sidebar directory all live here (see AI-CHAT-RUNTIME-EVAL.md on the
-// flue-spike branch for the architecture decision).
+// the sidebar directory all live here. The server owns the transcript (the
+// client sends only its newest message), and active_stream_id is the
+// per-thread turn claim — serialization, stop signal, and liveness in one
+// column.
 export const aiChatThreads = pgTable(
 	"ai_chat_threads",
 	{
@@ -580,10 +582,11 @@ export const aiChatMessages = pgTable(
 	],
 );
 
-// Chat attachment bytes live next to the transcript (the Pi/OpenCode pattern;
-// see AI-CHAT-RUNTIME-EVAL.md). Images only, normalized to ≤1 MiB before
-// insert, so rows stay small; lifecycle is pure FK cascade — deleting a
-// thread, workspace, or account takes its attachments with it.
+// Chat attachment bytes live next to the transcript (the Pi/OpenCode
+// pattern). The upload route is the only writer and it normalizes to JPEG
+// ≤1 MiB (see chat-attachment-policy.ts) — the table itself doesn't enforce
+// that. Lifecycle is pure FK cascade — deleting a thread, workspace, or
+// account takes its attachments with it.
 export const aiChatAttachments = pgTable(
 	"ai_chat_attachments",
 	{
