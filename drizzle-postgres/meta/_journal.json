@@ -43,6 +43,34 @@
       "when": 1786767401526,
       "tag": "0005_dashing_masked_marvel",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1786902425503,
+      "tag": "0006_many_zaladane",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1786906716859,
+      "tag": "0007_yielding_misty_knight",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1786907061693,
+      "tag": "0008_married_jackpot",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1786911305179,
+      "tag": "0009_talented_mastermind",
+      "breakpoints": true
     }
   ]
 }

@@ -1,0 +1,2 @@
+ALTER TABLE "ai_chat_messages" DROP CONSTRAINT "ai_chat_messages_status_check";--> statement-breakpoint
+ALTER TABLE "ai_chat_messages" ADD CONSTRAINT "ai_chat_messages_status_check" CHECK ("ai_chat_messages"."status" in ('complete', 'interrupted', 'error'));

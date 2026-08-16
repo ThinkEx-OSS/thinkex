@@ -3,6 +3,7 @@ import {
 	bigint,
 	boolean,
 	check,
+	customType,
 	foreignKey,
 	index,
 	integer,
@@ -14,6 +15,12 @@ import {
 	unique,
 	uniqueIndex,
 } from "drizzle-orm/pg-core";
+
+const bytea = customType<{ data: Uint8Array; driverData: Buffer }>({
+	dataType() {
+		return "bytea";
+	},
+});
 import { WORKSPACE_ITEM_TYPES } from "#/features/workspaces/workspace-item-registry";
 
 const WORKSPACE_ROLES = ["owner", "admin", "editor", "viewer"] as const;
@@ -503,4 +510,92 @@ export const workspaceInvites = pgTable(
 		index("workspace_invites_workspace_id_idx").on(table.workspaceId),
 		index("workspace_invites_created_by_user_id_idx").on(table.createdByUserId),
 	],
+);
+
+const AI_CHAT_MESSAGE_ROLES = ["user", "assistant", "system"] as const;
+const AI_CHAT_MESSAGE_STATUSES = ["complete", "interrupted", "error"] as const;
+
+// Postgres-backed AI chat. One row per chat thread; threads, transcripts, and
+// the sidebar directory all live here (see AI-CHAT-RUNTIME-EVAL.md on the
+// flue-spike branch for the architecture decision).
+export const aiChatThreads = pgTable(
+	"ai_chat_threads",
+	{
+		id: text("id").primaryKey(),
+		userId: text("user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		workspaceId: text("workspace_id")
+			.notNull()
+			.references(() => workspaces.id, { onDelete: "cascade" }),
+		title: text("title"),
+		// Claimed by an in-flight generation; doubles as the per-thread
+		// serialization guard and, later, the handle a resume component keys on.
+		activeStreamId: text("active_stream_id"),
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+		updatedAt: timestamp("updated_at", { withTimezone: true })
+			.defaultNow()
+			.$onUpdate(() => /* @__PURE__ */ new Date())
+			.notNull(),
+	},
+	(table) => [
+		index("ai_chat_threads_user_id_idx").on(table.userId),
+		index("ai_chat_threads_workspace_id_idx").on(table.workspaceId),
+	],
+);
+
+// One row per UIMessage. `parts` is the AI SDK UIMessage parts array verbatim;
+// `seq` gives a total order that createdAt alone cannot. `status` records the
+// turn outcome on the assistant row (Pi's stopReason / OpenCode's finish):
+// "complete", "interrupted" (aborted; partial parts kept), or "error" (a stub
+// row whose metadata carries the message) — reload-visible, not inferred.
+export const aiChatMessages = pgTable(
+	"ai_chat_messages",
+	{
+		// Client-generated UIMessage id. Unique per thread, not globally — the
+		// composite primary key below is what stops a duplicate (or malicious)
+		// id from upserting over a row in a different thread.
+		id: text("id").notNull(),
+		threadId: text("thread_id")
+			.notNull()
+			.references(() => aiChatThreads.id, { onDelete: "cascade" }),
+		seq: bigint("seq", { mode: "number" }).generatedAlwaysAsIdentity(),
+		role: text("role", { enum: AI_CHAT_MESSAGE_ROLES }).notNull(),
+		parts: jsonb("parts").notNull(),
+		metadata: jsonb("metadata"),
+		status: text("status", { enum: AI_CHAT_MESSAGE_STATUSES }).default("complete").notNull(),
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [
+		primaryKey({ columns: [table.threadId, table.id] }),
+		uniqueIndex("ai_chat_messages_thread_seq_unique").on(table.threadId, table.seq),
+		check(
+			"ai_chat_messages_role_check",
+			sql`${table.role} in (${sqlEnumValues(AI_CHAT_MESSAGE_ROLES)})`,
+		),
+		check(
+			"ai_chat_messages_status_check",
+			sql`${table.status} in (${sqlEnumValues(AI_CHAT_MESSAGE_STATUSES)})`,
+		),
+	],
+);
+
+// Chat attachment bytes live next to the transcript (the Pi/OpenCode pattern;
+// see AI-CHAT-RUNTIME-EVAL.md). Images only, normalized to ≤1 MiB before
+// insert, so rows stay small; lifecycle is pure FK cascade — deleting a
+// thread, workspace, or account takes its attachments with it.
+export const aiChatAttachments = pgTable(
+	"ai_chat_attachments",
+	{
+		id: text("id").primaryKey(),
+		threadId: text("thread_id")
+			.notNull()
+			.references(() => aiChatThreads.id, { onDelete: "cascade" }),
+		mediaType: text("media_type").notNull(),
+		fileName: text("file_name"),
+		sizeBytes: integer("size_bytes").notNull(),
+		bytes: bytea("bytes").notNull(),
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [index("ai_chat_attachments_thread_id_idx").on(table.threadId)],
 );
