@@ -1,5 +1,6 @@
 import { Mic, Paperclip } from "lucide-react";
 import { type KeyboardEventHandler, type SetStateAction, useCallback, useRef } from "react";
+import { toast } from "sonner";
 
 import {
 	type AttachmentsContext,
@@ -199,8 +200,21 @@ export default function AiChatPromptInput({
 	};
 
 	const handleEditQueued = (entryId: string) => {
-		// Removal doubles as the race guard: if the entry already started
-		// sending it is gone from the queue and there is nothing to edit.
+		const queueEntry = useWorkspaceAiQueueStore
+			.getState()
+			.queuesByThreadId[activeThreadId]?.find((entry) => entry.id === entryId);
+		if (!queueEntry) {
+			return;
+		}
+		if (!addReadyDraftFiles(activeThreadId, queueEntry.files)) {
+			toast.error(
+				`Remove attachments before editing this message (maximum ${WORKSPACE_AI_CHAT_ATTACHMENT_POLICY.maxFiles}).`,
+			);
+			return;
+		}
+
+		// Removal is the race guard: if the entry already started sending, there
+		// is nothing left to transfer into the composer.
 		const entry = removeQueuedMessage(activeThreadId, entryId);
 		if (!entry) {
 			return;
@@ -209,7 +223,6 @@ export default function AiChatPromptInput({
 		if (entry.text) {
 			setInput((current) => (current.trim() ? `${current}\n\n${entry.text}` : entry.text));
 		}
-		addReadyDraftFiles(activeThreadId, entry.files);
 		textareaRef.current?.focus();
 	};
 

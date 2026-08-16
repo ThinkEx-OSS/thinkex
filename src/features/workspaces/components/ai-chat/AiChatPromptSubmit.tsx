@@ -32,11 +32,11 @@ export default function AiChatPromptSubmit({
 	const canStop = isGenerating && Boolean(onStop);
 	const canSubmit = canSend && hasContent;
 	const isWaitingForAttachments = !attachmentsReady && hasContent;
-	const isWaitingForConnection = status === "ready" && attachmentsReady && hasContent && !canSend;
+	const isWaitingToSend = status === "ready" && attachmentsReady && hasContent && !canSend;
 	const waitingLabel = isWaitingForAttachments
 		? "Uploading attachments"
-		: isWaitingForConnection
-			? "Waiting for connection"
+		: isWaitingToSend
+			? "Waiting to send"
 			: null;
 	const label = isGenerating ? "Stop" : (waitingLabel ?? "Submit");
 
@@ -47,7 +47,7 @@ export default function AiChatPromptSubmit({
 			    sends once the current answer finishes. */}
 			{isGenerating && canQueue && hasContent ? (
 				<PromptInputButton
-					aria-label="Will send when the AI finishes"
+					aria-label="Queue message"
 					className={cn(workspaceToolbarButtonSizeClass, "rounded-full")}
 					tooltip="Will send when the AI finishes"
 					type="submit"

@@ -118,6 +118,7 @@ export default function AiChatThreadView({
 			restoreQueueHead(threadId, entry);
 			return;
 		}
+		setScrollAnchorMessageId(entry.promoted ? chatMessage.id : null);
 		setSentMessageAnimationId(chatMessage.id);
 	});
 	useEffect(() => {
@@ -128,6 +129,7 @@ export default function AiChatThreadView({
 				errorKind: assistantError?.kind,
 				isBlocked,
 				paused: queuePaused,
+				promoted: queueHead.promoted,
 			})
 		) {
 			return;

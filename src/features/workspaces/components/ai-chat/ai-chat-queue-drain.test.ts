@@ -7,6 +7,7 @@ const ready = {
 	errorKind: undefined,
 	isBlocked: false,
 	paused: false,
+	promoted: false,
 } as const;
 
 describe("canDrainQueuedMessage", () => {
@@ -19,8 +20,13 @@ describe("canDrainQueuedMessage", () => {
 			canDrainQueuedMessage({
 				...ready,
 				errorKind: "aborted",
+				promoted: true,
 			}),
 		).toBe(true);
+	});
+
+	it("does not drain an ordinary message after the active run is aborted", () => {
+		expect(canDrainQueuedMessage({ ...ready, errorKind: "aborted" })).toBe(false);
 	});
 
 	it.each([

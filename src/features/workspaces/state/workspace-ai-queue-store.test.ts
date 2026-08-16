@@ -20,6 +20,7 @@ describe("workspace AI message queue", () => {
 		const steered = store.enqueue(threadId, { text: "steered", atHead: true });
 
 		expect(getQueue(threadId).map((entry) => entry.id)).toEqual([steered, first, second]);
+		expect(getQueue(threadId).map((entry) => entry.promoted)).toEqual([true, false, false]);
 	});
 
 	it("rejects empty messages but accepts file-only ones", () => {
@@ -83,12 +84,23 @@ describe("workspace AI message queue", () => {
 
 		store.moveToHead(threadId, c);
 		expect(getQueue(threadId).map((entry) => entry.id)).toEqual([c, a, b]);
+		expect(getQueue(threadId)[0]?.promoted).toBe(true);
 
 		store.moveByIndex(threadId, 0, 99);
 		expect(getQueue(threadId).map((entry) => entry.id)).toEqual([a, b, c]);
 
 		store.moveByIndex(threadId, 5, 0);
 		expect(getQueue(threadId).map((entry) => entry.id)).toEqual([a, b, c]);
+	});
+
+	it("marks an existing queue head as promoted when sent now", () => {
+		const threadId = crypto.randomUUID();
+		const store = useWorkspaceAiQueueStore.getState();
+		const first = store.enqueue(threadId, { text: "first" })!;
+
+		store.moveToHead(threadId, first);
+
+		expect(getQueue(threadId)[0]).toMatchObject({ id: first, promoted: true });
 	});
 
 	it("pause and resume toggle the per-thread flag", () => {

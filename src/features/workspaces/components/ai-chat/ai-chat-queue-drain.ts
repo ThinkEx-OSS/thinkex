@@ -8,12 +8,14 @@ export function canDrainQueuedMessage(input: {
 	errorKind: "aborted" | "assistant" | "connection" | undefined;
 	isBlocked: boolean;
 	paused: boolean;
+	promoted: boolean;
 }): boolean {
 	return (
 		!input.paused &&
 		!input.isBlocked &&
 		input.errorKind !== "assistant" &&
 		input.errorKind !== "connection" &&
+		(input.errorKind !== "aborted" || input.promoted) &&
 		input.canSend
 	);
 }

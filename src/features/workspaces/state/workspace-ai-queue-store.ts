@@ -20,6 +20,7 @@ export type WorkspaceAiQueuedMessage = {
 	text: string;
 	files: FileUIPart[];
 	contextSnapshot?: WorkspaceAiContextSnapshot;
+	promoted: boolean;
 };
 
 interface WorkspaceAiQueueState {
@@ -67,6 +68,7 @@ export const useWorkspaceAiQueueStore = create<WorkspaceAiQueueState>()(
 					contextSnapshot: input.contextSnapshot,
 					files,
 					id: nanoid(),
+					promoted: input.atHead ?? false,
 					text,
 				};
 				set((state) => {
@@ -139,12 +141,12 @@ export const useWorkspaceAiQueueStore = create<WorkspaceAiQueueState>()(
 				set((state) => {
 					const current = state.queuesByThreadId[threadId] ?? EMPTY_QUEUE;
 					const entry = current.find((item) => item.id === entryId);
-					if (!entry || current[0] === entry) {
+					if (!entry) {
 						return state;
 					}
 
 					return withQueue(state, threadId, [
-						entry,
+						{ ...entry, promoted: true },
 						...current.filter((item) => item.id !== entryId),
 					]);
 				}),

@@ -11,6 +11,7 @@ import {
 	type UploadedChatAttachment,
 	uploadWorkspaceAiChatAttachment,
 } from "#/features/workspaces/components/ai-chat/chat-attachment-upload";
+import { WORKSPACE_AI_CHAT_ATTACHMENT_POLICY } from "#/features/workspaces/ai/chat-attachment-policy";
 import {
 	normalizeWorkspaceSelectedQuote,
 	type WorkspaceSelectedQuote,
@@ -41,8 +42,8 @@ interface WorkspaceAiComposerDraftState {
 		files: File[] | FileList,
 		options: AddWorkspaceAiComposerDraftFilesOptions,
 	) => void;
-	/** Stage already-uploaded file parts as ready draft attachments. */
-	addReadyFiles: (threadId: string, parts: FileUIPart[]) => void;
+	/** Transfers already-uploaded parts only when the complete set fits. */
+	addReadyFiles: (threadId: string, parts: FileUIPart[]) => boolean;
 	addQuote: (workspaceId: string, quote: WorkspaceSelectedQuote) => void;
 	clearDraftArtifacts: (workspaceId: string, threadId: string) => void;
 	clearFiles: (threadId: string) => void;
@@ -149,28 +150,30 @@ export const useWorkspaceAiComposerDraftStore = create<WorkspaceAiComposerDraftS
 					},
 				};
 			}),
-		addReadyFiles: (threadId, parts) =>
-			set((state) => {
-				if (parts.length === 0) {
-					return state;
+		addReadyFiles: (threadId, parts) => {
+			const current = get().filesByThreadId[threadId] ?? EMPTY_DRAFT_FILES;
+			const next = [...current];
+			for (const part of parts) {
+				const file = getFileAttachmentData(part);
+				if (!next.some((item) => item.id === file.id)) {
+					next.push(file);
 				}
+			}
 
-				const current = state.filesByThreadId[threadId] ?? EMPTY_DRAFT_FILES;
-				const next = [...current];
-				for (const part of parts) {
-					const file = getFileAttachmentData(part);
-					if (!next.some((item) => item.id === file.id)) {
-						next.push(file);
-					}
-				}
-
-				return {
+			if (next.length > WORKSPACE_AI_CHAT_ATTACHMENT_POLICY.maxFiles) {
+				return false;
+			}
+			if (next.length !== current.length) {
+				set((state) => ({
 					filesByThreadId: {
 						...state.filesByThreadId,
 						[threadId]: next,
 					},
-				};
-			}),
+				}));
+			}
+
+			return true;
+		},
 		filesByThreadId: {},
 		quotesByWorkspaceId: {},
 		removeFile: (threadId, fileId) => {
