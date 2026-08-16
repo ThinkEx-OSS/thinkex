@@ -1,10 +1,5 @@
 import { getClientOrigin } from "#/lib/client-url";
 
-export const userAIAgentName = "UserAIStore";
-export const aiThreadAgentName = "AIThread";
-export const userAIPathPrefix = "/user-ai";
-export const userAIBasePath = "user-ai";
-
 // Postgres-backed AI chat ("option zero"): plain HTTP routes served straight
 // from the Worker, no Durable Object in the chat path.
 export const aiChatPathPrefix = "/ai-chat";
@@ -26,10 +21,6 @@ export const documentSessionPathPrefix = "/document-session";
 export interface DocumentSessionRouteParams {
 	workspaceId: string;
 	itemId: string;
-}
-
-export function isUserAIRequestPath(pathname: string) {
-	return matchesPathPrefix(pathname, userAIPathPrefix);
 }
 
 export function isWorkspaceRoomRequestPath(pathname: string) {

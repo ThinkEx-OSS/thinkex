@@ -1,0 +1,44 @@
+data: {"type":"start","messageId":"4c6gnsE36HFlruEq"}
+
+data: {"type":"start-step"}
+
+data: {"type":"text-start","id":"msg_04ed299f70575cc8006a821e349488819ea520282914e4ada1","providerMetadata":{"openai":{"itemId":"msg_04ed299f70575cc8006a821e349488819ea520282914e4ada1","phase":"final_answer"}}}
+
+data: {"type":"text-delta","id":"msg_04ed299f70575cc8006a821e349488819ea520282914e4ada1","delta":"You"}
+
+data: {"type":"text-delta","id":"msg_04ed299f70575cc8006a821e349488819ea520282914e4ada1","delta":" currently"}
+
+data: {"type":"text-delta","id":"msg_04ed299f70575cc8006a821e349488819ea520282914e4ada1","delta":" have"}
+
+data: {"type":"text-delta","id":"msg_04ed299f70575cc8006a821e349488819ea520282914e4ada1","delta":" **"}
+
+data: {"type":"text-delta","id":"msg_04ed299f70575cc8006a821e349488819ea520282914e4ada1","delta":"/"}
+
+data: {"type":"text-delta","id":"msg_04ed299f70575cc8006a821e349488819ea520282914e4ada1","delta":"Marine"}
+
+data: {"type":"text-delta","id":"msg_04ed299f70575cc8006a821e349488819ea520282914e4ada1","delta":" Biology"}
+
+data: {"type":"text-delta","id":"msg_04ed299f70575cc8006a821e349488819ea520282914e4ada1","delta":"/Z"}
+
+data: {"type":"text-delta","id":"msg_04ed299f70575cc8006a821e349488819ea520282914e4ada1","delta":"eb"}
+
+data: {"type":"text-delta","id":"msg_04ed299f70575cc8006a821e349488819ea520282914e4ada1","delta":"raf"}
+
+data: {"type":"text-delta","id":"msg_04ed299f70575cc8006a821e349488819ea520282914e4ada1","delta":"ish"}
+
+data: {"type":"text-delta","id":"msg_04ed299f70575cc8006a821e349488819ea520282914e4ada1","delta":" Notes"}
+
+data: {"type":"text-delta","id":"msg_04ed299f70575cc8006a821e349488819ea520282914e4ada1","delta":"**"}
+
+data: {"type":"text-delta","id":"msg_04ed299f70575cc8006a821e349488819ea520282914e4ada1","delta":" selected"}
+
+data: {"type":"text-delta","id":"msg_04ed299f70575cc8006a821e349488819ea520282914e4ada1","delta":"."}
+
+data: {"type":"text-end","id":"msg_04ed299f70575cc8006a821e349488819ea520282914e4ada1","providerMetadata":{"openai":{"itemId":"msg_04ed299f70575cc8006a821e349488819ea520282914e4ada1","phase":"final_answer"}}}
+
+data: {"type":"finish-step"}
+
+data: {"type":"finish","finishReason":"stop"}
+
+data: [DONE]
+

@@ -1,6 +1,5 @@
 import handler from "@tanstack/react-start/server-entry";
 
-import { routeUserAIRequest } from "#/features/workspaces/ai/auth";
 import { routeAiChatRequest } from "#/features/workspaces/ai/chat/route";
 import { routeDocumentSessionRequest } from "#/features/workspaces/documents/document-session-auth";
 import { routeWorkspaceRoomRequest } from "#/features/workspaces/realtime/workspace-room-auth";
@@ -17,12 +16,9 @@ import { addPublicDiscoveryHeaders } from "#/lib/http/public-discovery";
 import { fetchWithHtmlFallback } from "#/lib/http/tanstack-html-fallback";
 
 export {
-	AIThread,
 	CodemodeRuntime,
 	DocumentSession,
 	OfficePdfConverter,
-	Sandbox,
-	UserAIStore,
 	WorkspaceFileExtractionWorkflow,
 	WorkspaceFileProcessor,
 	WorkspaceRoom,
@@ -108,12 +104,6 @@ export default {
 
 			if (mcpResponse) {
 				return mcpResponse;
-			}
-
-			const chatResponse = await routeUserAIRequest(request, env);
-
-			if (chatResponse) {
-				return chatResponse;
 			}
 
 			const aiChatResponse = await routeAiChatRequest(request, env, ctx);

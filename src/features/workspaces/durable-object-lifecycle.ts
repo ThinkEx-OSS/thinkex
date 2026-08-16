@@ -3,17 +3,13 @@ import { and, eq } from "drizzle-orm";
 
 import { workspaceItems, workspaces } from "#/db/schema";
 import { createDbContext } from "#/db/server";
-import { userAIAgentName, workspaceRoomAgentName } from "#/features/workspaces/agent-routes";
+import { workspaceRoomAgentName } from "#/features/workspaces/agent-routes";
+import { deleteUserThreads, transferUserThreads } from "#/features/workspaces/ai/chat/chat-store";
 import type { ResourcePurgeResult } from "#/features/workspaces/resource-purge-result";
 import {
 	recordOperationalFailure,
 	recordOperationalOutcome,
 } from "#/integrations/observability/operational-events";
-
-interface UserAIStoreLifecycleAgent {
-	mergeLinkedAnonymousUser(input: { anonymousUserId: string }): Promise<void>;
-	purgeForDeletion(): Promise<ResourcePurgeResult>;
-}
 
 interface WorkspaceLifecycleAgent {
 	purgeForDeletion(input?: { documentItemIds?: string[] }): Promise<ResourcePurgeResult>;
@@ -34,18 +30,21 @@ async function listOwnedWorkspaceIds(userId: string) {
 	}
 }
 
-async function purgeUserAIStore(userId: string) {
-	const { env } = await import("cloudflare:workers");
-
+// AI chat lives entirely in Postgres; messages and attachments cascade with
+// their thread rows, so the purge is one delete.
+async function purgeUserAiChat(userId: string): Promise<ResourcePurgeResult> {
 	try {
-		const store = await getUserAIStoreLifecycleAgent(env, userId);
-		return await store.purgeForDeletion();
+		await deleteUserThreads({ userId });
+
+		return { attempted: 1, failed: 0 };
 	} catch (error) {
 		recordPurgeAgentFailure("user", userId, error);
 		return { attempted: 1, failed: 1 };
 	}
 }
 
+// Anonymous → account linking: reassign chat threads; attachments follow their
+// thread rows automatically.
 export async function transferLinkedAccountResources(input: {
 	anonymousUserId: string;
 	newUserId: string;
@@ -54,10 +53,10 @@ export async function transferLinkedAccountResources(input: {
 		return;
 	}
 
-	const { env } = await import("cloudflare:workers");
-	const store = await getUserAIStoreLifecycleAgent(env, input.newUserId);
-
-	await store.mergeLinkedAnonymousUser({ anonymousUserId: input.anonymousUserId });
+	await transferUserThreads({
+		fromUserId: input.anonymousUserId,
+		toUserId: input.newUserId,
+	});
 }
 
 export async function purgeWorkspaceResources(workspaceId: string, documentItemIds: string[] = []) {
@@ -115,7 +114,7 @@ export async function purgeUserAccountResources(userId: string) {
 	const startedAt = Date.now();
 	const ownedWorkspaceIds = await listOwnedWorkspaceIds(userId);
 	const results = await Promise.all([
-		purgeUserAIStore(userId),
+		purgeUserAiChat(userId),
 		...ownedWorkspaceIds.map((workspaceId) => purgeWorkspaceResourcesResult(workspaceId)),
 	]);
 	const result = results.reduce(
@@ -146,13 +145,6 @@ function recordPurgeOutcome(
 		},
 		outcome: result.failed === 0 ? "success" : "error",
 	});
-}
-
-async function getUserAIStoreLifecycleAgent(
-	env: Cloudflare.Env,
-	userId: string,
-): Promise<UserAIStoreLifecycleAgent> {
-	return await getAgentByName(env[userAIAgentName], userId);
 }
 
 async function getWorkspaceRoomLifecycleAgent(

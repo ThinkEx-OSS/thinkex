@@ -1,7 +1,6 @@
-import { env } from "cloudflare:workers";
-import { getAgentByName } from "agents";
-
-import type { PutChatAttachmentInput, UserAIStore } from "#/features/workspaces/ai/user-ai-agents";
+import { getWorkspacePromptScope } from "#/features/workspaces/ai/ai-thread-prompt-scope";
+import { ChatThreadOwnershipError, ensureThread } from "#/features/workspaces/ai/chat/chat-store";
+import { WorkspaceForbiddenError } from "#/features/workspaces/server/permissions";
 import { apiError, getRequestId } from "#/lib/api/http";
 import { getSessionFromRequest } from "#/lib/auth-queries.server";
 
@@ -11,11 +10,15 @@ interface ChatAttachmentScope {
 }
 
 interface AuthorizedChatAttachmentRequest {
-	directory: { putChatAttachment(input: PutChatAttachmentInput): Promise<void> };
 	requestId: string;
 	userId: string;
 }
 
+// Authorize one chat-attachment request: session + workspace membership, then
+// materialize the thread row (attachments upload to drafts before any message
+// exists; the row is invisible in the sidebar until the first message —
+// listThreadSummaries filters on message existence). Ownership of an existing
+// thread is enforced by ensureThread's user-scoped lookup.
 export async function authorizeChatAttachmentRequest(
 	request: Request,
 	scope: ChatAttachmentScope,
@@ -27,15 +30,18 @@ export async function authorizeChatAttachmentRequest(
 		return apiError(requestId, 401, "UNAUTHORIZED", "You must be signed in.");
 	}
 
-	const directory = await getAgentByName<Cloudflare.Env, UserAIStore>(
-		env.UserAIStore,
-		session.user.id,
-	);
-	const thread = await directory.getThreadContext(scope.threadId);
+	const userId = session.user.id;
 
-	if (thread?.workspaceId !== scope.workspaceId) {
-		return apiError(requestId, 404, "THREAD_NOT_FOUND", "Chat thread not found.");
+	try {
+		await getWorkspacePromptScope({ userId, workspaceId: scope.workspaceId });
+		await ensureThread({ threadId: scope.threadId, userId, workspaceId: scope.workspaceId });
+	} catch (error) {
+		if (error instanceof WorkspaceForbiddenError || error instanceof ChatThreadOwnershipError) {
+			return apiError(requestId, 404, "THREAD_NOT_FOUND", "Chat thread not found.");
+		}
+
+		throw error;
 	}
 
-	return { directory, requestId, userId: session.user.id };
+	return { requestId, userId };
 }

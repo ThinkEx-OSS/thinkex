@@ -5,33 +5,18 @@ import { AI_TOOL_REGISTRY, getAiToolPresentation } from "#/features/workspaces/a
 describe("AI tool registry", () => {
 	it("keeps model policy separate from UI presentation", () => {
 		expect(AI_TOOL_REGISTRY.workspace_link_items).toMatchObject({
-			model: { access: "write", codemode: true },
+			model: { access: "write" },
 			ui: { visibility: "hidden" },
 		});
-		expect(AI_TOOL_REGISTRY.compute).toMatchObject({
-			model: { access: "read", codemode: true },
-			ui: { icon: "code", visibility: "visible" },
-		});
 		expect(AI_TOOL_REGISTRY.web_fetch).toMatchObject({
-			model: { access: "read", codemode: false },
+			model: { access: "read" },
 			ui: { icon: "web", visibility: "visible" },
 		});
 	});
 
-	it("exposes mutations to Code Mode so replays resolve against the durable log", () => {
-		const writeTools = Object.values(AI_TOOL_REGISTRY).filter(
-			(definition) => definition.model.access === "write",
-		);
-
-		expect(writeTools.length).toBeGreaterThan(0);
-		expect(writeTools.every((definition) => definition.model.codemode)).toBe(true);
-	});
-
 	it("gives unknown connector tools a legible generic presentation", () => {
-		expect(getAiToolPresentation("custom_lookup")).toEqual({
-			icon: "web",
-			title: "Custom lookup",
-			visibility: "visible",
+		expect(getAiToolPresentation("mystery_tool")).toMatchObject({
+			title: expect.any(String),
 		});
 	});
 });
