@@ -48,6 +48,7 @@ export const WORKSPACE_AI_CHAT_MODELS = [
 		speed: 3,
 		cost: 1,
 		billingTier: "standard",
+		contextWindow: 1_000_000,
 	},
 	{
 		id: "claude-sonnet",
@@ -62,6 +63,7 @@ export const WORKSPACE_AI_CHAT_MODELS = [
 		speed: 3,
 		cost: 10,
 		billingTier: "premium",
+		contextWindow: 1_000_000,
 	},
 	{
 		id: "claude-haiku",
@@ -75,6 +77,7 @@ export const WORKSPACE_AI_CHAT_MODELS = [
 		speed: 4,
 		cost: 5,
 		billingTier: "standard",
+		contextWindow: 200_000,
 	},
 	{
 		id: "gpt-terra",
@@ -89,6 +92,7 @@ export const WORKSPACE_AI_CHAT_MODELS = [
 		speed: 3,
 		cost: 10,
 		billingTier: "premium",
+		contextWindow: 1_000_000,
 	},
 	{
 		id: "gpt-luna",
@@ -102,6 +106,7 @@ export const WORKSPACE_AI_CHAT_MODELS = [
 		speed: 4,
 		cost: 1,
 		billingTier: "standard",
+		contextWindow: 1_000_000,
 	},
 	{
 		id: "gemini-pro",
@@ -116,6 +121,7 @@ export const WORKSPACE_AI_CHAT_MODELS = [
 		speed: 2,
 		cost: 10,
 		billingTier: "premium",
+		contextWindow: 1_000_000,
 	},
 	{
 		id: "gemini",
@@ -130,6 +136,7 @@ export const WORKSPACE_AI_CHAT_MODELS = [
 		speed: 4,
 		cost: 3,
 		billingTier: "standard",
+		contextWindow: 1_000_000,
 	},
 ] as const;
 
