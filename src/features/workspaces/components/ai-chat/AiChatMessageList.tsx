@@ -1,5 +1,5 @@
 import type { ChatErrorClassification, ChatErrorContext } from "@cloudflare/think";
-import { AlertCircle, Plus, RotateCcw } from "lucide-react";
+import { AlertCircle, Plus, RefreshCw, RotateCcw } from "lucide-react";
 import { LazyMotion, domAnimation, m, useReducedMotion } from "motion/react";
 import type { HTMLMotionProps } from "motion/react";
 import type { ReactNode } from "react";
@@ -65,6 +65,7 @@ export type AiChatAssistantErrorState =
 	| {
 			classification?: ChatErrorClassification | null;
 			kind: "assistant";
+			message?: string | null;
 			stage?: ChatErrorContext["stage"] | null;
 	  }
 	| {
@@ -307,6 +308,10 @@ function AiChatAssistantError({
 		errorState.kind === "assistant" &&
 		errorState.classification === "context_overflow" &&
 		Boolean(onStartNewChat);
+	// Classified errors get curated copy; for the rest the stored server
+	// message (usage limits, recovery reasons) beats an unexplained failure.
+	const errorDetail =
+		errorState.kind === "assistant" && !errorState.classification ? errorState.message : null;
 
 	return (
 		<Message>
@@ -318,13 +323,32 @@ function AiChatAssistantError({
 								className="mt-0.5 size-4 shrink-0 text-muted-foreground"
 								aria-hidden="true"
 							/>
-							<p className="text-sm">
-								{getChatErrorMessage({
-									errorState,
-									hasAssistantContent,
-								})}
-							</p>
+							<div className="flex flex-col gap-1">
+								<p className="text-sm">
+									{getChatErrorMessage({
+										errorState,
+										hasAssistantContent,
+									})}
+								</p>
+								{errorDetail ? (
+									<p className="text-muted-foreground text-xs">{errorDetail}</p>
+								) : null}
+							</div>
 						</div>
+						{errorState.kind === "connection" ? (
+							<Button
+								type="button"
+								variant="outline"
+								size="xs"
+								className="gap-1.5"
+								onClick={() => {
+									window.location.reload();
+								}}
+							>
+								<RefreshCw className="size-3" />
+								Refresh page
+							</Button>
+						) : null}
 						{canRetry || canStartNewChat ? (
 							<div className="flex items-center gap-2">
 								{canRetry ? (
@@ -468,7 +492,7 @@ function getChatErrorMessage({
 	hasAssistantContent: boolean;
 }) {
 	if (errorState.kind === "connection") {
-		return "The chat connection closed before the response could finish. Refresh the page to reconnect.";
+		return "The chat connection closed before the response could finish.";
 	}
 
 	if (errorState.kind === "aborted") {

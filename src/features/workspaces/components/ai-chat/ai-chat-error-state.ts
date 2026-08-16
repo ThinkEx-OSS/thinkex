@@ -4,7 +4,7 @@ import type { AiChatMessage, AiChatStatus } from "#/features/workspaces/componen
 
 type AIThreadErrorSummary = Pick<
 	AIThreadSummary,
-	"lastErrorClassification" | "lastErrorStage" | "lastRunResult"
+	"lastErrorClassification" | "lastErrorMessage" | "lastErrorStage" | "lastRunResult"
 >;
 
 export function deriveAiChatAssistantErrorState(input: {
@@ -31,6 +31,7 @@ export function deriveAiChatAssistantErrorState(input: {
 			...(threadError
 				? {
 						classification: threadError.lastErrorClassification,
+						message: threadError.lastErrorMessage,
 						stage: threadError.lastErrorStage,
 					}
 				: {}),

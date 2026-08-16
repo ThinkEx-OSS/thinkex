@@ -19,6 +19,7 @@ describe("AI chat error state", () => {
 				hasConnectionError: false,
 				threadSummary: {
 					lastErrorClassification: "context_overflow",
+					lastErrorMessage: "Context window exceeded",
 					lastErrorStage: "recovery",
 					lastRunResult: "error",
 				},
@@ -26,6 +27,7 @@ describe("AI chat error state", () => {
 		).toEqual({
 			classification: "context_overflow",
 			kind: "assistant",
+			message: "Context window exceeded",
 			stage: "recovery",
 		});
 	});
@@ -38,6 +40,7 @@ describe("AI chat error state", () => {
 				lastMessageRole: "user",
 				threadSummary: {
 					lastErrorClassification: null,
+					lastErrorMessage: null,
 					lastErrorStage: null,
 					lastRunResult: "aborted",
 				},
@@ -53,6 +56,7 @@ describe("AI chat error state", () => {
 				lastMessageRole: "assistant",
 				threadSummary: {
 					lastErrorClassification: null,
+					lastErrorMessage: null,
 					lastErrorStage: null,
 					lastRunResult: "aborted",
 				},
