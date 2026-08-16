@@ -1,7 +1,11 @@
+import type { FileUIPart } from "ai";
 import { nanoid } from "nanoid";
 import { type SetStateAction, useMemo } from "react";
 import { create } from "zustand";
-import type { FileAttachmentData } from "#/features/workspaces/components/ai-chat/ai-chat-attachments";
+import {
+	type FileAttachmentData,
+	getFileAttachmentData,
+} from "#/features/workspaces/components/ai-chat/ai-chat-attachments";
 import {
 	deleteWorkspaceAiChatAttachment,
 	type UploadedChatAttachment,
@@ -28,7 +32,6 @@ type WorkspaceAiComposerDraftFileError = {
 };
 
 interface WorkspaceAiComposerDraftState {
-	directPromptByThreadId: Record<string, { id: string; text: string } | undefined>;
 	filesByThreadId: Record<string, WorkspaceAiComposerDraftFile[] | undefined>;
 	quotesByWorkspaceId: Record<string, WorkspaceSelectedQuote[] | undefined>;
 	textByThreadId: Record<string, string | undefined>;
@@ -38,6 +41,8 @@ interface WorkspaceAiComposerDraftState {
 		files: File[] | FileList,
 		options: AddWorkspaceAiComposerDraftFilesOptions,
 	) => void;
+	/** Stage already-uploaded file parts as ready draft attachments. */
+	addReadyFiles: (threadId: string, parts: FileUIPart[]) => void;
 	addQuote: (workspaceId: string, quote: WorkspaceSelectedQuote) => void;
 	clearDraftArtifacts: (workspaceId: string, threadId: string) => void;
 	clearFiles: (threadId: string) => void;
@@ -45,8 +50,6 @@ interface WorkspaceAiComposerDraftState {
 	removeFile: (threadId: string, fileId: string) => void;
 	removeQuote: (workspaceId: string, quoteId: string) => void;
 	setText: (threadId: string, value: SetStateAction<string>) => void;
-	queueDirectPrompt: (threadId: string, text: string) => boolean;
-	takeDirectPrompt: (threadId: string, promptId: string) => string | null;
 }
 
 const EMPTY_DRAFT_FILES: WorkspaceAiComposerDraftFile[] = [];
@@ -146,7 +149,28 @@ export const useWorkspaceAiComposerDraftStore = create<WorkspaceAiComposerDraftS
 					},
 				};
 			}),
-		directPromptByThreadId: {},
+		addReadyFiles: (threadId, parts) =>
+			set((state) => {
+				if (parts.length === 0) {
+					return state;
+				}
+
+				const current = state.filesByThreadId[threadId] ?? EMPTY_DRAFT_FILES;
+				const next = [...current];
+				for (const part of parts) {
+					const file = getFileAttachmentData(part);
+					if (!next.some((item) => item.id === file.id)) {
+						next.push(file);
+					}
+				}
+
+				return {
+					filesByThreadId: {
+						...state.filesByThreadId,
+						[threadId]: next,
+					},
+				};
+			}),
 		filesByThreadId: {},
 		quotesByWorkspaceId: {},
 		removeFile: (threadId, fileId) => {
@@ -187,28 +211,6 @@ export const useWorkspaceAiComposerDraftStore = create<WorkspaceAiComposerDraftS
 					},
 				};
 			}),
-		queueDirectPrompt: (threadId, text) => {
-			const trimmed = text.trim();
-			if (!trimmed || get().directPromptByThreadId[threadId]) return false;
-			set((state) => ({
-				directPromptByThreadId: {
-					...state.directPromptByThreadId,
-					[threadId]: { id: nanoid(), text: trimmed },
-				},
-			}));
-			return true;
-		},
-		takeDirectPrompt: (threadId, promptId) => {
-			const prompt = get().directPromptByThreadId[threadId];
-			if (!prompt || prompt.id !== promptId) return null;
-			set((state) => ({
-				directPromptByThreadId: {
-					...state.directPromptByThreadId,
-					[threadId]: undefined,
-				},
-			}));
-			return prompt.text;
-		},
 		textByThreadId: {},
 	}),
 );
@@ -237,15 +239,6 @@ export function useWorkspaceAiComposerDraftText(threadId: string) {
 	return useWorkspaceAiComposerDraftStore(
 		useMemo(
 			() => (state: WorkspaceAiComposerDraftState) => state.textByThreadId[threadId] ?? "",
-			[threadId],
-		),
-	);
-}
-
-export function useWorkspaceAiDirectPrompt(threadId: string) {
-	return useWorkspaceAiComposerDraftStore(
-		useMemo(
-			() => (state: WorkspaceAiComposerDraftState) => state.directPromptByThreadId[threadId],
 			[threadId],
 		),
 	);

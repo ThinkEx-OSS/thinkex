@@ -93,6 +93,7 @@ export function useWorkspaceAiChat({ modelId, threadId }: UseWorkspaceAiChatOpti
 		messages,
 		regenerate: regenerateAgentMessage,
 		sendMessage: sendAgentMessage,
+		setMessages,
 		status,
 		stop,
 	} = chat;
@@ -154,6 +155,7 @@ export function useWorkspaceAiChat({ modelId, threadId }: UseWorkspaceAiChatOpti
 		presentation,
 		regenerate,
 		sendMessage,
+		setMessages,
 		stop,
 	};
 }

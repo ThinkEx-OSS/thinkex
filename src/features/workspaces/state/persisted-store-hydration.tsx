@@ -1,5 +1,6 @@
 import { useEffect, useSyncExternalStore } from "react";
 
+import { useWorkspaceAiQueueStore } from "#/features/workspaces/state/workspace-ai-queue-store";
 import { useWorkspaceTabsStore } from "#/features/workspaces/state/workspace-tabs-store";
 import { useWorkspaceUiStore } from "#/features/workspaces/state/workspace-ui-store";
 
@@ -11,7 +12,11 @@ type PersistedStore = {
 	};
 };
 
-const persistedStores = [useWorkspaceTabsStore, useWorkspaceUiStore] as const;
+const persistedStores = [
+	useWorkspaceTabsStore,
+	useWorkspaceUiStore,
+	useWorkspaceAiQueueStore,
+] as const;
 
 function hasHydratedAllStores() {
 	return persistedStores.every((store) => store.persist.hasHydrated());
