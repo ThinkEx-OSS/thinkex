@@ -30,7 +30,21 @@ const AI_CHAT_RENDER_THROTTLE_MS = 100;
 // Last settled transcript per thread, so switching back renders instantly
 // instead of suspending on the /get-messages fetch. The server's connect-time
 // broadcast replaces the seed with authoritative state one round trip later.
+// Bounded: transcripts are heavy, and only recently visited threads are
+// likely to be revisited. Map iteration order gives us LRU for free.
+const TRANSCRIPT_CACHE_MAX_THREADS = 8;
 const transcriptCache = new Map<string, AiChatMessage[]>();
+
+function cacheTranscript(threadId: string, messages: AiChatMessage[]) {
+	transcriptCache.delete(threadId);
+	transcriptCache.set(threadId, messages);
+	for (const staleId of transcriptCache.keys()) {
+		if (transcriptCache.size <= TRANSCRIPT_CACHE_MAX_THREADS) {
+			break;
+		}
+		transcriptCache.delete(staleId);
+	}
+}
 
 export function evictWorkspaceAiTranscript(threadId: string) {
 	transcriptCache.delete(threadId);
@@ -99,7 +113,7 @@ export function useWorkspaceAiChat({ modelId, threadId }: UseWorkspaceAiChatOpti
 			transcriptCache.delete(threadId);
 			return;
 		}
-		transcriptCache.set(threadId, messages);
+		cacheTranscript(threadId, messages);
 	}, [messages, presentation.isBusy, status, threadId]);
 	const canStop = status === "submitted" || presentation.isBusy;
 	const isConnected = agent.identified && agent.readyState === agent.OPEN;

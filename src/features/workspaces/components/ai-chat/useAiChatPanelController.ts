@@ -76,9 +76,8 @@ export function useAiChatPanelController({ workspaceId }: UseAiChatPanelControll
 		try {
 			await deleteThread(threadId);
 		} catch (error) {
-			if (wasActive) {
-				selectThread(threadId);
-			}
+			// No selection restore: the thread is still in the list, and the user
+			// may have moved on during the in-flight delete.
 			toast.error(getErrorMessage(error, "Unable to delete chat right now."));
 			return;
 		}
