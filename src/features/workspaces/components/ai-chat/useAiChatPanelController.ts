@@ -54,7 +54,7 @@ export function useAiChatPanelController({ workspaceId }: UseAiChatPanelControll
 			const thread = await createThread();
 			selectThread(thread.id);
 		} catch (error) {
-			console.warn("[AiChatPanel] Failed to create chat thread", error);
+			toast.error(getErrorMessage(error, "Unable to start a new chat right now."));
 		}
 	};
 
