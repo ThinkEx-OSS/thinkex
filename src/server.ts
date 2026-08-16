@@ -1,6 +1,7 @@
 import handler from "@tanstack/react-start/server-entry";
 
 import { routeUserAIRequest } from "#/features/workspaces/ai/auth";
+import { routeAiChatRequest } from "#/features/workspaces/ai/chat/route";
 import { routeDocumentSessionRequest } from "#/features/workspaces/documents/document-session-auth";
 import { routeWorkspaceRoomRequest } from "#/features/workspaces/realtime/workspace-room-auth";
 import { routeMcpRequest } from "#/features/mcp/mcp-route";
@@ -113,6 +114,12 @@ export default {
 
 			if (chatResponse) {
 				return chatResponse;
+			}
+
+			const aiChatResponse = await routeAiChatRequest(request, env, ctx);
+
+			if (aiChatResponse) {
+				return aiChatResponse;
 			}
 
 			const documentSessionResponse = await routeDocumentSessionRequest(request, env);
