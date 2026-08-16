@@ -216,6 +216,52 @@ describe("agents useAgentChat observer", () => {
 		expect(warn).not.toHaveBeenCalled();
 	});
 
+	it("keeps an explicitly cancelled turn finalizing until its server terminal arrives", async () => {
+		const { agent, sentFrames, target } = createFakeAgent();
+		const chat = await mountChat(agent, []);
+
+		await vi.waitFor(() => {
+			expect(countFrames(sentFrames, "cf_agent_stream_resume_request")).toBe(1);
+		});
+		await act(async () => {
+			dispatch(target, {
+				reason: "idle",
+				type: "cf_agent_stream_resume_none",
+			});
+			void chat()?.sendMessage({
+				parts: [{ text: "Hello", type: "text" }],
+				role: "user",
+			});
+		});
+		const request = await vi.waitFor(() => {
+			const frame = sentFrames
+				.map((value) => JSON.parse(value) as { id?: string; type?: string })
+				.find((value) => value.type === "cf_agent_use_chat_request");
+			expect(frame?.id).toBeTypeOf("string");
+			return frame;
+		});
+
+		await act(async () => {
+			await chat()?.stop();
+		});
+		expect(chat()?.isServerFinalizing).toBe(true);
+		expect(
+			sentFrames
+				.map((value) => JSON.parse(value) as { id?: string; type?: string })
+				.find((value) => value.type === "cf_agent_chat_request_cancel"),
+		).toMatchObject({ id: request?.id });
+
+		await act(async () => {
+			dispatch(target, {
+				body: "",
+				done: true,
+				id: request?.id,
+				type: "cf_agent_use_chat_response",
+			});
+		});
+		await vi.waitFor(() => expect(chat()?.isServerFinalizing).toBe(false));
+	});
+
 	it("hands an interrupted request to the resume handshake after reconnecting", async () => {
 		const { agent, close, open, sentFrames, target } = createFakeAgent();
 		const chat = await mountChat(agent, []);

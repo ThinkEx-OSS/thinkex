@@ -1,6 +1,6 @@
 import { Think } from "@cloudflare/think";
 import type { DynamicToolUIPart, ModelMessage, UIMessage, UIMessageChunk } from "ai";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 interface PersistIncomingMessageHarness {
 	_stripReservedMessageMetadata: (message: UIMessage) => UIMessage;
@@ -70,7 +70,7 @@ interface StreamResultHarness {
 		parts: UIMessage["parts"],
 	) => UIMessageChunk;
 	_applyActionApprovalDescriptorToParts: (chunk: UIMessageChunk, parts: UIMessage["parts"]) => void;
-	_broadcastChat: (message: { done: boolean }) => void;
+	_broadcastChat: (message: { done: boolean; error?: boolean }) => void;
 	_broadcastMessages: () => void;
 	_completeResumableStream: (streamId: string) => void;
 	_continuation: { pending: null };
@@ -103,6 +103,10 @@ interface ModelMessageAssemblyHarness {
 }
 
 const thinkInternals = Think.prototype as unknown as ThinkRegressionInternals;
+
+afterEach(() => {
+	vi.restoreAllMocks();
+});
 
 function userMessage(id: string, text: string): UIMessage {
 	return {
@@ -329,7 +333,7 @@ describe("Cloudflare Think regression shields", () => {
 				if (message.done) events.push("done");
 			},
 			_broadcastMessages: () => events.push("snapshot"),
-			_completeResumableStream: () => undefined,
+			_completeResumableStream: () => events.push("complete"),
 			_continuation: { pending: null },
 			_drainInferenceStream: () => undefined,
 			_errorResumableStream: () => undefined,
@@ -351,6 +355,65 @@ describe("Cloudflare Think regression shields", () => {
 		await expect(thinkInternals._streamResult.call(harness, "request-1", result)).resolves.toEqual({
 			status: "completed",
 		});
-		expect(events).toEqual(["persist", "snapshot", "done"]);
+		expect(events).toEqual(["persist", "snapshot", "complete", "done"]);
+	});
+
+	it("reports an error instead of completing when final transcript persistence fails", async () => {
+		const terminalMessages: Array<{ done: boolean; error?: boolean }> = [];
+		const persistError = new Error("persistence unavailable");
+		vi.spyOn(console, "error").mockImplementation(() => undefined);
+		const result: StreamResult = {
+			toUIMessageStream: async function* () {
+				yield { messageId: "assistant-1", type: "start" };
+				yield { id: "text-1", type: "text-start" };
+				yield { delta: "Answer", id: "text-1", type: "text-delta" };
+				yield { id: "text-1", type: "text-end" };
+			},
+		};
+		const broadcastMessages = vi.fn();
+		const completeResumableStream = vi.fn();
+		const errorResumableStream = vi.fn();
+		const fireResponseHook = vi.fn<(input: Record<string, unknown>) => Promise<void>>();
+		fireResponseHook.mockResolvedValue();
+		const harness: StreamResultHarness = {
+			_alignStreamStartId: () => undefined,
+			_annotateActionApprovalChunk: (_requestId, chunk) => chunk,
+			_applyActionApprovalDescriptorToParts: () => undefined,
+			_broadcastChat: (message) => {
+				if (message.done) terminalMessages.push(message);
+			},
+			_broadcastMessages: broadcastMessages,
+			_completeResumableStream: completeResumableStream,
+			_continuation: { pending: null },
+			_drainInferenceStream: () => undefined,
+			_errorResumableStream: errorResumableStream,
+			_fireResponseHook: fireResponseHook,
+			_insideInferenceLoop: false,
+			_onStreamingTurnFinalized: () => undefined,
+			_pendingResumeConnections: new Set(),
+			_persistAssistantMessage: async () => {
+				throw persistError;
+			},
+			_programmaticStreamErrors: new Map(),
+			_startResumableStream: () => "stream-1",
+			_storeChunkDurably: async () => undefined,
+			_streamingAssistant: null,
+			_turnQueue: { generation: 1 },
+			chatStreamStallTimeoutMs: 30_000,
+		};
+
+		await expect(thinkInternals._streamResult.call(harness, "request-1", result)).resolves.toEqual({
+			error: persistError.message,
+			status: "error",
+		});
+		expect(broadcastMessages).not.toHaveBeenCalled();
+		expect(completeResumableStream).not.toHaveBeenCalled();
+		expect(errorResumableStream).toHaveBeenCalledOnce();
+		expect(fireResponseHook).toHaveBeenCalledWith(
+			expect.objectContaining({ error: persistError.message, status: "error" }),
+		);
+		expect(terminalMessages).toEqual([
+			expect.objectContaining({ body: persistError.message, done: true, error: true }),
+		]);
 	});
 });

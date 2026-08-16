@@ -14,8 +14,20 @@ index f863d18b06b70ac12a0b7a5aa6e33ef1c5c79f33..c473bd3abb670dcdd794fe876d6cc5e8
    static readonly CHAT_FIBER_NAME = "__cf_internal_chat_turn";
    /**
     * The conversation session — messages, context, compaction, search.
+diff --git a/dist/react.d.ts b/dist/react.d.ts
+index 0bd9ca138fd886ea94f7b75f6097ada9b57a7e10..a0b32cb6d51292c79999c22cd2db978aa06d262f 100644
+--- a/dist/react.d.ts
++++ b/dist/react.d.ts
+@@ -48,6 +48,7 @@ declare function useAgentChat<
+     errorText?: string;
+   }) => void;
+   isServerStreaming: boolean;
++  isServerFinalizing: boolean;
+   isStreaming: boolean;
+   isRecovering: boolean;
+   isToolContinuation: boolean;
 diff --git a/dist/think.js b/dist/think.js
-index a0c9150a61074b1f393b4db5bc565c8100efbce9..6adbecc0169bf365507a554ddd82040111f48af1 100644
+index a0c9150a61074b1f393b4db5bc565c8100efbce9..0bc9a87f357572ebc04f9777e81a2b87a850ee6e 100644
 --- a/dist/think.js
 +++ b/dist/think.js
 @@ -13,9 +13,9 @@ import { openai } from "workers-ai-provider/openai";
@@ -124,21 +136,33 @@ index a0c9150a61074b1f393b4db5bc565c8100efbce9..6adbecc0169bf365507a554ddd820401
  		this._streamingAssistant = accumulator;
  		let doneSent = false;
  		let streamAborted = false;
-@@ -6966,6 +6982,13 @@ var Think = class Think extends Agent {
- 			if (streamError) this._errorResumableStream(streamId);
- 			else this._completeResumableStream(streamId);
- 			this._pendingResumeConnections.clear();
+@@ -6963,9 +6979,22 @@ var Think = class Think extends Agent {
+ 				this._streamingAssistant = null;
+ 				return { status: "aborted" };
+ 			}
+-			if (streamError) this._errorResumableStream(streamId);
+-			else this._completeResumableStream(streamId);
+-			this._pendingResumeConnections.clear();
++			if (streamError) {
++				this._errorResumableStream(streamId);
++				this._pendingResumeConnections.clear();
++			}
 +			if (this._turnQueue.generation === clearGen && accumulator.parts.length > 0) try {
 +				const assistantMsg = accumulator.toMessage();
 +				await this._persistAssistantMessage(assistantMsg, parentId);
 +				this._broadcastMessages();
 +			} catch (error) {
 +				console.error("Failed to persist assistant message:", error);
++				throw error;
++			}
++			if (!streamError) {
++				this._completeResumableStream(streamId);
++				this._pendingResumeConnections.clear();
 +			}
  			this._broadcastChat({
  				type: MSG_CHAT_RESPONSE,
  				id: requestId,
-@@ -7049,10 +7072,6 @@ var Think = class Think extends Agent {
+@@ -7049,10 +7078,6 @@ var Think = class Think extends Agent {
  		}
  		if (this._turnQueue.generation === clearGen) try {
  			const assistantMsg = accumulator.toMessage();
@@ -149,7 +173,7 @@ index a0c9150a61074b1f393b4db5bc565c8100efbce9..6adbecc0169bf365507a554ddd820401
  			await this._fireResponseHook({
  				message: assistantMsg,
  				requestId,
-@@ -7114,15 +7133,14 @@ var Think = class Think extends Agent {
+@@ -7114,15 +7139,14 @@ var Think = class Think extends Agent {
  		};
  	}
  	/**
@@ -171,7 +195,7 @@ index a0c9150a61074b1f393b4db5bc565c8100efbce9..6adbecc0169bf365507a554ddd820401
  	}
  	/**
  	* Strip {@link RESERVED_MESSAGE_METADATA_KEYS} from a client-supplied message
-@@ -7786,11 +7804,12 @@ var Think = class Think extends Agent {
+@@ -7786,11 +7810,12 @@ var Think = class Think extends Agent {
  		if (!this._resolveChatRecoveryConfig().enabled) return "disabled";
  		const recoveryRootRequestId = this._activeChatRecoveryRootRequestId ?? input.requestId;
  		const latestUserMessageId = [...this.messages].reverse().find((m) => m.role === "user")?.id ?? null;
@@ -185,7 +209,7 @@ index a0c9150a61074b1f393b4db5bc565c8100efbce9..6adbecc0169bf365507a554ddd820401
  		});
  		if (exhausted) {
  			const partialText = input.partialParts.filter((p) => p.type === "text").map((p) => p.text).join("");
-@@ -7803,10 +7822,10 @@ var Think = class Think extends Agent {
+@@ -7803,10 +7828,10 @@ var Think = class Think extends Agent {
  		const recoveredRequestId = this._hasRunningSubmission(recoveryRootRequestId) ? recoveryRootRequestId : void 0;
  		await this._chatRecoveryEngine().scheduleRecovery({
  			incident,
@@ -199,7 +223,7 @@ index a0c9150a61074b1f393b4db5bc565c8100efbce9..6adbecc0169bf365507a554ddd820401
  				originalRequestId: recoveryRootRequestId,
  				incidentId: incident.incidentId,
  				lastBody: this._lastBody ?? null,
-@@ -8344,10 +8363,11 @@ var Think = class Think extends Agent {
+@@ -8344,10 +8369,11 @@ var Think = class Think extends Agent {
  				return;
  			}
  			this._applyRecoveredRequestContext(data);

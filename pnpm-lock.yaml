@@ -12,9 +12,9 @@ overrides:
   vitest: 4.1.10
 
 patchedDependencies:
-  '@cloudflare/think@0.15.0': 636c69042e8f00aae00ad8b63d92c16fe8ba0531ac2f5c5a4478a089592a1252
+  '@cloudflare/think@0.15.0': ea05e001e1963aa7eb72980edbadc7724e138c0b4a47ca5b0908b9948d45fc88
   '@embedpdf/plugin-zoom@2.15.0': 7bdd44c58d2eec07af954b81e11e168032c753d87e339354df3b5974505330a9
-  agents@0.19.0: ab98aba2b8f8b885be911148410e2245b60490ef7c91f8e12615fc6fc1d3f61c
+  agents@0.19.0: 2177b040ccd7fc261df2289f26b709fee17be4e0e241d6fd16b39c2988363f93
 
 importers:
 
@@ -43,7 +43,7 @@ importers:
         version: 0.4.3(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(@tanstack/ai@0.22.0(@opentelemetry/api@1.9.1))(ai@7.0.66(zod@4.4.3))(zod@4.4.3)
       '@cloudflare/think':
         specifier: ^0.15.0
-        version: 0.15.0(patch_hash=636c69042e8f00aae00ad8b63d92c16fe8ba0531ac2f5c5a4478a089592a1252)(@ai-sdk/provider@4.0.7)(@ai-sdk/react@4.0.69(react@19.2.8)(zod@4.4.3))(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(@tanstack/ai@0.22.0(@opentelemetry/api@1.9.1))(@voidzero-dev/vite-plus-core@0.2.9(@types/node@26.2.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.12)(typescript@7.0.2)(yaml@2.9.0))(agents@0.19.0(patch_hash=ab98aba2b8f8b885be911148410e2245b60490ef7c91f8e12615fc6fc1d3f61c)(@ai-sdk/react@4.0.69(react@19.2.8)(zod@4.4.3))(@babel/core@7.29.7)(@babel/runtime@7.29.7)(@cloudflare/workers-types@5.20260812.1)(@tanstack/ai@0.22.0(@opentelemetry/api@1.9.1))(@voidzero-dev/vite-plus-core@0.2.9(@types/node@26.2.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.12)(typescript@7.0.2)(yaml@2.9.0))(ai@7.0.66(zod@4.4.3))(chat@4.31.0(ai@7.0.66(zod@4.4.3))(zod@4.4.3))(just-bash@3.0.2)(react@19.2.8)(rolldown@1.1.2)(zod@4.4.3))(ai@7.0.66(zod@4.4.3))(react@19.2.8)(zod@4.4.3)
+        version: 0.15.0(patch_hash=ea05e001e1963aa7eb72980edbadc7724e138c0b4a47ca5b0908b9948d45fc88)(@ai-sdk/provider@4.0.7)(@ai-sdk/react@4.0.69(react@19.2.8)(zod@4.4.3))(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(@tanstack/ai@0.22.0(@opentelemetry/api@1.9.1))(@voidzero-dev/vite-plus-core@0.2.9(@types/node@26.2.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.12)(typescript@7.0.2)(yaml@2.9.0))(agents@0.19.0(patch_hash=2177b040ccd7fc261df2289f26b709fee17be4e0e241d6fd16b39c2988363f93)(@ai-sdk/react@4.0.69(react@19.2.8)(zod@4.4.3))(@babel/core@7.29.7)(@babel/runtime@7.29.7)(@cloudflare/workers-types@5.20260812.1)(@tanstack/ai@0.22.0(@opentelemetry/api@1.9.1))(@voidzero-dev/vite-plus-core@0.2.9(@types/node@26.2.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.12)(typescript@7.0.2)(yaml@2.9.0))(ai@7.0.66(zod@4.4.3))(chat@4.31.0(ai@7.0.66(zod@4.4.3))(zod@4.4.3))(just-bash@3.0.2)(react@19.2.8)(rolldown@1.1.2)(zod@4.4.3))(ai@7.0.66(zod@4.4.3))(react@19.2.8)(zod@4.4.3)
       '@content-collections/core':
         specifier: ^0.15.2
         version: 0.15.2(typescript@7.0.2)
@@ -214,7 +214,7 @@ importers:
         version: 8.18.0
       agents:
         specifier: ^0.19.0
-        version: 0.19.0(patch_hash=ab98aba2b8f8b885be911148410e2245b60490ef7c91f8e12615fc6fc1d3f61c)(@ai-sdk/react@4.0.69(react@19.2.8)(zod@4.4.3))(@babel/core@7.29.7)(@babel/runtime@7.29.7)(@cloudflare/workers-types@5.20260812.1)(@tanstack/ai@0.22.0(@opentelemetry/api@1.9.1))(@voidzero-dev/vite-plus-core@0.2.9(@types/node@26.2.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.12)(typescript@7.0.2)(yaml@2.9.0))(ai@7.0.66(zod@4.4.3))(chat@4.31.0(ai@7.0.66(zod@4.4.3))(zod@4.4.3))(just-bash@3.0.2)(react@19.2.8)(rolldown@1.1.2)(zod@4.4.3)
+        version: 0.19.0(patch_hash=2177b040ccd7fc261df2289f26b709fee17be4e0e241d6fd16b39c2988363f93)(@ai-sdk/react@4.0.69(react@19.2.8)(zod@4.4.3))(@babel/core@7.29.7)(@babel/runtime@7.29.7)(@cloudflare/workers-types@5.20260812.1)(@tanstack/ai@0.22.0(@opentelemetry/api@1.9.1))(@voidzero-dev/vite-plus-core@0.2.9(@types/node@26.2.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.12)(typescript@7.0.2)(yaml@2.9.0))(ai@7.0.66(zod@4.4.3))(chat@4.31.0(ai@7.0.66(zod@4.4.3))(zod@4.4.3))(just-bash@3.0.2)(react@19.2.8)(rolldown@1.1.2)(zod@4.4.3)
       ai:
         specifier: ^7.0.66
         version: 7.0.66(zod@4.4.3)
@@ -10141,13 +10141,13 @@ snapshots:
       - ai
       - zod
 
-  '@cloudflare/think@0.15.0(patch_hash=636c69042e8f00aae00ad8b63d92c16fe8ba0531ac2f5c5a4478a089592a1252)(@ai-sdk/provider@4.0.7)(@ai-sdk/react@4.0.69(react@19.2.8)(zod@4.4.3))(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(@tanstack/ai@0.22.0(@opentelemetry/api@1.9.1))(@voidzero-dev/vite-plus-core@0.2.9(@types/node@26.2.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.12)(typescript@7.0.2)(yaml@2.9.0))(agents@0.19.0(patch_hash=ab98aba2b8f8b885be911148410e2245b60490ef7c91f8e12615fc6fc1d3f61c)(@ai-sdk/react@4.0.69(react@19.2.8)(zod@4.4.3))(@babel/core@7.29.7)(@babel/runtime@7.29.7)(@cloudflare/workers-types@5.20260812.1)(@tanstack/ai@0.22.0(@opentelemetry/api@1.9.1))(@voidzero-dev/vite-plus-core@0.2.9(@types/node@26.2.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.12)(typescript@7.0.2)(yaml@2.9.0))(ai@7.0.66(zod@4.4.3))(chat@4.31.0(ai@7.0.66(zod@4.4.3))(zod@4.4.3))(just-bash@3.0.2)(react@19.2.8)(rolldown@1.1.2)(zod@4.4.3))(ai@7.0.66(zod@4.4.3))(react@19.2.8)(zod@4.4.3)':
+  '@cloudflare/think@0.15.0(patch_hash=ea05e001e1963aa7eb72980edbadc7724e138c0b4a47ca5b0908b9948d45fc88)(@ai-sdk/provider@4.0.7)(@ai-sdk/react@4.0.69(react@19.2.8)(zod@4.4.3))(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(@tanstack/ai@0.22.0(@opentelemetry/api@1.9.1))(@voidzero-dev/vite-plus-core@0.2.9(@types/node@26.2.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.12)(typescript@7.0.2)(yaml@2.9.0))(agents@0.19.0(patch_hash=2177b040ccd7fc261df2289f26b709fee17be4e0e241d6fd16b39c2988363f93)(@ai-sdk/react@4.0.69(react@19.2.8)(zod@4.4.3))(@babel/core@7.29.7)(@babel/runtime@7.29.7)(@cloudflare/workers-types@5.20260812.1)(@tanstack/ai@0.22.0(@opentelemetry/api@1.9.1))(@voidzero-dev/vite-plus-core@0.2.9(@types/node@26.2.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.12)(typescript@7.0.2)(yaml@2.9.0))(ai@7.0.66(zod@4.4.3))(chat@4.31.0(ai@7.0.66(zod@4.4.3))(zod@4.4.3))(just-bash@3.0.2)(react@19.2.8)(rolldown@1.1.2)(zod@4.4.3))(ai@7.0.66(zod@4.4.3))(react@19.2.8)(zod@4.4.3)':
     dependencies:
       '@ai-sdk/anthropic': 4.0.21(zod@4.4.3)
       '@ai-sdk/openai': 4.0.20(zod@4.4.3)
       '@cloudflare/codemode': 0.5.1(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(@tanstack/ai@0.22.0(@opentelemetry/api@1.9.1))(ai@7.0.66(zod@4.4.3))(zod@4.4.3)
       '@cloudflare/shell': 0.4.3(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(@tanstack/ai@0.22.0(@opentelemetry/api@1.9.1))(ai@7.0.66(zod@4.4.3))(zod@4.4.3)
-      agents: 0.19.0(patch_hash=ab98aba2b8f8b885be911148410e2245b60490ef7c91f8e12615fc6fc1d3f61c)(@ai-sdk/react@4.0.69(react@19.2.8)(zod@4.4.3))(@babel/core@7.29.7)(@babel/runtime@7.29.7)(@cloudflare/workers-types@5.20260812.1)(@tanstack/ai@0.22.0(@opentelemetry/api@1.9.1))(@voidzero-dev/vite-plus-core@0.2.9(@types/node@26.2.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.12)(typescript@7.0.2)(yaml@2.9.0))(ai@7.0.66(zod@4.4.3))(chat@4.31.0(ai@7.0.66(zod@4.4.3))(zod@4.4.3))(just-bash@3.0.2)(react@19.2.8)(rolldown@1.1.2)(zod@4.4.3)
+      agents: 0.19.0(patch_hash=2177b040ccd7fc261df2289f26b709fee17be4e0e241d6fd16b39c2988363f93)(@ai-sdk/react@4.0.69(react@19.2.8)(zod@4.4.3))(@babel/core@7.29.7)(@babel/runtime@7.29.7)(@cloudflare/workers-types@5.20260812.1)(@tanstack/ai@0.22.0(@opentelemetry/api@1.9.1))(@voidzero-dev/vite-plus-core@0.2.9(@types/node@26.2.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.12)(typescript@7.0.2)(yaml@2.9.0))(ai@7.0.66(zod@4.4.3))(chat@4.31.0(ai@7.0.66(zod@4.4.3))(zod@4.4.3))(just-bash@3.0.2)(react@19.2.8)(rolldown@1.1.2)(zod@4.4.3)
       ai: 7.0.66(zod@4.4.3)
       aywson: 0.0.16
       chat: 4.31.0(ai@7.0.66(zod@4.4.3))(zod@4.4.3)
@@ -13571,7 +13571,7 @@ snapshots:
       prompts: 2.4.2
       yaml: 2.9.0
 
-  agents@0.19.0(patch_hash=ab98aba2b8f8b885be911148410e2245b60490ef7c91f8e12615fc6fc1d3f61c)(@ai-sdk/react@4.0.69(react@19.2.8)(zod@4.4.3))(@babel/core@7.29.7)(@babel/runtime@7.29.7)(@cloudflare/workers-types@5.20260812.1)(@tanstack/ai@0.22.0(@opentelemetry/api@1.9.1))(@voidzero-dev/vite-plus-core@0.2.9(@types/node@26.2.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.12)(typescript@7.0.2)(yaml@2.9.0))(ai@7.0.66(zod@4.4.3))(chat@4.31.0(ai@7.0.66(zod@4.4.3))(zod@4.4.3))(just-bash@3.0.2)(react@19.2.8)(rolldown@1.1.2)(zod@4.4.3):
+  agents@0.19.0(patch_hash=2177b040ccd7fc261df2289f26b709fee17be4e0e241d6fd16b39c2988363f93)(@ai-sdk/react@4.0.69(react@19.2.8)(zod@4.4.3))(@babel/core@7.29.7)(@babel/runtime@7.29.7)(@cloudflare/workers-types@5.20260812.1)(@tanstack/ai@0.22.0(@opentelemetry/api@1.9.1))(@voidzero-dev/vite-plus-core@0.2.9(@types/node@26.2.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.12)(typescript@7.0.2)(yaml@2.9.0))(ai@7.0.66(zod@4.4.3))(chat@4.31.0(ai@7.0.66(zod@4.4.3))(zod@4.4.3))(just-bash@3.0.2)(react@19.2.8)(rolldown@1.1.2)(zod@4.4.3):
     dependencies:
       '@babel/plugin-proposal-decorators': 8.0.2(@babel/core@7.29.7)
       '@cfworker/json-schema': 4.1.1

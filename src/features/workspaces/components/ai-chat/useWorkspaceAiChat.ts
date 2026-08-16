@@ -87,6 +87,7 @@ export function useWorkspaceAiChat({ modelId, threadId }: UseWorkspaceAiChatOpti
 		clearError,
 		connectionError,
 		isRecovering,
+		isServerFinalizing,
 		isServerStreaming,
 		isStreaming,
 		isToolContinuation,
@@ -127,7 +128,11 @@ export function useWorkspaceAiChat({ modelId, threadId }: UseWorkspaceAiChatOpti
 					? "ready"
 					: status;
 	const canSend =
-		isConnected && inputStatus === "ready" && !presentation.isBusy && !connectionError;
+		isConnected &&
+		inputStatus === "ready" &&
+		!presentation.isBusy &&
+		!isServerFinalizing &&
+		!connectionError;
 
 	const sendMessage = (message: AiChatSendMessage, options?: AiChatSendMessageOptions) => {
 		if (message.parts.length === 0 || !canSend) {
