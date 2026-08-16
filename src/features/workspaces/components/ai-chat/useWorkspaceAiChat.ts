@@ -1,5 +1,6 @@
 import { useAgentChat } from "@cloudflare/think/react";
 import { useAgent } from "agents/react";
+import { useEffect } from "react";
 
 import {
 	aiThreadAgentName,
@@ -26,12 +27,29 @@ interface UseWorkspaceAiChatOptions {
 
 const AI_CHAT_RENDER_THROTTLE_MS = 100;
 
+// Last settled transcript per thread, so switching back renders instantly
+// instead of suspending on the /get-messages fetch. The server's connect-time
+// broadcast replaces the seed with authoritative state one round trip later.
+const transcriptCache = new Map<string, AiChatMessage[]>();
+
+export function evictWorkspaceAiTranscript(threadId: string) {
+	transcriptCache.delete(threadId);
+}
+
+// React 19's use() unwraps a thenable synchronously when it carries
+// status/value (the tracked-thenable convention), so a cached transcript
+// renders without a Suspense fallback frame.
+function fulfilledThenable<T>(value: T): Promise<T> {
+	return Object.assign(Promise.resolve(value), { status: "fulfilled", value });
+}
+
 export function useWorkspaceAiChat({ modelId, threadId }: UseWorkspaceAiChatOptions) {
 	const agent = useAgent({
 		agent: userAIAgentName,
 		basePath: userAIBasePath,
 		sub: [{ agent: aiThreadAgentName, name: threadId }],
 	});
+	const cachedTranscript = transcriptCache.get(threadId);
 	const chat = useAgentChat<unknown, AiChatMessage>({
 		agent,
 		body: () => ({
@@ -41,6 +59,10 @@ export function useWorkspaceAiChat({ modelId, threadId }: UseWorkspaceAiChatOpti
 			analyticsConsent: hasAnalyticsConsent(),
 			sessionReplayConsent: hasExplicitSessionReplayConsent(),
 		}),
+		// No cache → the default /get-messages fetch, which also covers
+		// mid-stream reconnects (the socket deliberately sends no transcript
+		// while a stream is active).
+		getInitialMessages: cachedTranscript ? () => fulfilledThenable(cachedTranscript) : undefined,
 		throttle: AI_CHAT_RENDER_THROTTLE_MS,
 	});
 	const {
@@ -62,6 +84,19 @@ export function useWorkspaceAiChat({ modelId, threadId }: UseWorkspaceAiChatOpti
 		isStreaming,
 		isToolContinuation,
 	});
+
+	// Cache only settled transcripts: seeding a mid-stream partial risks a
+	// duplicate assistant bubble if the server's message id drifts while away.
+	useEffect(() => {
+		if (presentation.isBusy || status !== "ready") {
+			return;
+		}
+		if (messages.length === 0) {
+			transcriptCache.delete(threadId);
+			return;
+		}
+		transcriptCache.set(threadId, messages);
+	}, [messages, presentation.isBusy, status, threadId]);
 	const canStop = status === "submitted" || presentation.isBusy;
 	const isConnected = agent.identified && agent.readyState === agent.OPEN;
 	const inputStatus: AiChatStatus = connectionError
