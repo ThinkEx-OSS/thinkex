@@ -70,6 +70,7 @@ function AiChatPanelLayout({ context }: AiChatPanelProps) {
 					modelId={modelId}
 					onModelChange={onModelChange}
 					onRecoveringChange={setActiveThreadIsRecovering}
+					onStartNewChat={onNewChat}
 					threadSummary={threads.find((thread) => thread.id === activeThreadId)}
 					threadId={activeThreadId}
 				/>

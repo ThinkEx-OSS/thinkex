@@ -9,6 +9,7 @@ import {
 	useWorkspaceAiChatSurfaceMode,
 	useWorkspaceUiStore,
 } from "#/features/workspaces/state/workspace-ui-store";
+import { useWorkspaceAiComposerDraftStore } from "#/features/workspaces/state/workspace-ai-composer-draft-store";
 import { getErrorMessage } from "#/lib/error-message";
 
 type UseAiChatPanelControllerInput = {
@@ -45,13 +46,16 @@ export function useAiChatPanelController({ workspaceId }: UseAiChatPanelControll
 		setActiveAiChatThread(workspaceId, threadId);
 	};
 
-	const handleNewChat = async () => {
+	const handleNewChat = async (carryPrompt?: string) => {
 		if (isCreatingThread) {
 			return;
 		}
 
 		try {
 			const thread = await createThread();
+			if (carryPrompt) {
+				useWorkspaceAiComposerDraftStore.getState().queueDirectPrompt(thread.id, carryPrompt);
+			}
 			selectThread(thread.id);
 		} catch (error) {
 			toast.error(getErrorMessage(error, "Unable to start a new chat right now."));
@@ -118,7 +122,7 @@ export function useAiChatPanelController({ workspaceId }: UseAiChatPanelControll
 		},
 		onMaximize: () => setChatSurfaceMode(workspaceId, "fullscreen"),
 		onModelChange: (nextModelId: AiChatModelId) => setAiChatModel(nextModelId),
-		onNewChat: () => void handleNewChat(),
+		onNewChat: (carryPrompt?: string) => void handleNewChat(carryPrompt),
 		onRestore: () => setChatSurfaceMode(workspaceId, "docked"),
 		onSelectThread: (threadId: string) => selectThread(threadId),
 		threads: threads.map((thread) =>

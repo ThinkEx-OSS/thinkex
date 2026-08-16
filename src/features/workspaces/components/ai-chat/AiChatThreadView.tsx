@@ -8,6 +8,7 @@ import AiChatPromptInput from "#/features/workspaces/components/ai-chat/AiChatPr
 import { deriveAiChatAssistantErrorState } from "#/features/workspaces/components/ai-chat/ai-chat-error-state";
 import { aiChatComposerRailClassName } from "#/features/workspaces/components/ai-chat/ai-chat-layout";
 import type {
+	AiChatMessage,
 	AiChatModelId,
 	AiChatSendMessage,
 } from "#/features/workspaces/components/ai-chat/types";
@@ -25,6 +26,7 @@ export default function AiChatThreadView({
 	modelId,
 	onModelChange,
 	onRecoveringChange,
+	onStartNewChat,
 	threadSummary,
 	threadId,
 }: {
@@ -32,6 +34,7 @@ export default function AiChatThreadView({
 	modelId: AiChatModelId;
 	onModelChange: (modelId: AiChatModelId) => void;
 	onRecoveringChange?: (isRecovering: boolean) => void;
+	onStartNewChat?: (carryPrompt?: string) => void;
 	threadSummary?: AIThreadSummary;
 	threadId: string;
 }) {
@@ -125,6 +128,9 @@ export default function AiChatThreadView({
 				sentMessageAnimationId={sentMessageAnimationId}
 				workspaceId={context.workspaceId}
 				onRegenerateLastResponse={regenerate}
+				onStartNewChat={
+					onStartNewChat ? () => onStartNewChat(getLastUserMessageText(messages)) : undefined
+				}
 			/>
 
 			<div className="px-3 pb-3">
@@ -145,6 +151,18 @@ export default function AiChatThreadView({
 			</div>
 		</div>
 	);
+}
+
+// Carries the failed prompt into a fresh thread as text only — attachments
+// stay behind with the old thread.
+function getLastUserMessageText(messages: AiChatMessage[]) {
+	const lastUserMessage = [...messages].reverse().find((message) => message.role === "user");
+	const text = lastUserMessage?.parts
+		.filter((part) => part.type === "text")
+		.map((part) => part.text)
+		.join("\n\n");
+
+	return text || undefined;
 }
 
 function getChatMessageFromPrompt(
