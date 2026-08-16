@@ -37,8 +37,8 @@ export async function routeAiChatRequest(request: Request, env: Env, ctx: Execut
 			return new Response("Not found", { status: 404 });
 		}
 
-		const [rawThreadId, subresource] = url.pathname.slice(threadsPrefix.length).split("/");
-		const threadId = rawThreadId ? safeDecodeUriComponent(rawThreadId) : "";
+		const [rawThreadId, subresource, ...rest] = url.pathname.slice(threadsPrefix.length).split("/");
+		const threadId = rawThreadId && rest.length === 0 ? safeDecodeUriComponent(rawThreadId) : "";
 
 		if (!threadId) {
 			return new Response("Not found", { status: 404 });
