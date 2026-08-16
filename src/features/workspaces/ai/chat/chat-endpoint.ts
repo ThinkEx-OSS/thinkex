@@ -7,11 +7,12 @@ import {
 	generateText,
 	stepCountIs,
 	streamText,
+	validateUIMessages,
 } from "ai";
 
 import type { AIThreadContext } from "#/features/workspaces/ai/ai-thread-metadata";
 import { normalizeGeneratedThreadTitle } from "#/features/workspaces/ai/chat/chat-model";
-import { getWorkspacePromptScope } from "#/features/workspaces/ai/ai-thread-prompt-scope";
+import { requireThreadAccess } from "#/features/workspaces/ai/chat/chat-access";
 import { getAIThreadSoulPrompt } from "#/features/workspaces/ai/ai-thread-soul-prompt";
 import {
 	generateAIThreadTitle,
@@ -32,10 +33,10 @@ import { parseChatAttachmentContentUrl } from "#/features/workspaces/ai/chat-att
 import {
 	claimStream,
 	deleteMessagesAfterLastUserMessage,
-	ensureThread,
 	getThreadAttachment,
 	insertCompactionMessage,
 	listThreadMessageRows,
+	pingStreamClaim,
 	releaseStream,
 	saveMessage,
 	setThreadTitle,
@@ -67,17 +68,21 @@ export interface AiChatRequestBody {
 	trigger?: string;
 }
 
-// One chat turn, ai-chatbot-shaped (see AI-CHAT-RUNTIME-EVAL.md §9):
-// the client sends only the new user message; prior history comes from
-// Postgres, so there is no client/server transcript reconciliation. The user
-// message is persisted before generation; the assistant message is persisted
-// in the stream's onEnd (or as "interrupted" partial content on abort).
+// One chat turn, ai-chatbot-shaped: the client sends only the new user
+// message; prior history comes from Postgres, so there is no client/server
+// transcript reconciliation. The user message is persisted before generation;
+// the assistant message is persisted once, in the stream's onEnd.
 //
-// Abort semantics: request.signal feeds streamText, so the client's stop
-// aborts generation for real (the composer queue's stop-then-send-now flow
-// depends on that). A refresh mid-stream therefore also aborts — the persisted
-// partial survives and renders on reload; visible re-attach is the deferred
-// resume component's job.
+// Stop/disconnect semantics — the claim column is the whole control plane:
+// - Disconnect (refresh, tab close) does NOT abort: consumeSseStream keeps
+//   the pipeline settling server-side and the finished reply is there on
+//   reload. (Workers never fire request.signal without enable_request_signal
+//   anyway; we lean on that instead of fighting it.)
+// - Stop is explicit: POST /threads/:id/stop clears the claim. The generator
+//   pings its claim on every step and on an interval; losing it aborts
+//   generation and the partial persists as "interrupted".
+// - The same ping is the liveness heartbeat, so a live long turn is never
+//   mistaken for a crashed one, and a stolen turn stops writing.
 export async function handleAiChatTurn(input: {
 	env: Cloudflare.Env;
 	ctx: ExecutionContext;
@@ -103,16 +108,22 @@ export async function handleAiChatTurn(input: {
 		throw new ChatRequestError(400, invalidMessage);
 	}
 
-	// Membership check (throws WorkspaceForbiddenError for non-members) and the
-	// mutation capability that gates write tools this turn.
-	const promptScope = await getWorkspacePromptScope({ userId, workspaceId: body.workspaceId });
-	const thread = await ensureThread({ threadId, userId, workspaceId: body.workspaceId });
-
-	// A thread id is bound to one workspace for life; a request claiming it for
-	// another workspace is confused or malicious either way.
-	if (thread.workspaceId !== body.workspaceId) {
-		throw new ChatRequestError(409, "Thread belongs to a different workspace");
+	if (body.message) {
+		// Structural validation via the SDK — part shapes the size caps can't see.
+		await validateUIMessages({ messages: [body.message] }).catch(() => {
+			throw new ChatRequestError(400, "Message is malformed");
+		});
 	}
+
+	// Ownership + workspace binding + current membership in one gate; also
+	// materializes the draft row and yields the mutation capability that gates
+	// write tools this turn.
+	const { promptScope, thread } = await requireThreadAccess({
+		threadId,
+		userId,
+		workspaceId: body.workspaceId,
+		mode: "create-draft",
+	});
 
 	const streamId = generateId();
 	const claimed =
@@ -227,12 +238,45 @@ export async function handleAiChatTurn(input: {
 
 		// Resolved by execute; read in onEnd so usage lands on the persisted row.
 		let totalUsagePromise: PromiseLike<unknown> | undefined;
+		// Set by onError; consumed by onEnd, which is the single writer for the
+		// turn's outcome (both callbacks fire on a failed stream — treating them
+		// as exclusive double-persisted the reply).
+		let turnErrorMessage: string | undefined;
+
+		// Generation aborts when the claim is lost — stop endpoint or stale-claim
+		// takeover. Pinged on a throttle while chunks stream (so stop lands within
+		// a few seconds even inside one long text step), per step, and on an
+		// interval backstop that covers chunkless gaps (tool waits, compaction).
+		// Started inside execute so a pre-stream throw never leaks the timer.
+		const abortController = new AbortController();
+		let pingInFlight = false;
+		let lastPingAt = Date.now();
+		const pingClaim = async () => {
+			if (abortController.signal.aborted || pingInFlight) {
+				return;
+			}
+			pingInFlight = true;
+			lastPingAt = Date.now();
+			const held = await pingStreamClaim({ threadId, streamId }).catch(() => true);
+			pingInFlight = false;
+			if (!held) {
+				abortController.abort();
+			}
+		};
+		const pingClaimThrottled = () => {
+			if (Date.now() - lastPingAt > 2_500) {
+				ctx.waitUntil(pingClaim());
+			}
+		};
+		let claimPingTimer: ReturnType<typeof setInterval> | undefined;
+		const stopClaimPing = () => clearInterval(claimPingTimer);
 
 		const stream = createUIMessageStream({
 			generateId,
 			execute: async ({ writer }) => {
+				claimPingTimer = setInterval(() => ctx.waitUntil(pingClaim()), 30_000);
 				const modelMessages = await convertToModelMessages(
-					await hydrateAttachmentParts(context.messages, { userId }),
+					await hydrateAttachmentParts(context.messages, { userId, threadId }),
 					// An interrupted earlier turn may have persisted a tool call whose
 					// result never arrived; replaying it verbatim 400s at the provider
 					// and would brick the thread. Dropping it is always safe.
@@ -249,68 +293,87 @@ export async function handleAiChatTurn(input: {
 					messages: modelMessages,
 					tools,
 					stopWhen: stepCountIs(MAX_AGENT_STEPS),
-					abortSignal: input.request.signal,
+					abortSignal: abortController.signal,
+					onChunk: pingClaimThrottled,
+					onStepFinish: () => ctx.waitUntil(pingClaim()),
 				});
 
 				totalUsagePromise = result.totalUsage;
 				writer.merge(result.toUIMessageStream({ sendReasoning: false }));
 			},
 			onError: (error) => {
-				// Turn outcomes are durable (Pi's stopReason / OpenCode's finish): a
-				// failed turn persists a stub assistant row so the error survives
-				// reload instead of being inferred from a dangling user message.
-				ctx.waitUntil(
-					saveMessage({
-						threadId,
-						message: {
-							id: `turn-error-${streamId}`,
-							role: "assistant",
-							parts: [],
-							metadata: { errorMessage: "The assistant hit an error while responding." },
-						},
-						status: "error",
-					}),
-				);
-				releaseClaim();
+				// Record only. onEnd still fires after a failed stream and is the
+				// single writer for the outcome — persisting here too double-wrote
+				// the reply (error stub + partial-as-complete).
+				turnErrorMessage = "The assistant hit an error while responding.";
 				console.error("[ai-chat] turn failed:", error);
 				return "The assistant hit an error while responding. Please try again.";
 			},
 			onEnd: ({ messages, isAborted }) => {
+				stopClaimPing();
 				const assistantMessage = [...messages]
 					.reverse()
 					.find((message) => message.role === "assistant");
+				const failed = turnErrorMessage !== undefined;
+				const clean = !failed && !isAborted;
+				// Interrupted or failed turns settle their parts: tool calls without
+				// a terminal result are stripped (a dangling tool_use poisons every
+				// future model request), while partial text/reasoning is kept.
+				const parts = clean
+					? (assistantMessage?.parts ?? [])
+					: settledParts(assistantMessage?.parts ?? []);
 
-				if (assistantMessage && assistantMessage.parts.length > 0) {
-					ctx.waitUntil(
-						// Usage + model ride the row's metadata (both references persist
-						// them; usage also anchors future usage-based compaction
-						// estimates). Aborted turns may never resolve usage — persist
-						// without it rather than hanging on the promise.
-						(async () => {
-							const usage = isAborted
-								? undefined
-								: await Promise.resolve(totalUsagePromise).catch(() => undefined);
+				// Settlement is one sequenced operation (OpenCode's rule): persist the
+				// terminal outcome, THEN release the claim. Racing them let the next
+				// turn — the queue drains the instant the stream closes — load history
+				// before this reply existed.
+				ctx.waitUntil(
+					(async () => {
+						try {
+							if (parts.length > 0 && assistantMessage) {
+								// Usage + model ride the row's metadata. Aborted turns may
+								// never resolve usage — persist without it rather than hang.
+								const usage = clean
+									? await Promise.resolve(totalUsagePromise).catch(() => undefined)
+									: undefined;
 
-							await saveMessage({
-								threadId,
-								// Tool calls without a terminal result (aborted mid-tool) are
-								// stripped before persisting; a dangling tool_use otherwise
-								// poisons every future model request in this thread.
-								message: {
-									...assistantMessage,
-									parts: isAborted ? settledParts(assistantMessage.parts) : assistantMessage.parts,
-									metadata: {
-										...(typeof assistantMessage.metadata === "object"
-											? assistantMessage.metadata
-											: {}),
-										modelId,
-										...(usage ? { usage } : {}),
+								await saveMessage({
+									threadId,
+									message: {
+										...assistantMessage,
+										parts,
+										metadata: {
+											...(typeof assistantMessage.metadata === "object"
+												? assistantMessage.metadata
+												: {}),
+											modelId,
+											...(usage ? { usage } : {}),
+											...(failed ? { errorMessage: turnErrorMessage } : {}),
+										},
 									},
-								},
-								status: isAborted ? "interrupted" : "complete",
-							});
-						})(),
-					);
+									status: failed ? "error" : isAborted ? "interrupted" : "complete",
+								});
+							} else if (failed) {
+								// Nothing streamed before the error: a stub row keeps the
+								// failure visible after reload (Pi's durable stopReason).
+								await saveMessage({
+									threadId,
+									message: {
+										id: `turn-error-${streamId}`,
+										role: "assistant",
+										parts: [],
+										metadata: { errorMessage: turnErrorMessage },
+									},
+									status: "error",
+								});
+							}
+						} finally {
+							await releaseStream({ threadId, streamId });
+						}
+					})(),
+				);
+
+				if (clean && assistantMessage) {
 					ctx.waitUntil(
 						trackWorkspaceAiMessageUsage({
 							env,
@@ -333,8 +396,6 @@ export async function handleAiChatTurn(input: {
 						);
 					}
 				}
-
-				releaseClaim();
 			},
 		});
 
@@ -357,11 +418,16 @@ export async function handleAiChatTurn(input: {
 
 const MAX_MESSAGE_PARTS = 40;
 const MAX_TEXT_PART_CHARS = 32_000;
+// The envelope cap that actually binds: parts and metadata land in jsonb
+// verbatim, and per-field checks can't enumerate every shape the UIMessage
+// type allows. Roomy enough for max text parts plus attachment URLs.
+const MAX_MESSAGE_SERIALIZED_BYTES = 1_500_000;
+const USER_MESSAGE_PART_TYPES = new Set(["text", "file"]);
 
-// Minimal shape/size caps on the client-supplied message before anything is
-// persisted — parts land in jsonb verbatim, so unbounded input is unbounded
-// storage. Attachment count/size limits are enforced at upload time; this
-// bounds the message envelope itself.
+// Shape/size caps on the client-supplied message before anything is
+// persisted. Attachment count/size limits are enforced at upload time; this
+// bounds the message envelope itself. Structural validity (part shapes) is
+// checked separately via the SDK's validateUIMessages.
 function userMessageValidationError(body: AiChatRequestBody): string | null {
 	const message = body.message;
 
@@ -378,20 +444,30 @@ function userMessageValidationError(body: AiChatRequestBody): string | null {
 	}
 
 	for (const part of message.parts) {
+		if (typeof part !== "object" || part === null || !USER_MESSAGE_PART_TYPES.has(part.type)) {
+			return "Message contains an unsupported part type";
+		}
+
 		if (part.type === "text" && part.text.length > MAX_TEXT_PART_CHARS) {
 			return "Message text is too long";
 		}
 	}
 
+	if (JSON.stringify(message).length > MAX_MESSAGE_SERIALIZED_BYTES) {
+		return "Message is too large";
+	}
+
 	return null;
 }
 
-// Keep only parts that reached a terminal state — used when persisting an
-// aborted turn, where tool parts can be frozen at input-streaming/available.
+// Settle an interrupted/failed turn's parts: tool calls must have reached a
+// terminal state (a frozen tool_use otherwise poisons future model requests),
+// but partial text/reasoning is kept — an aborted stream leaves text parts at
+// state "streaming" and dropping them would erase the reply the user watched.
 function settledParts(parts: UIMessage["parts"]): UIMessage["parts"] {
 	return parts.filter((part) => {
-		if ("state" in part && typeof part.state === "string") {
-			return part.state.startsWith("output-") || part.state === "done";
+		if ("toolCallId" in part && "state" in part && typeof part.state === "string") {
+			return part.state.startsWith("output-");
 		}
 
 		return true;
@@ -440,14 +516,17 @@ export function buildAiChatSystemPrompt(input: {
 // (Successor of the Think patch's modelMessageUrlBase URL-absolutization —
 // with bytes in the database, no URL ever reaches a provider.)
 //
-// Two hard rules: (1) only our own attachment URLs hydrate — any other file
+// Three hard rules: (1) only our own attachment URLs hydrate — any other file
 // URL (external link, data URL smuggled past the composer) is replaced with a
-// placeholder so nothing unvetted reaches the gateway; (2) hydration spends a
-// fixed byte budget newest-first, and older images degrade to placeholders,
-// bounding per-turn memory however long the thread gets.
+// placeholder so nothing unvetted reaches the gateway; (2) only THIS thread's
+// attachments hydrate — the URL's thread id is an untrusted claim, and a
+// crafted part must not pull another thread's bytes into this workspace's
+// model request; (3) hydration spends a fixed byte budget newest-first, and
+// older images degrade to placeholders, bounding per-turn memory however long
+// the thread gets.
 async function hydrateAttachmentParts(
 	messages: UIMessage[],
-	scope: { userId: string },
+	scope: { userId: string; threadId: string },
 ): Promise<UIMessage[]> {
 	let remainingBudget = WORKSPACE_AI_CHAT_ATTACHMENT_POLICY.maxModelAttachmentBytes;
 	const omittedPart = { type: "text" as const, text: "(image omitted)" };
@@ -466,14 +545,14 @@ async function hydrateAttachmentParts(
 
 			const identity = parseChatAttachmentContentUrl(part.url);
 
-			if (!identity || remainingBudget <= 0) {
+			if (!identity || identity.threadId !== scope.threadId || remainingBudget <= 0) {
 				parts.push(omittedPart);
 				continue;
 			}
 
 			const attachment = await getThreadAttachment({
 				attachmentId: identity.attachmentId,
-				threadId: identity.threadId,
+				threadId: scope.threadId,
 				userId: scope.userId,
 			});
 
