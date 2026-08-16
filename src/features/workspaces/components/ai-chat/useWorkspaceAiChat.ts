@@ -63,6 +63,10 @@ export function useWorkspaceAiChat({ modelId, threadId }: UseWorkspaceAiChatOpti
 		// mid-stream reconnects (the socket deliberately sends no transcript
 		// while a stream is active).
 		getInitialMessages: cachedTranscript ? () => fulfilledThenable(cachedTranscript) : undefined,
+		// Think assembles the prompt from the stored path, so the server needs
+		// to know a regeneration when it sees one. See beforeTurn in ai-thread.
+		prepareSendMessagesRequest: ({ trigger }) =>
+			trigger === "regenerate-message" ? { body: { regenerate: true } } : {},
 		throttle: AI_CHAT_RENDER_THROTTLE_MS,
 	});
 	const {
