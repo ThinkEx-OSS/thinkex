@@ -43,6 +43,7 @@ export default function AiChatThreadView({
 }) {
 	const chat = useWorkspaceAiChat({ modelId, threadId });
 	const [sentMessageAnimationId, setSentMessageAnimationId] = useState<string | null>(null);
+	const [scrollAnchorMessageId, setScrollAnchorMessageId] = useState<string | null>(null);
 	const {
 		canSend,
 		connectionError,
@@ -128,6 +129,7 @@ export default function AiChatThreadView({
 			throw new Error("Cannot send an empty chat message");
 		}
 
+		setScrollAnchorMessageId(chatMessage.id);
 		sendChatMessage(chatMessage, {
 			body: {
 				workspaceAiContext: buildWorkspaceAiContextSnapshot(context),
@@ -205,6 +207,7 @@ export default function AiChatThreadView({
 	return (
 		<div className="relative flex min-h-0 flex-1 flex-col">
 			<AiChatMessageList
+				anchorMessageId={scrollAnchorMessageId}
 				assistantError={assistantError}
 				messages={messages}
 				presentation={presentation}

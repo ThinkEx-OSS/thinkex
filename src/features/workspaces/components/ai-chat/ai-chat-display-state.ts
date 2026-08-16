@@ -203,7 +203,7 @@ export function getDisplayableParts(message: AiChatMessage): AiChatRenderablePar
 
 export function isDisplayableMessagePart(part: AiChatMessagePart): boolean {
 	if (part.type === "text") {
-		return part.text.length > 0 || part.state === "streaming";
+		return part.text.length > 0;
 	}
 
 	if (part.type === "reasoning" || part.type === "step-start") {

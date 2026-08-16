@@ -182,11 +182,11 @@ describe("tail status row", () => {
 	});
 
 	it("keeps the status row while the reply is still empty", () => {
-		const message = createMessage([]);
-		const presentation = deriveAiChatPresentation([message], "submitted", {
+		const message = createMessage([{ type: "text", text: "", state: "streaming" }]);
+		const presentation = deriveAiChatPresentation([message], "streaming", {
 			isRecovering: false,
-			isServerStreaming: false,
-			isStreaming: false,
+			isServerStreaming: true,
+			isStreaming: true,
 			isToolContinuation: false,
 		});
 
