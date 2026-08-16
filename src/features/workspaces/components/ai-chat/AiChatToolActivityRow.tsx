@@ -16,16 +16,11 @@ import type {
 	AiToolActivityIconKind,
 	AiToolPresentation,
 } from "#/features/workspaces/ai/ai-tool-registry";
-import {
-	AiChatComputeDetails,
-	AiChatComputeImages,
-} from "#/features/workspaces/components/ai-chat/AiChatComputeResult";
 import { AiChatImageSearchResults } from "#/features/workspaces/components/ai-chat/AiChatImageSearchResults";
 import {
 	getToolActivityForPart,
 	type AiChatToolActivity,
 } from "#/features/workspaces/components/ai-chat/ai-chat-display-state";
-import type { AiChatToolChildActivity } from "#/features/workspaces/components/ai-chat/ai-chat-codemode-activity";
 import type { AiChatToolReceiptSegment } from "#/features/workspaces/components/ai-chat/ai-chat-tool-receipts";
 import {
 	getToolSourceHostname,
@@ -37,15 +32,12 @@ import { cn } from "#/lib/utils";
 
 const INLINE_SOURCE_LIMIT = 3;
 const DETAIL_SOURCE_LIMIT = 8;
-const EMPTY_TOOL_CHILDREN: AiChatToolChildActivity[] = [];
 
 export function AiChatToolActivityRow({
 	interrupted = false,
-	nestedChildren = EMPTY_TOOL_CHILDREN,
 	part,
 }: {
 	interrupted?: boolean;
-	nestedChildren?: AiChatToolChildActivity[];
 	part: AiChatToolPart;
 }) {
 	const shouldReduceMotion = useReducedMotion();
@@ -55,16 +47,14 @@ export function AiChatToolActivityRow({
 		return null;
 	}
 
-	const details = getActivityDetails(activity);
 	const inlineContent = getInlineActivityContent(activity);
 	const sourcePreviews = getToolSourcePreviews(activity);
-	const hasDetails = nestedChildren.length > 0 || details !== null || sourcePreviews.length > 0;
 	const content =
-		!hasDetails && !inlineContent && sourcePreviews.length === 0 ? (
+		!inlineContent && sourcePreviews.length === 0 ? (
 			<ActivitySummary activity={activity} sourcePreviews={sourcePreviews} />
 		) : (
 			<div className="max-w-full space-y-2">
-				{hasDetails ? (
+				{sourcePreviews.length > 0 ? (
 					<Collapsible className="w-fit max-w-full">
 						<div className="inline-flex min-w-0 max-w-full items-center gap-1.5">
 							<CollapsibleTrigger className="group/collapsible min-w-0 max-w-full text-left">
@@ -73,15 +63,7 @@ export function AiChatToolActivityRow({
 							<InlineSourceFavicons sources={sourcePreviews.slice(0, INLINE_SOURCE_LIMIT)} />
 						</div>
 						<CollapsibleContent className="mt-2 space-y-3">
-							{details}
-							{sourcePreviews.length > 0 ? <SourceDetailList sources={sourcePreviews} /> : null}
-							{nestedChildren.length > 0 ? (
-								<div className="space-y-1">
-									{nestedChildren.map((child) => (
-										<ActivitySummary key={child.id} activity={child} sourcePreviews={[]} />
-									))}
-								</div>
-							) : null}
+							<SourceDetailList sources={sourcePreviews} />
 						</CollapsibleContent>
 					</Collapsible>
 				) : (
@@ -125,26 +107,11 @@ function getInlineActivityContent(activity: AiChatToolActivity) {
 		return null;
 	}
 
-	if (activity.toolName === "compute") {
-		return <AiChatComputeImages output={activity.detail.output} />;
-	}
 	if (activity.toolName === "web_search") {
 		return <AiChatImageSearchResults output={activity.detail.output} />;
 	}
 
 	return null;
-}
-
-function getActivityDetails(activity: AiChatToolActivity) {
-	if (
-		activity.toolName !== "compute" ||
-		activity.status === "running" ||
-		activity.status === "interrupted"
-	) {
-		return null;
-	}
-
-	return <AiChatComputeDetails output={activity.detail.output} />;
 }
 
 function ActivitySummary({
@@ -354,8 +321,12 @@ function Favicon({
 
 function ToolActivityIcon({ icon }: { icon: AiToolActivityIconKind }) {
 	switch (icon) {
+		// The code/work kinds belong to retired Code Mode entries; their cases
+		// leave with the registry trim in the Think retirement change.
 		case "code":
 			return <Code2 className="size-3.5" aria-hidden="true" />;
+		case "work":
+			return <Wrench className="size-3.5" aria-hidden="true" />;
 		case "edit":
 			return <PencilLine className="size-3.5" aria-hidden="true" />;
 		case "file":
@@ -366,8 +337,6 @@ function ToolActivityIcon({ icon }: { icon: AiToolActivityIconKind }) {
 			return <Search className="size-3.5" aria-hidden="true" />;
 		case "web":
 			return <Globe2 className="size-3.5" aria-hidden="true" />;
-		case "work":
-			return <Wrench className="size-3.5" aria-hidden="true" />;
 		default:
 			icon satisfies never;
 			return null;

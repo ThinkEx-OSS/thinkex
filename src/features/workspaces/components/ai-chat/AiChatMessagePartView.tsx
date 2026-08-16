@@ -9,10 +9,6 @@ import {
 	getFileAttachmentData,
 	getSourceDocumentAttachmentData,
 } from "#/features/workspaces/components/ai-chat/ai-chat-attachments";
-import {
-	type AiChatToolGroupPart,
-	isAiChatToolGroupPart,
-} from "#/features/workspaces/components/ai-chat/ai-chat-display-state";
 import { AiChatMessageResponse } from "#/features/workspaces/components/ai-chat/AiChatMessageResponse";
 import { AiChatToolActivityRow } from "#/features/workspaces/components/ai-chat/AiChatToolActivityRow";
 import type { AiChatMessagePart } from "#/features/workspaces/components/ai-chat/types";
@@ -25,7 +21,7 @@ export function AiChatMessagePartView({
 }: {
 	interruptUnfinishedTools?: boolean;
 	isStreaming?: boolean;
-	part: AiChatMessagePart | AiChatToolGroupPart;
+	part: AiChatMessagePart;
 	preserveWhitespace?: boolean;
 }) {
 	if (part.type === "text") {
@@ -36,16 +32,6 @@ export function AiChatMessagePartView({
 			>
 				{part.text}
 			</AiChatMessageResponse>
-		);
-	}
-
-	if (isAiChatToolGroupPart(part)) {
-		return (
-			<AiChatToolActivityRow
-				interrupted={interruptUnfinishedTools}
-				nestedChildren={part.children}
-				part={part.part}
-			/>
 		);
 	}
 

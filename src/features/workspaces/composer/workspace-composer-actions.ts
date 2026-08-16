@@ -1,9 +1,9 @@
 import { toast } from "sonner";
 import { WORKSPACE_AI_CHAT_ATTACHMENT_POLICY } from "#/features/workspaces/components/ai-chat/constants";
 import { getWorkspaceViewportMode } from "#/features/workspaces/components/workspace-view-policy";
-import { getDefaultWorkspaceThreadId } from "#/features/workspaces/ai/ai-thread-identity";
 import type { WorkspaceSelectedQuote } from "#/features/workspaces/model/workspace-selected-quotes";
 import { useWorkspaceAiComposerDraftStore } from "#/features/workspaces/state/workspace-ai-composer-draft-store";
+import { useWorkspaceAiQueueStore } from "#/features/workspaces/state/workspace-ai-queue-store";
 import { useWorkspaceUiStore } from "#/features/workspaces/state/workspace-ui-store";
 
 type StageComposerFilesOptions = {
@@ -18,20 +18,19 @@ type StageComposerQuoteOptions = {
 	revealChat?: boolean;
 };
 
-/** Send a generated action prompt in the current thread without touching its draft. */
+/**
+ * Send a generated action prompt in the current thread without touching its
+ * draft. If the AI is busy, the prompt waits in the message queue and sends
+ * once the current response finishes.
+ */
 export function sendComposerPrompt(workspaceId: string, text: string) {
-	const trimmed = text.trim();
-	if (!trimmed) {
+	const queued = useWorkspaceAiQueueStore
+		.getState()
+		.enqueue(getComposerThreadId(workspaceId), { text });
+	if (!queued) {
 		return false;
 	}
 
-	const queued = useWorkspaceAiComposerDraftStore
-		.getState()
-		.queueDirectPrompt(getComposerThreadId(workspaceId), trimmed);
-	if (!queued) {
-		toast.info("Another AI action is already starting.");
-		return false;
-	}
 	revealComposer(workspaceId);
 	return true;
 }
@@ -98,7 +97,7 @@ export function stageCaptureAttachmentToComposer(
 function getComposerThreadId(workspaceId: string) {
 	return (
 		useWorkspaceUiStore.getState().getSession(workspaceId)?.activeAiChatThreadId ??
-		getDefaultWorkspaceThreadId(workspaceId)
+		useWorkspaceUiStore.getState().getOrCreateDraftAiChatThread(workspaceId)
 	);
 }
 

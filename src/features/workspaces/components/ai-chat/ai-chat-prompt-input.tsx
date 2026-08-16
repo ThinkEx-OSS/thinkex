@@ -206,6 +206,10 @@ export const PromptInputTextarea = ({
 	const composerReady = attachments.composerReady;
 
 	const handleKeyDown: KeyboardEventHandler<HTMLTextAreaElement> = (event) => {
+		if (event.key === "Enter" && (isComposingRef.current || event.nativeEvent.isComposing)) {
+			return;
+		}
+
 		onKeyDown?.(event);
 
 		if (event.defaultPrevented) {
@@ -213,9 +217,6 @@ export const PromptInputTextarea = ({
 		}
 
 		if (event.key === "Enter") {
-			if (isComposingRef.current || event.nativeEvent.isComposing) {
-				return;
-			}
 			if (event.shiftKey) {
 				return;
 			}

@@ -1,4 +1,7 @@
-import type { ChatErrorClassification, ChatErrorContext } from "@cloudflare/think";
+import type {
+	AiChatErrorClassification,
+	AiChatErrorStage,
+} from "#/features/workspaces/ai/chat/chat-model";
 import { AlertCircle, Plus, RefreshCw, RotateCcw } from "lucide-react";
 import { LazyMotion, domAnimation, m, useReducedMotion } from "motion/react";
 import type { HTMLMotionProps } from "motion/react";
@@ -7,21 +10,12 @@ import { useEffect, useRef, useState } from "react";
 import ThinkExLogo from "#/components/ThinkExLogo";
 import { Button } from "#/components/ui/button";
 import { Bubble, BubbleContent } from "#/components/ui/bubble";
-import {
-	MessageScroller,
-	MessageScrollerButton,
-	MessageScrollerContent,
-	MessageScrollerItem,
-	MessageScrollerProvider,
-	MessageScrollerViewport,
-} from "#/components/ui/message-scroller";
 import { Message, MessageContent } from "#/components/ui/message";
 import { AiChatAssistantPending } from "#/features/workspaces/components/ai-chat/AiChatAssistantPending";
 import {
-	aiChatMessageScrollerButtonClassName,
-	aiChatMessageScrollerContentClassName,
-	aiChatMessageScrollerViewportClassName,
-} from "#/features/workspaces/components/ai-chat/ai-chat-layout";
+	AiChatTranscriptItem,
+	AiChatTranscriptScroller,
+} from "#/features/workspaces/components/ai-chat/AiChatTranscriptScroller";
 import AiChatMessageRow from "#/features/workspaces/components/ai-chat/AiChatMessageRow";
 import AiChatTranscriptRail from "#/features/workspaces/components/ai-chat/AiChatTranscriptRail";
 import {
@@ -56,17 +50,12 @@ const tailRowAnimation = {
 	transition: { duration: 0.18, ease: [0.22, 1, 0.36, 1] },
 } satisfies Pick<HTMLMotionProps<"div">, "animate" | "initial" | "transition">;
 
-const rowLayoutTransition = {
-	duration: 0.24,
-	ease: [0.22, 1, 0.36, 1],
-} satisfies HTMLMotionProps<"div">["transition"];
-
 export type AiChatAssistantErrorState =
 	| {
-			classification?: ChatErrorClassification | null;
+			classification?: AiChatErrorClassification | null;
 			kind: "assistant";
 			message?: string | null;
-			stage?: ChatErrorContext["stage"] | null;
+			stage?: AiChatErrorStage | null;
 	  }
 	| {
 			kind: "aborted";
@@ -94,6 +83,7 @@ type AiChatListRow =
 	  };
 
 interface AiChatMessageListProps {
+	anchorMessageId?: string | null;
 	assistantError?: AiChatAssistantErrorState | null;
 	messages: AiChatMessage[];
 	onRegenerateLastResponse?: () => void;
@@ -104,6 +94,7 @@ interface AiChatMessageListProps {
 }
 
 export default function AiChatMessageList({
+	anchorMessageId,
 	assistantError,
 	messages,
 	onRegenerateLastResponse,
@@ -134,52 +125,46 @@ export default function AiChatMessageList({
 	}, []);
 
 	return (
-		<div ref={listRef} className="min-h-0 flex-1">
-			<MessageScrollerProvider appendedAnchorScrollBehavior="smooth" scrollPreviousItemPeek={40}>
-				<MessageScroller>
-					{showEmptyState ? (
-						<div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center px-6">
-							<div className="flex flex-col items-center justify-center gap-3">
-								<ThinkExLogo size={32} />
-								<p className="text-sm text-muted-foreground">Start a new chat</p>
-							</div>
-						</div>
-					) : null}
-					<MessageScrollerViewport className={aiChatMessageScrollerViewportClassName}>
-						<MessageScrollerContent
-							aria-busy={isStreamActive}
-							className={aiChatMessageScrollerContentClassName}
+		<div ref={listRef} className="relative min-h-0 flex-1">
+			{showEmptyState ? (
+				<div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center px-6">
+					<div className="flex flex-col items-center justify-center gap-3">
+						<ThinkExLogo size={32} />
+						<p className="text-sm text-muted-foreground">Start a new chat</p>
+					</div>
+				</div>
+			) : null}
+			<AiChatTranscriptScroller
+				anchorMessageId={anchorMessageId ?? undefined}
+				busy={isStreamActive}
+				initialAnchorMessageId={getLastUserMessageId(messages)}
+				reduceMotion={shouldReduceMotion === true}
+				smoothAnchorMessageId={
+					shouldReduceMotion ? undefined : (sentMessageAnimationId ?? undefined)
+				}
+			>
+				<LazyMotion features={domAnimation}>
+					{rows.map((row) => (
+						<AiChatMessageScrollerItem
+							key={row.key}
+							entryAnimation={
+								shouldReduceMotion ? null : getAiChatRowEntryAnimation(row, sentMessageAnimationId)
+							}
+							messageId={getAiChatRowMessageId(row)}
 						>
-							<LazyMotion features={domAnimation}>
-								{rows.map((row) => (
-									<AiChatMessageScrollerItem
-										key={row.key}
-										entryAnimation={
-											shouldReduceMotion
-												? null
-												: getAiChatRowEntryAnimation(row, sentMessageAnimationId)
-										}
-										enableLayoutMotion={!shouldReduceMotion}
-										messageId={getAiChatRowMessageId(row)}
-										scrollAnchor={isAiChatRowScrollAnchor(row)}
-									>
-										<AiChatListRowView
-											canRetry={Boolean(onRegenerateLastResponse)}
-											hasAssistantContent={hasAssistantContent}
-											lastAssistantMessageId={lastAssistantMessageId}
-											row={row}
-											status={status}
-											onRegenerateLastResponse={onRegenerateLastResponse}
-											onStartNewChat={onStartNewChat}
-										/>
-									</AiChatMessageScrollerItem>
-								))}
-							</LazyMotion>
-						</MessageScrollerContent>
-					</MessageScrollerViewport>
-					<MessageScrollerButton className={aiChatMessageScrollerButtonClassName} />
-				</MessageScroller>
-			</MessageScrollerProvider>
+							<AiChatListRowView
+								canRetry={Boolean(onRegenerateLastResponse)}
+								hasAssistantContent={hasAssistantContent}
+								lastAssistantMessageId={lastAssistantMessageId}
+								row={row}
+								status={status}
+								onRegenerateLastResponse={onRegenerateLastResponse}
+								onStartNewChat={onStartNewChat}
+							/>
+						</AiChatMessageScrollerItem>
+					))}
+				</LazyMotion>
+			</AiChatTranscriptScroller>
 			{selectedText ? (
 				<WorkspaceFloatingAskSelectionMenu
 					rect={selectedText.rect}
@@ -202,16 +187,12 @@ export default function AiChatMessageList({
 
 function AiChatMessageScrollerItem({
 	children,
-	enableLayoutMotion,
 	entryAnimation,
 	messageId,
-	scrollAnchor,
 }: {
 	children: ReactNode;
-	enableLayoutMotion: boolean;
 	entryAnimation: "sent" | "tail" | null;
 	messageId: string;
-	scrollAnchor: boolean;
 }) {
 	const animationProps: Pick<
 		HTMLMotionProps<"div">,
@@ -220,18 +201,14 @@ function AiChatMessageScrollerItem({
 		? sentMessageAnimation
 		: entryAnimation === "tail"
 			? tailRowAnimation
-			: { initial: false, transition: rowLayoutTransition };
+			: { initial: false };
 
 	return (
-		<MessageScrollerItem messageId={messageId} scrollAnchor={scrollAnchor}>
-			<m.div
-				layout={enableLayoutMotion ? "position" : false}
-				className="min-w-0"
-				{...animationProps}
-			>
+		<AiChatTranscriptItem messageId={messageId}>
+			<m.div className="min-w-0" {...animationProps}>
 				{children}
 			</m.div>
-		</MessageScrollerItem>
+		</AiChatTranscriptItem>
 	);
 }
 
@@ -462,8 +439,15 @@ function getAiChatRowEntryAnimation(
 	return null;
 }
 
-function isAiChatRowScrollAnchor(row: AiChatListRow) {
-	return row.type === "message" && row.message.role === "user";
+function getLastUserMessageId(messages: AiChatMessage[]) {
+	for (let index = messages.length - 1; index >= 0; index -= 1) {
+		const message = messages[index];
+		if (message?.role === "user") {
+			return message.id;
+		}
+	}
+
+	return undefined;
 }
 
 function getSelectedText(root: HTMLElement | null): SelectedText | null {

@@ -8,42 +8,18 @@ describe("AI chat error state", () => {
 			deriveAiChatAssistantErrorState({
 				chatStatus: "error",
 				hasConnectionError: false,
+				hasMessages: true,
 			}),
 		).toEqual({ kind: "assistant" });
 	});
 
-	it("preserves server details for a current SDK request error", () => {
-		expect(
-			deriveAiChatAssistantErrorState({
-				chatStatus: "error",
-				hasConnectionError: false,
-				threadSummary: {
-					lastErrorClassification: "context_overflow",
-					lastErrorMessage: "Context window exceeded",
-					lastErrorStage: "recovery",
-					lastRunResult: "error",
-				},
-			}),
-		).toEqual({
-			classification: "context_overflow",
-			kind: "assistant",
-			message: "Context window exceeded",
-			stage: "recovery",
-		});
-	});
-
-	it("flags a run stopped before the first token so the send visibly ended", () => {
+	it("flags a turn that ended without assistant output so the send visibly ended", () => {
 		expect(
 			deriveAiChatAssistantErrorState({
 				chatStatus: "ready",
 				hasConnectionError: false,
+				hasMessages: true,
 				lastMessageRole: "user",
-				threadSummary: {
-					lastErrorClassification: null,
-					lastErrorMessage: null,
-					lastErrorStage: null,
-					lastRunResult: "aborted",
-				},
 			}),
 		).toEqual({ kind: "aborted" });
 	});
@@ -53,13 +29,18 @@ describe("AI chat error state", () => {
 			deriveAiChatAssistantErrorState({
 				chatStatus: "ready",
 				hasConnectionError: false,
+				hasMessages: true,
 				lastMessageRole: "assistant",
-				threadSummary: {
-					lastErrorClassification: null,
-					lastErrorMessage: null,
-					lastErrorStage: null,
-					lastRunResult: "aborted",
-				},
+			}),
+		).toBeNull();
+	});
+
+	it("stays quiet on an empty draft thread", () => {
+		expect(
+			deriveAiChatAssistantErrorState({
+				chatStatus: "ready",
+				hasConnectionError: false,
+				hasMessages: false,
 			}),
 		).toBeNull();
 	});
@@ -69,6 +50,7 @@ describe("AI chat error state", () => {
 			deriveAiChatAssistantErrorState({
 				chatStatus: "error",
 				hasConnectionError: true,
+				hasMessages: true,
 			}),
 		).toEqual({ kind: "connection" });
 	});
@@ -78,6 +60,7 @@ describe("AI chat error state", () => {
 			deriveAiChatAssistantErrorState({
 				chatStatus: "submitted",
 				hasConnectionError: true,
+				hasMessages: true,
 			}),
 		).toEqual({ kind: "connection" });
 	});

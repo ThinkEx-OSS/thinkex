@@ -1,4 +1,4 @@
-import { Suspense, useState } from "react";
+import { Suspense } from "react";
 import {
 	AiChatAttachmentDropProvider,
 	useAiChatAttachmentDrop,
@@ -26,11 +26,9 @@ export default function AiChatPanel({ context }: AiChatPanelProps) {
 }
 
 function AiChatPanelLayout({ context }: AiChatPanelProps) {
-	const [activeThreadIsRecovering, setActiveThreadIsRecovering] = useState(false);
 	const {
 		activeThreadId,
 		threadViewKey,
-		isCreatingThread,
 		isLoading,
 		isMaximized,
 		modelId,
@@ -52,12 +50,10 @@ function AiChatPanelLayout({ context }: AiChatPanelProps) {
 		>
 			<AiChatPanelToolbar
 				activeThreadId={activeThreadId}
-				activeThreadIsRecovering={activeThreadIsRecovering}
 				isMaximized={isMaximized}
 				onClose={onClose}
 				onDeleteThread={onDeleteThread}
 				isLoading={isLoading}
-				isNewChatDisabled={isCreatingThread}
 				onNewChat={onNewChat}
 				onMaximize={onMaximize}
 				onRestore={onRestore}
@@ -70,9 +66,7 @@ function AiChatPanelLayout({ context }: AiChatPanelProps) {
 					context={context}
 					modelId={modelId}
 					onModelChange={onModelChange}
-					onRecoveringChange={setActiveThreadIsRecovering}
 					onStartNewChat={onNewChat}
-					threadSummary={threads.find((thread) => thread.id === activeThreadId)}
 					threadId={activeThreadId}
 				/>
 			</Suspense>

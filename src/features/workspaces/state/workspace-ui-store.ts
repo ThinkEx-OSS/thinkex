@@ -19,6 +19,7 @@ import {
 	restoreWorkspacePresentationSession,
 	setActiveAiChatThreadSession,
 	setChatSurfaceModeSession,
+	setDraftAiChatThreadSession,
 	splitWorkspacePresentationSession,
 	toggleChatPanelSession,
 } from "#/features/workspaces/model/workspace-ui";
@@ -48,6 +49,8 @@ type RestorableWorkspacePresentation = Exclude<WorkspacePresentation, { mode: "m
 
 export type WorkspaceUiSession = {
 	activeAiChatThreadId?: string;
+	// This browser's "new chat" draft id (random; see setDraftAiChatThreadSession).
+	draftAiChatThreadId?: string;
 	chatSurfaceMode: WorkspaceAiChatSurfaceMode;
 	presentation: WorkspacePresentation;
 };
@@ -68,6 +71,8 @@ type WorkspaceUiState = {
 	clearItemViewState: (workspaceId: string, viewInstanceId?: string) => void;
 	setChatSurfaceMode: (workspaceId: string, mode: WorkspaceAiChatSurfaceMode) => void;
 	setActiveAiChatThread: (workspaceId: string, threadId: string | undefined) => void;
+	getOrCreateDraftAiChatThread: (workspaceId: string, preferredId?: string) => string;
+	rotateDraftAiChatThread: (workspaceId: string) => string;
 	setAiChatModel: (modelId: WorkspaceAiChatModelId) => void;
 	setItemViewState: (
 		workspaceId: string,
@@ -177,6 +182,32 @@ export const useWorkspaceUiStore = create<WorkspaceUiState>()(
 							setActiveAiChatThreadSession(threadId),
 						),
 					),
+				getOrCreateDraftAiChatThread: (workspaceId, preferredId) => {
+					const existing = get().sessionsByWorkspaceId[workspaceId]?.draftAiChatThreadId;
+
+					if (existing) {
+						return existing;
+					}
+
+					const draftId = preferredId ?? crypto.randomUUID();
+					set((state) =>
+						updateWorkspaceUiSession(state, workspaceId, () =>
+							setDraftAiChatThreadSession(draftId),
+						),
+					);
+
+					return draftId;
+				},
+				rotateDraftAiChatThread: (workspaceId) => {
+					const draftId = crypto.randomUUID();
+					set((state) =>
+						updateWorkspaceUiSession(state, workspaceId, () =>
+							setDraftAiChatThreadSession(draftId),
+						),
+					);
+
+					return draftId;
+				},
 				setAiChatModel: (modelId) =>
 					set({
 						aiChatModelId: resolveWorkspaceAiChatModelId(modelId),

@@ -1,18 +1,6 @@
-import {
-	AlertCircle,
-	Check,
-	History,
-	LoaderCircle,
-	Maximize2,
-	Minimize2,
-	Plus,
-	RefreshCw,
-	Trash2,
-	X,
-} from "lucide-react";
+import { Check, History, Maximize2, Minimize2, Plus, Trash2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import { Badge } from "#/components/ui/badge";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -21,38 +9,33 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "#/components/ui/dropdown-menu";
-import type { AIThreadSummary } from "#/features/workspaces/ai/user-ai-agents";
+import type { AiChatThreadSummary } from "#/features/workspaces/ai/chat/chat-model";
 import {
 	WorkspaceToolbarGroup,
 	WorkspaceToolbarIconButton,
 } from "#/features/workspaces/components/WorkspaceToolbar";
 import { formatWorkspaceRecency } from "#/features/workspaces/model/display";
-import { statusBadgeClassName } from "#/lib/design-system-colors";
 import { cn } from "#/lib/utils";
 
 const PENDING_DELETE_TIMEOUT_MS = 2500;
 
 interface AiChatPanelToolbarProps {
 	activeThreadId?: string;
-	activeThreadIsRecovering?: boolean;
 	isLoading?: boolean;
 	isMaximized: boolean;
-	isNewChatDisabled?: boolean;
 	onClose: () => void;
-	onDeleteThread: (thread: AIThreadSummary) => void;
+	onDeleteThread: (thread: AiChatThreadSummary) => void;
 	onMaximize: () => void;
 	onNewChat: () => void;
 	onRestore: () => void;
 	onSelectThread: (threadId: string) => void;
-	threads: AIThreadSummary[];
+	threads: AiChatThreadSummary[];
 }
 
 export default function AiChatPanelToolbar({
 	activeThreadId,
-	activeThreadIsRecovering = false,
 	isLoading = false,
 	isMaximized,
-	isNewChatDisabled = false,
 	onClose,
 	onDeleteThread,
 	onMaximize,
@@ -95,7 +78,7 @@ export default function AiChatPanelToolbar({
 		setIsHistoryOpen(false);
 	};
 
-	const handleDeleteThread = (thread: AIThreadSummary) => {
+	const handleDeleteThread = (thread: AiChatThreadSummary) => {
 		if (pendingDeleteThreadId !== thread.id) {
 			setPendingDeleteThreadId(thread.id);
 			return;
@@ -122,7 +105,7 @@ export default function AiChatPanelToolbar({
 						</DropdownMenuTrigger>
 						<DropdownMenuContent align="end" className="w-72">
 							<DropdownMenuGroup>
-								<DropdownMenuItem disabled={isNewChatDisabled || isLoading} onClick={handleNewChat}>
+								<DropdownMenuItem disabled={isLoading} onClick={handleNewChat}>
 									<Plus className="size-4" aria-hidden="true" />
 									New chat
 								</DropdownMenuItem>
@@ -151,13 +134,6 @@ export default function AiChatPanelToolbar({
 																<span className="truncate">
 																	{formatWorkspaceRecency(thread.lastActivityAt)}
 																</span>
-																<ThreadStatusBadge
-																	thread={thread}
-																	isActive={thread.id === activeThreadId}
-																	isRecovering={
-																		thread.id === activeThreadId && activeThreadIsRecovering
-																	}
-																/>
 															</span>
 														</span>
 													</DropdownMenuItem>
@@ -209,69 +185,5 @@ export default function AiChatPanelToolbar({
 	);
 }
 
-function ThreadStatusBadge({
-	isActive,
-	isRecovering,
-	thread,
-}: {
-	isActive: boolean;
-	isRecovering: boolean;
-	thread: AIThreadSummary;
-}) {
-	if (isActive && isRecovering) {
-		return (
-			<Badge
-				variant="secondary"
-				className="h-4 shrink-0 gap-1 rounded-full px-1.5 font-normal text-[10px] leading-none"
-			>
-				<RefreshCw className="size-2.5 animate-spin" aria-hidden="true" />
-				Recovering
-			</Badge>
-		);
-	}
-
-	if (thread.isRunning) {
-		return (
-			<Badge
-				variant="secondary"
-				className="h-4 shrink-0 gap-1 rounded-full px-1.5 font-normal text-[10px] leading-none"
-			>
-				<LoaderCircle className="size-2.5 animate-spin" aria-hidden="true" />
-				Running
-			</Badge>
-		);
-	}
-
-	if (thread.lastRunResult === "error") {
-		return (
-			<Badge
-				variant="outline"
-				className={cn(
-					"h-4 shrink-0 gap-1 rounded-full px-1.5 font-normal text-[10px] leading-none",
-					statusBadgeClassName.destructive,
-				)}
-				title={thread.lastErrorMessage ?? undefined}
-			>
-				<AlertCircle className="size-2.5" aria-hidden="true" />
-				{thread.hasUnreadUpdate ? "Needs attention" : "Error"}
-			</Badge>
-		);
-	}
-
-	if (thread.hasUnreadUpdate) {
-		return (
-			<Badge
-				variant="outline"
-				className={cn(
-					"h-4 shrink-0 gap-1 rounded-full px-1.5 font-normal text-[10px] leading-none",
-					statusBadgeClassName.success,
-				)}
-			>
-				<Check className="size-2.5" aria-hidden="true" />
-				Unread
-			</Badge>
-		);
-	}
-
-	return null;
-}
+// Run-state/unread badges retired with the DO-era summary fields; a thread row
+// is now just title + recency, ChatGPT-style.

@@ -1,5 +1,6 @@
 import { Mic, Paperclip } from "lucide-react";
-import { type SetStateAction, useCallback, useRef } from "react";
+import { type KeyboardEventHandler, type SetStateAction, useCallback, useRef } from "react";
+import { toast } from "sonner";
 
 import {
 	type AttachmentsContext,
@@ -19,6 +20,7 @@ import AiChatModelPicker from "#/features/workspaces/components/ai-chat/AiChatMo
 import { AiChatAllowanceNotice } from "#/features/workspaces/components/ai-chat/AiChatAllowanceNotice";
 import AiChatPromptContextBar from "#/features/workspaces/components/ai-chat/AiChatPromptContextBar";
 import AiChatPromptSubmit from "#/features/workspaces/components/ai-chat/AiChatPromptSubmit";
+import AiChatQueueTray from "#/features/workspaces/components/ai-chat/AiChatQueueTray";
 import {
 	DEFAULT_WORKSPACE_AI_CHAT_MODEL_ID,
 	WORKSPACE_AI_CHAT_ATTACHMENT_POLICY,
@@ -36,12 +38,14 @@ import {
 import { workspaceToolbarIconButtonClass } from "#/features/workspaces/components/workspace-toolbar-styles";
 import { useWorkspaceMutationAccess } from "#/features/workspaces/components/workspace-mutation-access";
 import type { WorkspaceAiContextScope } from "#/features/workspaces/model/workspace-ai-context-types";
+import { buildWorkspaceAiContextSnapshot } from "#/features/workspaces/model/workspace-ai-context-snapshot";
 import { workspaceUploadAccept } from "#/features/workspaces/upload/workspace-upload-intake";
 import {
 	useWorkspaceAiComposerDraftFiles,
 	useWorkspaceAiComposerDraftStore,
 	useWorkspaceAiComposerDraftText,
 } from "#/features/workspaces/state/workspace-ai-composer-draft-store";
+import { useWorkspaceAiQueueStore } from "#/features/workspaces/state/workspace-ai-queue-store";
 import { cn } from "#/lib/utils";
 
 // InputGroup defaults to a single horizontal row. Stack vertically so the
@@ -77,6 +81,9 @@ interface AiChatPromptInputProps {
 	onModelChange?: (modelId: AiChatModelId) => void;
 	onSubmit: (message: PromptInputMessage) => void;
 	onStop?: () => void;
+	/** Aborts the current response without pausing the message queue. */
+	onInterrupt?: () => void;
+	onSendNow?: (entryId: string) => void;
 	status?: AiChatStatus;
 }
 
@@ -88,6 +95,8 @@ export default function AiChatPromptInput({
 	onModelChange,
 	onSubmit,
 	onStop,
+	onInterrupt,
+	onSendNow,
 	status = "ready",
 }: AiChatPromptInputProps) {
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -135,15 +144,86 @@ export default function AiChatPromptInput({
 		remove: (fileId) => removeDraftFile(activeThreadId, fileId),
 	};
 
+	const isBusyStatus = status === "submitted" || status === "streaming";
+	const canQueue = isBusyStatus && attachmentsReady && !isBlocked;
+	const clearDraftArtifacts = useWorkspaceAiComposerDraftStore(
+		(state) => state.clearDraftArtifacts,
+	);
+	const addReadyDraftFiles = useWorkspaceAiComposerDraftStore((state) => state.addReadyFiles);
+	const enqueueMessage = useWorkspaceAiQueueStore((state) => state.enqueue);
+	const removeQueuedMessage = useWorkspaceAiQueueStore((state) => state.remove);
+	const resumeQueue = useWorkspaceAiQueueStore((state) => state.resume);
+	const steerOnSubmitRef = useRef(false);
+
 	const handleSubmit = (message: PromptInputMessage) => {
-		if (!canSend || (!message.text.trim() && message.files.length === 0)) {
+		const steer = steerOnSubmitRef.current;
+		steerOnSubmitRef.current = false;
+
+		if (!message.text.trim() && message.files.length === 0) {
 			return false;
 		}
 
-		onSubmit(message);
+		if (canSend) {
+			resumeQueue(activeThreadId);
+			onSubmit(message);
+		} else if (canQueue) {
+			// The snapshot is captured now so the message is answered against
+			// what the user is looking at, even if it sends much later.
+			enqueueMessage(activeThreadId, {
+				atHead: steer,
+				contextSnapshot: buildWorkspaceAiContextSnapshot(context),
+				files: message.files,
+				text: message.text,
+			});
+			clearDraftArtifacts(context.workspaceId, activeThreadId);
+			if (steer) {
+				resumeQueue(activeThreadId);
+				onInterrupt?.();
+			}
+		} else {
+			return false;
+		}
+
 		dictation.cancel();
 		setInput("");
 		return true;
+	};
+
+	const handleTextareaKeyDown: KeyboardEventHandler<HTMLTextAreaElement> = (event) => {
+		if (event.key !== "Enter" || !(event.metaKey || event.ctrlKey) || !isBusyStatus) {
+			return;
+		}
+
+		event.preventDefault();
+		steerOnSubmitRef.current = true;
+		event.currentTarget.form?.requestSubmit();
+	};
+
+	const handleEditQueued = (entryId: string) => {
+		const queueEntry = useWorkspaceAiQueueStore
+			.getState()
+			.queuesByThreadId[activeThreadId]?.find((entry) => entry.id === entryId);
+		if (!queueEntry) {
+			return;
+		}
+		if (!addReadyDraftFiles(activeThreadId, queueEntry.files)) {
+			toast.error(
+				`Remove attachments before editing this message (maximum ${WORKSPACE_AI_CHAT_ATTACHMENT_POLICY.maxFiles}).`,
+			);
+			return;
+		}
+
+		// Removal is the race guard: if the entry already started sending, there
+		// is nothing left to transfer into the composer.
+		const entry = removeQueuedMessage(activeThreadId, entryId);
+		if (!entry) {
+			return;
+		}
+
+		if (entry.text) {
+			setInput((current) => (current.trim() ? `${current}\n\n${entry.text}` : entry.text));
+		}
+		textareaRef.current?.focus();
 	};
 
 	const handleModelChange = (value: string) => {
@@ -161,6 +241,11 @@ export default function AiChatPromptInput({
 			>
 				<AiChatAttachmentDropBridge />
 				<PromptInputHeader className={PROMPT_INPUT_HEADER_PADDING}>
+					<AiChatQueueTray
+						threadId={activeThreadId}
+						onEdit={handleEditQueued}
+						onSendNow={onSendNow}
+					/>
 					<AiChatPromptContextBar context={context} />
 					<AiChatAllowanceNotice modelId={modelId} />
 				</PromptInputHeader>
@@ -170,6 +255,7 @@ export default function AiChatPromptInput({
 						name="message"
 						readOnly={dictation.isActive}
 						value={input}
+						onKeyDown={handleTextareaKeyDown}
 						placeholder="Ask anything"
 						onChange={(event) => setInput(event.currentTarget.value)}
 						className={cn(
@@ -204,6 +290,7 @@ export default function AiChatPromptInput({
 						) : null}
 						<AiChatPromptSubmit
 							attachmentsReady={attachmentsReady}
+							canQueue={canQueue}
 							canSend={canSend}
 							input={input}
 							onStop={onStop}
