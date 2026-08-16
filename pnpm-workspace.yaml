@@ -27,7 +27,6 @@ peerDependencyRules:
     "@babel/helper-replace-supers>@babel/core": 7.29.0
     "@babel/plugin-proposal-decorators>@babel/core": 7.29.0
     "@babel/plugin-syntax-decorators>@babel/core": 7.29.0
-    "@cloudflare/think>vite": 0.2.9
     "@cloudflare/vite-plugin>vite": 0.2.9
     "@rolldown/plugin-babel>vite": 0.2.9
     "@tailwindcss/typography>tailwindcss": 4.3.1
@@ -57,8 +56,6 @@ allowBuilds:
 
 minimumReleaseAgeExclude:
   - "@cloudflare/codemode@0.5.0"
-  - "@cloudflare/shell@0.4.3"
-  - "@cloudflare/think@0.15.0"
   - agents@0.19.0
   - "@voidzero-dev/vite-plus-core@0.2.6"
   - "@voidzero-dev/vite-plus-darwin-arm64@0.2.6"
@@ -72,6 +69,4 @@ minimumReleaseAgeExclude:
   - vite-plus@0.2.6
 
 patchedDependencies:
-  "@cloudflare/think@0.15.0": patches/@cloudflare__think@0.15.0.patch
   "@embedpdf/plugin-zoom@2.15.0": patches/@embedpdf__plugin-zoom@2.15.0.patch
-  agents@0.19.0: patches/agents@0.19.0.patch
