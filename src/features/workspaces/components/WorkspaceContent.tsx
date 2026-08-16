@@ -81,6 +81,7 @@ export default function WorkspaceContent({
 		return (
 			<>
 				<WorkspaceItemView
+					key={activeItem.id}
 					itemPath={getWorkspaceItemPath(activeItem, itemsById)}
 					item={activeItem}
 					viewInstanceId={viewInstanceId}
