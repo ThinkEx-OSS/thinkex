@@ -1,6 +1,5 @@
 import { isToolUIPart } from "ai";
 
-import { WORKSPACE_REFERENCES_DATA_PART_TYPE } from "#/features/workspaces/ai/workspace-references";
 import type {
 	AiChatMessage,
 	AiChatMessagePart,
@@ -203,10 +202,6 @@ export function getDisplayableParts(message: AiChatMessage): AiChatRenderablePar
 }
 
 export function isDisplayableMessagePart(part: AiChatMessagePart): boolean {
-	if (part.type === WORKSPACE_REFERENCES_DATA_PART_TYPE) {
-		return false;
-	}
-
 	if (part.type === "text") {
 		return part.text.length > 0 || part.state === "streaming";
 	}
@@ -219,16 +214,10 @@ export function isDisplayableMessagePart(part: AiChatMessagePart): boolean {
 		return isVisibleToolPart(part);
 	}
 
-	if (
-		part.type === "file" ||
-		part.type === "source-url" ||
-		part.type === "source-document" ||
-		part.type.startsWith("data-")
-	) {
-		return true;
-	}
-
-	return false;
+	// Deliberately excludes `data-*` parts: old transcripts can carry data parts
+	// from retired features, and counting one as displayable makes a message
+	// render as a blank bubble instead of falling through to "no response".
+	return part.type === "file" || part.type === "source-url" || part.type === "source-document";
 }
 
 export function getToolActivityForPart(

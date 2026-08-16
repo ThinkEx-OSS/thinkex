@@ -19,6 +19,7 @@ describe("AI chat error state", () => {
 				hasConnectionError: false,
 				threadSummary: {
 					lastErrorClassification: "context_overflow",
+					lastErrorMessage: "Context window exceeded",
 					lastErrorStage: "recovery",
 					lastRunResult: "error",
 				},
@@ -26,8 +27,41 @@ describe("AI chat error state", () => {
 		).toEqual({
 			classification: "context_overflow",
 			kind: "assistant",
+			message: "Context window exceeded",
 			stage: "recovery",
 		});
+	});
+
+	it("flags a run stopped before the first token so the send visibly ended", () => {
+		expect(
+			deriveAiChatAssistantErrorState({
+				chatStatus: "ready",
+				hasConnectionError: false,
+				lastMessageRole: "user",
+				threadSummary: {
+					lastErrorClassification: null,
+					lastErrorMessage: null,
+					lastErrorStage: null,
+					lastRunResult: "aborted",
+				},
+			}),
+		).toEqual({ kind: "aborted" });
+	});
+
+	it("stays quiet for a mid-stream stop that kept its partial reply", () => {
+		expect(
+			deriveAiChatAssistantErrorState({
+				chatStatus: "ready",
+				hasConnectionError: false,
+				lastMessageRole: "assistant",
+				threadSummary: {
+					lastErrorClassification: null,
+					lastErrorMessage: null,
+					lastErrorStage: null,
+					lastRunResult: "aborted",
+				},
+			}),
+		).toBeNull();
 	});
 
 	it("keeps a terminal connection error distinct", () => {

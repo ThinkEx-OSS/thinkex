@@ -1,5 +1,5 @@
 import type { ChatErrorClassification, ChatErrorContext } from "@cloudflare/think";
-import { AlertCircle, RotateCcw } from "lucide-react";
+import { AlertCircle, Plus, RefreshCw, RotateCcw } from "lucide-react";
 import { LazyMotion, domAnimation, m, useReducedMotion } from "motion/react";
 import type { HTMLMotionProps } from "motion/react";
 import type { ReactNode } from "react";
@@ -65,7 +65,11 @@ export type AiChatAssistantErrorState =
 	| {
 			classification?: ChatErrorClassification | null;
 			kind: "assistant";
+			message?: string | null;
 			stage?: ChatErrorContext["stage"] | null;
+	  }
+	| {
+			kind: "aborted";
 	  }
 	| {
 			kind: "connection";
@@ -93,6 +97,7 @@ interface AiChatMessageListProps {
 	assistantError?: AiChatAssistantErrorState | null;
 	messages: AiChatMessage[];
 	onRegenerateLastResponse?: () => void;
+	onStartNewChat?: () => void;
 	presentation: AiChatPresentation;
 	sentMessageAnimationId?: string | null;
 	workspaceId: string;
@@ -102,6 +107,7 @@ export default function AiChatMessageList({
 	assistantError,
 	messages,
 	onRegenerateLastResponse,
+	onStartNewChat,
 	presentation,
 	sentMessageAnimationId,
 	workspaceId,
@@ -164,6 +170,7 @@ export default function AiChatMessageList({
 											row={row}
 											status={status}
 											onRegenerateLastResponse={onRegenerateLastResponse}
+											onStartNewChat={onStartNewChat}
 										/>
 									</AiChatMessageScrollerItem>
 								))}
@@ -233,6 +240,7 @@ function AiChatListRowView({
 	hasAssistantContent,
 	lastAssistantMessageId,
 	onRegenerateLastResponse,
+	onStartNewChat,
 	row,
 	status,
 }: {
@@ -240,6 +248,7 @@ function AiChatListRowView({
 	hasAssistantContent: boolean;
 	lastAssistantMessageId: string | undefined;
 	onRegenerateLastResponse?: () => void;
+	onStartNewChat?: () => void;
 	row: AiChatListRow;
 	status: AiChatPresentation["status"];
 }) {
@@ -259,6 +268,7 @@ function AiChatListRowView({
 					errorState={row.errorState}
 					hasAssistantContent={hasAssistantContent}
 					onRetry={onRegenerateLastResponse}
+					onStartNewChat={onStartNewChat}
 				/>
 			</AiChatTranscriptRail>
 		);
@@ -284,12 +294,25 @@ function AiChatAssistantError({
 	errorState,
 	hasAssistantContent,
 	onRetry,
+	onStartNewChat,
 }: {
 	canRetry: boolean;
 	errorState: AiChatAssistantErrorState;
 	hasAssistantContent: boolean;
 	onRetry?: () => void;
+	onStartNewChat?: () => void;
 }) {
+	// An overflowed chat can rarely be retried into success, so the escape
+	// hatch the copy suggests gets its own action.
+	const canStartNewChat =
+		errorState.kind === "assistant" &&
+		errorState.classification === "context_overflow" &&
+		Boolean(onStartNewChat);
+	// Classified errors get curated copy; for the rest the stored server
+	// message (usage limits, recovery reasons) beats an unexplained failure.
+	const errorDetail =
+		errorState.kind === "assistant" && !errorState.classification ? errorState.message : null;
+
 	return (
 		<Message>
 			<MessageContent>
@@ -300,24 +323,59 @@ function AiChatAssistantError({
 								className="mt-0.5 size-4 shrink-0 text-muted-foreground"
 								aria-hidden="true"
 							/>
-							<p className="text-sm">
-								{getChatErrorMessage({
-									errorState,
-									hasAssistantContent,
-								})}
-							</p>
+							<div className="flex flex-col gap-1">
+								<p className="text-sm">
+									{getChatErrorMessage({
+										errorState,
+										hasAssistantContent,
+									})}
+								</p>
+								{errorDetail ? (
+									<p className="text-muted-foreground text-xs">{errorDetail}</p>
+								) : null}
+							</div>
 						</div>
-						{canRetry ? (
+						{errorState.kind === "connection" ? (
 							<Button
 								type="button"
 								variant="outline"
 								size="xs"
 								className="gap-1.5"
-								onClick={onRetry}
+								onClick={() => {
+									window.location.reload();
+								}}
 							>
-								<RotateCcw className="size-3" />
-								Try again
+								<RefreshCw className="size-3" />
+								Refresh page
 							</Button>
+						) : null}
+						{canRetry || canStartNewChat ? (
+							<div className="flex items-center gap-2">
+								{canRetry ? (
+									<Button
+										type="button"
+										variant="outline"
+										size="xs"
+										className="gap-1.5"
+										onClick={onRetry}
+									>
+										<RotateCcw className="size-3" />
+										Try again
+									</Button>
+								) : null}
+								{canStartNewChat ? (
+									<Button
+										type="button"
+										variant="outline"
+										size="xs"
+										className="gap-1.5"
+										onClick={onStartNewChat}
+									>
+										<Plus className="size-3" />
+										Start new chat
+									</Button>
+								) : null}
+							</div>
 						) : null}
 					</BubbleContent>
 				</Bubble>
@@ -434,7 +492,11 @@ function getChatErrorMessage({
 	hasAssistantContent: boolean;
 }) {
 	if (errorState.kind === "connection") {
-		return "The chat connection closed before the response could finish. Refresh the page to reconnect.";
+		return "The chat connection closed before the response could finish.";
+	}
+
+	if (errorState.kind === "aborted") {
+		return "The response was stopped before it started.";
 	}
 
 	if (errorState.classification === "context_overflow") {

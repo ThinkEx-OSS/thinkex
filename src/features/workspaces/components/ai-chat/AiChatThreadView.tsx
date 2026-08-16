@@ -25,6 +25,7 @@ export default function AiChatThreadView({
 	modelId,
 	onModelChange,
 	onRecoveringChange,
+	onStartNewChat,
 	threadSummary,
 	threadId,
 }: {
@@ -32,6 +33,7 @@ export default function AiChatThreadView({
 	modelId: AiChatModelId;
 	onModelChange: (modelId: AiChatModelId) => void;
 	onRecoveringChange?: (isRecovering: boolean) => void;
+	onStartNewChat?: () => void;
 	threadSummary?: AIThreadSummary;
 	threadId: string;
 }) {
@@ -69,6 +71,7 @@ export default function AiChatThreadView({
 	const assistantError = deriveAiChatAssistantErrorState({
 		chatStatus: presentation.status,
 		hasConnectionError: Boolean(connectionError),
+		lastMessageRole: messages.at(-1)?.role,
 		threadSummary,
 	});
 	const sendMessage = (message: PromptInputMessage, clearDraft = true) => {
@@ -124,6 +127,7 @@ export default function AiChatThreadView({
 				sentMessageAnimationId={sentMessageAnimationId}
 				workspaceId={context.workspaceId}
 				onRegenerateLastResponse={regenerate}
+				onStartNewChat={onStartNewChat}
 			/>
 
 			<div className="px-3 pb-3">

@@ -248,9 +248,23 @@ export function createAIThreadClass(getUserAIStore: () => typeof UserAIStore) {
 				thread,
 				tools: activeTools,
 			});
+			// A regeneration must not see the answer it replaces: Think assembles
+			// the prompt from the stored path, whose stale assistant tail would
+			// turn the turn into a "continue" (cloudflare/agents#2028 — remove
+			// once #2038 ships). Continuations keep their in-flight assistant.
+			let turnMessages = ctx.messages;
+			if (!ctx.continuation && ctx.body?.regenerate === true) {
+				let end = turnMessages.length;
+				while (end > 0 && turnMessages[end - 1]?.role !== "user") {
+					end -= 1;
+				}
+				if (end > 0) {
+					turnMessages = turnMessages.slice(0, end);
+				}
+			}
 			const messages = await resolveChatAttachmentModelMessages({
 				bucket: this.env.WORKSPACE_FILES,
-				messages: ctx.messages,
+				messages: turnMessages,
 				threadId: thread.id,
 				userId: thread.userId,
 				workspaceId: thread.workspaceId,

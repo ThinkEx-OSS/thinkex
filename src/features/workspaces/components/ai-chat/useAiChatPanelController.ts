@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { getDefaultWorkspaceThreadId } from "#/features/workspaces/ai/ai-thread-identity";
 import type { AiChatModelId } from "#/features/workspaces/components/ai-chat/types";
 import { useWorkspaceAiChatThreads } from "#/features/workspaces/components/ai-chat/useWorkspaceAiChatThreads";
+import { evictWorkspaceAiTranscript } from "#/features/workspaces/components/ai-chat/useWorkspaceAiChat";
 import {
 	useWorkspaceActiveAiChatThreadId,
 	useWorkspaceAiChatModelId,
@@ -28,6 +29,7 @@ export function useAiChatPanelController({ workspaceId }: UseAiChatPanelControll
 	const setActiveAiChatThread = useWorkspaceUiStore((state) => state.setActiveAiChatThread);
 	const setAiChatModel = useWorkspaceUiStore((state) => state.setAiChatModel);
 	const [markingViewedThreadIds] = useState(() => new Set<string>());
+	const [threadViewEpoch, setThreadViewEpoch] = useState(0);
 	const {
 		createThread,
 		deleteThread,
@@ -54,24 +56,37 @@ export function useAiChatPanelController({ workspaceId }: UseAiChatPanelControll
 			const thread = await createThread();
 			selectThread(thread.id);
 		} catch (error) {
-			console.warn("[AiChatPanel] Failed to create chat thread", error);
+			toast.error(getErrorMessage(error, "Unable to start a new chat right now."));
 		}
 	};
 
 	const handleDeleteThread = async (threadId: string) => {
+		// The thread's socket lives on the directory DO, so deleting the thread
+		// never closes it — a still-mounted view keeps a zombie transcript whose
+		// next frame resurrects the deleted thread (cloudflare/agents#2003).
+		// Switch away first; when nothing survives, remount the view after the
+		// delete so it reconnects to a fresh default thread.
+		const wasActive = resolvedActiveThreadId === threadId;
+		const survivorId = wasActive ? threads.find((thread) => thread.id !== threadId)?.id : undefined;
+
+		if (wasActive) {
+			selectThread(survivorId);
+		}
+
 		try {
 			await deleteThread(threadId);
-			toast.success("Chat deleted.");
 		} catch (error) {
+			// No selection restore: the thread is still in the list, and the user
+			// may have moved on during the in-flight delete.
 			toast.error(getErrorMessage(error, "Unable to delete chat right now."));
 			return;
 		}
 
-		if (resolvedActiveThreadId !== threadId) {
-			return;
+		evictWorkspaceAiTranscript(threadId);
+		toast.success("Chat deleted.");
+		if (wasActive && !survivorId) {
+			setThreadViewEpoch((epoch) => epoch + 1);
 		}
-
-		selectThread(undefined);
 	};
 
 	useEffect(() => {
@@ -108,6 +123,7 @@ export function useAiChatPanelController({ workspaceId }: UseAiChatPanelControll
 
 	return {
 		activeThreadId: resolvedActiveThreadId,
+		threadViewKey: `${resolvedActiveThreadId}:${threadViewEpoch}`,
 		isCreatingThread,
 		isLoading: !areThreadsReady,
 		isMaximized,
