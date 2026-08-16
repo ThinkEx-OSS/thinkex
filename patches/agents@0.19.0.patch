@@ -1,5 +1,5 @@
 diff --git a/dist/chat/index.js b/dist/chat/index.js
-index 8d5b57034f927298d207d8a2bcbac927614780f5..9cf49a4471b9da862ddde11b818fd1eed3112da0 100644
+index 8d5b57034f927298d207d8a2bcbac927614780f5..c54c63e11b7545a1310fa4a2bfc4033cb79878f7 100644
 --- a/dist/chat/index.js
 +++ b/dist/chat/index.js
 @@ -1877,7 +1877,7 @@ function parseProtocolMessage(raw) {
@@ -11,7 +11,7 @@ index 8d5b57034f927298d207d8a2bcbac927614780f5..9cf49a4471b9da862ddde11b818fd1ee
  }
  /**
  * For a single message, resolve its ID by matching toolCallId against server state.
-@@ -1948,23 +1948,27 @@ function assistantContentKey(message, sanitize) {
+@@ -1948,17 +1948,21 @@ function assistantContentKey(message, sanitize) {
  	return JSON.stringify(sanitized.parts);
  }
  function mergeServerToolOutputs(incoming, serverMessages) {
@@ -36,15 +36,6 @@ index 8d5b57034f927298d207d8a2bcbac927614780f5..9cf49a4471b9da862ddde11b818fd1ee
  		let hasChanges = false;
  		const updatedParts = msg.parts.map((part) => {
  			const record = part;
--			if ("toolCallId" in record && "state" in record && (record.state === "input-available" || record.state === "approval-requested" || record.state === "approval-responded") && serverResolvedParts.has(record.toolCallId)) {
--				hasChanges = true;
--				const server = serverResolvedParts.get(record.toolCallId);
-+			if ("toolCallId" in record && "state" in record && (record.state === "input-available" || record.state === "approval-requested" || record.state === "approval-responded") && serverResolvedParts.has(record.toolCallId)) {
-+				hasChanges = true;
-+				const server = serverResolvedParts.get(record.toolCallId);
- 				const merged = {
- 					...part,
- 					state: server.state
 @@ -1999,7 +2003,23 @@ function reconcileAssistantIds(incoming, serverMessages, sanitize) {
  	}
  	return incoming.map((incomingMessage, incomingIdx) => {
@@ -81,7 +72,7 @@ index 8d5b57034f927298d207d8a2bcbac927614780f5..9cf49a4471b9da862ddde11b818fd1ee
  	for (const msg of messages) {
  		if (msg.role !== "assistant") continue;
 diff --git a/dist/chat/react.js b/dist/chat/react.js
-index 51c24ed62b48d43a64a093b5d08e6ccb3aafcbf9..44059d63d10b5f1ae192eb7a6e63f0df61ddf49e 100644
+index 51c24ed62b48d43a64a093b5d08e6ccb3aafcbf9..9fda143a73f73a416388506abc82fa8ab2cedac7 100644
 --- a/dist/chat/react.js
 +++ b/dist/chat/react.js
 @@ -253,7 +253,7 @@ var WebSocketChatTransport = class {
@@ -93,8 +84,7 @@ index 51c24ed62b48d43a64a093b5d08e6ccb3aafcbf9..44059d63d10b5f1ae192eb7a6e63f0df
  				};
  				agent.addEventListener("message", onMessage, { signal: abortController.signal });
  				agent.addEventListener("close", onClose, { signal: abortController.signal });
-@@ -716,9 +716,35 @@ function prependMissingHydratedMessages(hydratedMessages, currentMessages) {
- 	const missingHydratedMessages = hydratedMessages.filter((message) => !currentMessageIds.has(message.id));
+@@ -717,6 +717,32 @@ function prependMissingHydratedMessages(hydratedMessages, currentMessages) {
  	if (missingHydratedMessages.length === 0) return currentMessages;
  	return [...missingHydratedMessages, ...currentMessages];
  }
@@ -127,9 +117,7 @@ index 51c24ed62b48d43a64a093b5d08e6ccb3aafcbf9..44059d63d10b5f1ae192eb7a6e63f0df
  /**
  * React hook for building AI chat interfaces using an Agent
  * @param options Chat options including the agent connection
- * @returns Chat interface controls and state with added clearHistory method
- */
-@@ -967,6 +990,25 @@ function useAgentChat(options) {
+@@ -967,6 +993,25 @@ function useAgentChat(options) {
  	const [clientToolResults, setClientToolResults] = useState(/* @__PURE__ */ new Map());
  	const messagesRef = useRef(chatMessages);
  	messagesRef.current = chatMessages;
@@ -155,7 +143,7 @@ index 51c24ed62b48d43a64a093b5d08e6ccb3aafcbf9..44059d63d10b5f1ae192eb7a6e63f0df
  	const initialMessagesRef = useRef(initialMessages);
  	initialMessagesRef.current = initialMessages;
  	const seededInitialMessagesKeyRef = useRef(null);
-@@ -1088,6 +1130,9 @@ function useAgentChat(options) {
+@@ -1088,6 +1133,9 @@ function useAgentChat(options) {
  		pendingReplayResumeRequestIdsRef.current.clear();
  		fallbackAckedResumeRequestIdsRef.current.clear();
  		replayHydratedAssistantMessageIdsRef.current.clear();
@@ -165,7 +153,7 @@ index 51c24ed62b48d43a64a093b5d08e6ccb3aafcbf9..44059d63d10b5f1ae192eb7a6e63f0df
  		protectedStreamingAssistantRef.current = null;
  	}, [
  		markInitialMessagesSeeded,
-@@ -1268,6 +1313,20 @@ function useAgentChat(options) {
+@@ -1268,6 +1316,20 @@ function useAgentChat(options) {
  	const [isRecovering, setIsRecovering] = useState(false);
  	useEffect(() => {
  		const localResponseIds = localResponseMessageIdsRef.current;
@@ -186,7 +174,7 @@ index 51c24ed62b48d43a64a093b5d08e6ccb3aafcbf9..44059d63d10b5f1ae192eb7a6e63f0df
  		/**
  		* Unified message handler that parses JSON once and dispatches based on type.
  		* Avoids duplicate parsing overhead from separate listeners.
-@@ -1322,6 +1381,9 @@ function useAgentChat(options) {
+@@ -1322,6 +1384,9 @@ function useAgentChat(options) {
  					break;
  				case "cf_agent_stream_resume_none":
  					if (customTransport.handleStreamResumeNone(data) && data.reason === STREAM_RESUME_NONE_REASONS.IDLE && typeof data.probeId === "string") {
@@ -196,7 +184,7 @@ index 51c24ed62b48d43a64a093b5d08e6ccb3aafcbf9..44059d63d10b5f1ae192eb7a6e63f0df
  						const result = transition(streamStateRef.current, { type: "clear" });
  						streamStateRef.current = result.state;
  						setIsServerStreaming(result.isStreaming);
-@@ -1337,9 +1399,17 @@ function useAgentChat(options) {
+@@ -1337,9 +1402,17 @@ function useAgentChat(options) {
  						if (!isEarlyToolContinuation) return;
  					}
  					if (!resumingToolContinuationRef.current) pendingReplayResumeRequestIdsRef.current.add(data.id);
@@ -214,7 +202,7 @@ index 51c24ed62b48d43a64a093b5d08e6ccb3aafcbf9..44059d63d10b5f1ae192eb7a6e63f0df
  					if (isEarlyToolContinuation) {
  						pendingToolContinuationRef.current = false;
  						observedToolContinuationRequestIdRef.current = data.id;
-@@ -1369,6 +1439,7 @@ function useAgentChat(options) {
+@@ -1369,6 +1442,7 @@ function useAgentChat(options) {
  							const chunkData = JSON.parse(data.body);
  							if (chunkData.type === "start" && typeof chunkData.messageId === "string") {
  								localResponseIds.set(data.id, chunkData.messageId);
@@ -222,7 +210,7 @@ index 51c24ed62b48d43a64a093b5d08e6ccb3aafcbf9..44059d63d10b5f1ae192eb7a6e63f0df
  								if (!data.continuation) {
  									if (protectedStreamingAssistantRef.current?.assistantId !== chunkData.messageId) {
  										const msgs = messagesRef.current;
-@@ -1386,8 +1457,8 @@ function useAgentChat(options) {
+@@ -1386,8 +1460,8 @@ function useAgentChat(options) {
  								}
  							}
  						} catch {}
@@ -233,7 +221,7 @@ index 51c24ed62b48d43a64a093b5d08e6ccb3aafcbf9..44059d63d10b5f1ae192eb7a6e63f0df
  							if (streamStateRef.current.status === "observing" && streamStateRef.current.streamId === data.id) {
  								streamStateRef.current = { status: "idle" };
  								setIsServerStreaming(false);
-@@ -1397,14 +1468,30 @@ function useAgentChat(options) {
+@@ -1397,14 +1471,30 @@ function useAgentChat(options) {
  							localResponseIds.delete(data.id);
  							localRequestIdsRef.current.delete(data.id);
  							fallbackAckedResumeRequestIdsRef.current.delete(data.id);
@@ -264,7 +252,7 @@ index 51c24ed62b48d43a64a093b5d08e6ccb3aafcbf9..44059d63d10b5f1ae192eb7a6e63f0df
  						if (data.replay && !data.continuation && !resumingToolContinuationRef.current && observedToolContinuationRequestIdRef.current !== data.id && typeof chunkData.messageId === "string" && chunkData.type === "start") {
  							pendingReplayResumeRequestIdsRef.current.delete(data.id);
  							resetMatchingHydratedAssistantForReplay(chunkData.messageId);
-@@ -1417,6 +1504,7 @@ function useAgentChat(options) {
+@@ -1417,6 +1507,7 @@ function useAgentChat(options) {
  					if (data.done) {
  						customTransport.handleServerTurnCompleted(data.id);
  						fallbackAckedResumeRequestIdsRef.current.delete(data.id);
@@ -272,7 +260,7 @@ index 51c24ed62b48d43a64a093b5d08e6ccb3aafcbf9..44059d63d10b5f1ae192eb7a6e63f0df
  						setIsRecovering(false);
  					}
  					const completedObservedToolContinuation = data.done && observedToolContinuationRequestIdRef.current === data.id;
-@@ -1493,7 +1585,9 @@ function useAgentChat(options) {
+@@ -1493,6 +1584,8 @@ function useAgentChat(options) {
  			streamStateRef.current = { status: "idle" };
  			setIsServerStreaming(false);
  			setIsRecovering(false);
@@ -281,7 +269,6 @@ index 51c24ed62b48d43a64a093b5d08e6ccb3aafcbf9..44059d63d10b5f1ae192eb7a6e63f0df
  			protectedStreamingAssistantRef.current = null;
  			localResponseIds.clear();
  			customTransport.resetResumeState();
- 			invalidateResumeGeneration();
 diff --git a/dist/wire-types-CU9rLoeS.js b/dist/wire-types-CU9rLoeS.js
 index a0f027305b8594ea5cec3edcbf4273cf878319e5..d565dbb7c92d0ac7ca0e4a14c51a2820834a07d0 100644
 --- a/dist/wire-types-CU9rLoeS.js

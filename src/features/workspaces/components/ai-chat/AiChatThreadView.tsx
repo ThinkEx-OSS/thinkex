@@ -1,5 +1,5 @@
 import { generateId } from "ai";
-import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useState } from "react";
 
 import type { PromptInputMessage } from "#/features/workspaces/components/ai-chat/ai-chat-prompt-input";
 import type { AIThreadSummary } from "#/features/workspaces/ai/user-ai-agents";
@@ -52,7 +52,6 @@ export default function AiChatThreadView({
 		presentation,
 		regenerate,
 		sendMessage: sendChatMessage,
-		setMessages,
 		stop,
 	} = chat;
 	const clearDraftArtifacts = useWorkspaceAiComposerDraftStore(
@@ -84,44 +83,6 @@ export default function AiChatThreadView({
 		lastMessageRole: messages.at(-1)?.role,
 		threadSummary,
 	});
-	// The server rebroadcasts a full transcript snapshot after each turn, with
-	// saves debounced up to 750ms — a message sent in the gap between the stream
-	// closing and that snapshot arriving gets its optimistic copy wiped, because
-	// the snapshot predates it (the assistant tail survives via the transport's
-	// streaming protection; user messages get none). Track the in-flight send
-	// and re-insert it locally, right after the message it originally followed,
-	// until the turn's final snapshot includes it.
-	const pendingSendRef = useRef<{ message: AiChatSendMessage; anchorId: string | null } | null>(
-		null,
-	);
-	const healPendingSend = useEffectEvent(() => {
-		const pending = pendingSendRef.current;
-		if (!pending) return;
-		if (inputStatus === "ready" || inputStatus === "error") {
-			pendingSendRef.current = null;
-			return;
-		}
-		if (messages.some((message) => message.id === pending.message.id)) return;
-		setMessages((current) => {
-			if (current.some((message) => message.id === pending.message.id)) return current;
-			const next = [...current];
-			const anchorIndex = pending.anchorId
-				? next.findIndex((message) => message.id === pending.anchorId)
-				: -1;
-			next.splice(anchorIndex >= 0 ? anchorIndex + 1 : next.length, 0, pending.message);
-			return next;
-		});
-	});
-	// Runs before paint so a wiped message is restored in the same frame — the
-	// user never sees it vanish, and the list stays a clean single append that
-	// the scroller treats like any natural send.
-	useLayoutEffect(() => {
-		healPendingSend();
-	}, [inputStatus, messages]);
-	const trackPendingSend = useEffectEvent((message: AiChatSendMessage) => {
-		pendingSendRef.current = { anchorId: messages.at(-1)?.id ?? null, message };
-	});
-
 	const sendMessage = (message: PromptInputMessage, clearDraft = true) => {
 		const chatMessage = getChatMessageFromPrompt(message, generateId());
 
@@ -135,7 +96,6 @@ export default function AiChatThreadView({
 				workspaceAiContext: buildWorkspaceAiContextSnapshot(context),
 			},
 		});
-		trackPendingSend(chatMessage);
 		setSentMessageAnimationId(chatMessage.id);
 		if (clearDraft) clearDraftArtifacts(context.workspaceId, threadId);
 	};
@@ -158,7 +118,6 @@ export default function AiChatThreadView({
 			restoreQueueHead(threadId, entry);
 			return;
 		}
-		trackPendingSend(chatMessage);
 		setSentMessageAnimationId(chatMessage.id);
 	});
 	useEffect(() => {

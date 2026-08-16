@@ -1,5 +1,5 @@
 import { Think } from "@cloudflare/think";
-import type { DynamicToolUIPart, ModelMessage, UIMessage } from "ai";
+import type { DynamicToolUIPart, ModelMessage, UIMessage, UIMessageChunk } from "ai";
 import { describe, expect, it, vi } from "vitest";
 
 interface PersistIncomingMessageHarness {
@@ -42,6 +42,56 @@ interface ThinkRegressionInternals {
 			targetAssistantId?: string;
 		},
 	) => Promise<"disabled" | "exhausted" | "scheduled">;
+	_streamResult: (
+		this: StreamResultHarness,
+		requestId: string,
+		result: StreamResult,
+		abortSignal?: AbortSignal,
+	) => Promise<{ status: "aborted" | "completed" | "error" }>;
+}
+
+interface StreamResult {
+	toUIMessageStream: (options: {
+		onError: (error: unknown) => string;
+	}) => AsyncIterable<UIMessageChunk>;
+}
+
+interface StreamResultHarness {
+	_alignStreamStartId: (
+		chunk: UIMessageChunk,
+		action: unknown,
+		accumulator: unknown,
+		continuation: boolean,
+	) => void;
+	_annotateActionApprovalChunk: (
+		requestId: string,
+		chunk: UIMessageChunk,
+		pendingActions: Map<unknown, unknown>,
+		parts: UIMessage["parts"],
+	) => UIMessageChunk;
+	_applyActionApprovalDescriptorToParts: (chunk: UIMessageChunk, parts: UIMessage["parts"]) => void;
+	_broadcastChat: (message: { done: boolean }) => void;
+	_broadcastMessages: () => void;
+	_completeResumableStream: (streamId: string) => void;
+	_continuation: { pending: null };
+	_drainInferenceStream: (result: StreamResult) => void;
+	_errorResumableStream: (streamId: string) => void;
+	_fireResponseHook: (input: Record<string, unknown>) => Promise<void>;
+	_insideInferenceLoop: boolean;
+	_onStreamingTurnFinalized: () => void;
+	_pendingResumeConnections: Set<string>;
+	_persistAssistantMessage: (message: UIMessage, parentId?: string) => Promise<void>;
+	_programmaticStreamErrors: Map<string, string>;
+	_startResumableStream: (requestId: string) => string;
+	_storeChunkDurably: (
+		streamId: string,
+		chunk: UIMessageChunk,
+		body: string,
+		state: { chunksSinceFlush: number; hasFlushedContent: boolean },
+	) => Promise<void>;
+	_streamingAssistant: unknown;
+	_turnQueue: { generation: number };
+	chatStreamStallTimeoutMs: number;
 }
 
 interface ModelMessageAssemblyHarness {
@@ -254,5 +304,53 @@ describe("Cloudflare Think regression shields", () => {
 		}
 
 		expect(persisted.map((message) => message.id)).toEqual(["assistant-first", "assistant-second"]);
+	});
+
+	it("broadcasts the persisted transcript before marking a streamed turn done", async () => {
+		const events: string[] = [];
+		const chunks: UIMessageChunk[] = [
+			{ messageId: "assistant-1", type: "start" },
+			{ id: "text-1", type: "text-start" },
+			{ delta: "Answer", id: "text-1", type: "text-delta" },
+			{ id: "text-1", type: "text-end" },
+		];
+		const result: StreamResult = {
+			toUIMessageStream: async function* () {
+				for (const chunk of chunks) {
+					yield chunk;
+				}
+			},
+		};
+		const harness: StreamResultHarness = {
+			_alignStreamStartId: () => undefined,
+			_annotateActionApprovalChunk: (_requestId, chunk) => chunk,
+			_applyActionApprovalDescriptorToParts: () => undefined,
+			_broadcastChat: (message) => {
+				if (message.done) events.push("done");
+			},
+			_broadcastMessages: () => events.push("snapshot"),
+			_completeResumableStream: () => undefined,
+			_continuation: { pending: null },
+			_drainInferenceStream: () => undefined,
+			_errorResumableStream: () => undefined,
+			_fireResponseHook: async () => undefined,
+			_insideInferenceLoop: false,
+			_onStreamingTurnFinalized: () => undefined,
+			_pendingResumeConnections: new Set(),
+			_persistAssistantMessage: async () => {
+				events.push("persist");
+			},
+			_programmaticStreamErrors: new Map(),
+			_startResumableStream: () => "stream-1",
+			_storeChunkDurably: async () => undefined,
+			_streamingAssistant: null,
+			_turnQueue: { generation: 1 },
+			chatStreamStallTimeoutMs: 30_000,
+		};
+
+		await expect(thinkInternals._streamResult.call(harness, "request-1", result)).resolves.toEqual({
+			status: "completed",
+		});
+		expect(events).toEqual(["persist", "snapshot", "done"]);
 	});
 });
