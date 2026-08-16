@@ -37,7 +37,6 @@ BETTER_AUTH_URL="http://localhost:3000"
 # FIRECRAWL_API_KEY=""
 
 # Agent observability export (The Context Company).
-# TCC_API_KEY=""
 
 # Document extraction (LlamaParse).
 # LLAMA_CLOUD_API_KEY=""

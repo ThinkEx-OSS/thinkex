@@ -139,7 +139,7 @@ export function createAIThreadWebTools(env: Cloudflare.Env): ToolSet {
 					kind,
 					url,
 				});
-				if (context.source === "direct" && result.image) {
+				if (result.image) {
 					freshImages.set(context.invocationId, result.image);
 				}
 

@@ -1,5 +1,6 @@
-import { getWorkspacePromptScope } from "#/features/workspaces/ai/ai-thread-prompt-scope";
-import { ChatThreadOwnershipError, ensureThread } from "#/features/workspaces/ai/chat/chat-store";
+import { requireThreadAccess } from "#/features/workspaces/ai/chat/chat-access";
+import { ChatRequestError } from "#/features/workspaces/ai/chat/chat-errors";
+import { ChatThreadOwnershipError } from "#/features/workspaces/ai/chat/chat-store";
 import { WorkspaceForbiddenError } from "#/features/workspaces/server/permissions";
 import { apiError, getRequestId } from "#/lib/api/http";
 import { getSessionFromRequest } from "#/lib/auth-queries.server";
@@ -14,11 +15,12 @@ interface AuthorizedChatAttachmentRequest {
 	userId: string;
 }
 
-// Authorize one chat-attachment request: session + workspace membership, then
-// materialize the thread row (attachments upload to drafts before any message
-// exists; the row is invisible in the sidebar until the first message —
-// listThreadSummaries filters on message existence). Ownership of an existing
-// thread is enforced by ensureThread's user-scoped lookup.
+// Authorize one chat-attachment request through the canonical thread gate:
+// session, current workspace membership, thread ownership, AND the thread's
+// workspace binding (a thread from workspace A must not be reachable through
+// a workspace-B URL). Only uploads materialize the draft thread row —
+// attachments upload to drafts before any message exists — read and delete
+// requests must never create rows.
 export async function authorizeChatAttachmentRequest(
 	request: Request,
 	scope: ChatAttachmentScope,
@@ -33,10 +35,18 @@ export async function authorizeChatAttachmentRequest(
 	const userId = session.user.id;
 
 	try {
-		await getWorkspacePromptScope({ userId, workspaceId: scope.workspaceId });
-		await ensureThread({ threadId: scope.threadId, userId, workspaceId: scope.workspaceId });
+		await requireThreadAccess({
+			threadId: scope.threadId,
+			userId,
+			workspaceId: scope.workspaceId,
+			mode: request.method === "POST" ? "create-draft" : "read",
+		});
 	} catch (error) {
-		if (error instanceof WorkspaceForbiddenError || error instanceof ChatThreadOwnershipError) {
+		if (
+			error instanceof WorkspaceForbiddenError ||
+			error instanceof ChatThreadOwnershipError ||
+			error instanceof ChatRequestError
+		) {
 			return apiError(requestId, 404, "THREAD_NOT_FOUND", "Chat thread not found.");
 		}
 
