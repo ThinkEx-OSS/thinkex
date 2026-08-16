@@ -29,6 +29,7 @@ function AiChatPanelLayout({ context }: AiChatPanelProps) {
 	const [activeThreadIsRecovering, setActiveThreadIsRecovering] = useState(false);
 	const {
 		activeThreadId,
+		threadViewKey,
 		isCreatingThread,
 		isLoading,
 		isMaximized,
@@ -64,7 +65,7 @@ function AiChatPanelLayout({ context }: AiChatPanelProps) {
 				threads={threads}
 			/>
 
-			<Suspense key={activeThreadId} fallback={<AiChatPanelLoading />}>
+			<Suspense key={threadViewKey} fallback={<AiChatPanelLoading />}>
 				<AiChatThreadView
 					context={context}
 					modelId={modelId}
