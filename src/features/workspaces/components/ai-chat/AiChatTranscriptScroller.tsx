@@ -7,6 +7,7 @@ import { cn } from "#/lib/utils";
 
 const SCROLL_EDGE_THRESHOLD = 8;
 const SCROLL_PREVIOUS_ITEM_PEEK = 40;
+const SCROLL_SETTLE_FALLBACK_MS = 200;
 const USER_SCROLL_KEYS = new Set([
 	"ArrowDown",
 	"ArrowUp",
@@ -51,14 +52,27 @@ export function AiChatTranscriptScroller({
 	const viewportRef = React.useRef<HTMLDivElement | null>(null);
 	const appliedAnchorIdRef = React.useRef<string | undefined>(undefined);
 	const appliedInitialAnchorRef = React.useRef(false);
+	const contentPaddingRef = React.useRef({ end: 0, start: 0 });
+	const pointerIntentAbortRef = React.useRef<AbortController | null>(null);
 	const pointerScrollIntentRef = React.useRef(false);
 	const positionRef = React.useRef<TranscriptPosition>({ kind: "free" });
+	const readingAnchorRef = React.useRef<{
+		element: HTMLElement;
+		viewportTop: number;
+	} | null>(null);
+	const settleTimeoutRef = React.useRef<number | null>(null);
 	const spacerGapRef = React.useRef(0);
 	const spacerHeightRef = React.useRef(0);
 	const [canScrollToEnd, setCanScrollToEnd] = React.useState(false);
 	const setContentRef = React.useCallback((element: HTMLDivElement | null) => {
 		contentRef.current = element;
 		spacerGapRef.current = getFlexGap(element);
+		contentPaddingRef.current = element ? getBlockPadding(element) : { end: 0, start: 0 };
+	}, []);
+	const refreshContentMetrics = React.useCallback(() => {
+		const content = contentRef.current;
+		spacerGapRef.current = getFlexGap(content);
+		contentPaddingRef.current = content ? getBlockPadding(content) : { end: 0, start: 0 };
 	}, []);
 
 	const commitScrollState = React.useCallback(() => {
@@ -71,7 +85,12 @@ export function AiChatTranscriptScroller({
 			return;
 		}
 
-		const contentBottom = getContentBottom({ content, spacer, viewport });
+		const contentBottom = getContentBottom({
+			content,
+			padding: contentPaddingRef.current,
+			spacer,
+			viewport,
+		});
 		setCanScrollToEnd(
 			contentBottom - viewport.scrollTop - viewport.clientHeight > SCROLL_EDGE_THRESHOLD,
 		);
@@ -81,13 +100,15 @@ export function AiChatTranscriptScroller({
 		const spacer = spacerRef.current;
 		const nextHeight = Math.max(0, Math.ceil(height));
 
-		if (!spacer || spacerHeightRef.current === nextHeight) {
+		if (!spacer) {
 			return;
 		}
 
-		spacerHeightRef.current = nextHeight;
-		spacer.hidden = nextHeight === 0;
-		spacer.style.height = `${nextHeight}px`;
+		if (spacerHeightRef.current !== nextHeight) {
+			spacerHeightRef.current = nextHeight;
+			spacer.hidden = nextHeight === 0;
+			spacer.style.height = `${nextHeight}px`;
+		}
 		spacer.style.marginTop = nextHeight > 0 ? `${-spacerGapRef.current}px` : "";
 	}, []);
 
@@ -106,9 +127,12 @@ export function AiChatTranscriptScroller({
 				return undefined;
 			}
 
-			const scrollTop = getAnchorScrollTop({ content, item, viewport });
+			const padding = contentPaddingRef.current;
+			const scrollTop = getAnchorScrollTop({ item, padding, viewport });
 			setTailSpacerHeight(
-				scrollTop + viewport.clientHeight - getContentBottom({ content, spacer, viewport }),
+				scrollTop +
+					viewport.clientHeight -
+					getContentBottom({ content, padding, spacer, viewport }),
 			);
 			return Math.max(0, scrollTop);
 		},
@@ -129,6 +153,35 @@ export function AiChatTranscriptScroller({
 		},
 		[commitScrollState, prepareAnchor],
 	);
+	const clearSettleFallback = React.useCallback(() => {
+		if (settleTimeoutRef.current !== null) {
+			window.clearTimeout(settleTimeoutRef.current);
+			settleTimeoutRef.current = null;
+		}
+	}, []);
+	const finishSettling = React.useCallback(
+		(messageId: string) => {
+			const position = positionRef.current;
+			if (position.kind !== "settling" || position.messageId !== messageId) {
+				return;
+			}
+
+			clearSettleFallback();
+			positionRef.current = { kind: "anchored", messageId };
+			placeAnchor(messageId);
+		},
+		[clearSettleFallback, placeAnchor],
+	);
+	const scheduleSettleFallback = React.useCallback(
+		(messageId: string) => {
+			clearSettleFallback();
+			settleTimeoutRef.current = window.setTimeout(
+				() => finishSettling(messageId),
+				SCROLL_SETTLE_FALLBACK_MS,
+			);
+		},
+		[clearSettleFallback, finishSettling],
+	);
 
 	const settleAnchor = React.useCallback(
 		(messageId: string) => {
@@ -138,15 +191,58 @@ export function AiChatTranscriptScroller({
 				return false;
 			}
 
+			if (reduceMotion) {
+				positionRef.current = { kind: "anchored", messageId };
+				viewport.scrollTo({ behavior: "auto", top: targetScrollTop });
+				commitScrollState();
+				return true;
+			}
+
 			positionRef.current = { kind: "settling", messageId };
 			viewport.scrollTo({ behavior: "smooth", top: targetScrollTop });
+			scheduleSettleFallback(messageId);
 			commitScrollState();
 			return true;
 		},
-		[commitScrollState, prepareAnchor],
+		[commitScrollState, prepareAnchor, reduceMotion, scheduleSettleFallback],
 	);
+	const captureReadingAnchor = React.useCallback(() => {
+		const content = contentRef.current;
+		const viewport = viewportRef.current;
+		if (!content || !viewport) {
+			readingAnchorRef.current = null;
+			return;
+		}
+
+		const element = getFirstVisibleMessageItem({
+			content,
+			spacer: spacerRef.current,
+			viewport,
+		});
+		readingAnchorRef.current = element
+			? { element, viewportTop: getElementViewportTop(element, viewport) }
+			: null;
+	}, []);
+	const restoreReadingAnchor = React.useCallback(() => {
+		const anchor = readingAnchorRef.current;
+		const viewport = viewportRef.current;
+		if (!anchor || !viewport || !anchor.element.isConnected) {
+			return false;
+		}
+
+		const delta = getElementViewportTop(anchor.element, viewport) - anchor.viewportTop;
+		if (Math.abs(delta) <= 0.5) {
+			return false;
+		}
+
+		viewport.scrollTop += delta;
+		anchor.viewportTop = getElementViewportTop(anchor.element, viewport);
+		commitScrollState();
+		return true;
+	}, [commitScrollState]);
 
 	const reconcileLayout = React.useCallback(() => {
+		refreshContentMetrics();
 		const position = positionRef.current;
 
 		if (position.kind === "anchored" && placeAnchor(position.messageId)) {
@@ -158,17 +254,28 @@ export function AiChatTranscriptScroller({
 				return;
 			}
 		}
+		if (position.kind === "free" && restoreReadingAnchor()) {
+			return;
+		}
 
 		commitScrollState();
-	}, [commitScrollState, placeAnchor, prepareAnchor]);
+	}, [commitScrollState, placeAnchor, prepareAnchor, refreshContentMetrics, restoreReadingAnchor]);
 
-	// React owns message commits, so reconcile the DOM in the same commit before
-	// the browser paints it. ResizeObserver below is only for asynchronous layout
-	// such as images, markdown animation, and composer/viewport resizing.
+	// Apply explicit anchor transitions in the same commit. ResizeObserver owns
+	// geometry changes from streaming content, images, and viewport resizing.
 	React.useLayoutEffect(() => {
+		if (!anchorMessageId && appliedAnchorIdRef.current !== undefined) {
+			appliedAnchorIdRef.current = undefined;
+			clearSettleFallback();
+			positionRef.current = { kind: "free" };
+			captureReadingAnchor();
+			return;
+		}
 		if (anchorMessageId && anchorMessageId !== appliedAnchorIdRef.current) {
+			refreshContentMetrics();
 			appliedAnchorIdRef.current = anchorMessageId;
 			appliedInitialAnchorRef.current = true;
+			readingAnchorRef.current = null;
 			if (anchorMessageId === smoothAnchorMessageId && settleAnchor(anchorMessageId)) {
 				return;
 			}
@@ -177,18 +284,24 @@ export function AiChatTranscriptScroller({
 			placeAnchor(anchorMessageId);
 			return;
 		}
-		if (
-			!appliedInitialAnchorRef.current &&
-			initialAnchorMessageId &&
-			placeAnchor(initialAnchorMessageId)
-		) {
-			appliedInitialAnchorRef.current = true;
-			positionRef.current = { kind: "anchored", messageId: initialAnchorMessageId };
-			return;
+		if (!appliedInitialAnchorRef.current && initialAnchorMessageId) {
+			refreshContentMetrics();
+			if (placeAnchor(initialAnchorMessageId)) {
+				appliedInitialAnchorRef.current = true;
+				positionRef.current = { kind: "anchored", messageId: initialAnchorMessageId };
+				readingAnchorRef.current = null;
+			}
 		}
-
-		reconcileLayout();
-	});
+	}, [
+		anchorMessageId,
+		captureReadingAnchor,
+		clearSettleFallback,
+		initialAnchorMessageId,
+		placeAnchor,
+		refreshContentMetrics,
+		settleAnchor,
+		smoothAnchorMessageId,
+	]);
 
 	React.useEffect(() => {
 		const content = contentRef.current;
@@ -204,24 +317,47 @@ export function AiChatTranscriptScroller({
 		return () => observer.disconnect();
 	}, [reconcileLayout]);
 
+	const clearPointerScrollIntent = React.useCallback(() => {
+		pointerIntentAbortRef.current?.abort();
+		pointerIntentAbortRef.current = null;
+		pointerScrollIntentRef.current = false;
+	}, []);
+
+	React.useEffect(
+		() => () => {
+			clearPointerScrollIntent();
+			clearSettleFallback();
+		},
+		[clearPointerScrollIntent, clearSettleFallback],
+	);
+
 	const releaseAnchor = React.useCallback(() => {
 		const position = positionRef.current;
 		if (position.kind !== "anchored" && position.kind !== "settling") {
 			return;
 		}
 
+		clearSettleFallback();
 		positionRef.current = { kind: "free" };
+		captureReadingAnchor();
 		if (position.kind === "settling" && viewportRef.current) {
 			viewportRef.current.scrollTo({ behavior: "auto", top: viewportRef.current.scrollTop });
 		}
-	}, []);
+	}, [captureReadingAnchor, clearSettleFallback]);
 
 	const handleScroll = () => {
 		if (pointerScrollIntentRef.current) {
 			releaseAnchor();
 		}
+		const position = positionRef.current;
+		if (position.kind === "settling") {
+			scheduleSettleFallback(position.messageId);
+		}
 
 		commitScrollState();
+		if (positionRef.current.kind === "free") {
+			captureReadingAnchor();
+		}
 	};
 
 	const handleScrollEnd = () => {
@@ -230,21 +366,29 @@ export function AiChatTranscriptScroller({
 			return;
 		}
 
-		positionRef.current = { kind: "anchored", messageId: position.messageId };
-		placeAnchor(position.messageId);
+		finishSettling(position.messageId);
 	};
 
 	const handlePointerDown = () => {
+		clearPointerScrollIntent();
 		pointerScrollIntentRef.current = true;
+		const controller = new AbortController();
+		pointerIntentAbortRef.current = controller;
 
-		const clearPointerScrollIntent = () => {
+		const finishPointerScrollIntent = () => {
+			if (pointerIntentAbortRef.current !== controller) {
+				return;
+			}
+
 			pointerScrollIntentRef.current = false;
-			window.removeEventListener("pointerup", clearPointerScrollIntent);
-			window.removeEventListener("pointercancel", clearPointerScrollIntent);
+			pointerIntentAbortRef.current = null;
+			controller.abort();
 		};
 
-		window.addEventListener("pointerup", clearPointerScrollIntent);
-		window.addEventListener("pointercancel", clearPointerScrollIntent);
+		window.addEventListener("pointerup", finishPointerScrollIntent, { signal: controller.signal });
+		window.addEventListener("pointercancel", finishPointerScrollIntent, {
+			signal: controller.signal,
+		});
 	};
 
 	const scrollToEnd = () => {
@@ -255,6 +399,7 @@ export function AiChatTranscriptScroller({
 
 		setTailSpacerHeight(0);
 		positionRef.current = { kind: "free" };
+		readingAnchorRef.current = null;
 		viewport.scrollTo({
 			behavior: reduceMotion ? "auto" : "smooth",
 			top: Math.max(0, viewport.scrollHeight - viewport.clientHeight),
@@ -269,7 +414,7 @@ export function AiChatTranscriptScroller({
 				role="region"
 				aria-label="Messages"
 				tabIndex={0}
-				className="size-full min-h-0 min-w-0 scroll-fade scrollbar-thin scrollbar-gutter-stable overflow-y-auto overscroll-contain contain-content"
+				className="size-full min-h-0 min-w-0 scroll-fade scrollbar-thin scrollbar-gutter-stable overflow-y-auto overscroll-contain contain-content [overflow-anchor:none]"
 				onKeyDown={(event) => {
 					if (USER_SCROLL_KEYS.has(event.key)) {
 						releaseAnchor();
@@ -299,7 +444,7 @@ export function AiChatTranscriptScroller({
 				data-active={canScrollToEnd ? "true" : "false"}
 				className={cn(
 					buttonVariants({ size: "icon-sm", variant: "secondary" }),
-					"absolute bottom-3 start-1/2 -translate-x-1/2 border-border bg-background text-foreground shadow-sm transition-[translate,scale,opacity] duration-200 hover:bg-muted hover:text-foreground data-[active=false]:pointer-events-none data-[active=false]:translate-y-full data-[active=false]:scale-95 data-[active=false]:opacity-0 data-[active=false]:duration-400 data-[active=false]:ease-[cubic-bezier(0.7,0,0.84,0)] data-[active=true]:translate-y-0 data-[active=true]:scale-100 data-[active=true]:opacity-100 data-[active=true]:ease-[cubic-bezier(0.23,1,0.32,1)] rtl:translate-x-1/2",
+					"absolute bottom-3 start-1/2 -translate-x-1/2 border-border bg-background text-foreground shadow-sm transition-[translate,scale,opacity] duration-200 hover:bg-muted hover:text-foreground data-[active=false]:pointer-events-none data-[active=false]:translate-y-full data-[active=false]:scale-95 data-[active=false]:opacity-0 data-[active=false]:duration-400 data-[active=false]:ease-[cubic-bezier(0.7,0,0.84,0)] data-[active=true]:translate-y-0 data-[active=true]:scale-100 data-[active=true]:opacity-100 data-[active=true]:ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none rtl:translate-x-1/2",
 				)}
 				onClick={(event) => {
 					event.currentTarget.blur();
@@ -339,22 +484,7 @@ function getMessageItem(content: HTMLElement, messageId: string) {
 	return undefined;
 }
 
-function getAnchorScrollTop({
-	content,
-	item,
-	viewport,
-}: {
-	content: HTMLElement;
-	item: HTMLElement;
-	viewport: HTMLElement;
-}) {
-	const itemTop =
-		item.getBoundingClientRect().top - viewport.getBoundingClientRect().top + viewport.scrollTop;
-
-	return itemTop - getBlockPadding(content).start - SCROLL_PREVIOUS_ITEM_PEEK;
-}
-
-function getContentBottom({
+function getFirstVisibleMessageItem({
 	content,
 	spacer,
 	viewport,
@@ -363,7 +493,61 @@ function getContentBottom({
 	spacer: HTMLElement | null;
 	viewport: HTMLElement;
 }) {
-	const padding = getBlockPadding(content);
+	const viewportRect = viewport.getBoundingClientRect();
+	let low = 0;
+	let high = content.children.length - (spacer ? 2 : 1);
+	let firstVisible: HTMLElement | null = null;
+
+	while (low <= high) {
+		const middle = Math.floor((low + high) / 2);
+		const child = content.children.item(middle);
+		if (!(child instanceof HTMLElement)) {
+			break;
+		}
+
+		if (child.getBoundingClientRect().bottom > viewportRect.top) {
+			firstVisible = child;
+			high = middle - 1;
+		} else {
+			low = middle + 1;
+		}
+	}
+
+	return firstVisible && firstVisible.getBoundingClientRect().top < viewportRect.bottom
+		? firstVisible
+		: null;
+}
+
+function getElementViewportTop(element: HTMLElement, viewport: HTMLElement) {
+	return element.getBoundingClientRect().top - viewport.getBoundingClientRect().top;
+}
+
+function getAnchorScrollTop({
+	item,
+	padding,
+	viewport,
+}: {
+	item: HTMLElement;
+	padding: { end: number; start: number };
+	viewport: HTMLElement;
+}) {
+	const itemTop =
+		item.getBoundingClientRect().top - viewport.getBoundingClientRect().top + viewport.scrollTop;
+
+	return itemTop - padding.start - SCROLL_PREVIOUS_ITEM_PEEK;
+}
+
+function getContentBottom({
+	content,
+	padding,
+	spacer,
+	viewport,
+}: {
+	content: HTMLElement;
+	padding: { end: number; start: number };
+	spacer: HTMLElement | null;
+	viewport: HTMLElement;
+}) {
 	const lastItem = spacer?.previousElementSibling ?? content.lastElementChild;
 
 	if (!(lastItem instanceof HTMLElement)) {

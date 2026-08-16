@@ -2,7 +2,7 @@
 
 import { act, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
 	AiChatTranscriptItem,
@@ -13,9 +13,23 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
 describe("AiChatTranscriptScroller", () => {
 	let container: HTMLDivElement;
+	let resizeCallbacks: ResizeObserverCallback[];
 	let root: Root;
 
 	beforeEach(() => {
+		resizeCallbacks = [];
+		vi.stubGlobal(
+			"ResizeObserver",
+			class {
+				constructor(callback: ResizeObserverCallback) {
+					resizeCallbacks.push(callback);
+				}
+
+				disconnect() {}
+				observe() {}
+				unobserve() {}
+			},
+		);
 		container = document.body.appendChild(document.createElement("div"));
 		root = createRoot(container);
 	});
@@ -23,6 +37,8 @@ describe("AiChatTranscriptScroller", () => {
 	afterEach(async () => {
 		await act(async () => root.unmount());
 		container.remove();
+		vi.useRealTimers();
+		vi.unstubAllGlobals();
 	});
 
 	it("holds the submitted turn at the reading line while the response height changes", async () => {
@@ -36,6 +52,7 @@ describe("AiChatTranscriptScroller", () => {
 		expect(layout.getMessageTop("user-2")).toBe(88);
 
 		await render(root, transcript({ anchorMessageId: "user-2", responseHeight: 0 }));
+		await notifyResize(resizeCallbacks);
 		expect(layout.getMessageTop("user-2")).toBe(88);
 	});
 
@@ -93,23 +110,148 @@ describe("AiChatTranscriptScroller", () => {
 		expect(layout.spacer.hidden).toBe(false);
 		expect(layout.spacer.style.height).toBe(spacerHeight);
 	});
+
+	it("releases a previous turn anchor without removing its synthetic tail", async () => {
+		await render(root, transcript({ anchorMessageId: undefined, responseHeight: 36 }));
+		const layout = installTranscriptLayout(container);
+		await render(root, transcript({ anchorMessageId: "user-2", responseHeight: 36 }));
+		const spacerHeight = layout.spacer.style.height;
+
+		await render(root, transcript({ anchorMessageId: undefined, responseHeight: 36 }));
+		layout.setMessageHeight("user-1", 150);
+		await notifyResize(resizeCallbacks);
+
+		expect(layout.getMessageTop("user-2")).toBe(88);
+		expect(layout.spacer.hidden).toBe(false);
+		expect(layout.spacer.style.height).toBe(spacerHeight);
+	});
+
+	it("preserves the reader's visible row when earlier content resizes", async () => {
+		await render(root, transcript({ anchorMessageId: undefined, responseHeight: 36 }));
+		const layout = installTranscriptLayout(container);
+		await render(root, transcript({ anchorMessageId: "user-2", responseHeight: 36 }));
+
+		await act(async () => {
+			layout.viewport.dispatchEvent(new WheelEvent("wheel", { bubbles: true }));
+			layout.viewport.scrollTop = 200;
+			layout.viewport.dispatchEvent(new Event("scroll", { bubbles: true }));
+		});
+		const readerTop = layout.getMessageTop("assistant-1");
+		const spacerHeight = layout.spacer.style.height;
+
+		layout.setMessageHeight("user-1", 150);
+		await notifyResize(resizeCallbacks);
+
+		expect(layout.getMessageTop("assistant-1")).toBe(readerTop);
+		expect(layout.spacer.style.height).toBe(spacerHeight);
+	});
+
+	it("settles a smooth anchor even when the browser does not dispatch scrollend", async () => {
+		vi.useFakeTimers();
+		await render(root, transcript({ anchorMessageId: undefined, responseHeight: 36 }));
+		const layout = installTranscriptLayout(container);
+		Object.defineProperty(layout.viewport, "scrollTo", {
+			configurable: true,
+			value: vi.fn(),
+		});
+
+		await render(
+			root,
+			transcript({
+				anchorMessageId: "user-2",
+				reduceMotion: false,
+				responseHeight: 36,
+				smoothAnchorMessageId: "user-2",
+			}),
+		);
+		expect(layout.getMessageTop("user-2")).not.toBe(88);
+
+		await act(async () => vi.advanceTimersByTimeAsync(1_000));
+
+		expect(layout.getMessageTop("user-2")).toBe(88);
+	});
+
+	it("uses instant anchoring when reduced motion is requested", async () => {
+		await render(root, transcript({ anchorMessageId: undefined, responseHeight: 36 }));
+		const layout = installTranscriptLayout(container);
+		const scrollTo = vi.spyOn(layout.viewport, "scrollTo");
+
+		await render(
+			root,
+			transcript({
+				anchorMessageId: "user-2",
+				reduceMotion: true,
+				responseHeight: 36,
+				smoothAnchorMessageId: "user-2",
+			}),
+		);
+
+		expect(scrollTo).toHaveBeenCalledWith({ behavior: "auto", top: 350 });
+	});
+
+	it("reconciles asynchronous content resizing through ResizeObserver", async () => {
+		await render(root, transcript({ anchorMessageId: undefined, responseHeight: 36 }));
+		const layout = installTranscriptLayout(container);
+		await render(root, transcript({ anchorMessageId: "user-2", responseHeight: 36 }));
+		expect(layout.getMessageTop("user-2")).toBe(88);
+
+		layout.setMessageHeight("assistant-1", 420);
+		await act(async () => {
+			for (const callback of resizeCallbacks) {
+				callback([], {} as ResizeObserver);
+			}
+		});
+
+		expect(layout.getMessageTop("user-2")).toBe(88);
+	});
+
+	it("updates synthetic spacing when the transcript gap changes", async () => {
+		await render(root, transcript({ anchorMessageId: undefined, responseHeight: 36 }));
+		const layout = installTranscriptLayout(container);
+		await render(root, transcript({ anchorMessageId: "user-2", responseHeight: 36 }));
+		expect(layout.spacer.style.marginTop).toBe("-20px");
+
+		layout.content.style.rowGap = "12px";
+		await notifyResize(resizeCallbacks);
+
+		expect(layout.spacer.style.marginTop).toBe("-12px");
+	});
+
+	it("defers repeated streaming geometry work to ResizeObserver", async () => {
+		await render(root, transcript({ anchorMessageId: undefined, responseHeight: 36 }));
+		const layout = installTranscriptLayout(container);
+		await render(root, transcript({ anchorMessageId: "user-2", responseHeight: 36 }));
+		const getAnchorRect = vi.spyOn(layout.getMessageElement("user-2"), "getBoundingClientRect");
+		getAnchorRect.mockClear();
+
+		await render(root, transcript({ anchorMessageId: "user-2", responseHeight: 150 }));
+		expect(getAnchorRect).not.toHaveBeenCalled();
+
+		await notifyResize(resizeCallbacks);
+		expect(getAnchorRect).toHaveBeenCalled();
+	});
 });
 
 function transcript({
 	anchorMessageId,
 	initialAnchorMessageId,
+	reduceMotion = true,
 	responseHeight,
+	smoothAnchorMessageId,
 }: {
 	anchorMessageId: string | undefined;
 	initialAnchorMessageId?: string;
+	reduceMotion?: boolean;
 	responseHeight: number;
+	smoothAnchorMessageId?: string;
 }) {
 	return (
 		<AiChatTranscriptScroller
 			anchorMessageId={anchorMessageId}
 			busy={true}
 			initialAnchorMessageId={initialAnchorMessageId}
-			reduceMotion={true}
+			reduceMotion={reduceMotion}
+			smoothAnchorMessageId={smoothAnchorMessageId}
 		>
 			<TestItem messageId="user-1" height={50} />
 			<TestItem messageId="assistant-1" height={300} />
@@ -195,8 +337,24 @@ function installTranscriptLayout(container: HTMLElement) {
 	}
 
 	return {
+		content,
 		spacer,
 		viewport,
+		getMessageElement(messageId: string) {
+			const item = getItems().find((candidate) => candidate.dataset.aiChatMessageId === messageId);
+			if (!item) {
+				throw new Error(`Expected transcript item ${messageId}`);
+			}
+			return item;
+		},
+		setMessageHeight(messageId: string, height: number) {
+			const item = getItems().find((candidate) => candidate.dataset.aiChatMessageId === messageId);
+			const row = item?.firstElementChild;
+			if (!(row instanceof HTMLElement)) {
+				throw new Error(`Expected transcript item ${messageId}`);
+			}
+			row.dataset.testRowHeight = String(height);
+		},
 		getMessageTop(messageId: string) {
 			const item = getItems().find((candidate) => candidate.dataset.aiChatMessageId === messageId);
 			if (!item) {
@@ -210,4 +368,12 @@ function installTranscriptLayout(container: HTMLElement) {
 
 async function render(root: Root, children: ReactNode) {
 	await act(async () => root.render(children));
+}
+
+async function notifyResize(callbacks: ResizeObserverCallback[]) {
+	await act(async () => {
+		for (const callback of callbacks) {
+			callback([], {} as ResizeObserver);
+		}
+	});
 }
