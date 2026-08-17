@@ -84,7 +84,11 @@ type AiChatListRow =
 interface AiChatMessageListProps {
 	anchorMessageId?: string | null;
 	assistantError?: AiChatAssistantErrorState | null;
+	/** The message currently loaded into the composer for editing, dimmed here. */
+	editingMessageId?: string;
 	messages: AiChatMessage[];
+	/** Present only while an edit could start; offered on the latest user message. */
+	onEditMessage?: (message: AiChatMessage) => void;
 	onRegenerateLastResponse?: () => void;
 	onStartNewChat?: () => void;
 	presentation: AiChatPresentation;
@@ -95,7 +99,9 @@ interface AiChatMessageListProps {
 export default function AiChatMessageList({
 	anchorMessageId,
 	assistantError,
+	editingMessageId,
 	messages,
+	onEditMessage,
 	onRegenerateLastResponse,
 	onStartNewChat,
 	presentation,
@@ -103,6 +109,7 @@ export default function AiChatMessageList({
 	workspaceId,
 }: AiChatMessageListProps) {
 	const { lastAssistantMessageId, status } = presentation;
+	const lastUserMessageId = getLastUserMessageId(messages);
 	const rows = getAiChatListRows(messages, presentation, assistantError);
 	const hasAssistantContent = hasLatestAssistantContent(rows);
 	const isStreamActive = isAiChatStreamActive(status);
@@ -136,7 +143,7 @@ export default function AiChatMessageList({
 			<AiChatTranscriptScroller
 				anchorMessageId={anchorMessageId ?? undefined}
 				busy={isStreamActive}
-				initialAnchorMessageId={getLastUserMessageId(messages)}
+				initialAnchorMessageId={lastUserMessageId}
 				reduceMotion={shouldReduceMotion === true}
 				smoothAnchorMessageId={
 					shouldReduceMotion ? undefined : (sentMessageAnimationId ?? undefined)
@@ -153,10 +160,13 @@ export default function AiChatMessageList({
 						>
 							<AiChatListRowView
 								canRetry={Boolean(onRegenerateLastResponse)}
+								editingMessageId={editingMessageId}
 								hasAssistantContent={hasAssistantContent}
 								lastAssistantMessageId={lastAssistantMessageId}
+								lastUserMessageId={lastUserMessageId}
 								row={row}
 								status={status}
+								onEditMessage={onEditMessage}
 								onRegenerateLastResponse={onRegenerateLastResponse}
 								onStartNewChat={onStartNewChat}
 							/>
@@ -213,16 +223,22 @@ function AiChatMessageScrollerItem({
 
 function AiChatListRowView({
 	canRetry,
+	editingMessageId,
 	hasAssistantContent,
 	lastAssistantMessageId,
+	lastUserMessageId,
+	onEditMessage,
 	onRegenerateLastResponse,
 	onStartNewChat,
 	row,
 	status,
 }: {
 	canRetry: boolean;
+	editingMessageId: string | undefined;
 	hasAssistantContent: boolean;
 	lastAssistantMessageId: string | undefined;
+	lastUserMessageId: string | undefined;
+	onEditMessage?: (message: AiChatMessage) => void;
 	onRegenerateLastResponse?: () => void;
 	onStartNewChat?: () => void;
 	row: AiChatListRow;
@@ -255,10 +271,21 @@ function AiChatListRowView({
 		<AiChatTranscriptRail>
 			<AiChatMessageRow
 				display={display}
+				isBeingEdited={message.id === editingMessageId}
 				isLatestAssistant={message.role === "assistant" && message.id === lastAssistantMessageId}
 				isRegenerable={message.id === lastAssistantMessageId && status === "ready"}
 				isStreaming={message.id === lastAssistantMessageId && isAiChatStreamActive(status)}
 				message={message}
+				onEdit={
+					onEditMessage &&
+					message.role === "user" &&
+					message.id === lastUserMessageId &&
+					// The composer edits text; an attachment-only message has none to
+					// load, which would trap the user in a banner with a dead submit.
+					message.parts.some((part) => part.type === "text")
+						? () => onEditMessage(message)
+						: undefined
+				}
 				onRegenerate={onRegenerateLastResponse}
 			/>
 		</AiChatTranscriptRail>

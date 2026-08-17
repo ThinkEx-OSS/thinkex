@@ -1,5 +1,5 @@
 import { isToolUIPart } from "ai";
-import { Check, Copy, RotateCcw } from "lucide-react";
+import { Check, Copy, Pencil, RotateCcw } from "lucide-react";
 import { useState } from "react";
 
 import { AnimatedIconSwap } from "#/components/ui/animated-icon-swap";
@@ -35,17 +35,23 @@ const collapsedUserMessageClassName =
 
 export default function AiChatMessageRow({
 	display,
+	isBeingEdited = false,
 	isLatestAssistant,
 	isRegenerable,
 	isStreaming,
 	message,
+	onEdit,
 	onRegenerate,
 }: {
 	display: AssistantRowDisplay | null;
+	/** Its text is in the composer being rewritten; dimmed as the cue. */
+	isBeingEdited?: boolean;
 	isLatestAssistant: boolean;
 	isRegenerable: boolean;
 	isStreaming: boolean;
 	message: AiChatMessage;
+	/** Present only on the latest user message while an edit could start. */
+	onEdit?: () => void;
 	onRegenerate?: () => void;
 }) {
 	if (message.role === "assistant" && display?.kind === "hidden") {
@@ -65,7 +71,10 @@ export default function AiChatMessageRow({
 			: [];
 
 	return (
-		<Message align={isAssistant ? "start" : "end"}>
+		<Message
+			align={isAssistant ? "start" : "end"}
+			className={cn("transition-opacity duration-150 ease-out", isBeingEdited && "opacity-50")}
+		>
 			<MessageContent>
 				{userAttachmentParts.length > 0 ? (
 					<div className="mb-2 ml-auto flex w-fit max-w-full flex-col gap-2">
@@ -114,10 +123,15 @@ export default function AiChatMessageRow({
 						</div>
 					</MessageFooter>
 				) : null}
-				{!isAssistant && copyableText ? (
+				{!isAssistant && (copyableText || onEdit) ? (
 					<MessageFooter className="pointer-events-none px-0 opacity-0 transition-opacity duration-150 ease-out group-hover/message:pointer-events-auto group-hover/message:opacity-100 group-focus-within/message:pointer-events-auto group-focus-within/message:opacity-100">
-						<div className="flex items-center gap-1">
-							<CopyResponseAction text={copyableText} copyLabel="Copy" />
+						<div className="flex items-center gap-4">
+							{copyableText ? <CopyResponseAction text={copyableText} copyLabel="Copy" /> : null}
+							{onEdit ? (
+								<AiChatMessageAction label="Edit message" onClick={onEdit}>
+									<Pencil className="size-4" />
+								</AiChatMessageAction>
+							) : null}
 						</div>
 					</MessageFooter>
 				) : null}

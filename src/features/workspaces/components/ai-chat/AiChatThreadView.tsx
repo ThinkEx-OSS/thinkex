@@ -1,5 +1,8 @@
 import { generateId } from "ai";
 import { useEffect, useEffectEvent, useState } from "react";
+import { toast } from "sonner";
+
+import { WORKSPACE_AI_CHAT_ATTACHMENT_POLICY } from "#/features/workspaces/ai/chat-attachment-policy";
 
 import type { PromptInputMessage } from "#/features/workspaces/components/ai-chat/ai-chat-prompt-input";
 import AiChatMessageList from "#/features/workspaces/components/ai-chat/AiChatMessageList";
@@ -7,6 +10,7 @@ import AiChatPromptInput from "#/features/workspaces/components/ai-chat/AiChatPr
 import { deriveAiChatAssistantErrorState } from "#/features/workspaces/components/ai-chat/ai-chat-error-state";
 import { aiChatComposerRailClassName } from "#/features/workspaces/components/ai-chat/ai-chat-layout";
 import type {
+	AiChatMessage,
 	AiChatModelId,
 	AiChatSendMessage,
 } from "#/features/workspaces/components/ai-chat/types";
@@ -47,6 +51,7 @@ export default function AiChatThreadView({
 	const {
 		canSend,
 		connectionError,
+		editMessage,
 		inputStatus,
 		messages,
 		presentation,
@@ -54,6 +59,39 @@ export default function AiChatThreadView({
 		sendMessage: sendChatMessage,
 		stop,
 	} = chat;
+	// Editing the latest user message reuses the main composer (ai-chatbot's
+	// pattern): its text is loaded as the draft, a banner marks the mode, and
+	// submitting resends the same message id — the server treats that as
+	// truncate-and-rerun, replacing the previous response. The message's
+	// original attachments are kept; newly staged files are added.
+	const [editing, setEditing] = useState<{
+		fileParts: AiChatMessage["parts"];
+		messageId: string;
+		previousDraft: string;
+	} | null>(null);
+	const setDraftText = useWorkspaceAiComposerDraftStore((state) => state.setText);
+	const startEditing = (message: AiChatMessage) => {
+		const text = message.parts
+			.flatMap((part) => (part.type === "text" ? part.text : []))
+			.join("\n\n");
+
+		setEditing({
+			fileParts: message.parts.filter((part) => part.type === "file"),
+			messageId: message.id,
+			previousDraft: useWorkspaceAiComposerDraftStore.getState().textByThreadId[threadId] ?? "",
+		});
+		setDraftText(threadId, text);
+	};
+	const cancelEditing = () => setEditing(null);
+	// Leaving edit mode — cancel, submit, or the per-thread remount on a thread
+	// switch — gives back the draft the edit displaced. Cleanup-only: the state
+	// change that triggers it happens in the event handlers.
+	useEffect(() => {
+		if (!editing) {
+			return undefined;
+		}
+		return () => setDraftText(threadId, editing.previousDraft);
+	}, [editing, setDraftText, threadId]);
 	const clearDraftArtifacts = useWorkspaceAiComposerDraftStore(
 		(state) => state.clearDraftArtifacts,
 	);
@@ -75,7 +113,7 @@ export default function AiChatThreadView({
 		lastMessageRole: lastMessage?.role,
 		lastMessageErrorMessage: lastMessageMetadata?.errorMessage,
 	});
-	const sendMessage = (message: PromptInputMessage, clearDraft = true) => {
+	const sendMessage = (message: PromptInputMessage) => {
 		const chatMessage = getChatMessageFromPrompt(message, generateId());
 
 		if (!chatMessage) {
@@ -85,7 +123,38 @@ export default function AiChatThreadView({
 		setScrollAnchorMessageId(chatMessage.id);
 		sendChatMessage(chatMessage);
 		setSentMessageAnimationId(chatMessage.id);
-		if (clearDraft) clearDraftArtifacts(context.workspaceId, threadId);
+		clearDraftArtifacts(context.workspaceId, threadId);
+	};
+	const submitEditedMessage = (message: PromptInputMessage) => {
+		if (!editing) {
+			return;
+		}
+
+		// The intake limit only counted newly staged files; with the original
+		// attachments riding along, the combined message must still fit it.
+		if (
+			editing.fileParts.length + message.files.length >
+			WORKSPACE_AI_CHAT_ATTACHMENT_POLICY.maxFiles
+		) {
+			toast.error(
+				`A message can include at most ${WORKSPACE_AI_CHAT_ATTACHMENT_POLICY.maxFiles} attachments.`,
+			);
+			return;
+		}
+
+		// Same id, new parts: the server treats the resend as truncate-and-rerun.
+		// The message's original attachments ride along ahead of newly staged ones.
+		const chatMessage = getChatMessageFromPrompt(message, editing.messageId, editing.fileParts);
+
+		if (!chatMessage) {
+			return;
+		}
+
+		setEditing(null);
+		setScrollAnchorMessageId(chatMessage.id);
+		editMessage(chatMessage);
+		setSentMessageAnimationId(chatMessage.id);
+		clearDraftArtifacts(context.workspaceId, threadId);
 	};
 	// A drained entry fails exactly like a manual send: the message stays in
 	// the transcript with the error banner and "Try again" re-runs it (the
@@ -130,6 +199,9 @@ export default function AiChatThreadView({
 	useEffect(() => {
 		if (
 			!queueHead ||
+			// Held during an edit: a drained turn would land after the message being
+			// edited, and the edit's truncate-and-rerun would then destroy it.
+			editing !== null ||
 			!canDrainQueuedMessage({
 				canSend,
 				errorKind: assistantError?.kind,
@@ -158,7 +230,16 @@ export default function AiChatThreadView({
 		return () => {
 			cancelled = true;
 		};
-	}, [canSend, assistantError?.kind, isBlocked, queueHead, queuePaused, takeQueueHead, threadId]);
+	}, [
+		canSend,
+		assistantError?.kind,
+		editing,
+		isBlocked,
+		queueHead,
+		queuePaused,
+		takeQueueHead,
+		threadId,
+	]);
 	const stopGeneration = () => {
 		stop();
 	};
@@ -177,11 +258,15 @@ export default function AiChatThreadView({
 			<AiChatMessageList
 				anchorMessageId={scrollAnchorMessageId}
 				assistantError={assistantError}
+				editingMessageId={editing?.messageId}
 				messages={messages}
 				presentation={presentation}
 				sentMessageAnimationId={sentMessageAnimationId}
 				workspaceId={context.workspaceId}
-				onRegenerateLastResponse={() => regenerate()}
+				onEditMessage={canSend && !queueHead && !editing ? startEditing : undefined}
+				// Hidden while editing: regenerating the reply the edit is about to
+				// delete makes the chat busy and strands the edit with a dead submit.
+				onRegenerateLastResponse={editing ? undefined : () => regenerate()}
 				onStartNewChat={onStartNewChat}
 			/>
 
@@ -191,10 +276,12 @@ export default function AiChatThreadView({
 						activeThreadId={threadId}
 						canSend={canSend}
 						context={context}
+						isEditing={Boolean(editing)}
 						modelId={modelId}
 						status={inputStatus}
+						onCancelEdit={cancelEditing}
 						onModelChange={onModelChange}
-						onSubmit={(message) => sendMessage(message)}
+						onSubmit={(message) => (editing ? submitEditedMessage(message) : sendMessage(message))}
 						onStop={handleUserStop}
 						onInterrupt={stopGeneration}
 						onSendNow={handleSendNow}
@@ -208,10 +295,12 @@ export default function AiChatThreadView({
 function getChatMessageFromPrompt(
 	message: PromptInputMessage,
 	id: string,
+	extraParts: AiChatMessage["parts"] = [],
 ): AiChatSendMessage | null {
 	const trimmedText = message.text.trim();
 	const parts = [
 		...(trimmedText ? [{ type: "text" as const, text: trimmedText }] : []),
+		...extraParts,
 		...message.files,
 	];
 

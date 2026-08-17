@@ -1,5 +1,11 @@
-import { Mic, Paperclip } from "lucide-react";
-import { type KeyboardEventHandler, type SetStateAction, useCallback, useRef } from "react";
+import { Mic, Paperclip, Pencil, X } from "lucide-react";
+import {
+	type KeyboardEventHandler,
+	type SetStateAction,
+	useCallback,
+	useEffect,
+	useRef,
+} from "react";
 import { toast } from "sonner";
 
 import {
@@ -16,6 +22,7 @@ import {
 } from "#/features/workspaces/components/ai-chat/ai-chat-prompt-input";
 import { useWorkspaceAiAllowance } from "#/features/workspaces/ai/use-workspace-ai-allowance";
 import { AiChatAttachmentDropBridge } from "#/features/workspaces/components/ai-chat/AiChatAttachmentDrop";
+import AiChatComposerReveal from "#/features/workspaces/components/ai-chat/AiChatComposerReveal";
 import AiChatModelPicker from "#/features/workspaces/components/ai-chat/AiChatModelPicker";
 import { AiChatAllowanceNotice } from "#/features/workspaces/components/ai-chat/AiChatAllowanceNotice";
 import AiChatPromptContextBar from "#/features/workspaces/components/ai-chat/AiChatPromptContextBar";
@@ -53,7 +60,9 @@ import { cn } from "#/lib/utils";
 const PROMPT_INPUT_GROUP_CLASSNAME =
 	"h-auto flex-col border-border/70 bg-muted/30 shadow-none dark:bg-muted/30";
 const PROMPT_INPUT_INLINE_PADDING = "px-3.5";
-const PROMPT_INPUT_HEADER_PADDING = "px-3.5 pb-1";
+// gap-0: every header row self-pads (pt on its content), so the always-mounted
+// zero-height reveal wrappers add no phantom flex gaps to an idle composer.
+const PROMPT_INPUT_HEADER_PADDING = "gap-0 px-3.5 pb-1";
 const PROMPT_INPUT_FOOTER_PADDING = "pl-2 pr-3.5 pt-1 pb-2";
 const CHAT_ATTACHMENT_PICKER_ACCEPT = [
 	...new Set([WORKSPACE_AI_CHAT_ATTACHMENT_POLICY.accept, ...workspaceUploadAccept.split(",")]),
@@ -77,7 +86,10 @@ interface AiChatPromptInputProps {
 	activeThreadId: string;
 	canSend: boolean;
 	context: WorkspaceAiContextScope;
+	/** While set, submits rewrite an existing message instead of sending a new one. */
+	isEditing?: boolean;
 	modelId?: AiChatModelId;
+	onCancelEdit?: () => void;
 	onModelChange?: (modelId: AiChatModelId) => void;
 	onSubmit: (message: PromptInputMessage) => void;
 	onStop?: () => void;
@@ -91,7 +103,9 @@ export default function AiChatPromptInput({
 	activeThreadId,
 	canSend: canSendWhileConnected,
 	context,
+	isEditing = false,
 	modelId = DEFAULT_WORKSPACE_AI_CHAT_MODEL_ID,
+	onCancelEdit,
 	onModelChange,
 	onSubmit,
 	onStop,
@@ -155,6 +169,13 @@ export default function AiChatPromptInput({
 	const resumeQueue = useWorkspaceAiQueueStore((state) => state.resume);
 	const steerOnSubmitRef = useRef(false);
 
+	// Focus where the editing now happens; Escape backs out (see keydown).
+	useEffect(() => {
+		if (isEditing) {
+			textareaRef.current?.focus();
+		}
+	}, [isEditing]);
+
 	const handleSubmit = (message: PromptInputMessage) => {
 		const steer = steerOnSubmitRef.current;
 		steerOnSubmitRef.current = false;
@@ -163,7 +184,15 @@ export default function AiChatPromptInput({
 			return false;
 		}
 
-		if (canSend) {
+		// An edit rewrites an existing message — it must never fall through to
+		// the queue as a new one. Edits start idle, so canSend is the whole gate.
+		if (isEditing && !canSend) {
+			return false;
+		}
+
+		if (isEditing) {
+			onSubmit(message);
+		} else if (canSend) {
 			resumeQueue(activeThreadId);
 			onSubmit(message);
 		} else if (canQueue) {
@@ -190,6 +219,12 @@ export default function AiChatPromptInput({
 	};
 
 	const handleTextareaKeyDown: KeyboardEventHandler<HTMLTextAreaElement> = (event) => {
+		if (event.key === "Escape" && isEditing && onCancelEdit) {
+			event.preventDefault();
+			onCancelEdit();
+			return;
+		}
+
 		if (event.key !== "Enter" || !(event.metaKey || event.ctrlKey) || !isBusyStatus) {
 			return;
 		}
@@ -241,6 +276,22 @@ export default function AiChatPromptInput({
 			>
 				<AiChatAttachmentDropBridge />
 				<PromptInputHeader className={PROMPT_INPUT_HEADER_PADDING}>
+					<AiChatComposerReveal>
+						{isEditing ? (
+							<div className="flex items-center gap-1.5 pt-1 pb-1.5 text-muted-foreground text-xs">
+								<Pencil className="size-3 shrink-0" aria-hidden="true" />
+								<span className="min-w-0 truncate">Editing message</span>
+								<button
+									type="button"
+									aria-label="Cancel editing"
+									className="relative flex size-4 items-center justify-center rounded-sm transition-colors before:absolute before:-inset-1.5 before:content-[''] hover:text-foreground"
+									onClick={onCancelEdit}
+								>
+									<X className="size-3.5" />
+								</button>
+							</div>
+						) : null}
+					</AiChatComposerReveal>
 					<AiChatQueueTray
 						threadId={activeThreadId}
 						onEdit={handleEditQueued}
@@ -256,7 +307,7 @@ export default function AiChatPromptInput({
 						readOnly={dictation.isActive}
 						value={input}
 						onKeyDown={handleTextareaKeyDown}
-						placeholder="Ask anything"
+						placeholder={isEditing ? "Edit your message" : "Ask anything"}
 						onChange={(event) => setInput(event.currentTarget.value)}
 						className={cn(
 							"min-h-10 pt-2 pb-1 text-base placeholder:text-foreground/45 md:text-base",

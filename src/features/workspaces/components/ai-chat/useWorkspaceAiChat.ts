@@ -145,6 +145,21 @@ export function useWorkspaceAiChat({
 			}
 		});
 	};
+	// Edit-and-resend: the server treats a resent user-message id as
+	// truncate-and-rerun, so editing is sending the same id with new parts.
+	// Drop the old copy and everything after it locally first — the SDK's send
+	// pushes the new copy, and the old reply is gone server-side anyway.
+	const editMessage = (message: AiChatSendMessage) => {
+		if (message.parts.length === 0 || !canSend) {
+			throw new Error("Cannot edit a chat message while the chat is unavailable");
+		}
+
+		setMessages((current) => {
+			const index = current.findIndex((entry) => entry.id === message.id);
+			return index === -1 ? current : current.slice(0, index);
+		});
+		void sendChatMessage(message, withRequestContext());
+	};
 	const regenerate = (options?: AiChatSendMessageOptions) => {
 		if (presentation.isBusy) {
 			return;
@@ -189,6 +204,7 @@ export function useWorkspaceAiChat({
 	return {
 		canSend,
 		connectionError,
+		editMessage,
 		inputStatus,
 		messages,
 		presentation,
