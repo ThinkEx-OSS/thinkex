@@ -2,7 +2,10 @@ import type { TextSerializer } from "@tiptap/core";
 import { getText, getTextSerializersFromSchema } from "@tiptap/core";
 
 import type { JsonValue, WorkspaceItem } from "#/features/workspaces/contracts";
-import { parseTiptapDocumentJson } from "#/features/workspaces/documents/tiptap-document";
+import {
+	parseTiptapDocumentJson,
+	type TiptapDocumentJson,
+} from "#/features/workspaces/documents/tiptap-document";
 import { getTiptapDocumentSchema } from "#/features/workspaces/documents/tiptap-schema";
 
 export const WORKSPACE_DOCUMENT_PREVIEW_TEXT_METADATA_KEY = "previewText";
@@ -24,16 +27,17 @@ export function getWorkspaceDocumentPreviewText(item: Pick<WorkspaceItem, "metad
 	return typeof previewText === "string" ? previewText.trim() : "";
 }
 
-export function extractDocumentPreviewText(content: string | null): string {
-	if (!content?.trim()) {
-		return "";
-	}
-
+/**
+ * A Tiptap document as prose: the projection the preview already used, minus
+ * its length limit. Search indexes this so a query matches writing rather than
+ * JSON keys.
+ */
+export function extractTiptapPlainText(document: TiptapDocumentJson): string {
 	try {
-		const document = parseTiptapDocumentJson(content);
 		const schema = getTiptapDocumentSchema();
 		const node = schema.nodeFromJSON(document);
-		const text = normalizeDocumentPreviewText(
+
+		return normalizeDocumentPreviewText(
 			getText(node, {
 				blockSeparator: "\n",
 				textSerializers: {
@@ -42,15 +46,27 @@ export function extractDocumentPreviewText(content: string | null): string {
 				},
 			}),
 		);
-
-		if (!text) {
-			return "";
-		}
-
-		return truncateDocumentPreviewText(text);
 	} catch {
 		return "";
 	}
+}
+
+export function extractDocumentPlainText(content: string | null): string {
+	if (!content?.trim()) {
+		return "";
+	}
+
+	try {
+		return extractTiptapPlainText(parseTiptapDocumentJson(content));
+	} catch {
+		return "";
+	}
+}
+
+export function extractDocumentPreviewText(content: string | null): string {
+	const text = extractDocumentPlainText(content);
+
+	return text ? truncateDocumentPreviewText(text) : "";
 }
 
 export function withDocumentPreviewMetadata(

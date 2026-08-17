@@ -73,6 +73,11 @@ export function summarizeWorkspaceReadResult(input: {
 	return summarizeWorkspaceResult(succeededCount, failures, pendingCount);
 }
 
+/** A search never fails per-hit: the only outcome worth counting is how many it found. */
+export function summarizeWorkspaceSearchResult(input: { hits: readonly unknown[] }) {
+	return summarizeWorkspaceResult(input.hits.length, []);
+}
+
 export function summarizeWorkspaceItemResult(input: {
 	failed: ReadonlyArray<{ code: string }>;
 	item?: unknown;

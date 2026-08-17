@@ -50,6 +50,20 @@
       "when": 1786911305179,
       "tag": "0006_wet_baron_strucker",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1786943767113,
+      "tag": "0007_material_mongoose",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1786988445199,
+      "tag": "0008_sparkling_black_crow",
+      "breakpoints": true
     }
   ]
 }

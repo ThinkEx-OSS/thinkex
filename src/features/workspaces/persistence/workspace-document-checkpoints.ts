@@ -8,6 +8,7 @@ import {
 } from "#/features/workspaces/contracts";
 import { prepareDocumentItemMetadata } from "#/features/workspaces/documents/document-item-content";
 import { notifyWorkspaceRoom } from "#/features/workspaces/realtime/workspace-room-notifier";
+import { workspaceItemContentValues } from "#/features/workspaces/search/workspace-search-text";
 import {
 	getActiveWorkspaceItemRow,
 	lockWorkspaceForActor,
@@ -55,15 +56,14 @@ export async function commitWorkspaceDocumentCheckpoint(
 			throw new Error("Only document checkpoints can update workspace text content.");
 		}
 		const metadata = prepareDocumentItemMetadata(toWorkspaceMetadata(row.metadata), input.content);
+		const contentValues = workspaceItemContentValues("document", input.content);
 		const now = new Date();
 		await transaction
 			.insert(workspaceItemContents)
-			.values({ itemId: input.itemId, content: input.content })
+			.values({ itemId: input.itemId, ...contentValues })
 			.onConflictDoUpdate({
 				target: workspaceItemContents.itemId,
-				set: {
-					content: input.content,
-				},
+				set: contentValues,
 			});
 		await transaction
 			.update(workspaceItems)
