@@ -23,6 +23,10 @@ function defineAiToolRegistry<const TRegistry extends Record<string, AiToolDefin
 
 export const AI_TOOL_REGISTRY = defineAiToolRegistry({
 	activate_skill: readTool({ icon: "guidance", title: "Use guidance" }),
+	// Registered as read access: its inner tool set is built from the turn's
+	// already-capability-filtered tools, so a view-only turn's orchestrate tool
+	// contains read tools only.
+	orchestrate: readTool({ icon: "guidance", title: "Run steps" }),
 	web_search: readTool({ icon: "search", title: "Search web" }),
 	web_fetch: readTool({ icon: "web", title: "Read URL" }),
 	research_discover: readTool({

@@ -1,6 +1,6 @@
 import { isToolUIPart } from "ai";
 import { Check, Copy, Pencil, RotateCcw } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { AnimatedIconSwap } from "#/components/ui/animated-icon-swap";
 import { Button } from "#/components/ui/button";
@@ -11,6 +11,10 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "#/comp
 import { AiChatMessagePartView } from "#/features/workspaces/components/ai-chat/AiChatMessagePartView";
 import { AiChatDocumentEditActions } from "#/features/workspaces/components/ai-chat/AiChatDocumentEditActions";
 import { getAiChatDocumentEditGroups } from "#/features/workspaces/components/ai-chat/ai-chat-document-edit-actions";
+import {
+	AiChatToolActivityGroup,
+	isToolGroupBreaker,
+} from "#/features/workspaces/components/ai-chat/AiChatToolActivityGroup";
 import { stripWorkspaceCitationTags } from "#/features/workspaces/ai/workspace-references";
 import {
 	type AssistantRowDisplay,
@@ -19,6 +23,7 @@ import {
 import type {
 	AiChatMessage,
 	AiChatMessagePart,
+	AiChatToolPart,
 } from "#/features/workspaces/components/ai-chat/types";
 import { useCopyToClipboard } from "#/hooks/use-copy-to-clipboard";
 import { cn } from "#/lib/utils";
@@ -54,21 +59,24 @@ export default function AiChatMessageRow({
 	onEdit?: () => void;
 	onRegenerate?: () => void;
 }) {
+	const isAssistant = message.role === "assistant";
+	const displayParts = display?.kind === "content" ? display.parts : undefined;
+	const documentEditGroups = useMemo(
+		() =>
+			isAssistant && displayParts && !isStreaming ? getAiChatDocumentEditGroups(displayParts) : [],
+		[isAssistant, displayParts, isStreaming],
+	);
+
 	if (message.role === "assistant" && display?.kind === "hidden") {
 		return null;
 	}
 
-	const isAssistant = message.role === "assistant";
 	const displayableParts = isAssistant ? [] : getDisplayableParts(message);
 	const userAttachmentParts = isAssistant ? [] : displayableParts.filter(isAttachmentPart);
 	const userBodyParts = isAssistant
 		? []
 		: displayableParts.filter((part) => !isAttachmentPart(part));
 	const copyableText = !isStreaming ? getCopyableMessageText(message) : "";
-	const documentEditGroups =
-		isAssistant && display?.kind === "content" && !isStreaming
-			? getAiChatDocumentEditGroups(display.parts)
-			: [];
 
 	return (
 		<Message
@@ -102,7 +110,7 @@ export default function AiChatMessageRow({
 				{/* Outside the bubble on purpose: the bubble is w-fit and clips its
 				    overflow, so a receipt inside it is only as wide as the reply. */}
 				{documentEditGroups.length > 0 ? (
-					<AiChatDocumentEditActions groups={documentEditGroups} />
+					<AiChatDocumentEditActions collapsed={!isLatestAssistant} groups={documentEditGroups} />
 				) : null}
 				{isAssistant && display?.kind === "content" && display.parts.length > 0 && !isStreaming ? (
 					<MessageFooter
@@ -232,14 +240,22 @@ function AssistantMessageBody({
 
 		return (
 			<div data-slot="assistant-parts" className="flex flex-col gap-3">
-				{display.parts.map((part, index) => (
-					<AiChatMessagePartView
-						key={getMessagePartKey(message.id, part, index)}
-						interruptUnfinishedTools={display.interruptUnfinishedTools}
-						isStreaming={isStreaming}
-						part={part}
-					/>
-				))}
+				{getAssistantRenderItems(display.parts).map((item) =>
+					item.kind === "tool-group" ? (
+						<AiChatToolActivityGroup
+							key={`${message.id}-tool-group-${item.parts[0]?.toolCallId ?? item.index}`}
+							interrupted={display.interruptUnfinishedTools}
+							parts={item.parts}
+						/>
+					) : (
+						<AiChatMessagePartView
+							key={getMessagePartKey(message.id, item.part, item.index)}
+							interruptUnfinishedTools={display.interruptUnfinishedTools}
+							isStreaming={isStreaming}
+							part={item.part}
+						/>
+					),
+				)}
 				{turnStatus === "interrupted" && !isStreaming ? (
 					<div className="text-muted-foreground/70 text-xs">You stopped this response.</div>
 				) : null}
@@ -336,6 +352,45 @@ function AiChatMessageAction({
 			</Tooltip>
 		</TooltipProvider>
 	);
+}
+
+type AssistantRenderItem =
+	| { kind: "part"; part: AiChatMessagePart; index: number }
+	| { kind: "tool-group"; parts: AiChatToolPart[]; index: number };
+
+// Runs of 2+ consecutive tool parts render as one collapsible group; galleries
+// and other content-bearing tool parts break a run so collapsing never hides
+// them. display.parts is already filtered to visible parts.
+function getAssistantRenderItems(parts: AiChatMessagePart[]): AssistantRenderItem[] {
+	const items: AssistantRenderItem[] = [];
+	let run: { parts: AiChatToolPart[]; startIndex: number } | null = null;
+
+	const flush = () => {
+		if (!run) {
+			return;
+		}
+		if (run.parts.length >= 2) {
+			items.push({ kind: "tool-group", parts: run.parts, index: run.startIndex });
+		} else {
+			for (const [offset, part] of run.parts.entries()) {
+				items.push({ kind: "part", part, index: run.startIndex + offset });
+			}
+		}
+		run = null;
+	};
+
+	for (const [index, part] of parts.entries()) {
+		if (isToolUIPart(part) && !isToolGroupBreaker(part)) {
+			run ??= { parts: [], startIndex: index };
+			run.parts.push(part);
+			continue;
+		}
+		flush();
+		items.push({ kind: "part", part, index });
+	}
+	flush();
+
+	return items;
 }
 
 function getCopyableMessageText(message: AiChatMessage) {

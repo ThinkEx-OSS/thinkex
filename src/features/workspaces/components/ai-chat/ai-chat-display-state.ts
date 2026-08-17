@@ -11,10 +11,10 @@ import {
 	type AiToolPresentation,
 } from "#/features/workspaces/ai/ai-tool-registry";
 import {
-	getFinishedToolReceipt,
-	getRunningToolReceipt,
-	type AiChatToolReceiptSegment,
-} from "#/features/workspaces/components/ai-chat/ai-chat-tool-receipts";
+	getFinishedToolSummary,
+	getRunningToolSummary,
+	type AiChatToolSummarySegment,
+} from "#/features/workspaces/components/ai-chat/ai-chat-tool-summaries";
 
 export type AssistantRowDisplay =
 	| {
@@ -30,7 +30,7 @@ export interface AiChatToolActivity {
 	presentation: AiToolPresentation;
 	status: "completed" | "failed" | "interrupted" | "running";
 	summary: string;
-	segments?: AiChatToolReceiptSegment[];
+	segments?: AiChatToolSummarySegment[];
 	toolName: string;
 }
 
@@ -149,14 +149,14 @@ export function getToolActivityForPart(
 
 	const toolName = getToolPartName(part);
 	const presentation = getAiToolPresentation(toolName);
-	const receipt = getToolActivityReceipt(part, toolName, interrupted);
+	const toolSummary = getToolActivitySummary(part, toolName, interrupted);
 
 	return {
 		detail: part,
 		presentation,
-		status: receipt.status,
-		summary: receipt.summary,
-		segments: receipt.segments,
+		status: toolSummary.status,
+		summary: toolSummary.summary,
+		segments: toolSummary.segments,
 		toolName,
 	};
 }
@@ -170,18 +170,18 @@ export function getToolPartName(part: AiChatToolPart) {
 	return part.type === "dynamic-tool" ? part.toolName : part.type.split("-").slice(1).join("-");
 }
 
-function getToolActivityReceipt(
+function getToolActivitySummary(
 	part: AiChatToolPart,
 	toolName: string,
 	interrupted: boolean,
 ): {
 	status: AiChatToolActivity["status"];
 	summary: string;
-	segments?: AiChatToolReceiptSegment[];
+	segments?: AiChatToolSummarySegment[];
 } {
 	switch (part.state) {
 		case "output-available":
-			return getFinishedToolReceipt({
+			return getFinishedToolSummary({
 				baseStatus: "completed",
 				output: part.output,
 				toolInput: part.input,
@@ -189,14 +189,14 @@ function getToolActivityReceipt(
 			});
 		case "output-denied":
 		case "output-error":
-			return getFinishedToolReceipt({
+			return getFinishedToolSummary({
 				baseStatus: "failed",
 				output: part.output,
 				toolInput: part.input,
 				toolName,
 			});
 		default: {
-			const running = getRunningToolReceipt({
+			const running = getRunningToolSummary({
 				toolInput: part.input,
 				toolName,
 			});

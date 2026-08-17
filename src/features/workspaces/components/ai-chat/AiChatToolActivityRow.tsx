@@ -3,22 +3,28 @@ import { LazyMotion, domAnimation, m, useReducedMotion } from "motion/react";
 import type { ReactNode } from "react";
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "#/components/ui/collapsible";
-import type {
-	AiToolActivityIconKind,
-	AiToolPresentation,
+import {
+	getAiToolPresentation,
+	type AiToolActivityIconKind,
+	type AiToolPresentation,
 } from "#/features/workspaces/ai/ai-tool-registry";
 import { AiChatImageSearchResults } from "#/features/workspaces/components/ai-chat/AiChatImageSearchResults";
 import {
 	getToolActivityForPart,
 	type AiChatToolActivity,
 } from "#/features/workspaces/components/ai-chat/ai-chat-display-state";
-import type { AiChatToolReceiptSegment } from "#/features/workspaces/components/ai-chat/ai-chat-tool-receipts";
+import { useLiveCodemodeActivity } from "#/features/workspaces/components/ai-chat/ai-chat-live-activity";
+import {
+	isVisibleOrchestrateCallTool,
+	type AiChatToolSummarySegment,
+} from "#/features/workspaces/components/ai-chat/ai-chat-tool-summaries";
 import {
 	getToolSourceHostname,
 	getToolSourcePreviews,
 	type ToolSourcePreview,
 } from "#/features/workspaces/components/ai-chat/ai-chat-tool-source-previews";
 import type { AiChatToolPart } from "#/features/workspaces/components/ai-chat/types";
+import { asRecord } from "#/lib/record";
 import { cn } from "#/lib/utils";
 
 const INLINE_SOURCE_LIMIT = 3;
@@ -32,10 +38,43 @@ export function AiChatToolActivityRow({
 	part: AiChatToolPart;
 }) {
 	const shouldReduceMotion = useReducedMotion();
-	const activity = getToolActivityForPart(part, { interrupted });
+	const liveActivity = useLiveCodemodeActivity(part.toolCallId);
+	const baseActivity = getToolActivityForPart(part, { interrupted });
 
-	if (!activity) {
+	if (!baseActivity) {
 		return null;
+	}
+
+	// A running orchestrate row appends the nested tool it is currently
+	// driving ("Analyzing quiz scores · Read workspace") from the live
+	// transient stream events. Registry-hidden tools stay hidden here too.
+	const activity =
+		baseActivity.toolName === "orchestrate" &&
+		baseActivity.status === "running" &&
+		liveActivity &&
+		isVisibleOrchestrateCallTool(liveActivity.call.toolName)
+			? withLiveNestedAction(baseActivity, liveActivity.call.toolName)
+			: baseActivity;
+	const orchestrateCalls =
+		activity.toolName === "orchestrate" && activity.status !== "running"
+			? getOrchestrateCalls(part)
+			: [];
+
+	if (orchestrateCalls.length > 0) {
+		// Inline expansion, same shape as the sources list: the detail renders in
+		// the chat's own flow and background instead of a floating surface.
+		return (
+			<ToolActivityMotion disabled={shouldReduceMotion}>
+				<Collapsible className="w-fit max-w-full">
+					<CollapsibleTrigger className="group/collapsible min-w-0 max-w-full text-left">
+						<ActivitySummary activity={activity} canExpand sourcePreviews={[]} />
+					</CollapsibleTrigger>
+					<CollapsibleContent className="mt-1">
+						<OrchestrateCallList calls={orchestrateCalls} />
+					</CollapsibleContent>
+				</Collapsible>
+			</ToolActivityMotion>
+		);
 	}
 
 	const inlineContent = getInlineActivityContent(activity);
@@ -93,6 +132,90 @@ function ToolActivityMotion({
 	);
 }
 
+interface OrchestrateCallView {
+	toolName: string;
+	status: "completed" | "failed";
+	summary?: string;
+}
+
+function withLiveNestedAction(
+	activity: AiChatToolActivity,
+	nestedToolName: string,
+): AiChatToolActivity {
+	const nestedLabel = getAiToolPresentation(nestedToolName).title;
+
+	return {
+		...activity,
+		summary: `${activity.summary} · ${nestedLabel}`,
+		segments: [
+			// Both variable-width pieces are `name` so a long model-authored title
+			// truncates instead of pushing the nested label out of the row.
+			{ kind: "name", value: activity.summary },
+			{ kind: "text", value: " · " },
+			{ kind: "name", value: nestedLabel },
+		],
+	};
+}
+
+/** The nested calls a settled orchestrate part recorded, parsed defensively. */
+function getOrchestrateCalls(part: AiChatToolPart): OrchestrateCallView[] {
+	if (part.state !== "output-available") {
+		return [];
+	}
+
+	const calls = asRecord(part.output).calls;
+	if (!Array.isArray(calls)) {
+		return [];
+	}
+
+	const views: OrchestrateCallView[] = [];
+	for (const call of calls) {
+		const record = asRecord(call);
+		if (typeof record.toolName === "string" && isVisibleOrchestrateCallTool(record.toolName)) {
+			views.push({
+				toolName: record.toolName,
+				status: record.status === "failed" ? "failed" : "completed",
+				...(typeof record.summary === "string" ? { summary: record.summary } : {}),
+			});
+		}
+	}
+
+	return views;
+}
+
+function OrchestrateCallList({ calls }: { calls: OrchestrateCallView[] }) {
+	return (
+		// Indented under the parent row's text so the steps read as its children.
+		<div className="grid gap-1 pl-5" aria-label="Steps in this run">
+			{calls.map((call, index) => {
+				const presentation = getAiToolPresentation(call.toolName);
+				const label = call.summary ?? presentation.title;
+
+				return (
+					<div
+						// biome-ignore lint/suspicious/noArrayIndexKey: calls are append-only per run
+						key={index}
+						title={label}
+						className="inline-flex min-w-0 max-w-full items-center gap-1.5 text-muted-foreground text-xs"
+					>
+						<span className="grid size-3.5 shrink-0 place-items-center text-muted-foreground/70">
+							<ToolActivityIcon icon={presentation.icon} />
+						</span>
+						<span
+							className={cn(
+								"min-w-0 truncate font-medium",
+								call.status === "failed" && "text-destructive/80",
+							)}
+						>
+							{label}
+						</span>
+					</div>
+				);
+			})}
+		</div>
+	);
+}
+
 function getInlineActivityContent(activity: AiChatToolActivity) {
 	if (activity.status === "running" || activity.status === "interrupted") {
 		return null;
@@ -114,7 +237,7 @@ function ActivitySummary({
 		presentation: AiToolPresentation;
 		status: AiChatToolActivity["status"];
 		summary: string;
-		segments?: AiChatToolReceiptSegment[];
+		segments?: AiChatToolSummarySegment[];
 	};
 	canExpand?: boolean;
 	sourcePreviews: ToolSourcePreview[];
@@ -154,7 +277,7 @@ function ActivitySummaryText({
 	isRunning,
 }: {
 	summary: string;
-	segments: AiChatToolReceiptSegment[] | undefined;
+	segments: AiChatToolSummarySegment[] | undefined;
 	isRunning: boolean;
 }) {
 	if (!segments || segments.length === 0) {
@@ -310,7 +433,7 @@ function Favicon({
 	);
 }
 
-function ToolActivityIcon({ icon }: { icon: AiToolActivityIconKind }) {
+export function ToolActivityIcon({ icon }: { icon: AiToolActivityIconKind }) {
 	switch (icon) {
 		case "edit":
 			return <PencilLine className="size-3.5" aria-hidden="true" />;

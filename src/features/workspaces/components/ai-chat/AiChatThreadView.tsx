@@ -15,6 +15,7 @@ import type {
 	AiChatSendMessage,
 } from "#/features/workspaces/components/ai-chat/types";
 import { canDrainQueuedMessage } from "#/features/workspaces/components/ai-chat/ai-chat-queue-drain";
+import { AiChatLiveActivityProvider } from "#/features/workspaces/components/ai-chat/ai-chat-live-activity";
 import { useWorkspaceAiChat } from "#/features/workspaces/components/ai-chat/useWorkspaceAiChat";
 import { useWorkspaceAiAllowance } from "#/features/workspaces/ai/use-workspace-ai-allowance";
 import type { WorkspaceAiContextScope } from "#/features/workspaces/model/workspace-ai-context-types";
@@ -53,6 +54,7 @@ export default function AiChatThreadView({
 		connectionError,
 		editMessage,
 		inputStatus,
+		liveCodemodeActivity,
 		messages,
 		presentation,
 		regenerate,
@@ -255,20 +257,22 @@ export default function AiChatThreadView({
 
 	return (
 		<div className="relative flex min-h-0 flex-1 flex-col">
-			<AiChatMessageList
-				anchorMessageId={scrollAnchorMessageId}
-				assistantError={assistantError}
-				editingMessageId={editing?.messageId}
-				messages={messages}
-				presentation={presentation}
-				sentMessageAnimationId={sentMessageAnimationId}
-				workspaceId={context.workspaceId}
-				onEditMessage={canSend && !queueHead && !editing ? startEditing : undefined}
-				// Hidden while editing: regenerating the reply the edit is about to
-				// delete makes the chat busy and strands the edit with a dead submit.
-				onRegenerateLastResponse={editing ? undefined : () => regenerate()}
-				onStartNewChat={onStartNewChat}
-			/>
+			<AiChatLiveActivityProvider value={liveCodemodeActivity}>
+				<AiChatMessageList
+					anchorMessageId={scrollAnchorMessageId}
+					assistantError={assistantError}
+					editingMessageId={editing?.messageId}
+					messages={messages}
+					presentation={presentation}
+					sentMessageAnimationId={sentMessageAnimationId}
+					workspaceId={context.workspaceId}
+					onEditMessage={canSend && !queueHead && !editing ? startEditing : undefined}
+					// Hidden while editing: regenerating the reply the edit is about to
+					// delete makes the chat busy and strands the edit with a dead submit.
+					onRegenerateLastResponse={editing ? undefined : () => regenerate()}
+					onStartNewChat={onStartNewChat}
+				/>
+			</AiChatLiveActivityProvider>
 
 			<div className="px-3 pb-3">
 				<div className={aiChatComposerRailClassName}>

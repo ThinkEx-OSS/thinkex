@@ -19,7 +19,47 @@ describe("AI chat document edit actions", () => {
 			},
 		]);
 	});
+
+	it("derives receipts from document edits made inside an orchestrate run", () => {
+		expect(
+			getAiChatDocumentEditGroups([orchestratePart(), editPart("document", "call-direct")]),
+		).toEqual([
+			{
+				itemId: "item-document",
+				lineChanges: { added: 5, removed: 3 },
+				path: "/Document",
+				receiptIds: ["nested-edit-1", "call-direct"],
+			},
+		]);
+	});
 });
+
+function orchestratePart() {
+	return {
+		input: { title: "Updating notes", code: "async () => {}" },
+		output: {
+			status: "completed",
+			result: null,
+			calls: [
+				{ toolName: "workspace_read_items", status: "completed" },
+				{
+					toolName: "workspace_edit_item",
+					status: "completed",
+					action: {
+						kind: "document-edit",
+						itemId: "item-document",
+						path: "/Document",
+						receiptId: "nested-edit-1",
+						lineChanges: { added: 3, removed: 2 },
+					},
+				},
+			],
+		},
+		state: "output-available",
+		toolCallId: "call-orchestrate",
+		type: "tool-orchestrate",
+	} as AiChatMessagePart;
+}
 
 function editPart(itemType: "document" | "flashcard", toolCallId: string) {
 	return {

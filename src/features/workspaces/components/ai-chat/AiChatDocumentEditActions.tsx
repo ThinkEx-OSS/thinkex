@@ -1,5 +1,6 @@
-import { FilePen } from "lucide-react";
+import { ChevronDown, FilePen } from "lucide-react";
 
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "#/components/ui/collapsible";
 import type { AiChatDocumentEditGroup } from "#/features/workspaces/components/ai-chat/ai-chat-document-edit-actions";
 import { useDocumentEditReview } from "#/features/workspaces/documents/document-edit-review-context";
 import { useWorkspaceLocationActions } from "#/features/workspaces/locations/workspace-location-context";
@@ -12,10 +13,16 @@ import { getWorkspacePathName } from "#/features/workspaces/model/workspace-path
  * Deliberately asks the server nothing. Whether those changes can still be
  * reviewed or undone is a live question, and answering it up front would cost a
  * request per row on every chat load just to render a label. Clicking finds out.
+ *
+ * Older responses pass `collapsed`: their receipts are mostly no longer
+ * reviewable (only the latest unchanged edit is), so they shrink to one line
+ * that expands the rows inline — no wall of dead buttons.
  */
 export function AiChatDocumentEditActions({
+	collapsed = false,
 	groups,
 }: {
+	collapsed?: boolean;
 	groups: readonly AiChatDocumentEditGroup[];
 }) {
 	// A deleted document has nothing left to open.
@@ -26,6 +33,34 @@ export function AiChatDocumentEditActions({
 		return null;
 	}
 
+	const headerLabel = `Edited ${knownGroups.length} ${knownGroups.length === 1 ? "document" : "documents"}`;
+
+	if (collapsed) {
+		// Expands in place inside its own container, so the receipt keeps the
+		// chat's colors instead of opening a floating surface.
+		return (
+			<Collapsible className="w-fit max-w-full overflow-hidden rounded-lg bg-muted/40">
+				<CollapsibleTrigger className="group/receipt block w-full text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/50">
+					<div className="flex items-center gap-1.5 px-2.5 py-1.5 text-muted-foreground text-xs">
+						<FilePen className="size-3 shrink-0" aria-hidden="true" />
+						<span className="font-medium">{headerLabel}</span>
+						<ChevronDown
+							className="size-3 shrink-0 transition-transform group-data-[panel-open]/receipt:rotate-180"
+							aria-hidden="true"
+						/>
+					</div>
+				</CollapsibleTrigger>
+				<CollapsibleContent>
+					<div className="divide-y divide-foreground/5 border-foreground/5 border-t">
+						{knownGroups.map((group) => (
+							<DocumentEditRow key={group.itemId} group={group} />
+						))}
+					</div>
+				</CollapsibleContent>
+			</Collapsible>
+		);
+	}
+
 	return (
 		<div
 			aria-label="Document changes from this response"
@@ -33,9 +68,7 @@ export function AiChatDocumentEditActions({
 		>
 			<div className="flex items-center gap-1.5 px-2.5 py-1.5 text-muted-foreground text-xs">
 				<FilePen className="size-3 shrink-0" aria-hidden="true" />
-				<span className="font-medium">
-					Edited {knownGroups.length} {knownGroups.length === 1 ? "document" : "documents"}
-				</span>
+				<span className="font-medium">{headerLabel}</span>
 			</div>
 			<div className="divide-y divide-foreground/5 border-foreground/5 border-t">
 				{knownGroups.map((group) => (
