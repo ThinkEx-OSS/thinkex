@@ -8,6 +8,7 @@ import { listWorkspaceItemsOperation } from "#/features/workspaces/operations/li
 import { moveWorkspaceItemsOperation } from "#/features/workspaces/operations/move-items";
 import { readWorkspaceItemsOperation } from "#/features/workspaces/operations/read-items";
 import { renameWorkspaceItemOperation } from "#/features/workspaces/operations/rename-item";
+import { searchWorkspaceItemsOperation } from "#/features/workspaces/operations/search-items";
 import {
 	workspaceCreateItemsInputExamples,
 	workspaceCreateItemsInputSchema,
@@ -30,9 +31,13 @@ import {
 	workspaceReadItemsInputExamples,
 	workspaceReadItemsInputSchema,
 	workspaceReadItemsOutputSchema,
+	normalizeWorkspaceSearchPatterns,
 	workspaceRenameItemInputExamples,
 	workspaceRenameItemInputSchema,
 	workspaceRenameItemOutputSchema,
+	workspaceSearchItemsInputExamples,
+	workspaceSearchItemsInputSchema,
+	workspaceSearchItemsOutputSchema,
 } from "#/features/workspaces/operations/workspace-tool-schemas";
 import type {
 	WorkspaceAccessContext,
@@ -45,6 +50,7 @@ import {
 	summarizeWorkspaceCollectionResult,
 	summarizeWorkspaceItemResult,
 	summarizeWorkspaceReadResult,
+	summarizeWorkspaceSearchResult,
 	type WorkspaceOperationSummary,
 } from "#/features/workspaces/operations/workspace-operation-observability";
 
@@ -137,6 +143,22 @@ export const workspaceToolDefinitions = [
 				offset,
 				path,
 				recursive,
+			});
+		},
+	}),
+	defineWorkspaceTool({
+		name: "workspace_search_items",
+		access: "read",
+		description:
+			"Find where something is written across the workspace. Word-based search, not regex: quoted phrases work, patterns like log.*Error do not. Pass two or three phrasings of one idea in a single call — the everyday wording and the technical term — because a student's notes and their textbook rarely use the same words. Each hit carries a durable address to pass straight to workspace_read_items: aB3xK9pQ for an item, aB3xK9pQ/p12 for one page of a file. Search before reading when you are looking for something; after two searches, read the best hit rather than searching again. When matches exceeds the hits returned, narrow the wording instead of asking for more. Files still extracting are listed separately, so no hits there does not mean the content is absent.",
+		inputSchema: workspaceSearchItemsInputSchema,
+		inputExamples: workspaceSearchItemsInputExamples,
+		outputSchema: workspaceSearchItemsOutputSchema,
+		summarizeResult: summarizeWorkspaceSearchResult,
+		effects: { destructive: false, idempotent: true },
+		execute: async ({ patterns }, context) => {
+			return await searchWorkspaceItemsOperation(context, {
+				patterns: normalizeWorkspaceSearchPatterns(patterns),
 			});
 		},
 	}),

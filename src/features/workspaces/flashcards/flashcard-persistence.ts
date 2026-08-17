@@ -14,6 +14,7 @@ import {
 	withWorkspaceTransaction,
 } from "#/features/workspaces/persistence/workspace-postgres-support";
 import { notifyWorkspaceRoom } from "#/features/workspaces/realtime/workspace-room-notifier";
+import { workspaceItemContentValues } from "#/features/workspaces/search/workspace-search-text";
 
 export async function readFlashcardSet(input: { itemId: string; workspaceId: string }) {
 	return await withDb(async (db) => {
@@ -69,7 +70,7 @@ export async function updateFlashcardSet<T>(
 		const now = new Date();
 		await transaction
 			.update(workspaceItemContents)
-			.set({ content: stringifyFlashcardSetContent(updated.content) })
+			.set(workspaceItemContentValues("flashcard", stringifyFlashcardSetContent(updated.content)))
 			.where(eq(workspaceItemContents.itemId, input.itemId));
 		await transaction
 			.update(workspaceItems)

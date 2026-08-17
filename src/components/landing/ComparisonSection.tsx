@@ -46,16 +46,16 @@ const TOOLS: ToolRow[] = [
 	{
 		name: "Gemini Notebook (NotebookLM)",
 		support: {
-			sources: { level: "partial", note: "One flat list, no folders" },
-			models: { level: "none", note: "Gemini only" },
+			sources: { level: "partial", note: "No organization/interactivity" },
+			models: { level: "none", note: "Slow and incapable" },
 			collaborate: { level: "none" },
 		},
 	},
 	{
-		name: "ChatGPT, Claude",
+		name: "ChatGPT.com, Claude.ai",
 		support: {
 			sources: { level: "none", note: "Uploads get lost in chat" },
-			models: { level: "partial", note: "One company's models" },
+			models: { level: "partial", note: "Limited models and features" },
 			collaborate: { level: "none" },
 		},
 	},

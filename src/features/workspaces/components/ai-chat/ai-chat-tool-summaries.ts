@@ -126,6 +126,8 @@ export function getRunningToolSummary(input: {
 			}
 			return summary.running(`Reading ${formatCount(paths.length, "item")}`);
 		}
+		case "workspace_search_items":
+			return summary.running("Searching for ", ...name(getFirstSearchPattern(toolInput)));
 		case "workspace_rename_item": {
 			const oldName = getBaseName(getString(toolInput.path));
 			const newName = getString(toolInput.name);
@@ -195,6 +197,8 @@ export function getFinishedToolSummary(input: {
 			return summarizeWorkspaceEdit(input.output, input.toolInput);
 		case "workspace_read_items":
 			return summarizeWorkspaceRead(input.output);
+		case "workspace_search_items":
+			return summarizeWorkspaceSearch(input.output, input.toolInput);
 		case "web_search":
 			return summarizeWebSearch(input.output, input.toolInput);
 		case "web_fetch":
@@ -246,6 +250,8 @@ function summarizeFailedTool(
 			return failedCount > 0
 				? summary.failed(`Couldn’t read ${formatCount(failedCount, "item")}`)
 				: summary.failed("Couldn’t read workspace");
+		case "workspace_search_items":
+			return summary.failed("Couldn’t search workspace");
 		default:
 			return summary.failed(`${capitalize(formatToolNameFallback(toolName))} failed`);
 	}
@@ -291,6 +297,20 @@ function orchestrateFailureSummary(toolInput: unknown) {
 
 function lowercaseFirst(value: string) {
 	return value.length === 0 ? value : `${value.charAt(0).toLowerCase()}${value.slice(1)}`;
+}
+
+function getFirstSearchPattern(toolInput: Record<string, unknown>) {
+	const { patterns } = toolInput;
+	return typeof patterns === "string" ? patterns : getString(getArray(patterns)[0]);
+}
+
+function summarizeWorkspaceSearch(output: unknown, toolInput: unknown): AiChatToolSummary {
+	const hits = getArray(asRecord(output).hits).length;
+	const pattern = name(getFirstSearchPattern(asRecord(toolInput)));
+
+	return hits === 0
+		? summary.completed("No results for ", ...pattern)
+		: summary.completed(`Found ${formatCount(hits, "result")} for `, ...pattern);
 }
 
 function summarizeWorkspaceBatch(
