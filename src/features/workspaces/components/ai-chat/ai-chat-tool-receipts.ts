@@ -121,6 +121,8 @@ export function getRunningToolReceipt(input: {
 			}
 			return receipt.running(`Reading ${formatCount(paths.length, "item")}`);
 		}
+		case "workspace_search_items":
+			return receipt.running("Searching for ", ...name(getFirstSearchPattern(toolInput)));
 		case "workspace_rename_item": {
 			const oldName = getBaseName(getString(toolInput.path));
 			const newName = getString(toolInput.name);
@@ -188,6 +190,8 @@ export function getFinishedToolReceipt(input: {
 			return summarizeWorkspaceEdit(input.output, input.toolInput);
 		case "workspace_read_items":
 			return summarizeWorkspaceRead(input.output);
+		case "workspace_search_items":
+			return summarizeWorkspaceSearch(input.output, input.toolInput);
 		case "web_search":
 			return summarizeWebSearch(input.output, input.toolInput);
 		case "web_fetch":
@@ -237,9 +241,25 @@ function summarizeFailedTool(
 			return failedCount > 0
 				? receipt.failed(`Couldn’t read ${formatCount(failedCount, "item")}`)
 				: receipt.failed("Couldn’t read workspace");
+		case "workspace_search_items":
+			return receipt.failed("Couldn’t search workspace");
 		default:
 			return receipt.failed(`${capitalize(formatToolNameFallback(toolName))} failed`);
 	}
+}
+
+function getFirstSearchPattern(toolInput: Record<string, unknown>) {
+	const { patterns } = toolInput;
+	return typeof patterns === "string" ? patterns : getString(getArray(patterns)[0]);
+}
+
+function summarizeWorkspaceSearch(output: unknown, toolInput: unknown): AiChatToolReceipt {
+	const hits = getArray(asRecord(output).hits).length;
+	const pattern = name(getFirstSearchPattern(asRecord(toolInput)));
+
+	return hits === 0
+		? receipt.completed("No results for ", ...pattern)
+		: receipt.completed(`Found ${formatCount(hits, "result")} for `, ...pattern);
 }
 
 function summarizeWorkspaceBatch(

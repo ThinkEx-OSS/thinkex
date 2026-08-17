@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+import { sql, type SQL } from "drizzle-orm";
 import {
 	bigint,
 	boolean,
@@ -21,7 +21,20 @@ const bytea = customType<{ data: Uint8Array; driverData: Buffer }>({
 		return "bytea";
 	},
 });
+
+// Postgres' parsed form of a text column: root words plus positions. Always
+// generated from a plain-text column with an explicit config, because the
+// one-argument to_tsvector is only stable, not immutable.
+const tsvector = customType<{ data: string; driverData: string }>({
+	dataType() {
+		return "tsvector";
+	},
+});
+
 import { WORKSPACE_ITEM_TYPES } from "#/features/workspaces/workspace-item-registry";
+
+/** Text search config for every indexed column and every query built against them. */
+export const WORKSPACE_SEARCH_CONFIG = "english";
 
 const WORKSPACE_ROLES = ["owner", "admin", "editor", "viewer"] as const;
 const WORKSPACE_INVITE_TYPES = ["email", "link"] as const;
@@ -308,12 +321,24 @@ export const workspaceItems = pgTable(
 	],
 );
 
-export const workspaceItemContents = pgTable("workspace_item_contents", {
-	itemId: text("item_id")
-		.primaryKey()
-		.references(() => workspaceItems.id, { onDelete: "cascade" }),
-	content: text("content").notNull(),
-});
+// `content` is the item's own storage format — Tiptap JSON for documents, a
+// JSON set for flashcards and quizzes. `searchText` is the prose projection of
+// it, written by every content writer so search never has to match JSON keys.
+export const workspaceItemContents = pgTable(
+	"workspace_item_contents",
+	{
+		itemId: text("item_id")
+			.primaryKey()
+			.references(() => workspaceItems.id, { onDelete: "cascade" }),
+		content: text("content").notNull(),
+		searchText: text("search_text").default("").notNull(),
+		searchVector: tsvector("search_vector").generatedAlwaysAs(
+			(): SQL =>
+				sql`to_tsvector('${sql.raw(WORKSPACE_SEARCH_CONFIG)}', ${workspaceItemContents.searchText})`,
+		),
+	},
+	(table) => [index("workspace_item_contents_search_idx").using("gin", table.searchVector)],
+);
 
 export const workspaceItemUserStates = pgTable(
 	"workspace_item_user_states",
@@ -428,11 +453,18 @@ export const workspaceItemPages = pgTable(
 		pageNumber: integer("page_number").notNull(),
 		markdown: text("markdown").notNull(),
 		markdownBytes: integer("markdown_bytes").notNull(),
+		// Extraction is the only writer, so the generated column keeps the index
+		// correct for free when the enhanced tier rewrites a page.
+		searchVector: tsvector("search_vector").generatedAlwaysAs(
+			(): SQL =>
+				sql`to_tsvector('${sql.raw(WORKSPACE_SEARCH_CONFIG)}', ${workspaceItemPages.markdown})`,
+		),
 	},
 	(table) => [
 		primaryKey({ columns: [table.itemId, table.pageNumber] }),
 		check("workspace_item_pages_number_check", sql`${table.pageNumber} > 0`),
 		check("workspace_item_pages_bytes_check", sql`${table.markdownBytes} >= 0`),
+		index("workspace_item_pages_search_idx").using("gin", table.searchVector),
 	],
 );
 

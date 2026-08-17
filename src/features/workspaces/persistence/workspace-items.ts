@@ -43,6 +43,7 @@ import {
 	notifyWorkspaceRoom,
 	requestWorkspaceItemCleanup,
 } from "#/features/workspaces/realtime/workspace-room-notifier";
+import { workspaceItemContentValues } from "#/features/workspaces/search/workspace-search-text";
 import { assertCanReadWorkspace } from "#/features/workspaces/server/permissions";
 import {
 	assertWorkspaceParentIsValid,
@@ -250,7 +251,7 @@ export async function createWorkspaceItem(
 			}
 			await transaction.insert(workspaceItemContents).values({
 				itemId: input.id,
-				content: bootstrap.initialContent,
+				...workspaceItemContentValues(type, bootstrap.initialContent),
 			});
 		}
 

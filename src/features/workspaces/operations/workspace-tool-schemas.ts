@@ -545,3 +545,69 @@ export const workspaceLinkItemsOutputSchema = createWorkspaceItemsResultSchema({
 	itemSchema: workspacePathItemSchema,
 	failureSchema: createFailureSchema(linkWorkspaceItemsFailureCodes),
 });
+
+const WORKSPACE_SEARCH_MAX_PATTERNS = 5;
+
+/**
+ * Models send a bare string about as often as an array. Both are accepted and
+ * normalized here rather than by a zod transform, because MCP renders these
+ * schemas as JSON Schema and a transform cannot be expressed in one. Refusing
+ * the string would cost the model a turn and teach it nothing.
+ */
+export function normalizeWorkspaceSearchPatterns(patterns: string | string[]) {
+	return (Array.isArray(patterns) ? patterns : [patterns])
+		.map((pattern) => pattern.trim())
+		.filter((pattern) => pattern.length > 0)
+		.slice(0, WORKSPACE_SEARCH_MAX_PATTERNS);
+}
+
+export const workspaceSearchItemsInputSchema = z.object({
+	patterns: z
+		.union([z.string().min(1), z.array(z.string().min(1)).min(1)])
+		.describe(
+			"Words to search for. Give two or three phrasings of one idea in a single call — the everyday wording and the technical term — and they are searched together.",
+		),
+	path: z
+		.string()
+		.min(1)
+		.optional()
+		.describe("Absolute path of a folder to search within. Defaults to the whole workspace."),
+});
+
+const workspaceSearchHitSchema = z.object({
+	ref: z
+		.string()
+		.min(1)
+		.describe("Durable address of this hit, like aB3xK9pQ, or aB3xK9pQ/p12 for a file page."),
+	path: workspacePathSchema,
+	type: workspaceItemTypeSchema,
+	page: z.number().int().positive().optional().describe("Page number, for file hits."),
+	match: z
+		.enum(["name", "content"])
+		.describe("Whether the query matched the item's name or its content."),
+	snippet: z.string().optional().describe("The matching text, with matches wrapped in **."),
+});
+
+export const workspaceSearchItemsOutputSchema = z.object({
+	matches: z
+		.number()
+		.int()
+		.nonnegative()
+		.describe("Total content matches found. More than hits.length means the query was broad."),
+	hits: z
+		.array(workspaceSearchHitSchema)
+		.describe("Name matches first, then content matches by relevance."),
+	unsearchable: z
+		.array(
+			z.object({
+				path: workspacePathSchema,
+				reason: z.enum(["extracting", "extraction_failed"]),
+			}),
+		)
+		.optional()
+		.describe("Files whose text is not indexed yet, so a miss here is not an absence."),
+});
+
+export const workspaceSearchItemsInputExamples = createInputExamples<
+	z.input<typeof workspaceSearchItemsInputSchema>
+>({ patterns: ["mitosis", "cell division"] }, { patterns: "late work", path: "/Demo Folder" });

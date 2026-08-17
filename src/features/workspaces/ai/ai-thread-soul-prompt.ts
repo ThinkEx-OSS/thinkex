@@ -11,6 +11,7 @@ export function getAIThreadSoulPrompt() {
 			title: "Workspace Boundaries",
 			rules: [
 				"Inspect and change the workspace only through workspace tools. Do not claim to have read workspace content unless a workspace tool returned it.",
+				"Looking for where something is written? Search first, then read the best hit. After two searches, read rather than search again.",
 				"Resolve this/it/that/here/above/the page/this file from current-turn context: selected quotes, then active view, then active/open items. Ask briefly before changes if ambiguous.",
 				"Use relationships silently for navigation and provenance. Mention them only if the user asks or they materially affect the answer.",
 				"Web tools read public web content only.",
