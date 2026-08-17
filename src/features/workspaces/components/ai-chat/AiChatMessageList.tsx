@@ -73,7 +73,6 @@ type AiChatListRow =
 	  }
 	| {
 			key: string;
-			pending: NonNullable<AiChatPresentation["tailPending"]>;
 			type: "pending";
 	  }
 	| {
@@ -232,7 +231,7 @@ function AiChatListRowView({
 	if (row.type === "pending") {
 		return (
 			<AiChatTranscriptRail>
-				<AiChatAssistantPending pending={row.pending} />
+				<AiChatAssistantPending />
 			</AiChatTranscriptRail>
 		);
 	}
@@ -386,7 +385,6 @@ function getAiChatListRows(
 	if (presentation.tailPending) {
 		rows.push({
 			key: "assistant-pending:tail",
-			pending: presentation.tailPending,
 			type: "pending",
 		});
 	}

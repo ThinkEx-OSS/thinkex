@@ -16,8 +16,6 @@ import {
 	type AiChatToolReceiptSegment,
 } from "#/features/workspaces/components/ai-chat/ai-chat-tool-receipts";
 
-export type AssistantPendingKind = "thinking" | "recovering";
-
 export type AssistantRowDisplay =
 	| {
 			interruptUnfinishedTools: boolean;
@@ -38,59 +36,39 @@ export interface AiChatToolActivity {
 
 export interface AiChatPresentation {
 	isBusy: boolean;
-	isRecovering: boolean;
-	isToolContinuation: boolean;
 	lastAssistantMessageId: string | undefined;
 	status: AiChatStatus;
-	tailPending: AssistantPendingKind | null;
+	/** Show the "thinking" status row until visible reply content exists. */
+	tailPending: boolean;
 }
 
 export function isAiChatStreamActive(status: AiChatStatus) {
 	return status === "submitted" || status === "streaming";
 }
 
+// Derived purely from useChat's status and the messages — the DO-era inputs
+// (socket recovery, server-vs-client streaming, tool continuation) retired
+// with the websocket transport.
 export function deriveAiChatPresentation(
 	messages: AiChatMessage[],
 	status: AiChatStatus,
-	{
-		isRecovering,
-		isServerStreaming,
-		isStreaming,
-		isToolContinuation,
-	}: {
-		isRecovering: boolean;
-		isServerStreaming: boolean;
-		isStreaming: boolean;
-		isToolContinuation: boolean;
-	},
 ): AiChatPresentation {
 	const lastMessage = messages.at(-1);
 	const lastAssistantMessageId = lastMessage?.role === "assistant" ? lastMessage.id : undefined;
-	const awaitingFirstToken = status === "submitted" && !isToolContinuation;
-	const isBusy = isRecovering || isStreaming || isServerStreaming || status === "submitted";
-	const hasAssistantTail = lastMessage?.role === "assistant";
-	const assistantTailIsEmpty =
-		lastMessage?.role === "assistant" && getDisplayableParts(lastMessage).length === 0;
-	const hasVisibleAssistantTail = hasAssistantTail && !assistantTailIsEmpty;
-	// Once the reply is actually rendering, the status row goes away — the text
-	// arriving is its own progress indicator. Keeping a row up for the length of
-	// the reply also means removing it at the end, and that shrink shifts the
-	// transcript no matter how promptly the tail spacer compensates.
-	const tailPending = hasVisibleAssistantTail
-		? null
-		: isRecovering
-			? "recovering"
-			: isBusy || awaitingFirstToken
-				? "thinking"
-				: null;
+	const isBusy = isAiChatStreamActive(status);
+	const hasVisibleAssistantTail =
+		lastMessage?.role === "assistant" && getDisplayableParts(lastMessage).length > 0;
 
 	return {
 		isBusy,
-		isRecovering,
-		isToolContinuation,
 		lastAssistantMessageId,
 		status,
-		tailPending,
+		// Once the reply is actually rendering, the status row goes away — the
+		// text arriving is its own progress indicator. Keeping a row up for the
+		// length of the reply also means removing it at the end, and that shrink
+		// shifts the transcript no matter how promptly the tail spacer
+		// compensates.
+		tailPending: isBusy && !hasVisibleAssistantTail,
 	};
 }
 

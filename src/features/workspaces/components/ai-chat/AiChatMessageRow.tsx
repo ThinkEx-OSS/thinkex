@@ -212,6 +212,10 @@ function AssistantMessageBody({
 	onRegenerate?: () => void;
 }) {
 	if (display.kind === "content") {
+		// Persisted turn outcome (see listThreadMessages): a reloaded partial
+		// explains its mid-sentence cutoff instead of posing as a finished answer.
+		const turnStatus = (message.metadata as { turnStatus?: string } | undefined)?.turnStatus;
+
 		return (
 			<div data-slot="assistant-parts" className="flex flex-col gap-3">
 				{display.parts.map((part, index) => (
@@ -222,6 +226,9 @@ function AssistantMessageBody({
 						part={part}
 					/>
 				))}
+				{turnStatus === "interrupted" && !isStreaming ? (
+					<div className="text-muted-foreground/70 text-xs">You stopped this response.</div>
+				) : null}
 			</div>
 		);
 	}

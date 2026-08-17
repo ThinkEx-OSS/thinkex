@@ -1,7 +1,7 @@
 import { useChat } from "@ai-sdk/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DefaultChatTransport, generateId } from "ai";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import { getAiChatThreadUrl } from "#/features/workspaces/agent-routes";
 import {
@@ -22,6 +22,10 @@ interface UseWorkspaceAiChatOptions {
 	modelId: AiChatModelId;
 	threadId: string;
 	workspaceId: string;
+	// Captured fresh for EVERY outgoing request (send, queued drain, and
+	// regenerate alike) so no call site can forget to attach it — omitting the
+	// workspace context silently degrades replies, which already bit once.
+	getWorkspaceAiContext?: () => unknown;
 }
 
 // The workspace chat hook, backed by Postgres through the AI SDK's useChat.
@@ -30,12 +34,18 @@ interface UseWorkspaceAiChatOptions {
 // transcript (loaded from Postgres per turn), so there is no client/server
 // reconciliation. modelId, timeZone, and workspace context ride in the
 // request body — a plain HTTP endpoint we own.
-export function useWorkspaceAiChat({ modelId, threadId, workspaceId }: UseWorkspaceAiChatOptions) {
+export function useWorkspaceAiChat({
+	modelId,
+	threadId,
+	workspaceId,
+	getWorkspaceAiContext,
+}: UseWorkspaceAiChatOptions) {
 	// The transport is static per thread. The *current* model and workspace
 	// ride each send's request body instead of living in the transport — the
 	// send/regenerate closures re-form every render, so they always carry the
 	// latest props without refs or effect events.
 	const transport = createAiChatTransport(threadId);
+	const queryClient = useQueryClient();
 
 	const chat = useChat<AiChatMessage>({
 		id: threadId,
@@ -44,6 +54,14 @@ export function useWorkspaceAiChat({ modelId, threadId, workspaceId }: UseWorksp
 		// Batch streaming renders; token-frequency updates otherwise re-render the
 		// whole transcript per chunk (the Think client throttled at 100ms too).
 		experimental_throttle: 100,
+		// The generated title arrives through the stream (a data part written
+		// mid-generation) instead of being polled for — refetch the sidebar the
+		// moment it exists.
+		onData: (part) => {
+			if (part.type === "data-thread-title") {
+				void queryClient.invalidateQueries({ queryKey: aiChatThreadsQueryKey(workspaceId) });
+			}
+		},
 	});
 	const {
 		error,
@@ -58,7 +76,6 @@ export function useWorkspaceAiChat({ modelId, threadId, workspaceId }: UseWorksp
 	// Transcript seed via react-query: an instant paint from cache on remount,
 	// with a background refetch. The server is the source of truth; an empty
 	// result is a valid (new/draft) thread.
-	const queryClient = useQueryClient();
 	const transcriptQuery = useQuery(aiChatThreadMessagesQueryOptions(threadId));
 	// A failed transcript load must NOT present as an empty, sendable thread —
 	// sending into unseen history would fork the conversation. It surfaces as a
@@ -91,38 +108,26 @@ export function useWorkspaceAiChat({ modelId, threadId, workspaceId }: UseWorksp
 
 	// Write settled transcripts back to the query cache so a remount paints the
 	// latest state instantly (the successor of the old client-side LRU cache).
-	// Early in a thread, also refetch the sidebar shortly after settling: the
-	// generated title lands via waitUntil after the stream closes, and the
-	// send-time invalidation always loses that race.
 	useEffect(() => {
 		if (status !== "ready" || messages.length === 0) {
 			return;
 		}
 
 		queryClient.setQueryData(aiChatThreadMessagesQueryKey(threadId), messages);
+	}, [messages, queryClient, status, threadId]);
 
-		if (messages.length <= 3) {
-			const timer = setTimeout(() => {
-				void queryClient.invalidateQueries({ queryKey: aiChatThreadsQueryKey(workspaceId) });
-			}, 2500);
-
-			return () => clearTimeout(timer);
-		}
-	}, [messages, queryClient, status, threadId, workspaceId]);
-
-	const presentation = deriveAiChatPresentation(messages, status, {
-		isRecovering: false,
-		isServerStreaming: status === "streaming",
-		isStreaming: status === "streaming",
-		isToolContinuation: false,
-	});
+	// True from the stop click until the server confirms the stopped turn
+	// settled (its interrupted partial persisted, claim cleared). Gating sends
+	// on it means a stop-then-send-now never races the dying turn.
+	const [isStopping, setIsStopping] = useState(false);
+	const presentation = deriveAiChatPresentation(messages, status);
 	const connectionError = transcriptLoadError ?? (!historyReady && error ? error : undefined);
 	const inputStatus: AiChatStatus = connectionError
 		? "error"
 		: status === "error"
 			? "ready"
 			: status;
-	const canSend = historyReady && inputStatus === "ready" && !presentation.isBusy;
+	const canSend = historyReady && inputStatus === "ready" && !presentation.isBusy && !isStopping;
 
 	const sendMessage = (message: AiChatSendMessage, options?: AiChatSendMessageOptions) => {
 		if (message.parts.length === 0 || !canSend) {
@@ -130,19 +135,13 @@ export function useWorkspaceAiChat({ modelId, threadId, workspaceId }: UseWorksp
 		}
 
 		const isFirstMessage = messages.length === 0;
-		const invalidateThreads = () =>
-			void queryClient.invalidateQueries({ queryKey: aiChatThreadsQueryKey(workspaceId) });
-
-		if (isFirstMessage) {
-			// The thread row materializes early in the turn (right after the user
-			// message persists), not at stream end — refetch the sidebar promptly so
-			// the thread appears and "new chat" works while the reply still streams.
-			setTimeout(invalidateThreads, 1000);
-		}
 
 		void sendChatMessage(message, withRequestContext(options)).then(() => {
+			// A draft thread's row materializes on its first message. The generated
+			// title arrives mid-stream via onData; this covers the row itself for
+			// turns too short for the title to land in time.
 			if (isFirstMessage) {
-				invalidateThreads();
+				void queryClient.invalidateQueries({ queryKey: aiChatThreadsQueryKey(workspaceId) });
 			}
 		});
 	};
@@ -151,32 +150,45 @@ export function useWorkspaceAiChat({ modelId, threadId, workspaceId }: UseWorksp
 			return;
 		}
 
+		const last = messages.at(-1);
+
+		if (last?.role === "user") {
+			// The failed turn never produced a reply row (409/429/network before
+			// persistence): a regenerate trigger would ignore this message — or
+			// worse, delete a newer reply. Re-SEND the tail instead; the server
+			// treats a resent id as truncate-and-rerun. Pop first so the SDK's
+			// push doesn't duplicate it locally.
+			setMessages((current) => current.slice(0, -1));
+			void sendChatMessage(last, withRequestContext(options));
+			return;
+		}
+
 		void regenerateChatMessage(withRequestContext(options));
 	};
 	const withRequestContext = (options?: AiChatSendMessageOptions): AiChatSendMessageOptions => ({
 		...options,
-		body: { modelId, workspaceId, ...options?.body },
+		body: {
+			modelId,
+			workspaceId,
+			workspaceAiContext: getWorkspaceAiContext?.(),
+			...options?.body,
+		},
 	});
 
 	// Stop is explicit and server-side: closing the SSE branch alone never
-	// aborts generation (Workers don't fire request.signal), so tell the server
-	// to clear the stream claim — the generator notices and aborts, persisting
-	// the partial as "interrupted".
+	// aborts generation (Workers don't fire request.signal). The stop endpoint
+	// tombstones the claim and responds only after the stopped turn settles.
 	const stopTurn = () => {
-		void fetch(`${getAiChatThreadUrl(threadId)}/stop`, { method: "POST" }).catch(() => {});
+		setIsStopping(true);
+		void fetch(`${getAiChatThreadUrl(threadId)}/stop`, { method: "POST" })
+			.catch(() => {})
+			.finally(() => setIsStopping(false));
 		void stop();
-	};
-
-	// Remove an optimistic message that never reached the server (the queue
-	// restores its entry instead, so a failed drain stays retryable).
-	const discardMessage = (messageId: string) => {
-		setMessages((current) => current.filter((message) => message.id !== messageId));
 	};
 
 	return {
 		canSend,
 		connectionError,
-		discardMessage,
 		inputStatus,
 		messages,
 		presentation,

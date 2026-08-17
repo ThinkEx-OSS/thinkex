@@ -1,5 +1,5 @@
 import { generateId } from "ai";
-import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useState } from "react";
 
 import type { PromptInputMessage } from "#/features/workspaces/components/ai-chat/ai-chat-prompt-input";
 import AiChatMessageList from "#/features/workspaces/components/ai-chat/AiChatMessageList";
@@ -36,13 +36,17 @@ export default function AiChatThreadView({
 	onStartNewChat?: () => void;
 	threadId: string;
 }) {
-	const chat = useWorkspaceAiChat({ modelId, threadId, workspaceId: context.workspaceId });
+	const chat = useWorkspaceAiChat({
+		modelId,
+		threadId,
+		workspaceId: context.workspaceId,
+		getWorkspaceAiContext: () => buildWorkspaceAiContextSnapshot(context),
+	});
 	const [sentMessageAnimationId, setSentMessageAnimationId] = useState<string | null>(null);
 	const [scrollAnchorMessageId, setScrollAnchorMessageId] = useState<string | null>(null);
 	const {
 		canSend,
 		connectionError,
-		discardMessage,
 		inputStatus,
 		messages,
 		presentation,
@@ -79,18 +83,15 @@ export default function AiChatThreadView({
 		}
 
 		setScrollAnchorMessageId(chatMessage.id);
-		sendChatMessage(chatMessage, {
-			body: {
-				workspaceAiContext: buildWorkspaceAiContextSnapshot(context),
-			},
-		});
+		sendChatMessage(chatMessage);
 		setSentMessageAnimationId(chatMessage.id);
 		if (clearDraft) clearDraftArtifacts(context.workspaceId, threadId);
 	};
-	// The drained entry currently in flight. The AI SDK reports send failure
-	// through chat status, never the promise — so restoration on failure keys
-	// off the status transition below, not a try/catch around the send.
-	const inFlightQueueEntryRef = useRef<WorkspaceAiQueuedMessage | null>(null);
+	// A drained entry fails exactly like a manual send: the message stays in
+	// the transcript with the error banner and "Try again" re-runs it (the
+	// server treats a resend of the same id as regenerate-from-that-message).
+	// The drain gate below already holds the rest of the queue on error — no
+	// separate queued-failure machinery.
 	const sendQueuedEntry = useEffectEvent((entry: WorkspaceAiQueuedMessage) => {
 		const chatMessage = getChatMessageFromPrompt(
 			{ files: entry.files, text: entry.text },
@@ -101,44 +102,21 @@ export default function AiChatThreadView({
 			return;
 		}
 		try {
-			inFlightQueueEntryRef.current = entry;
-			sendChatMessage(chatMessage, {
-				body: {
-					workspaceAiContext: entry.contextSnapshot ?? buildWorkspaceAiContextSnapshot(context),
-				},
-			});
+			// A queued entry answers against the context captured when it was
+			// written; entries without one (action prompts) get the live snapshot
+			// via the hook's default.
+			sendChatMessage(
+				chatMessage,
+				entry.contextSnapshot ? { body: { workspaceAiContext: entry.contextSnapshot } } : undefined,
+			);
 		} catch {
-			inFlightQueueEntryRef.current = null;
+			// Synchronous refusal: the request never started, so restore.
 			restoreQueueHead(threadId, entry);
 			return;
 		}
 		setScrollAnchorMessageId(entry.promoted ? chatMessage.id : null);
 		setSentMessageAnimationId(chatMessage.id);
 	});
-	useEffect(() => {
-		const entry = inFlightQueueEntryRef.current;
-		if (!entry) {
-			return;
-		}
-		if (presentation.status === "error") {
-			// The send failed (409/429/network): put the entry back — paused, so it
-			// doesn't loop — and drop the optimistic bubble. Retrying is idempotent
-			// server-side (the entry id is the message id; the upsert dedupes).
-			inFlightQueueEntryRef.current = null;
-			discardMessage(entry.id);
-			restoreQueueHead(threadId, entry);
-			pauseQueue(threadId);
-		} else if (presentation.status === "ready" && !presentation.isBusy) {
-			inFlightQueueEntryRef.current = null;
-		}
-	}, [
-		discardMessage,
-		pauseQueue,
-		presentation.isBusy,
-		presentation.status,
-		restoreQueueHead,
-		threadId,
-	]);
 	// An entry that queued while the model allowance was exhausted must not
 	// auto-fire whenever the allowance later refreshes — pausing shifts the
 	// decision back to the user (the tray's resume). This is the one drain
@@ -165,12 +143,21 @@ export default function AiChatThreadView({
 
 		// Take and send in the same microtask: the id guard makes duplicate effect
 		// schedules harmless, while no render can drain the next head in between.
+		// The cancelled flag keeps an unmounting view (tab switch) from firing a
+		// turn for a thread the user just left.
+		let cancelled = false;
 		queueMicrotask(() => {
+			if (cancelled) {
+				return;
+			}
 			const entry = takeQueueHead(threadId, queueHead.id);
 			if (entry) {
 				sendQueuedEntry(entry);
 			}
 		});
+		return () => {
+			cancelled = true;
+		};
 	}, [canSend, assistantError?.kind, isBlocked, queueHead, queuePaused, takeQueueHead, threadId]);
 	const stopGeneration = () => {
 		stop();
@@ -194,13 +181,7 @@ export default function AiChatThreadView({
 				presentation={presentation}
 				sentMessageAnimationId={sentMessageAnimationId}
 				workspaceId={context.workspaceId}
-				onRegenerateLastResponse={() =>
-					// Regenerated turns re-run against the *current* workspace context,
-					// same as a fresh send — omitting it silently degraded the reply.
-					regenerate({
-						body: { workspaceAiContext: buildWorkspaceAiContextSnapshot(context) },
-					})
-				}
+				onRegenerateLastResponse={() => regenerate()}
 				onStartNewChat={onStartNewChat}
 			/>
 
