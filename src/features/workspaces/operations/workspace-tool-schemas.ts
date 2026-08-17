@@ -576,7 +576,9 @@ export const workspaceSearchItemsOutputSchema = z.object({
 		.number()
 		.int()
 		.nonnegative()
-		.describe("Total content matches found. More than hits.length means the query was broad."),
+		.describe(
+			"Total content matches. When this exceeds the content hits listed, the query was broad.",
+		),
 	hits: z
 		.array(workspaceSearchHitSchema)
 		.describe("Name matches first, then content matches by relevance."),

@@ -27,6 +27,14 @@ const MAX_HITS_PER_ITEM = 3;
  * list.
  */
 const RELATIVE_RANK_FLOOR = 0.15;
+/**
+ * ts_rank_cd normalization: scale into 0..1 (32) and nothing else. Length
+ * normalization (1) is deliberately absent — it divides by document length,
+ * which on page-sized chunks ranks "Mitosis is mentioned here" above the page
+ * that actually explains mitosis, and the per-item cap then evicts the good
+ * page entirely.
+ */
+const RANK_NORMALIZATION = 32;
 
 interface WorkspaceContentHit {
 	itemId: string;
@@ -82,7 +90,7 @@ export async function searchWorkspaceContent(input: {
 					page.item_id as item_id,
 					page.page_number as page_number,
 					page.markdown as body,
-					ts_rank_cd(page.search_vector, query.q, 1 | 32) as rank
+					ts_rank_cd(page.search_vector, query.q, ${RANK_NORMALIZATION}) as rank
 				from ${workspaceItemPages} as page, query
 				where page.item_id in ${scope} and page.search_vector @@ query.q
 				union all
@@ -90,7 +98,7 @@ export async function searchWorkspaceContent(input: {
 					entry.item_id,
 					null::int,
 					entry.search_text,
-					ts_rank_cd(entry.search_vector, query.q, 1 | 32)
+					ts_rank_cd(entry.search_vector, query.q, ${RANK_NORMALIZATION})
 				from ${workspaceItemContents} as entry, query
 				where entry.item_id in ${scope} and entry.search_vector @@ query.q
 			),
@@ -110,7 +118,9 @@ export async function searchWorkspaceContent(input: {
 					(select q from query),
 					'MaxFragments=2, MinWords=6, MaxWords=18, StartSel=**, StopSel=**'
 				) as snippet,
-				(select count(*) from hits)::int as total_hits
+				-- Window functions run after WHERE and before LIMIT, so this counts
+				-- what survived the filters rather than what the query discarded.
+				count(*) over ()::int as total_hits
 			from ranked
 			where per_item <= ${MAX_HITS_PER_ITEM} and rank >= top_rank * ${RELATIVE_RANK_FLOOR}
 			order by rank desc, item_id, page_number

@@ -46,9 +46,8 @@ export function workspaceItemContentValues(type: WorkspaceItemType, content: str
 	return { content, searchText: buildWorkspaceItemSearchText(type, content) };
 }
 
+// extractTiptapPlainText already trims; an entry with an empty side still
+// yields "", so the filter stays.
 function joinSearchTextLines(lines: string[]) {
-	return lines
-		.map((line) => line.trim())
-		.filter((line) => line.length > 0)
-		.join("\n");
+	return lines.filter((line) => line.length > 0).join("\n");
 }

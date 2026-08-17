@@ -1,5 +1,6 @@
 import type { z } from "zod";
 
+import type { WorkspaceItem } from "#/features/workspaces/contracts";
 import type { WorkspaceAccessContext } from "#/features/workspaces/operations/workspace-access-context";
 import { authorizeWorkspaceOperation } from "#/features/workspaces/operations/workspace-operation-context";
 import type { workspaceSearchItemsOutputSchema } from "#/features/workspaces/operations/workspace-tool-schemas";
@@ -31,7 +32,7 @@ export async function searchWorkspaceItemsOperation(
 
 	const itemsById = new Map(result.items.map((item) => [item.id, item]));
 	const contentItemIds = new Set(result.contentHits.map((hit) => hit.itemId));
-	const nameHits = rankNameSearch(input.patterns.join(" "), result.items, (item) => [item.name])
+	const nameHits = rankNamesAcrossPatterns(input.patterns, result.items)
 		.filter((item) => !contentItemIds.has(item.id))
 		.slice(0, MAX_NAME_HITS)
 		.flatMap((item) => {
@@ -66,4 +67,27 @@ export async function searchWorkspaceItemsOperation(
 		matches: result.totalHits,
 		...(unsearchable.length > 0 ? { unsearchable } : {}),
 	};
+}
+
+/**
+ * Patterns are alternatives, but `rankNameSearch` treats spaces as AND-tokens
+ * (its own contract), so joining them would demand one name contain every word
+ * of every phrasing. Rank each separately and merge, keeping each item at its
+ * best position.
+ */
+function rankNamesAcrossPatterns(patterns: string[], items: readonly WorkspaceItem[]) {
+	const bestRankByItemId = new Map<string, { item: WorkspaceItem; rank: number }>();
+
+	for (const pattern of patterns) {
+		rankNameSearch(pattern, items, (item) => [item.name]).forEach((item, rank) => {
+			const current = bestRankByItemId.get(item.id);
+			if (!current || rank < current.rank) {
+				bestRankByItemId.set(item.id, { item, rank });
+			}
+		});
+	}
+
+	return Array.from(bestRankByItemId.values())
+		.sort((left, right) => left.rank - right.rank)
+		.map((entry) => entry.item);
 }
