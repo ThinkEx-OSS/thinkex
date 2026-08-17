@@ -15,10 +15,10 @@ import {
 	DeleteWorkspaceItemAlert,
 	RenameWorkspaceItemDialog,
 } from "#/features/workspaces/components/WorkspaceItemActionDialogs";
+import WorkspaceBreadcrumbOverflow from "#/features/workspaces/components/WorkspaceBreadcrumbOverflow";
 import WorkspaceItemActionsMenu from "#/features/workspaces/components/WorkspaceItemActionsMenu";
 import { WorkspaceItemToolbarSlot } from "#/features/workspaces/components/WorkspaceItemToolbarSlot";
 import { MoveWorkspaceItemsDialog } from "#/features/workspaces/components/WorkspaceMoveItemsDialog";
-import WorkspaceMobileBreadcrumbOverflow from "#/features/workspaces/components/WorkspaceMobileBreadcrumbOverflow";
 import WorkspaceRootActionsMenu from "#/features/workspaces/components/WorkspaceRootActionsMenu";
 import { WorkspaceSearchDialog } from "#/features/workspaces/components/WorkspaceSearchDialog";
 import { WorkspaceToolbarGroup } from "#/features/workspaces/components/WorkspaceToolbar";
@@ -35,6 +35,9 @@ const breadcrumbContentClassName = "flex min-w-0 items-center gap-1.5 truncate";
 const breadcrumbCurrentClassName = `${breadcrumbContentClassName} text-foreground`;
 const breadcrumbLinkClassName = `${breadcrumbContentClassName} rounded-sm border-0 bg-transparent p-0 font-[inherit] text-muted-foreground underline-offset-4 outline-none transition-colors hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring active:translate-y-0`;
 const currentCrumbLabelClassName = "[text-shadow:0.025em_0_0_currentColor]";
+// Past this depth the bar keeps the workspace crumb and the tail, and collapses the rest.
+const maxVisibleCrumbs = 3;
+const visibleTailCrumbs = 2;
 
 interface WorkspaceContextBarProps {
 	workspace: WorkspaceSummary;
@@ -60,7 +63,11 @@ export default function WorkspaceContextBar({
 	const { Icon: WorkspaceIcon, color } = getWorkspaceDisplay(workspace);
 	const [searchOpen, setSearchOpen] = useState(false);
 	const breadcrumbs = getWorkspaceBreadcrumbItems(activeItem, itemsById);
+	// Mobile only ever has room for the current crumb, so it collapses everything above it.
 	const mobileOverflowBreadcrumbs = breadcrumbs.slice(0, -1);
+	const collapsedCrumbCount =
+		breadcrumbs.length > maxVisibleCrumbs ? breadcrumbs.length - visibleTailCrumbs : 0;
+	const overflowBreadcrumbs = breadcrumbs.slice(0, collapsedCrumbCount);
 	const createParentId = getWorkspaceBrowseParentId(activeItem);
 	const workspaceItems = Array.from(itemsById.values());
 	const {
@@ -119,8 +126,14 @@ export default function WorkspaceContextBar({
 								/>
 							)}
 						</BreadcrumbItem>
-						<WorkspaceMobileBreadcrumbOverflow
+						<WorkspaceBreadcrumbOverflow
+							className="sm:hidden"
 							items={mobileOverflowBreadcrumbs}
+							onNavigateToItem={onNavigateToItem}
+						/>
+						<WorkspaceBreadcrumbOverflow
+							className="hidden sm:flex"
+							items={overflowBreadcrumbs}
 							onNavigateToItem={onNavigateToItem}
 						/>
 						{breadcrumbs.map((item, index) => (
@@ -128,6 +141,7 @@ export default function WorkspaceContextBar({
 								key={item.id}
 								item={item}
 								isCurrent={item.id === activeItem?.id}
+								isCollapsed={index < collapsedCrumbCount}
 								isMobileHidden={index < breadcrumbs.length - 1}
 								onClick={() => onNavigateToItem(item)}
 								onRenameItem={setRenamingItem}
@@ -190,6 +204,7 @@ export default function WorkspaceContextBar({
 
 function WorkspaceBreadcrumbItem({
 	item,
+	isCollapsed,
 	isCurrent,
 	isMobileHidden,
 	onClick,
@@ -198,6 +213,7 @@ function WorkspaceBreadcrumbItem({
 	onDeleteItem,
 }: {
 	item: WorkspaceItem;
+	isCollapsed: boolean;
 	isCurrent: boolean;
 	isMobileHidden: boolean;
 	onClick: () => void;
@@ -206,12 +222,12 @@ function WorkspaceBreadcrumbItem({
 	onDeleteItem: (item: WorkspaceItem) => void;
 }) {
 	const { Icon, iconClassName } = getWorkspaceItemDisplay(item);
-	const mobileHiddenClassName = isMobileHidden ? "hidden sm:flex" : undefined;
+	const visibilityClassName = getCrumbVisibilityClassName(isCollapsed, isMobileHidden);
 
 	return (
 		<>
-			<BreadcrumbSeparator className={cn("text-muted-foreground/60", mobileHiddenClassName)} />
-			<BreadcrumbItem className={cn("min-w-0", isCurrent && "flex-shrink", mobileHiddenClassName)}>
+			<BreadcrumbSeparator className={cn("text-muted-foreground/60", visibilityClassName)} />
+			<BreadcrumbItem className={cn("min-w-0", isCurrent && "flex-shrink", visibilityClassName)}>
 				{isCurrent ? (
 					<WorkspaceItemActionsMenu
 						item={item}
@@ -248,6 +264,15 @@ function WorkspaceBreadcrumbItem({
 			</BreadcrumbItem>
 		</>
 	);
+}
+
+/** Collapsed crumbs move into the "…" menu; the rest still make room for the current crumb on mobile. */
+function getCrumbVisibilityClassName(isCollapsed: boolean, isMobileHidden: boolean) {
+	if (isCollapsed) {
+		return "hidden";
+	}
+
+	return isMobileHidden ? "hidden sm:flex" : undefined;
 }
 
 function CrumbButton({

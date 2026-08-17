@@ -9,38 +9,52 @@ import {
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from "#/components/ui/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipTrigger } from "#/components/ui/tooltip";
 import { getWorkspaceItemDisplay } from "#/features/workspaces/model/item-display";
 import type { WorkspaceItem } from "#/features/workspaces/contracts";
+import { cn } from "#/lib/utils";
 
-interface WorkspaceMobileBreadcrumbOverflowProps {
+const showPathLabel = "Show path";
+
+interface WorkspaceBreadcrumbOverflowProps {
 	items: WorkspaceItem[];
+	className?: string;
 	onNavigateToItem: (item: WorkspaceItem) => void;
 }
 
-export default function WorkspaceMobileBreadcrumbOverflow({
+/** Crumbs hidden from the bar, reachable through a bare "…" menu. */
+export default function WorkspaceBreadcrumbOverflow({
 	items,
+	className,
 	onNavigateToItem,
-}: WorkspaceMobileBreadcrumbOverflowProps) {
+}: WorkspaceBreadcrumbOverflowProps) {
 	if (items.length === 0) {
 		return null;
 	}
 
 	return (
 		<>
-			<BreadcrumbSeparator className="text-muted-foreground/60 sm:hidden" />
-			<BreadcrumbItem className="sm:hidden">
+			<BreadcrumbSeparator className={cn("text-muted-foreground/60", className)} />
+			<BreadcrumbItem className={className}>
 				<DropdownMenu>
-					<DropdownMenuTrigger
-						render={
-							<button
-								type="button"
-								className="flex size-7 items-center justify-center rounded-sm text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-								aria-label="Open breadcrumb path"
-							/>
-						}
-					>
-						<BreadcrumbEllipsis className="size-7" />
-					</DropdownMenuTrigger>
+					<Tooltip>
+						<TooltipTrigger
+							render={
+								<DropdownMenuTrigger
+									render={
+										<button
+											type="button"
+											className="flex size-7 items-center justify-center rounded-sm text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+											aria-label={showPathLabel}
+										/>
+									}
+								>
+									<BreadcrumbEllipsis className="size-7" />
+								</DropdownMenuTrigger>
+							}
+						/>
+						<TooltipContent>{showPathLabel}</TooltipContent>
+					</Tooltip>
 					<DropdownMenuContent align="start" className="w-56">
 						{items.map((item) => {
 							const { Icon, iconClassName, label } = getWorkspaceItemDisplay(item);
