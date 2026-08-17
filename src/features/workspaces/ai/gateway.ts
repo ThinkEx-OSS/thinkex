@@ -24,7 +24,7 @@ import {
 // has no framework dependencies; the comments carry over because the tuning
 // rationale is unchanged.
 
-const AI_THREAD_TITLE_GATEWAY_MODEL = "google/gemini-2.5-flash-lite";
+export const AI_THREAD_TITLE_GATEWAY_MODEL = "google/gemini-2.5-flash-lite";
 
 type WorkspaceAiProviderOptions = NonNullable<
 	Parameters<typeof generateText>[0]["providerOptions"]
@@ -182,7 +182,12 @@ export async function generateAIThreadTitle(input: { env: Cloudflare.Env; messag
 		}),
 	});
 
-	return result.output?.title;
+	return {
+		title: result.output?.title,
+		usage: result.totalUsage,
+		providerMetadata: await Promise.resolve(result.providerMetadata).catch(() => undefined),
+		gatewayModel: AI_THREAD_TITLE_GATEWAY_MODEL,
+	};
 }
 
 const AI_THREAD_TITLE_OUTPUT_SCHEMA = z.object({

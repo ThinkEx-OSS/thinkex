@@ -78,3 +78,44 @@ export function settledParts(parts: UIMessage["parts"]): UIMessage["parts"] {
 
 	return settled;
 }
+
+// PostHog rejects events past ~1MB, and a near-compaction transcript (or the
+// compaction prompt, which embeds one) can exceed that. Keep the newest
+// messages whole, drop the oldest with a marker, and slice a lone entry that
+// is itself over budget (the compaction prompt case). Lives here, not in
+// chat-telemetry, so tests import it without the posthog/cloudflare chain.
+const TELEMETRY_CONTENT_CHAR_BUDGET = 400_000;
+
+export function fitTelemetryContent(entries: unknown[]): unknown[] {
+	const sizes = entries.map((entry) => JSON.stringify(entry)?.length ?? 0);
+	let total = sizes.reduce((sum, size) => sum + size, 0);
+	let omitted = 0;
+
+	while (entries.length - omitted > 1 && total > TELEMETRY_CONTENT_CHAR_BUDGET) {
+		total -= sizes[omitted] ?? 0;
+		omitted += 1;
+	}
+
+	let kept = entries.slice(omitted);
+	const only = kept[0] as { role?: unknown; content?: unknown } | undefined;
+
+	if (
+		total > TELEMETRY_CONTENT_CHAR_BUDGET &&
+		kept.length === 1 &&
+		typeof only?.content === "string"
+	) {
+		kept = [
+			{ ...only, content: `${only.content.slice(0, TELEMETRY_CONTENT_CHAR_BUDGET)}…(truncated)` },
+		];
+	}
+
+	return omitted > 0
+		? [
+				{
+					role: "system",
+					content: `(${omitted} earlier ${omitted === 1 ? "message" : "messages"} omitted from telemetry)`,
+				},
+				...kept,
+			]
+		: kept;
+}

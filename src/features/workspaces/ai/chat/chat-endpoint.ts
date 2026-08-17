@@ -15,6 +15,7 @@ import { normalizeGeneratedThreadTitle } from "#/features/workspaces/ai/chat/cha
 import { requireThreadAccess } from "#/features/workspaces/ai/chat/chat-access";
 import { getAIThreadSoulPrompt } from "#/features/workspaces/ai/ai-thread-soul-prompt";
 import {
+	AI_THREAD_TITLE_GATEWAY_MODEL,
 	generateAIThreadTitle,
 	getWorkspaceAiGatewayProviderOptions,
 	getWorkspaceAiLanguageModel,
@@ -39,6 +40,10 @@ import {
 	saveMessage,
 	setThreadTitle,
 } from "#/features/workspaces/ai/chat/chat-store";
+import {
+	captureAiChatGeneration,
+	toolNamesFromParts,
+} from "#/features/workspaces/ai/chat/chat-telemetry";
 import { claimTurn } from "#/features/workspaces/ai/chat/chat-turn-lifecycle";
 import { createAiChatTools } from "#/features/workspaces/ai/chat/chat-tools";
 import { formatWorkspaceAiContextForPrompt } from "#/features/workspaces/model/workspace-ai-context-prompt";
@@ -86,8 +91,10 @@ export async function handleAiChatTurn(input: {
 	threadId: string;
 	userId: string;
 	body: AiChatRequestBody;
+	/** Resolved from the request's consent cookie; gates telemetry content. */
+	analyticsConsent: boolean;
 }): Promise<Response> {
-	const { env, ctx, threadId, userId, body } = input;
+	const { env, ctx, threadId, userId, body, analyticsConsent } = input;
 	const isRegenerate = body.trigger === "regenerate-message";
 
 	if (!body.workspaceId) {
@@ -208,14 +215,48 @@ export async function handleAiChatTurn(input: {
 			systemPrompt: systemPrompt + workspaceContext,
 			contextWindow: getWorkspaceAiChatModelById(modelId).contextWindow,
 			summarize: async (prompt) => {
-				const result = await generateText({
-					model: getWorkspaceAiLanguageModel(AI_CHAT_COMPACTION_MODEL_ID, env, threadId),
-					providerOptions: getWorkspaceAiGatewayProviderOptions({
-						modelId: AI_CHAT_COMPACTION_MODEL_ID,
-						tags: ["task:chat-compaction"],
-					}),
-					prompt,
-					maxOutputTokens: COMPACTION_SUMMARY_MAX_OUTPUT_TOKENS,
+				const telemetryBase = {
+					userId,
+					workspaceId: threadContext.workspaceId,
+					threadId,
+					traceId: turn.streamId,
+					gatewayModel: getWorkspaceAiChatModelById(AI_CHAT_COMPACTION_MODEL_ID).gatewayModel,
+					task: "chat-compaction" as const,
+					startedAt: Date.now(),
+					includeContent: analyticsConsent,
+					input: [{ role: "user", content: prompt }],
+				};
+
+				let result;
+
+				try {
+					result = await generateText({
+						model: getWorkspaceAiLanguageModel(AI_CHAT_COMPACTION_MODEL_ID, env, threadId),
+						providerOptions: getWorkspaceAiGatewayProviderOptions({
+							modelId: AI_CHAT_COMPACTION_MODEL_ID,
+							tags: ["task:chat-compaction"],
+						}),
+						prompt,
+						maxOutputTokens: COMPACTION_SUMMARY_MAX_OUTPUT_TOKENS,
+					});
+				} catch (error) {
+					// Compaction fails open upstream, so this event is the only record
+					// the summarizer call happened — without it a failing summarizer
+					// model is invisible in the analytics.
+					captureAiChatGeneration({
+						...telemetryBase,
+						outcome: "error",
+						errorMessage: error instanceof Error ? error.message : String(error),
+					});
+					throw error;
+				}
+
+				captureAiChatGeneration({
+					...telemetryBase,
+					usage: result.totalUsage,
+					providerMetadata: await Promise.resolve(result.providerMetadata).catch(() => undefined),
+					outcome: "complete",
+					output: [{ role: "assistant", content: result.text }],
 				});
 
 				return result.text;
@@ -236,10 +277,13 @@ export async function handleAiChatTurn(input: {
 
 		// Resolved by execute; read in onEnd so usage lands on the persisted row.
 		let totalUsagePromise: PromiseLike<unknown> | undefined;
+		let providerMetadataPromise: PromiseLike<unknown> | undefined;
 		// Set by onError; consumed by onEnd, which is the single writer for the
 		// turn's outcome (both callbacks fire on a failed stream — treating them
 		// as exclusive double-persisted the reply).
 		let turnErrorMessage: string | undefined;
+		const turnStartedAt = Date.now();
+		let firstTokenAt: number | undefined;
 
 		const stream = createUIMessageStream({
 			generateId,
@@ -254,21 +298,59 @@ export async function handleAiChatTurn(input: {
 					// old poll-and-hope timers. Persistence is the same promise; the
 					// stream write is best-effort (an ultra-short reply may close the
 					// stream first, in which case the next refetch picks the title up).
+					const titleTelemetryBase = {
+						userId,
+						workspaceId: threadContext.workspaceId,
+						threadId,
+						traceId: turn.streamId,
+						task: "chat-title" as const,
+						startedAt: Date.now(),
+						includeContent: analyticsConsent,
+						input: [{ role: "user", content: userMessage.parts }],
+					};
 					ctx.waitUntil(
-						generateAIThreadTitle({ env, messages: [userMessage] })
-							.then(async (title) => {
-								const normalized = normalizeGeneratedThreadTitle(title);
-								if (!normalized) {
-									return;
-								}
-								try {
-									writer.write({ type: "data-thread-title", data: normalized, transient: true });
-								} catch {
-									// Stream already closed — persistence below still lands.
-								}
-								await setThreadTitle({ threadId, title: normalized });
-							})
-							.catch((error) => console.error("[ai-chat] title generation failed:", error)),
+						(async () => {
+							let generated;
+
+							try {
+								generated = await generateAIThreadTitle({ env, messages: [userMessage] });
+							} catch (error) {
+								// The model call failing must still produce an event — a dead
+								// title model would otherwise be invisible in the analytics.
+								captureAiChatGeneration({
+									...titleTelemetryBase,
+									gatewayModel: AI_THREAD_TITLE_GATEWAY_MODEL,
+									outcome: "error",
+									errorMessage: error instanceof Error ? error.message : String(error),
+								});
+								console.error("[ai-chat] title generation failed:", error);
+								return;
+							}
+
+							if (!generated) {
+								return;
+							}
+							captureAiChatGeneration({
+								...titleTelemetryBase,
+								gatewayModel: generated.gatewayModel,
+								usage: generated.usage,
+								providerMetadata: generated.providerMetadata,
+								outcome: "complete",
+								...(generated.title
+									? { output: [{ role: "assistant", content: generated.title }] }
+									: {}),
+							});
+							const normalized = normalizeGeneratedThreadTitle(generated.title);
+							if (!normalized) {
+								return;
+							}
+							try {
+								writer.write({ type: "data-thread-title", data: normalized, transient: true });
+							} catch {
+								// Stream already closed — persistence below still lands.
+							}
+							await setThreadTitle({ threadId, title: normalized });
+						})().catch((error) => console.error("[ai-chat] title delivery failed:", error)),
 					);
 				}
 
@@ -291,11 +373,15 @@ export async function handleAiChatTurn(input: {
 					tools,
 					stopWhen: stepCountIs(MAX_AGENT_STEPS),
 					abortSignal: turn.signal,
-					onChunk: () => turn.onChunk(),
+					onChunk: () => {
+						firstTokenAt ??= Date.now();
+						turn.onChunk();
+					},
 					onStepFinish: () => turn.onStepFinish(),
 				});
 
 				totalUsagePromise = result.totalUsage;
+				providerMetadataPromise = result.providerMetadata;
 				writer.merge(result.toUIMessageStream({ sendReasoning: false }));
 			},
 			onError: (error) => {
@@ -332,6 +418,35 @@ export async function handleAiChatTurn(input: {
 				// Bounded: a hung settle must not pin the client in "streaming"
 				// forever — waitUntil above still carries the real write to completion.
 				await Promise.race([settled, new Promise((resolve) => setTimeout(resolve, 5_000))]);
+
+				captureAiChatGeneration({
+					userId,
+					workspaceId: threadContext.workspaceId,
+					threadId,
+					traceId: turn.streamId,
+					gatewayModel: getWorkspaceAiChatModelById(modelId).gatewayModel,
+					requestedModel: modelId,
+					task: "chat-turn",
+					startedAt: turnStartedAt,
+					firstTokenAt,
+					usage,
+					providerMetadata: clean
+						? await Promise.resolve(providerMetadataPromise).catch(() => undefined)
+						: undefined,
+					outcome:
+						turnErrorMessage !== undefined ? "error" : isAborted ? "interrupted" : "complete",
+					errorMessage: turnErrorMessage,
+					toolNames: assistantMessage ? toolNamesFromParts(assistantMessage.parts) : undefined,
+					includeContent: analyticsConsent,
+					// Pre-hydration parts: attachment URLs, never inlined image bytes.
+					input: context.messages.map((message) => ({
+						role: message.role,
+						content: message.parts,
+					})),
+					...(assistantMessage
+						? { output: [{ role: "assistant", content: assistantMessage.parts }] }
+						: {}),
+				});
 
 				if (clean && assistantMessage) {
 					ctx.waitUntil(
