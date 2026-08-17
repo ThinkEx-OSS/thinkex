@@ -3,15 +3,18 @@ import { LazyMotion, domAnimation, m, useReducedMotion } from "motion/react";
 import type { ReactNode } from "react";
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "#/components/ui/collapsible";
-import type {
-	AiToolActivityIconKind,
-	AiToolPresentation,
+import { Popover, PopoverContent, PopoverTrigger } from "#/components/ui/popover";
+import {
+	getAiToolPresentation,
+	type AiToolActivityIconKind,
+	type AiToolPresentation,
 } from "#/features/workspaces/ai/ai-tool-registry";
 import { AiChatImageSearchResults } from "#/features/workspaces/components/ai-chat/AiChatImageSearchResults";
 import {
 	getToolActivityForPart,
 	type AiChatToolActivity,
 } from "#/features/workspaces/components/ai-chat/ai-chat-display-state";
+import { useLiveCodemodeActivity } from "#/features/workspaces/components/ai-chat/ai-chat-live-activity";
 import type { AiChatToolReceiptSegment } from "#/features/workspaces/components/ai-chat/ai-chat-tool-receipts";
 import {
 	getToolSourceHostname,
@@ -19,6 +22,7 @@ import {
 	type ToolSourcePreview,
 } from "#/features/workspaces/components/ai-chat/ai-chat-tool-source-previews";
 import type { AiChatToolPart } from "#/features/workspaces/components/ai-chat/types";
+import { asRecord } from "#/lib/record";
 import { cn } from "#/lib/utils";
 
 const INLINE_SOURCE_LIMIT = 3;
@@ -32,10 +36,38 @@ export function AiChatToolActivityRow({
 	part: AiChatToolPart;
 }) {
 	const shouldReduceMotion = useReducedMotion();
-	const activity = getToolActivityForPart(part, { interrupted });
+	const liveActivity = useLiveCodemodeActivity(part.toolCallId);
+	const baseActivity = getToolActivityForPart(part, { interrupted });
 
-	if (!activity) {
+	if (!baseActivity) {
 		return null;
+	}
+
+	// A running orchestrate row appends the nested tool it is currently
+	// driving ("Analyzing quiz scores · Read workspace") from the live
+	// transient stream events.
+	const activity =
+		baseActivity.toolName === "orchestrate" && baseActivity.status === "running" && liveActivity
+			? withLiveNestedAction(baseActivity, liveActivity.call.toolName)
+			: baseActivity;
+	const orchestrateCalls =
+		activity.toolName === "orchestrate" && activity.status !== "running"
+			? getOrchestrateCalls(part)
+			: [];
+
+	if (orchestrateCalls.length > 0) {
+		return (
+			<ToolActivityMotion disabled={shouldReduceMotion}>
+				<Popover>
+					<PopoverTrigger className="block min-w-0 max-w-full text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/50">
+						<ActivitySummary activity={activity} canExpand sourcePreviews={[]} />
+					</PopoverTrigger>
+					<PopoverContent align="start" className="w-64 p-1.5">
+						<OrchestrateCallList calls={orchestrateCalls} />
+					</PopoverContent>
+				</Popover>
+			</ToolActivityMotion>
+		);
 	}
 
 	const inlineContent = getInlineActivityContent(activity);
@@ -90,6 +122,79 @@ function ToolActivityMotion({
 				{children}
 			</m.div>
 		</LazyMotion>
+	);
+}
+
+interface OrchestrateCallView {
+	toolName: string;
+	status: "completed" | "failed";
+}
+
+function withLiveNestedAction(
+	activity: AiChatToolActivity,
+	nestedToolName: string,
+): AiChatToolActivity {
+	const nestedLabel = getAiToolPresentation(nestedToolName).title;
+
+	return {
+		...activity,
+		summary: `${activity.summary} · ${nestedLabel}`,
+		segments: [
+			{ kind: "text", value: activity.summary },
+			{ kind: "text", value: " · " },
+			{ kind: "name", value: nestedLabel },
+		],
+	};
+}
+
+/** The nested calls a settled orchestrate part recorded, parsed defensively. */
+function getOrchestrateCalls(part: AiChatToolPart): OrchestrateCallView[] {
+	if (part.state !== "output-available") {
+		return [];
+	}
+
+	const calls = asRecord(part.output).calls;
+	if (!Array.isArray(calls)) {
+		return [];
+	}
+
+	const views: OrchestrateCallView[] = [];
+	for (const call of calls) {
+		const record = asRecord(call);
+		if (typeof record.toolName === "string") {
+			views.push({
+				toolName: record.toolName,
+				status: record.status === "failed" ? "failed" : "completed",
+			});
+		}
+	}
+
+	return views;
+}
+
+function OrchestrateCallList({ calls }: { calls: OrchestrateCallView[] }) {
+	return (
+		<div className="grid gap-0.5" aria-label="Steps in this run">
+			{calls.map((call, index) => {
+				const presentation = getAiToolPresentation(call.toolName);
+
+				return (
+					<div
+						// biome-ignore lint/suspicious/noArrayIndexKey: calls are append-only per run
+						key={index}
+						className="flex items-center gap-1.5 rounded-sm px-1.5 py-1 text-muted-foreground text-xs"
+					>
+						<span className="grid size-3.5 shrink-0 place-items-center text-muted-foreground/70">
+							<ToolActivityIcon icon={presentation.icon} />
+						</span>
+						<span className="min-w-0 truncate font-medium">{presentation.title}</span>
+						{call.status === "failed" ? (
+							<span className="shrink-0 text-destructive/80">failed</span>
+						) : null}
+					</div>
+				);
+			})}
+		</div>
 	);
 }
 
@@ -310,7 +415,7 @@ function Favicon({
 	);
 }
 
-function ToolActivityIcon({ icon }: { icon: AiToolActivityIconKind }) {
+export function ToolActivityIcon({ icon }: { icon: AiToolActivityIconKind }) {
 	switch (icon) {
 		case "edit":
 			return <PencilLine className="size-3.5" aria-hidden="true" />;

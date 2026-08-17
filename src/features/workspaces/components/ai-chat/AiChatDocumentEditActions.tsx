@@ -1,5 +1,6 @@
-import { FilePen } from "lucide-react";
+import { ChevronDown, FilePen } from "lucide-react";
 
+import { Popover, PopoverContent, PopoverTrigger } from "#/components/ui/popover";
 import type { AiChatDocumentEditGroup } from "#/features/workspaces/components/ai-chat/ai-chat-document-edit-actions";
 import { useDocumentEditReview } from "#/features/workspaces/documents/document-edit-review-context";
 import { useWorkspaceLocationActions } from "#/features/workspaces/locations/workspace-location-context";
@@ -12,10 +13,16 @@ import { getWorkspacePathName } from "#/features/workspaces/model/workspace-path
  * Deliberately asks the server nothing. Whether those changes can still be
  * reviewed or undone is a live question, and answering it up front would cost a
  * request per row on every chat load just to render a label. Clicking finds out.
+ *
+ * Older responses pass `collapsed`: their receipts are mostly no longer
+ * reviewable (only the latest unchanged edit is), so they shrink to one line
+ * with the rows in a popover — no layout shift, no wall of dead buttons.
  */
 export function AiChatDocumentEditActions({
+	collapsed = false,
 	groups,
 }: {
+	collapsed?: boolean;
 	groups: readonly AiChatDocumentEditGroup[];
 }) {
 	// A deleted document has nothing left to open.
@@ -26,6 +33,29 @@ export function AiChatDocumentEditActions({
 		return null;
 	}
 
+	const headerLabel = `Edited ${knownGroups.length} ${knownGroups.length === 1 ? "document" : "documents"}`;
+
+	if (collapsed) {
+		return (
+			<Popover>
+				<PopoverTrigger className="block w-fit max-w-full text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/50">
+					<div className="inline-flex items-center gap-1.5 rounded-lg bg-muted/40 px-2.5 py-1.5 text-muted-foreground text-xs">
+						<FilePen className="size-3 shrink-0" aria-hidden="true" />
+						<span className="font-medium">{headerLabel}</span>
+						<ChevronDown className="size-3 shrink-0" aria-hidden="true" />
+					</div>
+				</PopoverTrigger>
+				<PopoverContent align="start" className="w-72 p-0">
+					<div className="divide-y divide-foreground/5">
+						{knownGroups.map((group) => (
+							<DocumentEditRow key={group.itemId} group={group} />
+						))}
+					</div>
+				</PopoverContent>
+			</Popover>
+		);
+	}
+
 	return (
 		<div
 			aria-label="Document changes from this response"
@@ -33,9 +63,7 @@ export function AiChatDocumentEditActions({
 		>
 			<div className="flex items-center gap-1.5 px-2.5 py-1.5 text-muted-foreground text-xs">
 				<FilePen className="size-3 shrink-0" aria-hidden="true" />
-				<span className="font-medium">
-					Edited {knownGroups.length} {knownGroups.length === 1 ? "document" : "documents"}
-				</span>
+				<span className="font-medium">{headerLabel}</span>
 			</div>
 			<div className="divide-y divide-foreground/5 border-foreground/5 border-t">
 				{knownGroups.map((group) => (

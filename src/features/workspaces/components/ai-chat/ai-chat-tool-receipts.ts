@@ -96,6 +96,10 @@ export function getRunningToolReceipt(input: {
 	switch (input.toolName) {
 		case "activate_skill":
 			return receipt.running("Using ", ...skillGuidanceName(toolInput));
+		case "orchestrate":
+			// The model authors the label (schema: short plain-language title,
+			// streamed ahead of the code) — surface it verbatim.
+			return receipt.running(getString(toolInput.title) ?? "Working through steps");
 		case "workspace_create_items":
 			return receipt.running(`Creating ${formatCount(getArray(toolInput.items).length, "item")}`);
 		case "workspace_delete_items":
@@ -156,6 +160,8 @@ export function getFinishedToolReceipt(input: {
 	switch (input.toolName) {
 		case "activate_skill":
 			return receipt.completed("Used ", ...skillGuidanceName(asRecord(input.toolInput)));
+		case "orchestrate":
+			return summarizeOrchestrate(input.output, input.toolInput);
 		case "workspace_create_items":
 			return summarizeWorkspaceBatch(input.output, {
 				failureVerb: "create",
@@ -212,6 +218,8 @@ function summarizeFailedTool(
 	switch (toolName) {
 		case "activate_skill":
 			return receipt.failed("Couldn’t load ", ...skillGuidanceName(asRecord(toolInput)));
+		case "orchestrate":
+			return receipt.failed(orchestrateFailureSummary(toolInput));
 		case "workspace_create_items":
 			return failedCount > 0
 				? receipt.failed(`Couldn’t create ${formatCount(failedCount, "item")}`)
@@ -240,6 +248,33 @@ function summarizeFailedTool(
 		default:
 			return receipt.failed(`${capitalize(formatToolNameFallback(toolName))} failed`);
 	}
+}
+
+// The orchestrate tool reports failures as a successful output with
+// status "error" (so calls and logs survive), which is why the completed
+// branch also has to map to a failed receipt.
+function summarizeOrchestrate(output: unknown, toolInput: unknown): AiChatToolReceipt {
+	const record = asRecord(output);
+	const title = getString(asRecord(toolInput).title);
+
+	if (getString(record.status) === "error") {
+		return receipt.failed(orchestrateFailureSummary(toolInput));
+	}
+
+	const stepCount = getArray(record.calls).length;
+	const base = title ?? "Worked through steps";
+	return stepCount > 0
+		? receipt.completed(base, ` · ${formatCount(stepCount, "step")}`)
+		: receipt.completed(base);
+}
+
+function orchestrateFailureSummary(toolInput: unknown) {
+	const title = getString(asRecord(toolInput).title);
+	return title ? `Couldn’t finish ${lowercaseFirst(title)}` : "Couldn’t finish the steps";
+}
+
+function lowercaseFirst(value: string) {
+	return value.length === 0 ? value : `${value.charAt(0).toLowerCase()}${value.slice(1)}`;
 }
 
 function summarizeWorkspaceBatch(

@@ -20,27 +20,55 @@ export function getAiChatDocumentEditGroups(
 	const seenReceiptIds = new Set<string>();
 
 	for (const part of parts) {
-		if (
-			!isToolUIPart(part) ||
-			getToolPartName(part) !== "workspace_edit_item" ||
-			part.state !== "output-available"
-		) {
+		if (!isToolUIPart(part) || part.state !== "output-available") {
 			continue;
 		}
 
-		const output = asRecord(part.output);
-		const path = typeof output.path === "string" ? output.path : null;
-		const itemId = typeof output.itemId === "string" ? output.itemId : null;
-		const applied = typeof output.applied === "number" ? output.applied : 0;
-		const lineChanges = readLineChanges(output.lineChanges);
-		const isDocument = output.itemType === "document";
-		if (isDocument && itemId && path && applied > 0) {
-			addToGroup(groupsByItemId, seenReceiptIds, {
-				itemId,
-				lineChanges,
-				path,
-				receiptId: part.toolCallId,
-			});
+		const toolName = getToolPartName(part);
+
+		if (toolName === "workspace_edit_item") {
+			const output = asRecord(part.output);
+			const path = typeof output.path === "string" ? output.path : null;
+			const itemId = typeof output.itemId === "string" ? output.itemId : null;
+			const applied = typeof output.applied === "number" ? output.applied : 0;
+			const lineChanges = readLineChanges(output.lineChanges);
+			const isDocument = output.itemType === "document";
+			if (isDocument && itemId && path && applied > 0) {
+				addToGroup(groupsByItemId, seenReceiptIds, {
+					itemId,
+					lineChanges,
+					path,
+					receiptId: part.toolCallId,
+				});
+			}
+			continue;
+		}
+
+		// Edits made from inside an orchestrate (Code Mode) run: the tool part
+		// records each nested document edit as a call `action`, carrying the
+		// nested invocation id that IS the document-edit receipt id.
+		if (toolName === "orchestrate") {
+			const calls = asRecord(part.output).calls;
+			if (!Array.isArray(calls)) {
+				continue;
+			}
+
+			for (const call of calls) {
+				const action = asRecord(asRecord(call).action);
+				if (
+					action.kind === "document-edit" &&
+					typeof action.itemId === "string" &&
+					typeof action.path === "string" &&
+					typeof action.receiptId === "string"
+				) {
+					addToGroup(groupsByItemId, seenReceiptIds, {
+						itemId: action.itemId,
+						lineChanges: readLineChanges(action.lineChanges),
+						path: action.path,
+						receiptId: action.receiptId,
+					});
+				}
+			}
 		}
 	}
 

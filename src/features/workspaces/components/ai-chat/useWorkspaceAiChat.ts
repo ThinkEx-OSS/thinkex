@@ -10,6 +10,10 @@ import {
 	aiChatThreadsQueryKey,
 } from "#/features/workspaces/ai/chat/chat-queries";
 import { deriveAiChatPresentation } from "#/features/workspaces/components/ai-chat/ai-chat-display-state";
+import {
+	parseCodemodeActivityEvent,
+	type AiChatLiveCodemodeActivity,
+} from "#/features/workspaces/components/ai-chat/ai-chat-live-activity";
 import type {
 	AiChatMessage,
 	AiChatModelId,
@@ -46,6 +50,10 @@ export function useWorkspaceAiChat({
 	// latest props without refs or effect events.
 	const transport = createAiChatTransport(threadId);
 	const queryClient = useQueryClient();
+	// Live progress for orchestrate (Code Mode) runs: transient stream parts,
+	// latest event per call id. Never persisted — settled tool parts carry a
+	// durable record — so the map only matters while its turn streams.
+	const [liveCodemodeActivity, setLiveCodemodeActivity] = useState<AiChatLiveCodemodeActivity>({});
 
 	const chat = useChat<AiChatMessage>({
 		id: threadId,
@@ -60,6 +68,13 @@ export function useWorkspaceAiChat({
 		onData: (part) => {
 			if (part.type === "data-thread-title") {
 				void queryClient.invalidateQueries({ queryKey: aiChatThreadsQueryKey(workspaceId) });
+			}
+
+			if (part.type === "data-codemode-activity") {
+				const event = parseCodemodeActivityEvent(part.data);
+				if (event) {
+					setLiveCodemodeActivity((current) => ({ ...current, [event.invocationId]: event }));
+				}
 			}
 		},
 	});
@@ -206,6 +221,7 @@ export function useWorkspaceAiChat({
 		connectionError,
 		editMessage,
 		inputStatus,
+		liveCodemodeActivity,
 		messages,
 		presentation,
 		regenerate,
