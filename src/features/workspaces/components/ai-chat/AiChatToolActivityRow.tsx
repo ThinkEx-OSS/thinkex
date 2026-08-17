@@ -14,7 +14,10 @@ import {
 	type AiChatToolActivity,
 } from "#/features/workspaces/components/ai-chat/ai-chat-display-state";
 import { useLiveCodemodeActivity } from "#/features/workspaces/components/ai-chat/ai-chat-live-activity";
-import type { AiChatToolSummarySegment } from "#/features/workspaces/components/ai-chat/ai-chat-tool-summaries";
+import {
+	isVisibleOrchestrateCallTool,
+	type AiChatToolSummarySegment,
+} from "#/features/workspaces/components/ai-chat/ai-chat-tool-summaries";
 import {
 	getToolSourceHostname,
 	getToolSourcePreviews,
@@ -44,9 +47,12 @@ export function AiChatToolActivityRow({
 
 	// A running orchestrate row appends the nested tool it is currently
 	// driving ("Analyzing quiz scores · Read workspace") from the live
-	// transient stream events.
+	// transient stream events. Registry-hidden tools stay hidden here too.
 	const activity =
-		baseActivity.toolName === "orchestrate" && baseActivity.status === "running" && liveActivity
+		baseActivity.toolName === "orchestrate" &&
+		baseActivity.status === "running" &&
+		liveActivity &&
+		isVisibleOrchestrateCallTool(liveActivity.call.toolName)
 			? withLiveNestedAction(baseActivity, liveActivity.call.toolName)
 			: baseActivity;
 	const orchestrateCalls =
@@ -163,7 +169,7 @@ function getOrchestrateCalls(part: AiChatToolPart): OrchestrateCallView[] {
 	const views: OrchestrateCallView[] = [];
 	for (const call of calls) {
 		const record = asRecord(call);
-		if (typeof record.toolName === "string") {
+		if (typeof record.toolName === "string" && isVisibleOrchestrateCallTool(record.toolName)) {
 			views.push({
 				toolName: record.toolName,
 				status: record.status === "failed" ? "failed" : "completed",

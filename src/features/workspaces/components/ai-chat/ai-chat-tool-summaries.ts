@@ -1,3 +1,4 @@
+import { getAiToolPresentation } from "#/features/workspaces/ai/ai-tool-registry";
 import { asRecord } from "#/lib/record";
 
 export type AiChatToolSummaryStatus = "completed" | "failed" | "interrupted" | "running";
@@ -261,11 +262,26 @@ function summarizeOrchestrate(output: unknown, toolInput: unknown): AiChatToolSu
 		return summary.failed(orchestrateFailureSummary(toolInput));
 	}
 
-	const stepCount = getArray(record.calls).length;
+	// Count only the calls the expanded step list will show: registry-hidden
+	// tools (list workspace, time checks) stay invisible here too, so the
+	// number always matches the rows.
+	const stepCount = getVisibleOrchestrateCallCount(record.calls);
 	const base = title ?? "Worked through steps";
 	return stepCount > 0
 		? summary.completed(base, ` · ${formatCount(stepCount, "step")}`)
 		: summary.completed(base);
+}
+
+/** Recorded orchestrate calls whose tools have visible chat rows. */
+export function isVisibleOrchestrateCallTool(toolName: string) {
+	return getAiToolPresentation(toolName).visibility === "visible";
+}
+
+function getVisibleOrchestrateCallCount(calls: unknown) {
+	return getArray(calls).filter((call) => {
+		const toolName = getString(asRecord(call).toolName);
+		return toolName !== undefined && isVisibleOrchestrateCallTool(toolName);
+	}).length;
 }
 
 function orchestrateFailureSummary(toolInput: unknown) {
