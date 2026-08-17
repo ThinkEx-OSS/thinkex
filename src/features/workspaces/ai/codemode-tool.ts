@@ -32,6 +32,10 @@ const MAX_RESULT_CHARS = 16_000;
 const MAX_LOG_ENTRIES = 50;
 const MAX_LOG_CHARS = 2_000;
 const MAX_ERROR_CHARS = 4_000;
+// Bounds call cardinality, not just payload bytes: a generated loop could
+// otherwise append records (each replayed into context on every later turn)
+// and emit stream parts for the whole 60s timeout window.
+const MAX_NESTED_CALLS = 100;
 
 const CODEMODE_DESCRIPTION = `Run JavaScript to do calculations or drive several tools in one pass: bulk reads, cross-item synthesis, data aggregation, anything with loops or arithmetic. Prefer this over chaining many individual tool calls, and use it for any non-trivial math — compute, don't estimate.
 
@@ -204,6 +208,20 @@ export function createAiChatCodemodeTool(input: {
 							// document-edit receipt id (same chain as direct calls).
 							execute: async (args: unknown) => {
 								const index = callIndex++;
+								if (index >= MAX_NESTED_CALLS) {
+									// One marker record for the whole overflow, then reject with
+									// an error the generated code can catch and react to.
+									if (index === MAX_NESTED_CALLS) {
+										calls.push({
+											toolName: name,
+											status: "failed",
+											error: `Nested tool call limit reached (${MAX_NESTED_CALLS}); further calls were rejected.`,
+										});
+									}
+									throw new Error(
+										`Nested tool call limit reached (${MAX_NESTED_CALLS}); batch the work instead.`,
+									);
+								}
 								const invocationId = crypto.randomUUID();
 								emit(index, name, "running");
 

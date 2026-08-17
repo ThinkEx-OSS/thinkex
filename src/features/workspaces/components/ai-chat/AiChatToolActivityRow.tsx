@@ -148,7 +148,9 @@ function withLiveNestedAction(
 		...activity,
 		summary: `${activity.summary} · ${nestedLabel}`,
 		segments: [
-			{ kind: "text", value: activity.summary },
+			// Both variable-width pieces are `name` so a long model-authored title
+			// truncates instead of pushing the nested label out of the row.
+			{ kind: "name", value: activity.summary },
 			{ kind: "text", value: " · " },
 			{ kind: "name", value: nestedLabel },
 		],

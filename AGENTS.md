@@ -8,5 +8,5 @@
   `main` to production (wrangler migrations included). The `staging` branch
   deploys to the staging env the same way. There is no manual deploy step.
 - Commits carry code and the docs that ship with it. Research notes, analysis
-  writeups, and other generated markdown (e.g. `docs/research/`) stay as
-  untracked working files — commit them only when explicitly asked.
+  writeups, and other non-shipping generated markdown (e.g. `docs/research/`)
+  stay as untracked working files — commit them only when explicitly asked.

@@ -133,6 +133,32 @@ describe("orchestrate tool execution", () => {
 		expect(output.error).toContain("boom");
 	});
 
+	it("caps nested calls at the limit with one overflow marker", async () => {
+		const orchestrate = createAiChatCodemodeTool({
+			env,
+			tools: { double_number: createDoubleNumberTool() },
+		});
+		if (!orchestrate.execute) {
+			throw new Error("Expected an executable orchestrate tool");
+		}
+
+		const output = await orchestrate.execute(
+			{
+				title: "Looping past the limit",
+				code: "async () => { for (let i = 0; i < 120; i += 1) { try { await tools.double_number({ value: i }); } catch (error) { return { stoppedAt: i, message: error.message }; } } return 'no limit hit'; }",
+			},
+			directOptions("codemode-cap"),
+		);
+
+		if (output.status !== "completed") {
+			throw new Error("Expected the run to complete via the caught limit error");
+		}
+		expect(output.result).toMatchObject({ stoppedAt: 100 });
+		// 100 real calls plus exactly one overflow marker, however many rejections.
+		expect(output.calls).toHaveLength(101);
+		expect(output.calls.at(-1)).toMatchObject({ status: "failed" });
+	});
+
 	it("records a failed nested call when the tool itself throws", async () => {
 		const failing = defineAIThreadTool({
 			description: "Always fails",

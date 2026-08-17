@@ -16,7 +16,7 @@ import { getWorkspacePathName } from "#/features/workspaces/model/workspace-path
  *
  * Older responses pass `collapsed`: their receipts are mostly no longer
  * reviewable (only the latest unchanged edit is), so they shrink to one line
- * with the rows in a popover — no layout shift, no wall of dead buttons.
+ * that expands the rows inline — no wall of dead buttons.
  */
 export function AiChatDocumentEditActions({
 	collapsed = false,
