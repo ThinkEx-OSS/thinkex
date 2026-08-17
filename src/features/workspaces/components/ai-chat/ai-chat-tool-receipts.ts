@@ -138,10 +138,6 @@ export function getRunningToolReceipt(input: {
 			return summarizeRunningResearchDeepen(toolInput);
 		case "research_discover":
 			return receipt.running("Finding sources for ", ...name(getString(toolInput.query)));
-		case "compute":
-			return activityTitleReceipt("running", toolInput) ?? receipt.running("Running Python");
-		case "orchestrate":
-			return activityTitleReceipt("running", toolInput) ?? receipt.running("Working");
 		default:
 			return receipt.running(`Running ${formatToolNameFallback(input.toolName)}`);
 	}
@@ -200,10 +196,6 @@ export function getFinishedToolReceipt(input: {
 			return summarizeResearchDiscover(input.output, input.toolInput);
 		case "research_deepen":
 			return summarizeResearchDeepen(input.output, input.toolInput);
-		case "orchestrate":
-			return summarizeCodemode(input.output, input.toolInput);
-		case "compute":
-			return summarizeCompute(input.output, input.toolInput);
 		default:
 			return receipt.completed(summarizeUnknownResult(input.output, input.toolName));
 	}
@@ -245,8 +237,6 @@ function summarizeFailedTool(
 			return failedCount > 0
 				? receipt.failed(`Couldn’t read ${formatCount(failedCount, "item")}`)
 				: receipt.failed("Couldn’t read workspace");
-		case "compute":
-			return receipt.failed("Couldn’t compute");
 		default:
 			return receipt.failed(`${capitalize(formatToolNameFallback(toolName))} failed`);
 	}
@@ -455,72 +445,6 @@ function summarizeRunningResearchDeepen(input: Record<string, unknown>): AiChatT
 	if (mode === "passages") return receipt.running("Reading passages from ", ...name(paper));
 	if (mode === "related") return receipt.running("Finding related papers for ", ...name(paper));
 	return receipt.running("Researching ", ...name(paper));
-}
-
-/**
- * `orchestrate` and `compute` are the only tools whose arguments carry no noun
- * to build a row from — the input is an opaque blob of code — so the model
- * names the work itself in a leading `title` field and the row shows that
- * instead of the mechanism. The derived summaries below stay as the fallback
- * for a title that has not streamed in yet, or a model that skipped the field.
- *
- * States the title must not mask (a paused approval, a failed run) are settled
- * by their callers before this is consulted.
- */
-function activityTitleReceipt(
-	status: "completed" | "running",
-	toolInput: unknown,
-): AiChatToolReceipt | undefined {
-	const title = getString(asRecord(toolInput).title)?.trim();
-	if (!title) return undefined;
-
-	return status === "running" ? receipt.running(title) : receipt.completed(title);
-}
-
-function summarizeCodemode(output: unknown, toolInput: unknown): AiChatToolReceipt {
-	const record = asRecord(output);
-	const status = getString(record.status);
-
-	if (status === "paused") return receipt.completed("Needs input");
-	if (status === "error") return receipt.failed("Couldn’t work through the task");
-
-	const titled = activityTitleReceipt("completed", toolInput);
-	if (titled) return titled;
-
-	if (status === "completed")
-		return receipt.completed(summarizeUnknownResult(record.result, "orchestrate"));
-
-	return receipt.completed(summarizeUnknownResult(output, "orchestrate"));
-}
-
-function summarizeCompute(output: unknown, toolInput: unknown): AiChatToolReceipt {
-	const record = asRecord(output);
-
-	if (record.error) return receipt.failed("Couldn’t compute");
-
-	const titled = activityTitleReceipt("completed", toolInput);
-	if (titled) return titled;
-
-	const results = getArray(record.results);
-	const imageCount = results.filter((result) => {
-		const item = asRecord(result);
-		return typeof item.png === "string" || typeof item.jpeg === "string";
-	}).length;
-	if (imageCount > 0) return receipt.completed(`Generated ${formatCount(imageCount, "image")}`);
-
-	const valueCount = results.filter((result) => {
-		const item = asRecord(result);
-		return typeof item.text === "string" || item.json !== undefined || item.data !== undefined;
-	}).length;
-	if (valueCount > 0) return receipt.completed(`Returned ${formatCount(valueCount, "value")}`);
-
-	const stdout = getArray(asRecord(record.logs).stdout);
-	if (stdout.length > 0)
-		return receipt.completed(`Wrote ${formatCount(stdout.length, "log line")}`);
-
-	return receipt.completed(
-		results.length > 0 ? `Returned ${formatCount(results.length, "result")}` : "Computed",
-	);
 }
 
 function summarizeUnknownResult(output: unknown, toolName: string) {

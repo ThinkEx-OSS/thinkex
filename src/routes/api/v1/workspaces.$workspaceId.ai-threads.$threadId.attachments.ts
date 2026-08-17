@@ -3,10 +3,11 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { authorizeChatAttachmentRequest } from "#/features/workspaces/ai/chat-attachment-authorization.server";
 import { WORKSPACE_AI_CHAT_ATTACHMENT_POLICY } from "#/features/workspaces/ai/chat-attachment-policy";
+import { getChatAttachmentContentUrl } from "#/features/workspaces/ai/chat-attachment-storage";
 import {
-	getChatAttachmentContentUrl,
-	getChatAttachmentObjectKey,
-} from "#/features/workspaces/ai/chat-attachment-storage";
+	ChatAttachmentLimitError,
+	insertThreadAttachment,
+} from "#/features/workspaces/ai/chat/chat-store";
 import { WorkspaceFileConversionError } from "#/features/workspaces/conversion/errors";
 import { normalizeChatImageToJpeg } from "#/features/workspaces/conversion/image-normalizer";
 import {
@@ -37,8 +38,6 @@ async function executeChatAttachmentUpload(
 	requestId: string,
 	observation: WorkspaceFileIntakeObservation,
 ) {
-	let objectKey: string | null = null;
-
 	try {
 		const authorized = await authorizeChatAttachmentRequest(request, { threadId, workspaceId });
 		if (authorized instanceof Response) {
@@ -81,28 +80,28 @@ async function executeChatAttachmentUpload(
 		observation.outputBytes = normalized.sizeBytes;
 
 		const attachmentId = crypto.randomUUID();
-		const identity = { attachmentId, threadId, workspaceId };
-		objectKey = getChatAttachmentObjectKey({ ...identity, userId: authorized.userId });
-		await authorized.directory.putChatAttachment({
-			attachmentId,
-			bytes: normalized.bytes,
-			contentType: normalized.contentType,
+		const fileName = replaceFileExtension(file.name, "jpg");
+		await insertThreadAttachment({
+			id: attachmentId,
 			threadId,
-			workspaceId,
+			mediaType: normalized.contentType,
+			fileName,
+			bytes: new Uint8Array(normalized.bytes),
 		});
 
-		const response = apiJson(
+		return apiJson(
 			{
-				fileName: replaceFileExtension(file.name, "jpg"),
+				fileName,
 				mediaType: normalized.contentType,
-				url: getChatAttachmentContentUrl(identity),
+				url: getChatAttachmentContentUrl({ attachmentId, threadId, workspaceId }),
 			},
 			requestId,
 		);
-		objectKey = null;
-		return response;
 	} catch (error) {
 		observation.error = error;
+		if (error instanceof ChatAttachmentLimitError) {
+			return apiError(requestId, 413, "ATTACHMENT_LIMIT", "This chat has too many attachments.");
+		}
 		if (error instanceof WorkspaceFileConversionError) {
 			if (error.failure === "output_too_large") {
 				return apiError(
@@ -121,10 +120,6 @@ async function executeChatAttachmentUpload(
 			"ATTACHMENT_UPLOAD_FAILED",
 			"Unable to prepare this attachment right now.",
 		);
-	} finally {
-		if (objectKey) {
-			await env.WORKSPACE_FILES.delete(objectKey);
-		}
 	}
 }
 

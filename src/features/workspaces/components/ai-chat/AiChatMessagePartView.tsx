@@ -1,18 +1,10 @@
 import { isToolUIPart } from "ai";
-import { LinkIcon } from "lucide-react";
 
 import {
 	AiChatAttachmentGroup,
 	AiChatAttachmentItem,
 } from "#/features/workspaces/components/ai-chat/AiChatAttachmentItem";
-import {
-	getFileAttachmentData,
-	getSourceDocumentAttachmentData,
-} from "#/features/workspaces/components/ai-chat/ai-chat-attachments";
-import {
-	type AiChatToolGroupPart,
-	isAiChatToolGroupPart,
-} from "#/features/workspaces/components/ai-chat/ai-chat-display-state";
+import { getFileAttachmentData } from "#/features/workspaces/components/ai-chat/ai-chat-attachments";
 import { AiChatMessageResponse } from "#/features/workspaces/components/ai-chat/AiChatMessageResponse";
 import { AiChatToolActivityRow } from "#/features/workspaces/components/ai-chat/AiChatToolActivityRow";
 import type { AiChatMessagePart } from "#/features/workspaces/components/ai-chat/types";
@@ -25,7 +17,7 @@ export function AiChatMessagePartView({
 }: {
 	interruptUnfinishedTools?: boolean;
 	isStreaming?: boolean;
-	part: AiChatMessagePart | AiChatToolGroupPart;
+	part: AiChatMessagePart;
 	preserveWhitespace?: boolean;
 }) {
 	if (part.type === "text") {
@@ -36,16 +28,6 @@ export function AiChatMessagePartView({
 			>
 				{part.text}
 			</AiChatMessageResponse>
-		);
-	}
-
-	if (isAiChatToolGroupPart(part)) {
-		return (
-			<AiChatToolActivityRow
-				interrupted={interruptUnfinishedTools}
-				nestedChildren={part.children}
-				part={part.part}
-			/>
 		);
 	}
 
@@ -63,29 +45,7 @@ export function AiChatMessagePartView({
 		);
 	}
 
-	if (part.type === "source-url") {
-		return (
-			<a
-				className="inline-flex max-w-full items-center gap-2 text-muted-foreground text-sm underline-offset-4 hover:text-foreground hover:underline"
-				href={part.url}
-				rel="noreferrer"
-				target="_blank"
-			>
-				<LinkIcon className="size-4 shrink-0" />
-				<span className="truncate">{part.title ?? part.url}</span>
-			</a>
-		);
-	}
-
-	if (part.type === "source-document") {
-		const attachment = getSourceDocumentAttachmentData(part);
-
-		return (
-			<AiChatAttachmentGroup>
-				<AiChatAttachmentItem data={attachment} />
-			</AiChatAttachmentGroup>
-		);
-	}
-
+	// source-url / source-document parts cannot occur here: toUIMessageStream
+	// runs with sendSources off and no provider-native search is mounted.
 	return null;
 }

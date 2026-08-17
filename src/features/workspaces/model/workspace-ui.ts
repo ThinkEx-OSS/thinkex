@@ -96,6 +96,15 @@ export function setActiveAiChatThreadSession(threadId: string | undefined) {
 	};
 }
 
+// The draft ("new chat") thread id for this browser. Random per browser, not
+// derived from the workspace id: a deterministic shared id let the first
+// member of a shared workspace own the thread row and 500 every other member.
+export function setDraftAiChatThreadSession(threadId: string) {
+	return {
+		draftAiChatThreadId: threadId,
+	};
+}
+
 export function toggleChatPanelSession(session: WorkspaceUiSession) {
 	return {
 		chatSurfaceMode:
@@ -207,6 +216,7 @@ function resolveWorkspaceAiChatSurfaceMode(mode: unknown): WorkspaceAiChatSurfac
 function isSameWorkspaceUiSession(session: WorkspaceUiSession, nextSession: WorkspaceUiSession) {
 	return (
 		session.activeAiChatThreadId === nextSession.activeAiChatThreadId &&
+		session.draftAiChatThreadId === nextSession.draftAiChatThreadId &&
 		session.chatSurfaceMode === nextSession.chatSurfaceMode &&
 		session.presentation === nextSession.presentation
 	);

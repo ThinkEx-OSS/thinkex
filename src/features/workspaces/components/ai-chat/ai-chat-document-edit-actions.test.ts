@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { getAiChatDocumentEditGroups } from "#/features/workspaces/components/ai-chat/ai-chat-document-edit-actions";
-import type { AiChatRenderablePart } from "#/features/workspaces/components/ai-chat/ai-chat-display-state";
+import type { AiChatMessagePart } from "#/features/workspaces/components/ai-chat/types";
 
 describe("AI chat document edit actions", () => {
 	it("does not offer document review for an applied flashcard edit", () => {
@@ -34,5 +34,5 @@ function editPart(itemType: "document" | "flashcard", toolCallId: string) {
 		state: "output-available",
 		toolCallId,
 		type: "tool-workspace_edit_item",
-	} as AiChatRenderablePart;
+	} as AiChatMessagePart;
 }

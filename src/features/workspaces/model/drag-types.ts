@@ -1,3 +1,4 @@
+export const AI_CHAT_QUEUE_DRAG_TYPE = "ai-chat-queued-message";
 export const WORKSPACE_TAB_DRAG_TYPE = "workspace-tab";
 export const WORKSPACE_FOLDER_DRAG_TYPE = "workspace-folder";
 export const WORKSPACE_ITEM_DRAG_TYPE = "workspace-item";

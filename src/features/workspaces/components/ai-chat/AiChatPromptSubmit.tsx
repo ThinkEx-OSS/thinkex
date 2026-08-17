@@ -1,6 +1,7 @@
 import { ArrowUp, Square } from "lucide-react";
 
 import {
+	PromptInputButton,
 	PromptInputSubmit,
 	usePromptInputAttachments,
 } from "#/features/workspaces/components/ai-chat/ai-chat-prompt-input";
@@ -12,12 +13,14 @@ import { cn } from "#/lib/utils";
 
 export default function AiChatPromptSubmit({
 	attachmentsReady,
+	canQueue = false,
 	canSend,
 	input,
 	onStop,
 	status,
 }: {
 	attachmentsReady: boolean;
+	canQueue?: boolean;
 	canSend: boolean;
 	input: string;
 	onStop?: () => void;
@@ -29,25 +32,41 @@ export default function AiChatPromptSubmit({
 	const canStop = isGenerating && Boolean(onStop);
 	const canSubmit = canSend && hasContent;
 	const isWaitingForAttachments = !attachmentsReady && hasContent;
-	const isWaitingForConnection = status === "ready" && attachmentsReady && hasContent && !canSend;
+	const isWaitingToSend = status === "ready" && attachmentsReady && hasContent && !canSend;
 	const waitingLabel = isWaitingForAttachments
 		? "Uploading attachments"
-		: isWaitingForConnection
-			? "Waiting for connection"
+		: isWaitingToSend
+			? "Waiting to send"
 			: null;
 	const label = isGenerating ? "Stop" : (waitingLabel ?? "Submit");
 
 	return (
-		<PromptInputSubmit
-			aria-label={label}
-			className={cn(workspaceToolbarButtonSizeClass, "rounded-full")}
-			disabled={isGenerating ? !canStop : !canSubmit}
-			status={status}
-			title={label}
-			onStop={onStop}
-			type={isGenerating ? "button" : "submit"}
-		>
-			{isGenerating ? <Square /> : waitingLabel ? <Spinner /> : <ArrowUp />}
-		</PromptInputSubmit>
+		<>
+			{/* While the AI is answering, an enabled submit button keeps Enter
+			    working and gives touch users a visible way to add a message that
+			    sends once the current answer finishes. */}
+			{isGenerating && canQueue && hasContent ? (
+				<PromptInputButton
+					aria-label="Queue message"
+					className={cn(workspaceToolbarButtonSizeClass, "rounded-full")}
+					tooltip="Will send when the AI finishes"
+					type="submit"
+					variant="secondary"
+				>
+					<ArrowUp />
+				</PromptInputButton>
+			) : null}
+			<PromptInputSubmit
+				aria-label={label}
+				className={cn(workspaceToolbarButtonSizeClass, "rounded-full")}
+				disabled={isGenerating ? !canStop : !canSubmit}
+				status={status}
+				title={label}
+				onStop={onStop}
+				type={isGenerating ? "button" : "submit"}
+			>
+				{isGenerating ? <Square /> : waitingLabel ? <Spinner /> : <ArrowUp />}
+			</PromptInputSubmit>
+		</>
 	);
 }

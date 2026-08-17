@@ -1,52 +1,44 @@
-import { useAgent } from "agents/react";
-import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { userAIAgentName, userAIBasePath } from "#/features/workspaces/agent-routes";
-import type { AIThreadSummary, UserAIStoreState } from "#/features/workspaces/ai/user-ai-agents";
+import {
+	aiChatThreadMessagesQueryKey,
+	aiChatThreadsQueryOptions,
+} from "#/features/workspaces/ai/chat/chat-queries";
+import { deleteAiChatThreadFn } from "#/features/workspaces/ai/chat/functions";
 
 interface UseWorkspaceAiChatThreadsOptions {
 	workspaceId: string;
 }
 
+// Thread directory over react-query, matching the workspace feature's data
+// conventions. Threads are never created from here — "new chat" is a client
+// draft and the row materializes on first message, which invalidates the
+// threads query (see useWorkspaceAiChat). Focus refetch is react-query's
+// default behavior.
 export function useWorkspaceAiChatThreads({ workspaceId }: UseWorkspaceAiChatThreadsOptions) {
-	const [isCreatingThread, setIsCreatingThread] = useState(false);
-	const directory = useAgent<UserAIStoreState>({
-		agent: userAIAgentName,
-		basePath: userAIBasePath,
+	const queryClient = useQueryClient();
+	const threadsQuery = useQuery(aiChatThreadsQueryOptions(workspaceId));
+	const deleteThreadMutation = useMutation({
+		mutationFn: (threadId: string) => deleteAiChatThreadFn({ data: { threadId } }),
+		onSuccess: (_result, threadId) => {
+			queryClient.setQueryData(aiChatThreadsQueryOptions(workspaceId).queryKey, (current) =>
+				current?.filter((thread) => thread.id !== threadId),
+			);
+			queryClient.removeQueries({ queryKey: aiChatThreadMessagesQueryKey(threadId) });
+			// A refetch that started before the delete would resolve with the
+			// pre-delete list and resurrect the thread over the local filter above;
+			// invalidating cancels it and fetches fresh.
+			void queryClient.invalidateQueries({
+				queryKey: aiChatThreadsQueryOptions(workspaceId).queryKey,
+			});
+		},
 	});
 
-	const threads = (directory.state?.threads ?? []).filter(
-		(thread) => thread.workspaceId === workspaceId,
-	);
-
-	const createThread = async () => {
-		setIsCreatingThread(true);
-
-		try {
-			const thread = await directory.call<AIThreadSummary>("createThread", [{ workspaceId }]);
-			setIsCreatingThread(false);
-			return thread;
-		} catch (error) {
-			setIsCreatingThread(false);
-			throw error;
-		}
-	};
-
-	const deleteThread = async (threadId: string) => {
-		await directory.call("deleteThread", [threadId]);
-	};
-
-	const markThreadViewed = async (threadId: string) => {
-		await directory.call("markThreadViewed", [threadId]);
-	};
-
 	return {
-		createThread,
-		deleteThread,
-		directory,
-		isCreatingThread,
-		isReady: directory.state?.isLoaded === true,
-		markThreadViewed,
-		threads,
+		deleteThread: deleteThreadMutation.mutateAsync,
+		// Not isSuccess: a failed load must surface as ready-with-empty-list (the
+		// panel renders and errors elsewhere), not as an eternal skeleton.
+		isReady: !threadsQuery.isPending,
+		threads: threadsQuery.data ?? [],
 	};
 }

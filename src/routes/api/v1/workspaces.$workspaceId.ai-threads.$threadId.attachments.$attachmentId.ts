@@ -1,8 +1,10 @@
-import { env } from "cloudflare:workers";
 import { createFileRoute } from "@tanstack/react-router";
 
 import { authorizeChatAttachmentRequest } from "#/features/workspaces/ai/chat-attachment-authorization.server";
-import { getChatAttachmentObjectKey } from "#/features/workspaces/ai/chat-attachment-storage";
+import {
+	deleteThreadAttachment,
+	getThreadAttachment,
+} from "#/features/workspaces/ai/chat/chat-store";
 import { apiError } from "#/lib/api/http";
 
 async function handleChatAttachmentContent(
@@ -15,22 +17,26 @@ async function handleChatAttachmentContent(
 	}
 	const { requestId } = authorized;
 
-	const object = await env.WORKSPACE_FILES.get(
-		getChatAttachmentObjectKey({ ...identity, userId: authorized.userId }),
-	);
+	const attachment = await getThreadAttachment({
+		attachmentId: identity.attachmentId,
+		threadId: identity.threadId,
+		userId: authorized.userId,
+	});
 
-	if (!object) {
+	if (!attachment) {
 		return apiError(requestId, 404, "ATTACHMENT_NOT_FOUND", "Attachment not found.");
 	}
 
-	const headers = new Headers({
-		"cache-control": "private, no-store",
-		"x-content-type-options": "nosniff",
-		"x-request-id": requestId,
+	return new Response(request.method === "HEAD" ? null : (attachment.bytes as BodyInit), {
+		headers: {
+			// Attachment content is immutable once stored; let the browser cache it
+			// so each image render doesn't repeat the authorized DB fetch.
+			"cache-control": "private, max-age=31536000, immutable",
+			"content-type": attachment.mediaType,
+			"x-content-type-options": "nosniff",
+			"x-request-id": requestId,
+		},
 	});
-	object.writeHttpMetadata(headers);
-
-	return new Response(request.method === "HEAD" ? null : object.body, { headers });
 }
 
 async function handleChatAttachmentDelete(
@@ -42,9 +48,11 @@ async function handleChatAttachmentDelete(
 		return authorized;
 	}
 
-	await env.WORKSPACE_FILES.delete(
-		getChatAttachmentObjectKey({ ...identity, userId: authorized.userId }),
-	);
+	await deleteThreadAttachment({
+		attachmentId: identity.attachmentId,
+		threadId: identity.threadId,
+		userId: authorized.userId,
+	});
 	return new Response(null, { status: 204 });
 }
 
@@ -59,5 +67,3 @@ export const Route = createFileRoute(
 		},
 	},
 });
-
-export { handleChatAttachmentContent };

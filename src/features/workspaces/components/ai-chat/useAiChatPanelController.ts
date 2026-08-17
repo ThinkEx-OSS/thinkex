@@ -1,15 +1,16 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { getDefaultWorkspaceThreadId } from "#/features/workspaces/ai/ai-thread-identity";
+import { aiChatThreadMessagesQueryKey } from "#/features/workspaces/ai/chat/chat-queries";
 import type { AiChatModelId } from "#/features/workspaces/components/ai-chat/types";
 import { useWorkspaceAiChatThreads } from "#/features/workspaces/components/ai-chat/useWorkspaceAiChatThreads";
-import { evictWorkspaceAiTranscript } from "#/features/workspaces/components/ai-chat/useWorkspaceAiChat";
 import {
 	useWorkspaceActiveAiChatThreadId,
 	useWorkspaceAiChatModelId,
 	useWorkspaceAiChatSurfaceMode,
 	useWorkspaceUiStore,
 } from "#/features/workspaces/state/workspace-ui-store";
+import { useWorkspaceAiQueueStore } from "#/features/workspaces/state/workspace-ai-queue-store";
 import { getErrorMessage } from "#/lib/error-message";
 
 type UseAiChatPanelControllerInput = {
@@ -28,103 +29,128 @@ export function useAiChatPanelController({ workspaceId }: UseAiChatPanelControll
 	const setChatSurfaceMode = useWorkspaceUiStore((state) => state.setChatSurfaceMode);
 	const setActiveAiChatThread = useWorkspaceUiStore((state) => state.setActiveAiChatThread);
 	const setAiChatModel = useWorkspaceUiStore((state) => state.setAiChatModel);
-	const [markingViewedThreadIds] = useState(() => new Set<string>());
+	const getOrCreateDraftAiChatThread = useWorkspaceUiStore(
+		(state) => state.getOrCreateDraftAiChatThread,
+	);
+	const rotateDraftAiChatThread = useWorkspaceUiStore((state) => state.rotateDraftAiChatThread);
+	const storedDraftThreadId = useWorkspaceUiStore(
+		(state) => state.sessionsByWorkspaceId[workspaceId]?.draftAiChatThreadId,
+	);
 	const [threadViewEpoch, setThreadViewEpoch] = useState(0);
+	const queryClient = useQueryClient();
 	const {
-		createThread,
 		deleteThread,
-		isCreatingThread,
 		isReady: areThreadsReady,
-		markThreadViewed,
 		threads,
 	} = useWorkspaceAiChatThreads({ workspaceId });
-	const defaultThreadId = getDefaultWorkspaceThreadId(workspaceId);
-	const resolvedActiveThreadId = explicitActiveThreadId ?? defaultThreadId;
-	const activeThread = threads.find((thread) => thread.id === resolvedActiveThreadId);
+
+	// ChatGPT-style drafts: the active thread id may not exist server-side yet —
+	// a thread row materializes when its first message is sent. The draft id is
+	// random per browser (a deterministic per-workspace id collided across
+	// members of shared workspaces) and persisted so refresh keeps the draft.
+	const [fallbackDraftThreadId] = useState(() => crypto.randomUUID());
+	const draftThreadId = storedDraftThreadId ?? fallbackDraftThreadId;
+
+	useEffect(() => {
+		getOrCreateDraftAiChatThread(workspaceId, fallbackDraftThreadId);
+	}, [fallbackDraftThreadId, getOrCreateDraftAiChatThread, workspaceId]);
+
+	const resolvedActiveThreadId = explicitActiveThreadId ?? draftThreadId;
+	const activeThreadHasRow = threads.some((thread) => thread.id === resolvedActiveThreadId);
 	const isMaximized = chatSurfaceMode === "fullscreen";
 
 	const selectThread = (threadId: string | undefined) => {
 		setActiveAiChatThread(workspaceId, threadId);
 	};
 
-	const handleNewChat = async () => {
-		if (isCreatingThread) {
+	// A persisted "last visited" id can outlive its thread (deleted on another
+	// device, or another account's leftover in this browser's storage). Once
+	// the list has loaded, an explicit id with no row and a confirmed-empty
+	// transcript is a dead pointer — fall back to the draft instead of pinning
+	// the user to an unusable selection whose pristine guard also blocks
+	// "new chat".
+	useEffect(() => {
+		if (!explicitActiveThreadId || !areThreadsReady) {
+			return;
+		}
+		if (threads.some((thread) => thread.id === explicitActiveThreadId)) {
+			return;
+		}
+		const transcript = queryClient.getQueryState(
+			aiChatThreadMessagesQueryKey(explicitActiveThreadId),
+		);
+		if (transcript?.status === "success" && (transcript.data as unknown[])?.length === 0) {
+			setActiveAiChatThread(workspaceId, undefined);
+		}
+	}, [
+		areThreadsReady,
+		explicitActiveThreadId,
+		queryClient,
+		setActiveAiChatThread,
+		threads,
+		workspaceId,
+	]);
+
+	// Once the draft's first message lands, its row appears in the thread list:
+	// persist it as the active ("last visited") thread and mint a fresh draft,
+	// so reopening the workspace returns to this conversation.
+	useEffect(() => {
+		if (!explicitActiveThreadId && threads.some((thread) => thread.id === draftThreadId)) {
+			setActiveAiChatThread(workspaceId, draftThreadId);
+			rotateDraftAiChatThread(workspaceId);
+		}
+	}, [
+		draftThreadId,
+		explicitActiveThreadId,
+		rotateDraftAiChatThread,
+		setActiveAiChatThread,
+		threads,
+		workspaceId,
+	]);
+
+	const handleNewChat = () => {
+		// Repeated "new chat" on a pristine draft is a no-op rather than a pile
+		// of drafts. "Pristine" = no server row and no local transcript (the
+		// thread list can lag the first message by one refetch).
+		const cachedTranscript = queryClient.getQueryData(
+			aiChatThreadMessagesQueryKey(resolvedActiveThreadId),
+		) as unknown[] | undefined;
+		const activeDraftHasMessages = (cachedTranscript?.length ?? 0) > 0;
+
+		if (!activeThreadHasRow && !activeDraftHasMessages) {
 			return;
 		}
 
-		try {
-			const thread = await createThread();
-			selectThread(thread.id);
-		} catch (error) {
-			toast.error(getErrorMessage(error, "Unable to start a new chat right now."));
-		}
+		rotateDraftAiChatThread(workspaceId);
+		selectThread(undefined);
 	};
 
 	const handleDeleteThread = async (threadId: string) => {
-		// The thread's socket lives on the directory DO, so deleting the thread
-		// never closes it — a still-mounted view keeps a zombie transcript whose
-		// next frame resurrects the deleted thread (cloudflare/agents#2003).
-		// Switch away first; when nothing survives, remount the view after the
-		// delete so it reconnects to a fresh default thread.
 		const wasActive = resolvedActiveThreadId === threadId;
-		const survivorId = wasActive ? threads.find((thread) => thread.id !== threadId)?.id : undefined;
 
 		if (wasActive) {
-			selectThread(survivorId);
+			// Land on a fresh draft, never on another conversation's history.
+			rotateDraftAiChatThread(workspaceId);
+			selectThread(undefined);
 		}
 
 		try {
 			await deleteThread(threadId);
 		} catch (error) {
-			// No selection restore: the thread is still in the list, and the user
-			// may have moved on during the in-flight delete.
 			toast.error(getErrorMessage(error, "Unable to delete chat right now."));
 			return;
 		}
 
-		evictWorkspaceAiTranscript(threadId);
+		useWorkspaceAiQueueStore.getState().clearThread(threadId);
 		toast.success("Chat deleted.");
-		if (wasActive && !survivorId) {
+		if (wasActive) {
 			setThreadViewEpoch((epoch) => epoch + 1);
 		}
 	};
 
-	useEffect(() => {
-		if (!areThreadsReady) {
-			return;
-		}
-
-		if (threads.length === 0) {
-			if (explicitActiveThreadId) {
-				setActiveAiChatThread(workspaceId, undefined);
-			}
-			return;
-		}
-
-		if (explicitActiveThreadId && !threads.some((thread) => thread.id === explicitActiveThreadId)) {
-			setActiveAiChatThread(workspaceId, undefined);
-		}
-	}, [areThreadsReady, explicitActiveThreadId, setActiveAiChatThread, threads, workspaceId]);
-
-	useEffect(() => {
-		if (!activeThread?.hasUnreadUpdate) {
-			return;
-		}
-
-		if (markingViewedThreadIds.has(activeThread.id)) {
-			return;
-		}
-
-		markingViewedThreadIds.add(activeThread.id);
-		void markThreadViewed(activeThread.id).finally(() => {
-			markingViewedThreadIds.delete(activeThread.id);
-		});
-	}, [activeThread?.hasUnreadUpdate, activeThread?.id, markingViewedThreadIds, markThreadViewed]);
-
 	return {
 		activeThreadId: resolvedActiveThreadId,
 		threadViewKey: `${resolvedActiveThreadId}:${threadViewEpoch}`,
-		isCreatingThread,
 		isLoading: !areThreadsReady,
 		isMaximized,
 		modelId,
@@ -134,11 +160,9 @@ export function useAiChatPanelController({ workspaceId }: UseAiChatPanelControll
 		},
 		onMaximize: () => setChatSurfaceMode(workspaceId, "fullscreen"),
 		onModelChange: (nextModelId: AiChatModelId) => setAiChatModel(nextModelId),
-		onNewChat: () => void handleNewChat(),
+		onNewChat: handleNewChat,
 		onRestore: () => setChatSurfaceMode(workspaceId, "docked"),
 		onSelectThread: (threadId: string) => selectThread(threadId),
-		threads: threads.map((thread) =>
-			thread.id === resolvedActiveThreadId ? { ...thread, hasUnreadUpdate: false } : thread,
-		),
+		threads,
 	};
 }

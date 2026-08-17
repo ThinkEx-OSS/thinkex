@@ -1,4 +1,4 @@
-import type { FileUIPart, SourceDocumentUIPart } from "ai";
+import type { FileUIPart } from "ai";
 
 export type FileAttachmentData = {
 	id: string;
@@ -7,7 +7,9 @@ export type FileAttachmentData = {
 	mediaType: string;
 } & ({ status: "loading"; url?: never } | { status: "ready"; url: string });
 
-export type AttachmentData = FileAttachmentData | (SourceDocumentUIPart & { id: string });
+// Source-document parts cannot occur in this transcript (sendSources is off);
+// attachments are always file parts.
+export type AttachmentData = FileAttachmentData;
 
 export type AttachmentMediaCategory =
 	| "image"
@@ -18,10 +20,6 @@ export type AttachmentMediaCategory =
 	| "unknown";
 
 export const getMediaCategory = (data: AttachmentData): AttachmentMediaCategory => {
-	if (data.type === "source-document") {
-		return "source";
-	}
-
 	const mediaType = data.mediaType ?? "";
 
 	if (mediaType.startsWith("image/")) {
@@ -44,10 +42,6 @@ export const getMediaCategory = (data: AttachmentData): AttachmentMediaCategory 
 };
 
 export const getAttachmentLabel = (data: AttachmentData): string => {
-	if (data.type === "source-document") {
-		return data.title || data.filename || "Source";
-	}
-
 	const category = getMediaCategory(data);
 	return data.filename || (category === "image" ? "Image" : "Attachment");
 };
@@ -61,12 +55,6 @@ export function getFileAttachmentData(part: FileUIPart): FileAttachmentData {
 		type: "file",
 		url: part.url,
 	};
-}
-
-export function getSourceDocumentAttachmentData(
-	part: SourceDocumentUIPart,
-): SourceDocumentUIPart & { id: string } {
-	return { ...part, id: part.sourceId };
 }
 
 function getFileAttachmentId(part: FileUIPart): string {

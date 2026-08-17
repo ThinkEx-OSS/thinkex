@@ -11,40 +11,16 @@ import {
 	type AiToolPresentation,
 } from "#/features/workspaces/ai/ai-tool-registry";
 import {
-	getCodemodeCallActivities,
-	type AiChatToolChildActivity,
-} from "#/features/workspaces/components/ai-chat/ai-chat-codemode-activity";
-import {
 	getFinishedToolReceipt,
 	getRunningToolReceipt,
 	type AiChatToolReceiptSegment,
 } from "#/features/workspaces/components/ai-chat/ai-chat-tool-receipts";
 
-export type AssistantPendingKind = "thinking" | "recovering";
-
-/**
- * Every `orchestrate` call in a message collapses into one row: the header
- * describes the last call — the model's most recent title, so it reads as
- * current activity — and `children` is the whole message's activity trail in
- * execution order, regardless of which call produced each entry.
- */
-export interface AiChatToolGroupPart {
-	type: "data-tool-group";
-	children: AiChatToolChildActivity[];
-	part: AiChatToolPart;
-}
-
-export type AiChatRenderablePart = AiChatMessagePart | AiChatToolGroupPart;
-
-export function isAiChatToolGroupPart(part: AiChatRenderablePart): part is AiChatToolGroupPart {
-	return part.type === "data-tool-group" && "children" in part;
-}
-
 export type AssistantRowDisplay =
 	| {
 			interruptUnfinishedTools: boolean;
 			kind: "content";
-			parts: AiChatRenderablePart[];
+			parts: AiChatMessagePart[];
 	  }
 	| { kind: "empty-terminal"; canRegenerate: boolean }
 	| { kind: "hidden" };
@@ -60,59 +36,39 @@ export interface AiChatToolActivity {
 
 export interface AiChatPresentation {
 	isBusy: boolean;
-	isRecovering: boolean;
-	isToolContinuation: boolean;
 	lastAssistantMessageId: string | undefined;
 	status: AiChatStatus;
-	tailPending: AssistantPendingKind | null;
+	/** Show the "thinking" status row until visible reply content exists. */
+	tailPending: boolean;
 }
 
 export function isAiChatStreamActive(status: AiChatStatus) {
 	return status === "submitted" || status === "streaming";
 }
 
+// Derived purely from useChat's status and the messages — the DO-era inputs
+// (socket recovery, server-vs-client streaming, tool continuation) retired
+// with the websocket transport.
 export function deriveAiChatPresentation(
 	messages: AiChatMessage[],
 	status: AiChatStatus,
-	{
-		isRecovering,
-		isServerStreaming,
-		isStreaming,
-		isToolContinuation,
-	}: {
-		isRecovering: boolean;
-		isServerStreaming: boolean;
-		isStreaming: boolean;
-		isToolContinuation: boolean;
-	},
 ): AiChatPresentation {
 	const lastMessage = messages.at(-1);
 	const lastAssistantMessageId = lastMessage?.role === "assistant" ? lastMessage.id : undefined;
-	const awaitingFirstToken = status === "submitted" && !isToolContinuation;
-	const isBusy = isRecovering || isStreaming || isServerStreaming || status === "submitted";
-	const hasAssistantTail = lastMessage?.role === "assistant";
-	const assistantTailIsEmpty =
-		lastMessage?.role === "assistant" && getDisplayableParts(lastMessage).length === 0;
-	const hasVisibleAssistantTail = hasAssistantTail && !assistantTailIsEmpty;
-	// Once the reply is actually rendering, the status row goes away — the text
-	// arriving is its own progress indicator. Keeping a row up for the length of
-	// the reply also means removing it at the end, and that shrink shifts the
-	// transcript no matter how promptly the tail spacer compensates.
-	const tailPending = hasVisibleAssistantTail
-		? null
-		: isRecovering
-			? "recovering"
-			: isBusy || awaitingFirstToken
-				? "thinking"
-				: null;
+	const isBusy = isAiChatStreamActive(status);
+	const hasVisibleAssistantTail =
+		lastMessage?.role === "assistant" && getDisplayableParts(lastMessage).length > 0;
 
 	return {
 		isBusy,
-		isRecovering,
-		isToolContinuation,
 		lastAssistantMessageId,
 		status,
-		tailPending,
+		// Once the reply is actually rendering, the status row goes away — the
+		// text arriving is its own progress indicator. Keeping a row up for the
+		// length of the reply also means removing it at the end, and that shrink
+		// shifts the transcript no matter how promptly the tail spacer
+		// compensates.
+		tailPending: isBusy && !hasVisibleAssistantTail,
 	};
 }
 
@@ -160,50 +116,13 @@ export function getAssistantRowDisplay(
 	return { kind: "hidden" };
 }
 
-export function getDisplayableParts(message: AiChatMessage): AiChatRenderablePart[] {
-	const parts = message.parts.filter(isDisplayableMessagePart);
-	const codemodeParts = parts.filter(
-		(part): part is AiChatToolPart => isToolUIPart(part) && getToolPartName(part) === "orchestrate",
-	);
-	const codemodePart = codemodeParts.at(-1);
-
-	if (!codemodePart) {
-		return parts;
-	}
-
-	// Each call logs its own `seq`, so ids repeat across calls. Namespace them by
-	// the call that produced them to keep the merged trail's keys unique.
-	const codemodeChildren = codemodeParts.flatMap((part) =>
-		(getCodemodeCallActivities(part.output) ?? []).map((child) => ({
-			...child,
-			id: `${part.toolCallId}:${child.id}`,
-		})),
-	);
-
-	const result: AiChatRenderablePart[] = [];
-
-	for (const part of parts) {
-		if (isToolUIPart(part) && getToolPartName(part) === "orchestrate" && part !== codemodePart) {
-			continue;
-		}
-		if (part === codemodePart) {
-			result.push({
-				type: "data-tool-group",
-				part,
-				children: codemodeChildren,
-			});
-			continue;
-		}
-
-		result.push(part);
-	}
-
-	return result;
+export function getDisplayableParts(message: AiChatMessage): AiChatMessagePart[] {
+	return message.parts.filter(isDisplayableMessagePart);
 }
 
 export function isDisplayableMessagePart(part: AiChatMessagePart): boolean {
 	if (part.type === "text") {
-		return part.text.length > 0 || part.state === "streaming";
+		return part.text.length > 0;
 	}
 
 	if (part.type === "reasoning" || part.type === "step-start") {
@@ -217,7 +136,7 @@ export function isDisplayableMessagePart(part: AiChatMessagePart): boolean {
 	// Deliberately excludes `data-*` parts: old transcripts can carry data parts
 	// from retired features, and counting one as displayable makes a message
 	// render as a blank bubble instead of falling through to "no response".
-	return part.type === "file" || part.type === "source-url" || part.type === "source-document";
+	return part.type === "file";
 }
 
 export function getToolActivityForPart(

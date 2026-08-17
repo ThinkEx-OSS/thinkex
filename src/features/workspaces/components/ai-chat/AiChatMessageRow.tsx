@@ -13,11 +13,13 @@ import { AiChatDocumentEditActions } from "#/features/workspaces/components/ai-c
 import { getAiChatDocumentEditGroups } from "#/features/workspaces/components/ai-chat/ai-chat-document-edit-actions";
 import { stripWorkspaceCitationTags } from "#/features/workspaces/ai/workspace-references";
 import {
-	type AiChatRenderablePart,
 	type AssistantRowDisplay,
 	getDisplayableParts,
 } from "#/features/workspaces/components/ai-chat/ai-chat-display-state";
-import type { AiChatMessage } from "#/features/workspaces/components/ai-chat/types";
+import type {
+	AiChatMessage,
+	AiChatMessagePart,
+} from "#/features/workspaces/components/ai-chat/types";
 import { useCopyToClipboard } from "#/hooks/use-copy-to-clipboard";
 import { cn } from "#/lib/utils";
 
@@ -129,7 +131,7 @@ function UserMessageBody({
 	parts,
 }: {
 	message: AiChatMessage;
-	parts: AiChatRenderablePart[];
+	parts: AiChatMessagePart[];
 }) {
 	const [isOpen, setIsOpen] = useState(false);
 	const shouldCollapse = shouldCollapseUserMessage(parts);
@@ -164,7 +166,7 @@ function UserMessageParts({
 	parts,
 }: {
 	message: AiChatMessage;
-	parts: AiChatRenderablePart[];
+	parts: AiChatMessagePart[];
 }) {
 	return parts.map((part, index) => (
 		<AiChatMessagePartView
@@ -175,7 +177,7 @@ function UserMessageParts({
 	));
 }
 
-function shouldCollapseUserMessage(parts: AiChatRenderablePart[]) {
+function shouldCollapseUserMessage(parts: AiChatMessagePart[]) {
 	let characterCount = 0;
 	let lineCount = 0;
 
@@ -194,8 +196,8 @@ function shouldCollapseUserMessage(parts: AiChatRenderablePart[]) {
 	);
 }
 
-function isAttachmentPart(part: AiChatRenderablePart) {
-	return part.type === "file" || part.type === "source-document";
+function isAttachmentPart(part: AiChatMessagePart) {
+	return part.type === "file";
 }
 
 function AssistantMessageBody({
@@ -210,6 +212,10 @@ function AssistantMessageBody({
 	onRegenerate?: () => void;
 }) {
 	if (display.kind === "content") {
+		// Persisted turn outcome (see listThreadMessages): a reloaded partial
+		// explains its mid-sentence cutoff instead of posing as a finished answer.
+		const turnStatus = (message.metadata as { turnStatus?: string } | undefined)?.turnStatus;
+
 		return (
 			<div data-slot="assistant-parts" className="flex flex-col gap-3">
 				{display.parts.map((part, index) => (
@@ -220,6 +226,9 @@ function AssistantMessageBody({
 						part={part}
 					/>
 				))}
+				{turnStatus === "interrupted" && !isStreaming ? (
+					<div className="text-muted-foreground/70 text-xs">You stopped this response.</div>
+				) : null}
 			</div>
 		);
 	}
@@ -327,11 +336,7 @@ function getCopyableMessageText(message: AiChatMessage) {
 	return textParts.join("\n\n").trim();
 }
 
-function getMessagePartKey(messageId: string, part: AiChatRenderablePart, index: number) {
-	if (isToolGroupPart(part)) {
-		return `${messageId}-${part.type}-${part.part.toolCallId}`;
-	}
-
+function getMessagePartKey(messageId: string, part: AiChatMessagePart, index: number) {
 	if (isToolUIPart(part)) {
 		return `${messageId}-tool-${part.toolCallId}`;
 	}
@@ -340,20 +345,10 @@ function getMessagePartKey(messageId: string, part: AiChatRenderablePart, index:
 		return `${messageId}-file-${part.url}`;
 	}
 
-	if (part.type === "source-url" || part.type === "source-document") {
-		return `${messageId}-${part.type}-${part.sourceId}`;
-	}
-
 	if (part.type.startsWith("data-")) {
 		const dataPart = part as { id?: string; type: string };
 		return `${messageId}-${dataPart.type}-${dataPart.id ?? index}`;
 	}
 
 	return `${messageId}-${part.type}-${index}`;
-}
-
-function isToolGroupPart(
-	part: AiChatRenderablePart,
-): part is Extract<AiChatRenderablePart, { type: "data-tool-group" }> {
-	return part.type === "data-tool-group";
 }

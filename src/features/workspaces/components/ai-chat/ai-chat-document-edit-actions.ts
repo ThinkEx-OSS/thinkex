@@ -1,10 +1,7 @@
 import { isToolUIPart } from "ai";
 
-import {
-	getToolPartName,
-	isAiChatToolGroupPart,
-	type AiChatRenderablePart,
-} from "#/features/workspaces/components/ai-chat/ai-chat-display-state";
+import { getToolPartName } from "#/features/workspaces/components/ai-chat/ai-chat-display-state";
+import type { AiChatMessagePart } from "#/features/workspaces/components/ai-chat/types";
 import { asRecord } from "#/lib/record";
 
 export interface AiChatDocumentEditGroup {
@@ -17,21 +14,12 @@ export interface AiChatDocumentEditGroup {
 }
 
 export function getAiChatDocumentEditGroups(
-	parts: readonly AiChatRenderablePart[],
+	parts: readonly AiChatMessagePart[],
 ): AiChatDocumentEditGroup[] {
 	const groupsByItemId = new Map<string, AiChatDocumentEditGroup>();
 	const seenReceiptIds = new Set<string>();
 
 	for (const part of parts) {
-		if (isAiChatToolGroupPart(part)) {
-			for (const child of part.children) {
-				if (child.status === "completed" && child.action?.kind === "document-edit") {
-					addToGroup(groupsByItemId, seenReceiptIds, child.action);
-				}
-			}
-			continue;
-		}
-
 		if (
 			!isToolUIPart(part) ||
 			getToolPartName(part) !== "workspace_edit_item" ||

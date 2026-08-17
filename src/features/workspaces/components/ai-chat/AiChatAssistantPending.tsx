@@ -1,50 +1,25 @@
 import type { ReactNode } from "react";
-import { RefreshCw } from "lucide-react";
 
 import { Bubble, BubbleContent } from "#/components/ui/bubble";
 import { Marker, MarkerContent, MarkerIcon } from "#/components/ui/marker";
 import { Message, MessageContent } from "#/components/ui/message";
-import type { AssistantPendingKind } from "#/features/workspaces/components/ai-chat/ai-chat-display-state";
 
-export function AiChatAssistantPending({ pending }: { pending: AssistantPendingKind }) {
+export function AiChatAssistantPending() {
 	return (
 		<Message>
 			<MessageContent>
 				<Bubble variant="ghost">
 					<BubbleContent>
-						<AiChatAssistantPendingBody pending={pending} />
+						<Marker role="status" aria-live="polite" className="gap-2.5 py-2">
+							<MarkerIcon className="size-[18px]">
+								<ThinkExThinkingMark />
+							</MarkerIcon>
+							<MarkerContent className="shimmer ai-status-shimmer">Thinking...</MarkerContent>
+						</Marker>
 					</BubbleContent>
 				</Bubble>
 			</MessageContent>
 		</Message>
-	);
-}
-
-function AiChatAssistantPendingBody({ pending }: { pending: AssistantPendingKind }) {
-	if (pending === "recovering") {
-		return (
-			<Marker role="status" aria-live="polite">
-				<MarkerIcon>
-					<RefreshCw className="size-3.5 animate-spin" />
-				</MarkerIcon>
-				<MarkerContent className="shimmer ai-status-shimmer">
-					{"Recovering response..."}
-				</MarkerContent>
-			</Marker>
-		);
-	}
-
-	return <AiChatThinkingLoader />;
-}
-
-function AiChatThinkingLoader() {
-	return (
-		<Marker role="status" aria-live="polite" className="gap-2.5 py-2">
-			<MarkerIcon className="size-[18px]">
-				<ThinkExThinkingMark />
-			</MarkerIcon>
-			<MarkerContent className="shimmer ai-status-shimmer">Thinking...</MarkerContent>
-		</Marker>
 	);
 }
 
