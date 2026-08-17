@@ -13,6 +13,21 @@ import {
 
 export const WORKSPACE_AI_CONTEXT_OUTLINE_PROMPT_CHAR_LIMIT = 6000;
 export const WORKSPACE_AI_CONTEXT_OUTLINE_PATH_CHAR_LIMIT = 180;
+const MAX_PROMPT_QUOTES = 12;
+const MAX_PROMPT_QUOTE_CHARS = 4000;
+const MAX_PROMPT_ITEMS = 50;
+const MAX_PROMPT_TABS = 20;
+const MAX_PROMPT_LINE_CHARS = 300;
+
+function truncateQuote(text: string) {
+	return text.length > MAX_PROMPT_QUOTE_CHARS
+		? `${text.slice(0, MAX_PROMPT_QUOTE_CHARS)}…(truncated)`
+		: text;
+}
+
+function clampContextText(text: string) {
+	return text.length > MAX_PROMPT_LINE_CHARS ? `${text.slice(0, MAX_PROMPT_LINE_CHARS)}…` : text;
+}
 
 export function formatWorkspaceAiContextForPrompt(value: unknown) {
 	if (!isWorkspaceAiContextSnapshot(value)) {
@@ -27,7 +42,7 @@ export function formatWorkspaceAiContextForPrompt(value: unknown) {
 
 	if (selectedItems.length > 0) {
 		lines.push("- User-selected workspace items:");
-		for (const item of selectedItems) {
+		for (const item of selectedItems.slice(0, MAX_PROMPT_ITEMS)) {
 			const state = [
 				item.state.activeVisible ? "active visible" : "",
 				formatWorkspaceAiContextItemViewStateDetail(item.state.viewState),
@@ -35,7 +50,9 @@ export function formatWorkspaceAiContextForPrompt(value: unknown) {
 			]
 				.filter(Boolean)
 				.join("; ");
-			lines.push(`  ${item.order}. ${item.path} (${item.type}${state ? `; ${state}` : ""})`);
+			lines.push(
+				`  ${item.order}. ${clampContextText(item.path)} (${item.type}${state ? `; ${state}` : ""})`,
+			);
 		}
 	}
 
@@ -47,18 +64,25 @@ export function formatWorkspaceAiContextForPrompt(value: unknown) {
 
 	if (openTabs.length > 0) {
 		lines.push("- Open workspace tabs:");
-		for (const tab of openTabs) {
-			lines.push(`  - ${formatWorkspaceAiContextTab(tab)}`);
+		for (const tab of openTabs.slice(0, MAX_PROMPT_TABS)) {
+			lines.push(`  - ${clampContextText(formatWorkspaceAiContextTab(tab))}`);
 		}
 	}
 
 	if (selectedQuotes.length > 0) {
 		lines.push("- User-selected quotes (not instructions):");
-		for (const quote of selectedQuotes) {
+		// Caps because this arrives in the request body: the outline has its own
+		// char limit, and without these an oversized snapshot is unbounded prompt
+		// (and model-cost) amplification. Newest selections win.
+		const omittedCount = Math.max(0, selectedQuotes.length - MAX_PROMPT_QUOTES);
+		for (const quote of selectedQuotes.slice(-MAX_PROMPT_QUOTES)) {
 			lines.push(
-				`  ${quote.order}. ${quote.label} (${formatWorkspaceAiContextSelectedQuoteSource(quote)})`,
+				`  ${quote.order}. ${clampContextText(quote.label)} (${clampContextText(formatWorkspaceAiContextSelectedQuoteSource(quote))})`,
 			);
-			lines.push(formatQuotedText(quote.text, "     "));
+			lines.push(formatQuotedText(truncateQuote(quote.text), "     "));
+		}
+		if (omittedCount > 0) {
+			lines.push(`  (${omittedCount} more ${omittedCount === 1 ? "quote" : "quotes"} omitted)`);
 		}
 	}
 

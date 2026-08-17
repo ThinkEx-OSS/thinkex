@@ -2,10 +2,6 @@ import type { ToolSet } from "ai";
 
 import type { AIThreadContext } from "#/features/workspaces/ai/ai-thread-metadata";
 import { defineAIThreadTool } from "#/features/workspaces/ai/ai-thread-tool";
-import {
-	createPendingPdfModelOutput,
-	isPendingPdfFallbackInput,
-} from "#/features/workspaces/ai/workspace-read-file-fallback";
 import { getWorkspaceToolResultAdapter } from "#/features/workspaces/ai/workspace-tool-result-adapters";
 import {
 	workspaceToolDefinitions,
@@ -22,9 +18,6 @@ type WorkspaceThreadToolConfig = {
 function createWorkspaceThreadTool(input: WorkspaceThreadToolConfig) {
 	const { definition } = input;
 	const resultAdapter = getWorkspaceToolResultAdapter(definition.name);
-	// Projection also runs for history; only fresh calls may hydrate raw bytes.
-	const freshWorkspaceIds =
-		definition.name === "workspace_read_items" ? new Map<string, string>() : null;
 
 	return defineAIThreadTool({
 		description: definition.description,
@@ -33,24 +26,10 @@ function createWorkspaceThreadTool(input: WorkspaceThreadToolConfig) {
 		outputSchema: definition.outputSchema,
 		...(resultAdapter
 			? {
-					toModelOutput: async ({ output, toolCallId }) => {
-						const workspaceId = freshWorkspaceIds?.get(toolCallId);
-						if (workspaceId) {
-							const fileOutput = await createPendingPdfModelOutput({
-								env: input.env,
-								toolOutput: output,
-								workspaceId,
-							});
-							if (fileOutput) {
-								return fileOutput;
-							}
-						}
-
-						return {
-							type: "json" as const,
-							value: resultAdapter.projectOutput(output),
-						};
-					},
+					toModelOutput: async ({ output }) => ({
+						type: "json" as const,
+						value: resultAdapter.projectOutput(output),
+					}),
 				}
 			: {}),
 		execute: async (args, context) => {
@@ -65,10 +44,6 @@ function createWorkspaceThreadTool(input: WorkspaceThreadToolConfig) {
 					workspaceId: thread.workspaceId,
 				}),
 			);
-
-			if (freshWorkspaceIds && isPendingPdfFallbackInput(args)) {
-				freshWorkspaceIds.set(context.invocationId, thread.workspaceId);
-			}
 
 			return output;
 		},

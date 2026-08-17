@@ -5,6 +5,18 @@ export const aiThreadAgentName = "AIThread";
 export const userAIPathPrefix = "/user-ai";
 export const userAIBasePath = "user-ai";
 
+// Postgres-backed AI chat ("option zero"): plain HTTP routes served straight
+// from the Worker, no Durable Object in the chat path.
+export const aiChatPathPrefix = "/ai-chat";
+
+export function isAiChatRequestPath(pathname: string) {
+	return matchesPathPrefix(pathname, aiChatPathPrefix);
+}
+
+export function getAiChatThreadUrl(threadId: string) {
+	return `${aiChatPathPrefix}/threads/${encodeURIComponent(threadId)}`;
+}
+
 export const workspaceRoomAgentName = "WorkspaceRoom";
 export const workspaceRoomPathPrefix = "/workspace-room";
 export const workspaceRoomBasePath = "workspace-room";

@@ -33,10 +33,10 @@ Compose the experience before coding it:
 
 For a complex widget with several interactions or a large script, build in working slices. Create the smallest complete version that delivers the primary interaction, then follow the Edit workflow to add one coherent capability at a time with focused `replace_text` edits. Every saved slice must be functional and presentable; never publish scaffolding, placeholder regions, or dead controls. Create ordinary widgets in one write.
 
-Read these bundled references only when they apply:
+Bundled references are included below; consult them when they apply:
 
-- For a new widget or a ground-up rebuild, read `references/starter.md` before writing source.
-- For any `<canvas>` drawing, read `references/canvas.md` before writing source.
+- For a new widget or a ground-up rebuild, follow `references/starter.md` before writing source.
+- For any `<canvas>` drawing, follow `references/canvas.md` before writing source.
 
 Use the document tool's HTML math markup. The runtime renders matching math elements when they are added or changed. KaTeX is the only bundled library; create other diagrams and charts with inline SVG or canvas.
 
@@ -45,6 +45,6 @@ Use the document tool's HTML math markup. The runtime renders matching math elem
 1. Read the document to locate the widget placeholder and its `data-ref`.
 2. Read that exact content with `{ mode: "ref", path, ref }` to obtain the current source and current `ref`.
 3. For a focused change, use `replace_text` with a `find` string copied exactly from the block read. Include enough surrounding text to make the match unique.
-4. For a ground-up rebuild, read `references/starter.md`, then use `replace` on the widget's current `ref`.
+4. For a ground-up rebuild, follow `references/starter.md`, then use `replace` on the widget's current `ref`.
 
 Complete the operation only when the source follows the contract, the main interaction or visual is immediately clear, the widget has no duplicate host chrome or unintended overflow, every visible control works, both themes remain readable, runtime failures remain reportable, and an edit changes only the intended widget using the latest block read's exact `ref`.

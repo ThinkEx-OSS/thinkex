@@ -5,7 +5,7 @@ import { z } from "zod";
 import {
 	getWorkspaceAiGatewayProviderOptions,
 	getWorkspaceAiLanguageModel,
-} from "#/features/workspaces/ai/ai-thread-runtime";
+} from "#/features/workspaces/ai/gateway";
 import { resolveWorkspaceAiChatModelId } from "#/features/workspaces/ai/models";
 
 import type { WorkspaceAgentOutput } from "./harness";

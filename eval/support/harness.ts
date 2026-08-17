@@ -2,14 +2,13 @@ import { env } from "cloudflare:test";
 import { asSchema, generateText, stepCountIs, tool, type ToolSet } from "ai";
 import type { z } from "zod";
 
-import { getAIThreadSoulPrompt } from "#/features/workspaces/ai/ai-thread-soul-prompt";
 import { createProviderCompatibleInputSchema } from "#/features/workspaces/ai/ai-thread-tool";
 import { getWorkspaceToolResultAdapter } from "#/features/workspaces/ai/workspace-tool-result-adapters";
 import {
-	getAIThreadSystemPromptForWorkspace,
 	getWorkspaceAiGatewayProviderOptions,
 	getWorkspaceAiLanguageModel,
-} from "#/features/workspaces/ai/ai-thread-runtime";
+} from "#/features/workspaces/ai/gateway";
+import { buildAiChatSystemPrompt } from "#/features/workspaces/ai/chat/chat-endpoint";
 import {
 	DEFAULT_WORKSPACE_AI_CHAT_MODEL_ID,
 	resolveWorkspaceAiChatModelId,
@@ -189,11 +188,10 @@ export async function runWorkspaceAgent(input: WorkspaceAgentInput): Promise<Wor
 	// rules, and the runtime scope block that `beforeTurn` injects. Grading a
 	// model against a thinner prompt than production ships would measure the
 	// harness, not the product.
-	const workspacePrompt = getAIThreadSystemPromptForWorkspace(
-		getAIThreadSoulPrompt(),
-		{ canMutate, workspaceName: "Study" },
-		{ timeZone: "America/New_York" },
-	);
+	const workspacePrompt = buildAiChatSystemPrompt({
+		promptScope: { canMutate, workspaceName: "Study" },
+		timeZone: "America/New_York",
+	});
 
 	const result = await generateText({
 		model: getWorkspaceAiLanguageModel(modelId, env, "eval"),
