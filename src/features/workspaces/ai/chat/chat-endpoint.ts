@@ -15,6 +15,7 @@ import { normalizeGeneratedThreadTitle } from "#/features/workspaces/ai/chat/cha
 import { requireThreadAccess } from "#/features/workspaces/ai/chat/chat-access";
 import { getAIThreadSoulPrompt } from "#/features/workspaces/ai/ai-thread-soul-prompt";
 import {
+	AI_THREAD_TITLE_GATEWAY_MODEL,
 	generateAIThreadTitle,
 	getWorkspaceAiGatewayProviderOptions,
 	getWorkspaceAiLanguageModel,
@@ -214,29 +215,47 @@ export async function handleAiChatTurn(input: {
 			systemPrompt: systemPrompt + workspaceContext,
 			contextWindow: getWorkspaceAiChatModelById(modelId).contextWindow,
 			summarize: async (prompt) => {
-				const startedAt = Date.now();
-				const result = await generateText({
-					model: getWorkspaceAiLanguageModel(AI_CHAT_COMPACTION_MODEL_ID, env, threadId),
-					providerOptions: getWorkspaceAiGatewayProviderOptions({
-						modelId: AI_CHAT_COMPACTION_MODEL_ID,
-						tags: ["task:chat-compaction"],
-					}),
-					prompt,
-					maxOutputTokens: COMPACTION_SUMMARY_MAX_OUTPUT_TOKENS,
-				});
-
-				captureAiChatGeneration({
+				const telemetryBase = {
 					userId,
 					workspaceId: threadContext.workspaceId,
 					threadId,
 					traceId: turn.streamId,
 					gatewayModel: getWorkspaceAiChatModelById(AI_CHAT_COMPACTION_MODEL_ID).gatewayModel,
-					task: "chat-compaction",
-					startedAt,
-					usage: result.totalUsage,
-					providerMetadata: await Promise.resolve(result.providerMetadata).catch(() => undefined),
+					task: "chat-compaction" as const,
+					startedAt: Date.now(),
 					includeContent: analyticsConsent,
 					input: [{ role: "user", content: prompt }],
+				};
+
+				let result;
+
+				try {
+					result = await generateText({
+						model: getWorkspaceAiLanguageModel(AI_CHAT_COMPACTION_MODEL_ID, env, threadId),
+						providerOptions: getWorkspaceAiGatewayProviderOptions({
+							modelId: AI_CHAT_COMPACTION_MODEL_ID,
+							tags: ["task:chat-compaction"],
+						}),
+						prompt,
+						maxOutputTokens: COMPACTION_SUMMARY_MAX_OUTPUT_TOKENS,
+					});
+				} catch (error) {
+					// Compaction fails open upstream, so this event is the only record
+					// the summarizer call happened — without it a failing summarizer
+					// model is invisible in the analytics.
+					captureAiChatGeneration({
+						...telemetryBase,
+						outcome: "error",
+						errorMessage: error instanceof Error ? error.message : String(error),
+					});
+					throw error;
+				}
+
+				captureAiChatGeneration({
+					...telemetryBase,
+					usage: result.totalUsage,
+					providerMetadata: await Promise.resolve(result.providerMetadata).catch(() => undefined),
+					outcome: "complete",
 					output: [{ role: "assistant", content: result.text }],
 				});
 
@@ -279,41 +298,59 @@ export async function handleAiChatTurn(input: {
 					// old poll-and-hope timers. Persistence is the same promise; the
 					// stream write is best-effort (an ultra-short reply may close the
 					// stream first, in which case the next refetch picks the title up).
-					const titleStartedAt = Date.now();
+					const titleTelemetryBase = {
+						userId,
+						workspaceId: threadContext.workspaceId,
+						threadId,
+						traceId: turn.streamId,
+						task: "chat-title" as const,
+						startedAt: Date.now(),
+						includeContent: analyticsConsent,
+						input: [{ role: "user", content: userMessage.parts }],
+					};
 					ctx.waitUntil(
-						generateAIThreadTitle({ env, messages: [userMessage] })
-							.then(async (generated) => {
-								if (!generated) {
-									return;
-								}
+						(async () => {
+							let generated;
+
+							try {
+								generated = await generateAIThreadTitle({ env, messages: [userMessage] });
+							} catch (error) {
+								// The model call failing must still produce an event — a dead
+								// title model would otherwise be invisible in the analytics.
 								captureAiChatGeneration({
-									userId,
-									workspaceId: threadContext.workspaceId,
-									threadId,
-									traceId: turn.streamId,
-									gatewayModel: generated.gatewayModel,
-									task: "chat-title",
-									startedAt: titleStartedAt,
-									usage: generated.usage,
-									providerMetadata: generated.providerMetadata,
-									includeContent: analyticsConsent,
-									input: [{ role: "user", content: userMessage.parts }],
-									...(generated.title
-										? { output: [{ role: "assistant", content: generated.title }] }
-										: {}),
+									...titleTelemetryBase,
+									gatewayModel: AI_THREAD_TITLE_GATEWAY_MODEL,
+									outcome: "error",
+									errorMessage: error instanceof Error ? error.message : String(error),
 								});
-								const normalized = normalizeGeneratedThreadTitle(generated.title);
-								if (!normalized) {
-									return;
-								}
-								try {
-									writer.write({ type: "data-thread-title", data: normalized, transient: true });
-								} catch {
-									// Stream already closed — persistence below still lands.
-								}
-								await setThreadTitle({ threadId, title: normalized });
-							})
-							.catch((error) => console.error("[ai-chat] title generation failed:", error)),
+								console.error("[ai-chat] title generation failed:", error);
+								return;
+							}
+
+							if (!generated) {
+								return;
+							}
+							captureAiChatGeneration({
+								...titleTelemetryBase,
+								gatewayModel: generated.gatewayModel,
+								usage: generated.usage,
+								providerMetadata: generated.providerMetadata,
+								outcome: "complete",
+								...(generated.title
+									? { output: [{ role: "assistant", content: generated.title }] }
+									: {}),
+							});
+							const normalized = normalizeGeneratedThreadTitle(generated.title);
+							if (!normalized) {
+								return;
+							}
+							try {
+								writer.write({ type: "data-thread-title", data: normalized, transient: true });
+							} catch {
+								// Stream already closed — persistence below still lands.
+							}
+							await setThreadTitle({ threadId, title: normalized });
+						})().catch((error) => console.error("[ai-chat] title delivery failed:", error)),
 					);
 				}
 

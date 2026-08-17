@@ -24,7 +24,7 @@ import {
 // has no framework dependencies; the comments carry over because the tuning
 // rationale is unchanged.
 
-const AI_THREAD_TITLE_GATEWAY_MODEL = "google/gemini-2.5-flash-lite";
+export const AI_THREAD_TITLE_GATEWAY_MODEL = "google/gemini-2.5-flash-lite";
 
 type WorkspaceAiProviderOptions = NonNullable<
 	Parameters<typeof generateText>[0]["providerOptions"]
