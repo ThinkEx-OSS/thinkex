@@ -90,8 +90,10 @@ export async function handleAiChatTurn(input: {
 	threadId: string;
 	userId: string;
 	body: AiChatRequestBody;
+	/** Resolved from the request's consent cookie; gates telemetry content. */
+	analyticsConsent: boolean;
 }): Promise<Response> {
-	const { env, ctx, threadId, userId, body } = input;
+	const { env, ctx, threadId, userId, body, analyticsConsent } = input;
 	const isRegenerate = body.trigger === "regenerate-message";
 
 	if (!body.workspaceId) {
@@ -233,6 +235,9 @@ export async function handleAiChatTurn(input: {
 					startedAt,
 					usage: result.totalUsage,
 					providerMetadata: await Promise.resolve(result.providerMetadata).catch(() => undefined),
+					includeContent: analyticsConsent,
+					input: [{ role: "user", content: prompt }],
+					output: [{ role: "assistant", content: result.text }],
 				});
 
 				return result.text;
@@ -291,6 +296,11 @@ export async function handleAiChatTurn(input: {
 									startedAt: titleStartedAt,
 									usage: generated.usage,
 									providerMetadata: generated.providerMetadata,
+									includeContent: analyticsConsent,
+									input: [{ role: "user", content: userMessage.parts }],
+									...(generated.title
+										? { output: [{ role: "assistant", content: generated.title }] }
+										: {}),
 								});
 								const normalized = normalizeGeneratedThreadTitle(generated.title);
 								if (!normalized) {
@@ -390,6 +400,15 @@ export async function handleAiChatTurn(input: {
 						turnErrorMessage !== undefined ? "error" : isAborted ? "interrupted" : "complete",
 					errorMessage: turnErrorMessage,
 					toolNames: assistantMessage ? toolNamesFromParts(assistantMessage.parts) : undefined,
+					includeContent: analyticsConsent,
+					// Pre-hydration parts: attachment URLs, never inlined image bytes.
+					input: context.messages.map((message) => ({
+						role: message.role,
+						content: message.parts,
+					})),
+					...(assistantMessage
+						? { output: [{ role: "assistant", content: assistantMessage.parts }] }
+						: {}),
 				});
 
 				if (clean && assistantMessage) {

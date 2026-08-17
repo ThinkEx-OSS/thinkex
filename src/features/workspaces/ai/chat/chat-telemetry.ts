@@ -1,11 +1,15 @@
+import { fitTelemetryContent } from "#/features/workspaces/ai/chat/chat-model";
 import { capturePostHogAiGeneration } from "#/integrations/posthog/ai-observability";
 
 // LLM analytics for the chat: one $ai_generation event per model call — the
 // turn itself plus its utility calls (compaction summary, title) — sharing the
 // turn's streamId as the trace id so PostHog groups them into one trace per
-// turn, keyed to the thread as the session. Metadata only (privacyMode is
-// forced on in the capture layer): usage, latency, served route, outcome —
-// never message content.
+// turn, keyed to the thread as the session.
+//
+// Content policy: full prompt/response content is captured by default — we are
+// early, and the conversation is the debugging signal. A user whose analytics
+// consent is off (cookie choice, GPC, or opt-in region without a choice) drops
+// the event to metadata-only: usage, latency, served route, outcome.
 
 export type AiChatGenerationTask = "chat-turn" | "chat-compaction" | "chat-title";
 
@@ -29,6 +33,12 @@ export interface AiChatGenerationTelemetry {
 	outcome?: "complete" | "interrupted" | "error";
 	errorMessage?: string;
 	toolNames?: string[];
+	/** The request's analytics consent. False strips content, keeps metadata. */
+	includeContent: boolean;
+	/** What the model saw, `[{role, content}]`-shaped. Oldest dropped to fit. */
+	input?: unknown[];
+	/** The model's reply in the same shape. */
+	output?: unknown[];
 }
 
 export function captureAiChatGeneration(input: AiChatGenerationTelemetry) {
@@ -52,8 +62,9 @@ export function captureAiChatGeneration(input: AiChatGenerationTelemetry) {
 		// gateway's actual served route when providerMetadata records one.
 		provider: slash === -1 ? "vercel-ai-gateway" : gatewayModel.slice(0, slash),
 		model: slash === -1 ? gatewayModel : gatewayModel.slice(slash + 1),
-		input: null,
-		output: null,
+		input: input.includeContent ? fitTelemetryContent(input.input ?? []) : null,
+		output: input.includeContent ? (input.output ?? null) : null,
+		...(input.includeContent ? { privacyMode: false } : {}),
 		latency: (Date.now() - input.startedAt) / 1000,
 		...(input.firstTokenAt !== undefined
 			? { timeToFirstToken: (input.firstTokenAt - input.startedAt) / 1000 }

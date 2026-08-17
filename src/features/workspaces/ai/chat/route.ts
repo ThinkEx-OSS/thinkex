@@ -7,6 +7,7 @@ import { ChatRequestError, chatErrorResponse } from "#/features/workspaces/ai/ch
 import { getThread, stopStream } from "#/features/workspaces/ai/chat/chat-store";
 import { WorkspaceForbiddenError } from "#/features/workspaces/server/permissions";
 import { recordOperationalFailure } from "#/integrations/observability/operational-events";
+import { hasServerAnalyticsConsent } from "#/integrations/posthog/consent.server";
 import { getTelemetryRequestDetails } from "#/integrations/posthog/server-context";
 import { getSessionFromRequest } from "#/lib/auth-queries.server";
 
@@ -76,6 +77,10 @@ export async function routeAiChatRequest(request: Request, env: Env, ctx: Execut
 			threadId,
 			userId: session.user.id,
 			body,
+			// Resolved here, where the request is in hand: the stream callbacks
+			// that capture telemetry run after the response, outside any request
+			// context a lazy read could fall back to.
+			analyticsConsent: hasServerAnalyticsConsent(request.headers),
 		});
 	} catch (error) {
 		const typedResponse = chatErrorResponse(error);
