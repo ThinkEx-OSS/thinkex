@@ -182,7 +182,12 @@ export async function generateAIThreadTitle(input: { env: Cloudflare.Env; messag
 		}),
 	});
 
-	return result.output?.title;
+	return {
+		title: result.output?.title,
+		usage: result.totalUsage,
+		providerMetadata: await Promise.resolve(result.providerMetadata).catch(() => undefined),
+		gatewayModel: AI_THREAD_TITLE_GATEWAY_MODEL,
+	};
 }
 
 const AI_THREAD_TITLE_OUTPUT_SCHEMA = z.object({
