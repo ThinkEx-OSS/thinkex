@@ -15,7 +15,7 @@ import { createAIThreadWorkspaceTools } from "#/features/workspaces/ai/workspace
 // access policy, mirroring getActiveToolNames in ai-thread-runtime.
 export function createAiChatTools(input: {
 	env: Cloudflare.Env;
-	getThreadContext: () => Promise<AIThreadContext | null>;
+	threadContext: AIThreadContext;
 	canMutate: boolean;
 	timeZone?: string;
 }): ToolSet {
@@ -26,7 +26,9 @@ export function createAiChatTools(input: {
 		...createAIThreadSkillTools(),
 		...createAIThreadWorkspaceTools({
 			env: input.env,
-			getThreadContext: input.getThreadContext,
+			// Adapter for the Think-era factory signature; flattened to a plain
+			// value when the Think runtime (its other caller) is retired.
+			getThreadContext: () => Promise.resolve(input.threadContext),
 		}),
 	};
 

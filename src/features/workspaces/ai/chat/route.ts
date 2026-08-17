@@ -4,7 +4,7 @@ import {
 	type AiChatRequestBody,
 } from "#/features/workspaces/ai/chat/chat-endpoint";
 import { ChatRequestError, chatErrorResponse } from "#/features/workspaces/ai/chat/chat-errors";
-import { stopStream } from "#/features/workspaces/ai/chat/chat-store";
+import { getThread, stopStream } from "#/features/workspaces/ai/chat/chat-store";
 import { WorkspaceForbiddenError } from "#/features/workspaces/server/permissions";
 import { recordOperationalFailure } from "#/integrations/observability/operational-events";
 import { getTelemetryRequestDetails } from "#/integrations/posthog/server-context";
@@ -45,7 +45,22 @@ export async function routeAiChatRequest(request: Request, env: Env, ctx: Execut
 		}
 
 		if (subresource === "stop") {
-			await stopStream({ threadId, userId: session.user.id });
+			const stopped = await stopStream({ threadId, userId: session.user.id });
+
+			if (stopped) {
+				// Hold the response until the stopped turn settles (its interrupted
+				// partial is persisted and the claim clears), so a follow-up send
+				// fired on this response never races the dying turn. The generator
+				// observes the tombstone within ~2.5s while streaming.
+				for (let i = 0; i < 20; i += 1) {
+					await new Promise((resolve) => setTimeout(resolve, 300));
+					const thread = await getThread({ threadId, userId: session.user.id });
+					if (!thread || thread.activeStreamId === null) {
+						break;
+					}
+				}
+			}
+
 			return Response.json({ ok: true });
 		}
 
@@ -58,7 +73,6 @@ export async function routeAiChatRequest(request: Request, env: Env, ctx: Execut
 		return await handleAiChatTurn({
 			env: env as Cloudflare.Env,
 			ctx,
-			request,
 			threadId,
 			userId: session.user.id,
 			body,
@@ -96,10 +110,29 @@ function safeDecodeUriComponent(value: string): string {
 	}
 }
 
+// Total request cap: the message has its own serialized-size cap, but every
+// OTHER field (workspace context, future additions) would be unbounded
+// without a ceiling on the envelope itself.
+const MAX_REQUEST_BODY_CHARS = 2_000_000;
+
 async function parseRequestBody(request: Request): Promise<AiChatRequestBody> {
+	// Content-Length first: rejecting before the read means an oversized body
+	// is never buffered into memory. The post-read check covers chunked bodies.
+	const declaredLength = Number(request.headers.get("content-length") ?? 0);
+
+	if (declaredLength > MAX_REQUEST_BODY_CHARS) {
+		throw new ChatRequestError(413, "Request is too large");
+	}
+
+	const raw = await request.text();
+
+	if (raw.length > MAX_REQUEST_BODY_CHARS) {
+		throw new ChatRequestError(413, "Request is too large");
+	}
+
 	let body: unknown;
 	try {
-		body = await request.json();
+		body = JSON.parse(raw);
 	} catch {
 		throw new ChatRequestError(400, "Request body must be JSON");
 	}

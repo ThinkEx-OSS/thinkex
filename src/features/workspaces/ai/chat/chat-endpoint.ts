@@ -31,16 +31,15 @@ import { ChatRequestError } from "#/features/workspaces/ai/chat/chat-errors";
 import { WORKSPACE_AI_CHAT_ATTACHMENT_POLICY } from "#/features/workspaces/ai/chat-attachment-policy";
 import { parseChatAttachmentContentUrl } from "#/features/workspaces/ai/chat-attachment-storage";
 import {
-	claimStream,
 	deleteMessagesAfterLastUserMessage,
+	deleteMessagesAfterUserMessage,
 	getThreadAttachment,
 	insertCompactionMessage,
 	listThreadMessageRows,
-	pingStreamClaim,
-	releaseStream,
 	saveMessage,
 	setThreadTitle,
 } from "#/features/workspaces/ai/chat/chat-store";
+import { claimTurn } from "#/features/workspaces/ai/chat/chat-turn-lifecycle";
 import { createAiChatTools } from "#/features/workspaces/ai/chat/chat-tools";
 import { formatWorkspaceAiContextForPrompt } from "#/features/workspaces/model/workspace-ai-context-prompt";
 import {
@@ -56,8 +55,6 @@ const MAX_AGENT_STEPS = 16;
 // it). Do not "simplify" this to the session model — summarization would
 // overflow on exactly the turns compaction exists to save.
 const AI_CHAT_COMPACTION_MODEL_ID = "gemini" as const;
-// A claim older than this is presumed orphaned (crashed isolate) and broken.
-const STALE_STREAM_CLAIM_MS = 5 * 60 * 1000;
 
 export interface AiChatRequestBody {
 	message?: UIMessage;
@@ -86,7 +83,6 @@ export interface AiChatRequestBody {
 export async function handleAiChatTurn(input: {
 	env: Cloudflare.Env;
 	ctx: ExecutionContext;
-	request: Request;
 	threadId: string;
 	userId: string;
 	body: AiChatRequestBody;
@@ -125,20 +121,11 @@ export async function handleAiChatTurn(input: {
 		mode: "create-draft",
 	});
 
-	const streamId = generateId();
-	const claimed =
-		(await claimStream({ threadId, userId, streamId })) ||
-		// Break only the exact stale claim we observed (compare-and-swap on the
-		// stream id), so a live generation that claimed after our read survives.
-		(isThreadClaimStale(thread) &&
-			thread.activeStreamId !== null &&
-			(await claimStream({ threadId, userId, streamId, replaceStreamId: thread.activeStreamId })));
+	const turn = await claimTurn({ thread, userId, ctx });
 
-	if (!claimed) {
+	if (!turn) {
 		throw new ChatRequestError(409, "A response is already being generated");
 	}
-
-	const releaseClaim = () => ctx.waitUntil(releaseStream({ threadId, streamId }));
 
 	try {
 		// Autumn usage gate first: nothing destructive (regenerate's delete, the
@@ -165,7 +152,16 @@ export async function handleAiChatTurn(input: {
 		const userMessage = isRegenerate ? undefined : body.message;
 
 		if (!isRegenerate && userMessage) {
-			await saveMessage({ threadId, message: userMessage });
+			// A resend of an already-persisted id truncates everything after it and
+			// re-runs (retry after an error turn, edit-and-resend). No-op for new ids.
+			await deleteMessagesAfterUserMessage({ threadId, userId, messageId: userMessage.id });
+			const wrote = await saveMessage({ threadId, message: userMessage });
+
+			if (!wrote) {
+				// The id collides with an existing row of a different role; the
+				// role-guarded upsert refused the overwrite.
+				throw new ChatRequestError(400, "Message id conflicts with an existing reply");
+			}
 		}
 
 		// One read of everything (with seqs and compaction markers): the chat
@@ -189,7 +185,7 @@ export async function handleAiChatTurn(input: {
 		};
 		const tools = createAiChatTools({
 			env,
-			getThreadContext: () => Promise.resolve(threadContext),
+			threadContext,
 			canMutate: promptScope.canMutate,
 			timeZone: body.timeZone,
 		});
@@ -198,6 +194,10 @@ export async function handleAiChatTurn(input: {
 			promptScope,
 			timeZone: body.timeZone,
 		});
+		// Computed before compaction so its size counts toward the window
+		// estimate — appended after, it would be invisible to the budget and
+		// could push an "it fits" turn over the provider limit.
+		const workspaceContext = formatWorkspaceAiContextForPrompt(body.workspaceAiContext);
 
 		// Compaction: when the estimated request outgrows the model's window,
 		// fold everything older than the keep-recent tail into a stored summary
@@ -205,7 +205,7 @@ export async function handleAiChatTurn(input: {
 		// generating so the next turn starts from summary + tail.
 		const context = await prepareCompactedContext({
 			rows,
-			systemPrompt,
+			systemPrompt: systemPrompt + workspaceContext,
 			contextWindow: getWorkspaceAiChatModelById(modelId).contextWindow,
 			summarize: async (prompt) => {
 				const result = await generateText({
@@ -230,8 +230,6 @@ export async function handleAiChatTurn(input: {
 		// always the user's), not the system prompt: everything ahead of it is a
 		// cacheable prefix, and per-turn content there would invalidate it. Never
 		// persisted — these rows are discarded when the turn ends.
-		const workspaceContext = formatWorkspaceAiContextForPrompt(body.workspaceAiContext);
-
 		if (workspaceContext) {
 			context.messages.at(-1)?.parts.push({ type: "text", text: workspaceContext });
 		}
@@ -243,38 +241,37 @@ export async function handleAiChatTurn(input: {
 		// as exclusive double-persisted the reply).
 		let turnErrorMessage: string | undefined;
 
-		// Generation aborts when the claim is lost — stop endpoint or stale-claim
-		// takeover. Pinged on a throttle while chunks stream (so stop lands within
-		// a few seconds even inside one long text step), per step, and on an
-		// interval backstop that covers chunkless gaps (tool waits, compaction).
-		// Started inside execute so a pre-stream throw never leaks the timer.
-		const abortController = new AbortController();
-		let pingInFlight = false;
-		let lastPingAt = Date.now();
-		const pingClaim = async () => {
-			if (abortController.signal.aborted || pingInFlight) {
-				return;
-			}
-			pingInFlight = true;
-			lastPingAt = Date.now();
-			const held = await pingStreamClaim({ threadId, streamId }).catch(() => true);
-			pingInFlight = false;
-			if (!held) {
-				abortController.abort();
-			}
-		};
-		const pingClaimThrottled = () => {
-			if (Date.now() - lastPingAt > 2_500) {
-				ctx.waitUntil(pingClaim());
-			}
-		};
-		let claimPingTimer: ReturnType<typeof setInterval> | undefined;
-		const stopClaimPing = () => clearInterval(claimPingTimer);
-
 		const stream = createUIMessageStream({
 			generateId,
 			execute: async ({ writer }) => {
-				claimPingTimer = setInterval(() => ctx.waitUntil(pingClaim()), 30_000);
+				// Started inside execute so a pre-stream throw never leaks the timer.
+				turn.startPinging();
+
+				if (isFirstExchange && userMessage) {
+					// Title generation runs concurrently with the reply and is DELIVERED
+					// through the stream as a data part (ai-chatbot's pattern) — the
+					// client refetches the sidebar the moment it arrives, replacing the
+					// old poll-and-hope timers. Persistence is the same promise; the
+					// stream write is best-effort (an ultra-short reply may close the
+					// stream first, in which case the next refetch picks the title up).
+					ctx.waitUntil(
+						generateAIThreadTitle({ env, messages: [userMessage] })
+							.then(async (title) => {
+								const normalized = normalizeGeneratedThreadTitle(title);
+								if (!normalized) {
+									return;
+								}
+								try {
+									writer.write({ type: "data-thread-title", data: normalized, transient: true });
+								} catch {
+									// Stream already closed — persistence below still lands.
+								}
+								await setThreadTitle({ threadId, title: normalized });
+							})
+							.catch((error) => console.error("[ai-chat] title generation failed:", error)),
+					);
+				}
+
 				const modelMessages = await convertToModelMessages(
 					await hydrateAttachmentParts(context.messages, { userId, threadId }),
 					// An interrupted earlier turn may have persisted a tool call whose
@@ -293,9 +290,9 @@ export async function handleAiChatTurn(input: {
 					messages: modelMessages,
 					tools,
 					stopWhen: stepCountIs(MAX_AGENT_STEPS),
-					abortSignal: abortController.signal,
-					onChunk: pingClaimThrottled,
-					onStepFinish: () => ctx.waitUntil(pingClaim()),
+					abortSignal: turn.signal,
+					onChunk: () => turn.onChunk(),
+					onStepFinish: () => turn.onStepFinish(),
 				});
 
 				totalUsagePromise = result.totalUsage;
@@ -309,69 +306,32 @@ export async function handleAiChatTurn(input: {
 				console.error("[ai-chat] turn failed:", error);
 				return "The assistant hit an error while responding. Please try again.";
 			},
-			onEnd: ({ messages, isAborted }) => {
-				stopClaimPing();
+			onEnd: async ({ messages, isAborted }) => {
 				const assistantMessage = [...messages]
 					.reverse()
 					.find((message) => message.role === "assistant");
-				const failed = turnErrorMessage !== undefined;
-				const clean = !failed && !isAborted;
-				// Interrupted or failed turns settle their parts: tool calls without
-				// a terminal result are stripped (a dangling tool_use poisons every
-				// future model request), while partial text/reasoning is kept.
-				const parts = clean
-					? (assistantMessage?.parts ?? [])
-					: settledParts(assistantMessage?.parts ?? []);
+				const clean = turnErrorMessage === undefined && !isAborted;
+				// Usage + model ride the row's metadata. Aborted turns may never
+				// resolve usage — persist without it rather than hang.
+				const usage = clean
+					? await Promise.resolve(totalUsagePromise).catch(() => undefined)
+					: undefined;
 
-				// Settlement is one sequenced operation (OpenCode's rule): persist the
-				// terminal outcome, THEN release the claim. Racing them let the next
-				// turn — the queue drains the instant the stream closes — load history
-				// before this reply existed.
-				ctx.waitUntil(
-					(async () => {
-						try {
-							if (parts.length > 0 && assistantMessage) {
-								// Usage + model ride the row's metadata. Aborted turns may
-								// never resolve usage — persist without it rather than hang.
-								const usage = clean
-									? await Promise.resolve(totalUsagePromise).catch(() => undefined)
-									: undefined;
-
-								await saveMessage({
-									threadId,
-									message: {
-										...assistantMessage,
-										parts,
-										metadata: {
-											...(typeof assistantMessage.metadata === "object"
-												? assistantMessage.metadata
-												: {}),
-											modelId,
-											...(usage ? { usage } : {}),
-											...(failed ? { errorMessage: turnErrorMessage } : {}),
-										},
-									},
-									status: failed ? "error" : isAborted ? "interrupted" : "complete",
-								});
-							} else if (failed) {
-								// Nothing streamed before the error: a stub row keeps the
-								// failure visible after reload (Pi's durable stopReason).
-								await saveMessage({
-									threadId,
-									message: {
-										id: `turn-error-${streamId}`,
-										role: "assistant",
-										parts: [],
-										metadata: { errorMessage: turnErrorMessage },
-									},
-									status: "error",
-								});
-							}
-						} finally {
-							await releaseStream({ threadId, streamId });
-						}
-					})(),
-				);
+				// AWAITED, deliberately: the stream must not close before the outcome
+				// is persisted and the claim released — the composer queue drains the
+				// instant the client sees the stream end, and its next turn must find
+				// both. waitUntil doubles as a keep-alive in case the platform stops
+				// awaiting onEnd.
+				const settled = turn.settle({
+					assistantMessage,
+					errorMessage: turnErrorMessage,
+					isAborted,
+					metadata: { modelId, ...(usage ? { usage } : {}) },
+				});
+				ctx.waitUntil(settled);
+				// Bounded: a hung settle must not pin the client in "streaming"
+				// forever — waitUntil above still carries the real write to completion.
+				await Promise.race([settled, new Promise((resolve) => setTimeout(resolve, 5_000))]);
 
 				if (clean && assistantMessage) {
 					ctx.waitUntil(
@@ -383,27 +343,13 @@ export async function handleAiChatTurn(input: {
 							workspaceId: threadContext.workspaceId,
 						}),
 					);
-
-					if (isFirstExchange && userMessage) {
-						ctx.waitUntil(
-							generateAIThreadTitle({ env, messages: [userMessage] })
-								.then((title) => {
-									const normalized = normalizeGeneratedThreadTitle(title);
-
-									return normalized ? setThreadTitle({ threadId, title: normalized }) : undefined;
-								})
-								.catch((error) => console.error("[ai-chat] title generation failed:", error)),
-						);
-					}
 				}
 			},
 		});
 
 		// consumeSseStream drains a tee'd copy of the stream server-side, so the
-		// pipeline — including onEnd's persistence and claim release — runs to
-		// completion even when the client cancels its branch (stop, refresh,
-		// tab close). Generation itself still aborts via request.signal above;
-		// this only guarantees the abort is *observed* and settled.
+		// pipeline — including onEnd's awaited settlement — runs to completion
+		// even when the client cancels its branch (refresh, tab close).
 		return createUIMessageStreamResponse({
 			stream,
 			consumeSseStream: ({ stream: sseStream }) => {
@@ -411,7 +357,7 @@ export async function handleAiChatTurn(input: {
 			},
 		});
 	} catch (error) {
-		releaseClaim();
+		turn.releaseOnFailure();
 		throw error;
 	}
 }
@@ -458,27 +404,6 @@ function userMessageValidationError(body: AiChatRequestBody): string | null {
 	}
 
 	return null;
-}
-
-// Settle an interrupted/failed turn's parts: tool calls must have reached a
-// terminal state (a frozen tool_use otherwise poisons future model requests),
-// but partial text/reasoning is kept — an aborted stream leaves text parts at
-// state "streaming" and dropping them would erase the reply the user watched.
-function settledParts(parts: UIMessage["parts"]): UIMessage["parts"] {
-	return parts.filter((part) => {
-		if ("toolCallId" in part && "state" in part && typeof part.state === "string") {
-			return part.state.startsWith("output-");
-		}
-
-		return true;
-	});
-}
-
-function isThreadClaimStale(thread: { activeStreamId: string | null; updatedAt: Date }) {
-	return (
-		thread.activeStreamId !== null &&
-		Date.now() - thread.updatedAt.getTime() > STALE_STREAM_CLAIM_MS
-	);
 }
 
 // Exported for the eval harness, which must grade models against the exact
