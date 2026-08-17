@@ -103,6 +103,7 @@ export async function listThreadMessages(input: {
 				role: aiChatMessages.role,
 				parts: aiChatMessages.parts,
 				metadata: aiChatMessages.metadata,
+				status: aiChatMessages.status,
 			})
 			.from(aiChatMessages)
 			.innerJoin(aiChatThreads, eq(aiChatMessages.threadId, aiChatThreads.id))
@@ -120,12 +121,22 @@ export async function listThreadMessages(input: {
 		// (OpenCode decodes at every load boundary; this is the light version).
 		return rows
 			.filter((row) => Array.isArray(row.parts))
-			.map((row) => ({
-				id: row.id,
-				role: row.role,
-				parts: row.parts as UIMessage["parts"],
-				...(row.metadata == null ? {} : { metadata: row.metadata }),
-			}));
+			.map((row) => {
+				// Non-complete outcomes ride the metadata so a reload can explain a
+				// mid-sentence cutoff ("You stopped this response") instead of
+				// presenting the partial as a finished answer.
+				const metadata =
+					row.status === "complete"
+						? row.metadata
+						: { ...(row.metadata ?? {}), turnStatus: row.status };
+
+				return {
+					id: row.id,
+					role: row.role,
+					parts: row.parts as UIMessage["parts"],
+					...(metadata == null ? {} : { metadata }),
+				};
+			});
 	});
 }
 
@@ -206,9 +217,9 @@ export async function saveMessage(input: {
 	threadId: string;
 	message: UIMessage;
 	status?: AiChatMessageStatus;
-}) {
-	await withDb(async (db) => {
-		await db
+}): Promise<boolean> {
+	return await withDb(async (db) => {
+		const written = await db
 			.insert(aiChatMessages)
 			.values({
 				id: input.message.id,
@@ -227,13 +238,18 @@ export async function saveMessage(input: {
 				},
 				// The upsert exists for the assistant-row lifecycle (onEnd re-saving
 				// its own id). A client-supplied id colliding with a different role's
-				// row must not overwrite history — the mismatch makes this a no-op.
+				// row must not overwrite history — the mismatch makes this a no-op,
+				// reported via the return so the caller can reject instead of
+				// carrying on into a confusing downstream error.
 				setWhere: sql`${aiChatMessages.role} = ${input.message.role}`,
-			});
+			})
+			.returning({ id: aiChatMessages.id });
 		await db
 			.update(aiChatThreads)
 			.set({ updatedAt: new Date() })
 			.where(eq(aiChatThreads.id, input.threadId));
+
+		return written.length > 0;
 	});
 }
 
@@ -276,10 +292,48 @@ export async function deleteMessagesAfterLastUserMessage(input: {
 	});
 }
 
+// A resend of an already-persisted user message truncates everything after it
+// and re-runs — the retry semantics (a queued message whose turn errored
+// resends the same id) and, by the same token, edit-and-resend. Without the
+// truncation, the upsert updates in place, the trailing error row stays last,
+// and the retry dies on "Nothing to respond to" forever. No-op when the id is
+// new. Same compaction caveats as deleteMessagesAfterLastUserMessage above.
+export async function deleteMessagesAfterUserMessage(input: {
+	threadId: string;
+	userId: string;
+	messageId: string;
+}) {
+	await withDb(async (db) => {
+		const [existing] = await db
+			.select({ seq: aiChatMessages.seq })
+			.from(aiChatMessages)
+			.innerJoin(aiChatThreads, eq(aiChatMessages.threadId, aiChatThreads.id))
+			.where(
+				and(
+					eq(aiChatMessages.threadId, input.threadId),
+					eq(aiChatMessages.id, input.messageId),
+					eq(aiChatThreads.userId, input.userId),
+					eq(aiChatMessages.role, "user"),
+				),
+			)
+			.limit(1);
+
+		if (!existing) {
+			return;
+		}
+
+		await db
+			.delete(aiChatMessages)
+			.where(
+				and(eq(aiChatMessages.threadId, input.threadId), gt(aiChatMessages.seq, existing.seq)),
+			);
+	});
+}
+
 // Per-thread serialization claim. Returns true when this stream now owns the
 // thread; false when another generation is already running. The claim is
 // released in `releaseStream`, and a stale claim (crashed isolate) is broken
-// by claiming with `force` after a timeout upstream.
+// by re-claiming with `replaceStreamId` after a timeout upstream.
 export async function claimStream(input: {
 	threadId: string;
 	userId: string;
@@ -328,18 +382,22 @@ export async function pingStreamClaim(input: {
 	});
 }
 
-// Explicit stop: clearing the claim is the stop signal. The generating isolate
-// notices on its next ping and aborts. User-scoped — only the owner can stop.
+// Explicit stop: the claim becomes a tombstone ("stop:<streamId>") rather
+// than being cleared — the generator's next ping fails and it aborts, but the
+// claim survives until settlement, so no new turn can start before the
+// interrupted outcome is persisted (releaseStream clears the tombstone too).
+// User-scoped — only the owner can stop.
 export async function stopStream(input: { threadId: string; userId: string }): Promise<boolean> {
 	return await withDb(async (db) => {
 		const result = await db
 			.update(aiChatThreads)
-			.set({ activeStreamId: null })
+			.set({ activeStreamId: sql`'stop:' || ${aiChatThreads.activeStreamId}` })
 			.where(
 				and(
 					eq(aiChatThreads.id, input.threadId),
 					eq(aiChatThreads.userId, input.userId),
 					sql`${aiChatThreads.activeStreamId} is not null`,
+					sql`${aiChatThreads.activeStreamId} not like 'stop:%'`,
 				),
 			)
 			.returning({ id: aiChatThreads.id });
@@ -354,7 +412,10 @@ export async function releaseStream(input: { threadId: string; streamId: string 
 			.update(aiChatThreads)
 			.set({ activeStreamId: null })
 			.where(
-				and(eq(aiChatThreads.id, input.threadId), eq(aiChatThreads.activeStreamId, input.streamId)),
+				and(
+					eq(aiChatThreads.id, input.threadId),
+					sql`${aiChatThreads.activeStreamId} in (${input.streamId}, ${`stop:${input.streamId}`})`,
+				),
 			);
 	});
 }

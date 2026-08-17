@@ -1,5 +1,7 @@
-// Chat-domain types and title normalization shared by the store, the turn
-// endpoint, and the chat UI.
+// Chat-domain types, title normalization, and pure turn-outcome logic
+// shared by the store, the turn endpoint, and the chat UI.
+
+import type { UIMessage } from "ai";
 
 // The classification/stage values the UI branches on. The chat does not
 // record per-thread error summaries yet, so these mostly type live error
@@ -34,4 +36,45 @@ export function normalizeGeneratedThreadTitle(value: string | undefined) {
 	}
 
 	return title.length > 64 ? `${title.slice(0, 61).trimEnd()}...` : title;
+}
+
+// Settle an interrupted/failed turn's parts. Partial text/reasoning is kept —
+// an aborted stream leaves text parts at state "streaming", and dropping them
+// would erase the reply the user watched. Tool calls split by how far they
+// got: mid-argument calls (input-streaming) never executed, so they drop;
+// calls with complete input may have EXECUTED without their result being
+// recorded, so they become an explicit error result — erasing them would tell
+// future turns the call never happened, inviting the model to repeat a
+// mutation that may already have committed.
+export function settledParts(parts: UIMessage["parts"]): UIMessage["parts"] {
+	const settled: UIMessage["parts"] = [];
+
+	for (const part of parts) {
+		if (!("toolCallId" in part) || !("state" in part) || typeof part.state !== "string") {
+			settled.push(part);
+			continue;
+		}
+
+		if (part.state.startsWith("output-")) {
+			settled.push(part);
+			continue;
+		}
+
+		if (part.state === "input-streaming") {
+			continue;
+		}
+
+		// Build the error variant without carrying approval-state fields along —
+		// a stale approval request would otherwise re-enter the model context as
+		// a question nobody can answer.
+		const { approval: _approval, ...rest } = part as { approval?: unknown } & typeof part;
+		settled.push({
+			...rest,
+			state: "output-error" as const,
+			errorText:
+				"This call was interrupted before its outcome was recorded. It may or may not have taken effect — verify what actually happened before repeating any action with side effects.",
+		} as UIMessage["parts"][number]);
+	}
+
+	return settled;
 }
