@@ -546,32 +546,15 @@ export const workspaceLinkItemsOutputSchema = createWorkspaceItemsResultSchema({
 	failureSchema: createFailureSchema(linkWorkspaceItemsFailureCodes),
 });
 
-const WORKSPACE_SEARCH_MAX_PATTERNS = 5;
-
-/**
- * Models send a bare string about as often as an array. Both are accepted and
- * normalized here rather than by a zod transform, because MCP renders these
- * schemas as JSON Schema and a transform cannot be expressed in one. Refusing
- * the string would cost the model a turn and teach it nothing.
- */
-export function normalizeWorkspaceSearchPatterns(patterns: string | string[]) {
-	return (Array.isArray(patterns) ? patterns : [patterns])
-		.map((pattern) => pattern.trim())
-		.filter((pattern) => pattern.length > 0)
-		.slice(0, WORKSPACE_SEARCH_MAX_PATTERNS);
-}
-
 export const workspaceSearchItemsInputSchema = z.object({
+	// A bare string is accepted alongside the array because models send both.
+	// Kept as a union rather than a zod transform: MCP renders these schemas as
+	// JSON Schema, which cannot express a transform.
 	patterns: z
-		.union([z.string().min(1), z.array(z.string().min(1)).min(1)])
+		.union([z.string().min(1), z.array(z.string().min(1)).min(1).max(5)])
 		.describe(
 			"Words to search for. Give two or three phrasings of one idea in a single call — the everyday wording and the technical term — and they are searched together.",
 		),
-	path: z
-		.string()
-		.min(1)
-		.optional()
-		.describe("Absolute path of a folder to search within. Defaults to the whole workspace."),
 });
 
 const workspaceSearchHitSchema = z.object({
@@ -610,4 +593,4 @@ export const workspaceSearchItemsOutputSchema = z.object({
 
 export const workspaceSearchItemsInputExamples = createInputExamples<
 	z.input<typeof workspaceSearchItemsInputSchema>
->({ patterns: ["mitosis", "cell division"] }, { patterns: "late work", path: "/Demo Folder" });
+>({ patterns: ["mitosis", "cell division"] }, { patterns: "late work" });

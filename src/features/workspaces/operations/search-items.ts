@@ -7,13 +7,12 @@ import { searchWorkspaceContent } from "#/features/workspaces/persistence/worksp
 import { rankNameSearch } from "#/lib/name-search";
 
 export interface SearchWorkspaceItemsOperationInput {
-	path?: string;
 	patterns: string[];
 }
 
 type WorkspaceSearchItemsOutput = z.output<typeof workspaceSearchItemsOutputSchema>;
 
-/** Name matches shown above the content hits, before the content budget applies. */
+/** Name matches listed above the content hits. */
 const MAX_NAME_HITS = 5;
 
 export async function searchWorkspaceItemsOperation(
@@ -26,7 +25,6 @@ export async function searchWorkspaceItemsOperation(
 	});
 
 	const result = await searchWorkspaceContent({
-		path: input.path,
 		patterns: input.patterns,
 		workspaceId: accessContext.workspaceId,
 	});

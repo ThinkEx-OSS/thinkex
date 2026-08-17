@@ -1,19 +1,15 @@
-import { and, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 
 import {
 	WORKSPACE_SEARCH_CONFIG,
 	workspaceItemContents,
 	workspaceItemExtractions,
 	workspaceItemPages,
+	workspaceItems,
 } from "#/db/schema";
 import { withDb } from "#/db/server";
 import type { WorkspaceItem } from "#/features/workspaces/contracts";
-import {
-	buildWorkspaceItemPathIndex,
-	buildWorkspaceTree,
-	resolveWorkspaceCwd,
-	type WorkspaceTree,
-} from "#/features/workspaces/model/workspace-paths";
+import { buildWorkspaceItemPathIndex } from "#/features/workspaces/model/workspace-paths";
 import { getActiveWorkspaceItems } from "#/features/workspaces/persistence/workspace-postgres-support";
 
 /**
@@ -32,20 +28,20 @@ const MAX_HITS_PER_ITEM = 3;
  */
 const RELATIVE_RANK_FLOOR = 0.15;
 
-export interface WorkspaceContentHit {
+interface WorkspaceContentHit {
 	itemId: string;
 	pageNumber: number | null;
 	snippet: string;
 }
 
-export interface WorkspaceUnsearchableFile {
+interface WorkspaceUnsearchableFile {
 	itemId: string;
 	reason: "extracting" | "extraction_failed";
 }
 
-export interface WorkspaceSearchQueryResult {
+interface WorkspaceSearchQueryResult {
 	contentHits: WorkspaceContentHit[];
-	/** Items inside the requested scope, for name matching and path rendering. */
+	/** Every item in the workspace, for name matching and path rendering. */
 	items: WorkspaceItem[];
 	pathsByItemId: Map<string, string>;
 	totalHits: number;
@@ -59,33 +55,18 @@ export interface WorkspaceSearchQueryResult {
  */
 export async function searchWorkspaceContent(input: {
 	patterns: string[];
-	path?: string;
 	workspaceId: string;
 }): Promise<WorkspaceSearchQueryResult> {
 	return await withDb(async (db) => {
-		const allItems = await getActiveWorkspaceItems(db, input.workspaceId);
-		const tree = buildWorkspaceTree(allItems);
-		const scopedIds = collectScopedItemIds(tree, input.path);
-		const items = scopedIds ? allItems.filter((item) => scopedIds.has(item.id)) : allItems;
-		const pathsByItemId = buildWorkspaceItemPathIndex(allItems);
-		const itemIds = items.map((item) => item.id);
-
-		if (itemIds.length === 0) {
-			return {
-				contentHits: [],
-				items,
-				pathsByItemId,
-				totalHits: 0,
-				unsearchable: [],
-			};
-		}
+		const items = await getActiveWorkspaceItems(db, input.workspaceId);
+		const pathsByItemId = buildWorkspaceItemPathIndex(items);
 
 		const config = sql.raw(`'${WORKSPACE_SEARCH_CONFIG}'`);
 		const tsquery = sql.join(
 			input.patterns.map((pattern) => sql`websearch_to_tsquery(${config}, ${pattern})`),
 			sql` || `,
 		);
-		const ids = sql`${itemIds}::text[]`;
+		const scope = sql`(select id from ${workspaceItems} where workspace_id = ${input.workspaceId})`;
 
 		// Column names are inline: the schema owns the tables, and quoting every
 		// column through sql.identifier buries the query shape.
@@ -103,7 +84,7 @@ export async function searchWorkspaceContent(input: {
 					page.markdown as body,
 					ts_rank_cd(page.search_vector, query.q, 1 | 32) as rank
 				from ${workspaceItemPages} as page, query
-				where page.item_id = any(${ids}) and page.search_vector @@ query.q
+				where page.item_id in ${scope} and page.search_vector @@ query.q
 				union all
 				select
 					entry.item_id,
@@ -111,7 +92,7 @@ export async function searchWorkspaceContent(input: {
 					entry.search_text,
 					ts_rank_cd(entry.search_vector, query.q, 1 | 32)
 				from ${workspaceItemContents} as entry, query
-				where entry.item_id = any(${ids}) and entry.search_vector @@ query.q
+				where entry.item_id in ${scope} and entry.search_vector @@ query.q
 			),
 			ranked as (
 				select
@@ -136,21 +117,19 @@ export async function searchWorkspaceContent(input: {
 			limit ${MAX_HITS}
 		`);
 
-		const fileIds = items.filter((item) => item.type === "file").map((item) => item.id);
-		const stalledExtractions = fileIds.length
-			? await db
-					.select({
-						itemId: workspaceItemExtractions.itemId,
-						status: workspaceItemExtractions.status,
-					})
-					.from(workspaceItemExtractions)
-					.where(
-						and(
-							inArray(workspaceItemExtractions.itemId, fileIds),
-							inArray(workspaceItemExtractions.status, ["processing", "failed"]),
-						),
-					)
-			: [];
+		// Covered by workspace_item_extractions_status_idx on (workspaceId, status).
+		const stalledExtractions = await db
+			.select({
+				itemId: workspaceItemExtractions.itemId,
+				status: workspaceItemExtractions.status,
+			})
+			.from(workspaceItemExtractions)
+			.where(
+				and(
+					eq(workspaceItemExtractions.workspaceId, input.workspaceId),
+					inArray(workspaceItemExtractions.status, ["processing", "failed"]),
+				),
+			);
 
 		const [first] = result.rows;
 
@@ -169,24 +148,4 @@ export async function searchWorkspaceContent(input: {
 			})),
 		};
 	});
-}
-
-/** Ids inside `path`, or undefined when the search covers the whole workspace. */
-function collectScopedItemIds(tree: WorkspaceTree, path: string | undefined) {
-	if (!path || path === "/") {
-		return undefined;
-	}
-
-	const cwd = resolveWorkspaceCwd(path, tree);
-	const scoped = new Set<string>();
-	const queue = [cwd.parentId];
-
-	while (queue.length > 0) {
-		for (const child of tree.childrenByParentId.get(queue.pop() ?? null) ?? []) {
-			scoped.add(child.id);
-			queue.push(child.id);
-		}
-	}
-
-	return scoped;
 }
