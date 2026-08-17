@@ -31,6 +31,7 @@ import {
 	workspaceReadItemsInputExamples,
 	workspaceReadItemsInputSchema,
 	workspaceReadItemsOutputSchema,
+	normalizeWorkspaceSearchPatterns,
 	workspaceRenameItemInputExamples,
 	workspaceRenameItemInputSchema,
 	workspaceRenameItemOutputSchema,
@@ -157,7 +158,7 @@ export const workspaceToolDefinitions = [
 		effects: { destructive: false, idempotent: true },
 		execute: async ({ patterns }, context) => {
 			return await searchWorkspaceItemsOperation(context, {
-				patterns: Array.isArray(patterns) ? patterns : [patterns],
+				patterns: normalizeWorkspaceSearchPatterns(patterns),
 			});
 		},
 	}),

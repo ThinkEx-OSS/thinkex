@@ -5,7 +5,7 @@ import type { WorkspaceAccessContext } from "#/features/workspaces/operations/wo
 import { authorizeWorkspaceOperation } from "#/features/workspaces/operations/workspace-operation-context";
 import type { workspaceSearchItemsOutputSchema } from "#/features/workspaces/operations/workspace-tool-schemas";
 import { searchWorkspaceContent } from "#/features/workspaces/persistence/workspace-search";
-import { rankNameSearch } from "#/lib/name-search";
+import { hasNameSearchQuery, rankNameSearch } from "#/lib/name-search";
 
 export interface SearchWorkspaceItemsOperationInput {
 	patterns: string[];
@@ -74,11 +74,15 @@ export async function searchWorkspaceItemsOperation(
  * (its own contract), so joining them would demand one name contain every word
  * of every phrasing. Rank each separately and merge, keeping each item at its
  * best position.
+ *
+ * Patterns with nothing searchable in them — punctuation, emoji, whitespace —
+ * are skipped rather than ranked: `rankNameSearch` answers those with the
+ * whole list, which would hand the model every item in the workspace as a hit.
  */
 function rankNamesAcrossPatterns(patterns: string[], items: readonly WorkspaceItem[]) {
 	const bestRankByItemId = new Map<string, { item: WorkspaceItem; rank: number }>();
 
-	for (const pattern of patterns) {
+	for (const pattern of patterns.filter(hasNameSearchQuery)) {
 		rankNameSearch(pattern, items, (item) => [item.name]).forEach((item, rank) => {
 			const current = bestRankByItemId.get(item.id);
 			if (!current || rank < current.rank) {

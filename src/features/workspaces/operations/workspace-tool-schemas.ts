@@ -546,10 +546,20 @@ export const workspaceLinkItemsOutputSchema = createWorkspaceItemsResultSchema({
 	failureSchema: createFailureSchema(linkWorkspaceItemsFailureCodes),
 });
 
+/**
+ * Accepts the bare string models send in place of an array, and strips null
+ * bytes — a model can emit one as ` `, and Postgres rejects them inside a
+ * text parameter, so the query would throw rather than come back empty.
+ * Normalizing here rather than in a zod transform because MCP renders these
+ * schemas as JSON Schema, which cannot express a transform.
+ */
+export function normalizeWorkspaceSearchPatterns(patterns: string | string[]) {
+	return (Array.isArray(patterns) ? patterns : [patterns]).map((pattern) =>
+		pattern.replaceAll("\0", ""),
+	);
+}
+
 export const workspaceSearchItemsInputSchema = z.object({
-	// A bare string is accepted alongside the array because models send both.
-	// Kept as a union rather than a zod transform: MCP renders these schemas as
-	// JSON Schema, which cannot express a transform.
 	patterns: z
 		.union([z.string().min(1), z.array(z.string().min(1)).min(1).max(5)])
 		.describe(
