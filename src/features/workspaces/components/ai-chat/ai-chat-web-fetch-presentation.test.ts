@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { AiChatToolActivity } from "#/features/workspaces/components/ai-chat/ai-chat-display-state";
-import { getFinishedToolReceipt } from "#/features/workspaces/components/ai-chat/ai-chat-tool-receipts";
+import { getFinishedToolSummary } from "#/features/workspaces/components/ai-chat/ai-chat-tool-summaries";
 import { getToolSourcePreviews } from "#/features/workspaces/components/ai-chat/ai-chat-tool-source-previews";
 
 describe("web_fetch presentation", () => {
@@ -15,7 +15,7 @@ describe("web_fetch presentation", () => {
 		const toolInput = { url: "https://example.com/article" };
 
 		expect(
-			getFinishedToolReceipt({
+			getFinishedToolSummary({
 				baseStatus: "completed",
 				output,
 				toolInput,

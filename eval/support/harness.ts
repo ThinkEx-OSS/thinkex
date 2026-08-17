@@ -140,6 +140,34 @@ async function evalToolFixture(toolName: string, input: unknown): Promise<unknow
 
 		return { results };
 	}
+	// The tools whose adapters parse the output with the real schema need a
+	// schema-valid stub — a neutral object throws inside toModelOutput.
+	if (toolName === "workspace_edit_item") {
+		const record = input as { edits?: unknown[]; path?: string };
+		return {
+			path: record.path ?? STANDUP_PATH,
+			applied: record.edits?.length ?? 1,
+			itemId: "standup-document",
+			itemType: "document",
+			lineChanges: { added: 1, removed: 1 },
+			failed: [],
+		};
+	}
+	if (toolName === "workspace_create_items") {
+		const record = input as { items?: Array<{ path?: string; type?: string }> };
+		return {
+			items: (record.items ?? []).map((item, index) => ({
+				path: item.path ?? `/Created ${index + 1}`,
+				itemId: `eval-created-${index + 1}`,
+				ref: `i_evalCreated${index + 1}`,
+				type:
+					item.type === "folder" || item.type === "flashcard" || item.type === "quiz"
+						? item.type
+						: "document",
+			})),
+			failed: [],
+		};
+	}
 	return { ok: true, note: "eval stub — no real mutation" };
 }
 

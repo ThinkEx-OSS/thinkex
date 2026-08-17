@@ -13,6 +13,13 @@ import { defineConfig } from "vite-plus/test/config";
 // They live in their own config so they never run in the normal `pnpm test`
 // pipeline: they hit real models (real latency + spend). Run them on demand with
 // `pnpm eval`, which injects AI_GATEWAY_API_KEY (via Infisical) into the pool.
+
+// Miniflare validates every declared binding before starting; evals never
+// query Postgres (tool execution is stubbed), so a syntactically valid,
+// non-routable URL satisfies the Hyperdrive binding (same as vitest.config.ts).
+process.env.CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE ??=
+	"postgresql://test:test@127.0.0.1:1/thinkex_test";
+
 export default defineConfig({
 	test: {
 		projects: [
@@ -20,6 +27,10 @@ export default defineConfig({
 				resolve: {
 					tsconfigPaths: true,
 					alias: {
+						// Evals never touch the relational plane; keep node-postgres (a CJS
+						// package the workers module runner can't shim) out of the graph.
+						// Same stub as the app's workers test project.
+						"#/db/server": fileURLToPath(new URL("./test/stubs/db-server.ts", import.meta.url)),
 						// The worker entry pulls in the TanStack Start server handler, whose
 						// build-time virtual specifiers don't resolve under Vitest. The app's
 						// own workers project stubs it the same way.

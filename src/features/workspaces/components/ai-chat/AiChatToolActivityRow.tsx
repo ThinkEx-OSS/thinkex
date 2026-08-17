@@ -15,7 +15,7 @@ import {
 	type AiChatToolActivity,
 } from "#/features/workspaces/components/ai-chat/ai-chat-display-state";
 import { useLiveCodemodeActivity } from "#/features/workspaces/components/ai-chat/ai-chat-live-activity";
-import type { AiChatToolReceiptSegment } from "#/features/workspaces/components/ai-chat/ai-chat-tool-receipts";
+import type { AiChatToolSummarySegment } from "#/features/workspaces/components/ai-chat/ai-chat-tool-summaries";
 import {
 	getToolSourceHostname,
 	getToolSourcePreviews,
@@ -219,7 +219,7 @@ function ActivitySummary({
 		presentation: AiToolPresentation;
 		status: AiChatToolActivity["status"];
 		summary: string;
-		segments?: AiChatToolReceiptSegment[];
+		segments?: AiChatToolSummarySegment[];
 	};
 	canExpand?: boolean;
 	sourcePreviews: ToolSourcePreview[];
@@ -259,7 +259,7 @@ function ActivitySummaryText({
 	isRunning,
 }: {
 	summary: string;
-	segments: AiChatToolReceiptSegment[] | undefined;
+	segments: AiChatToolSummarySegment[] | undefined;
 	isRunning: boolean;
 }) {
 	if (!segments || segments.length === 0) {
