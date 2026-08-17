@@ -33,8 +33,13 @@ const tsvector = customType<{ data: string; driverData: string }>({
 
 import { WORKSPACE_ITEM_TYPES } from "#/features/workspaces/workspace-item-registry";
 
-/** Text search config for every indexed column and every query built against them. */
-export const WORKSPACE_SEARCH_CONFIG = "english";
+/**
+ * Text search config for every indexed column and every query built against
+ * them. English stemming plus accent folding, so `cafe` finds `café` and
+ * `resume` finds `résumé` — people search without the diacritics they wrote
+ * with. Created by migration, not by Postgres: see 0008.
+ */
+export const WORKSPACE_SEARCH_CONFIG = "english_unaccent";
 
 const WORKSPACE_ROLES = ["owner", "admin", "editor", "viewer"] as const;
 const WORKSPACE_INVITE_TYPES = ["email", "link"] as const;
