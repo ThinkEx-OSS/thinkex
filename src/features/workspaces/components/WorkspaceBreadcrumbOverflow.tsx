@@ -55,7 +55,7 @@ export default function WorkspaceBreadcrumbOverflow({
 					</Tooltip>
 					<DropdownMenuContent align="start" className="w-56">
 						{items.map((item) => {
-							const { Icon, iconClassName, label } = getWorkspaceItemDisplay(item);
+							const { Icon, iconClassName } = getWorkspaceItemDisplay(item);
 
 							return (
 								<DropdownMenuItem key={item.id} onClick={() => onNavigateToItem(item)}>
@@ -63,7 +63,6 @@ export default function WorkspaceBreadcrumbOverflow({
 										<Icon className={iconClassName} aria-hidden="true" />
 									</span>
 									<span className="min-w-0 flex-1 truncate">{item.name}</span>
-									<span className="ml-auto shrink-0 text-muted-foreground text-xs">{label}</span>
 								</DropdownMenuItem>
 							);
 						})}
