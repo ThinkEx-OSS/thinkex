@@ -27,6 +27,37 @@ type AIThreadToolDefinition<INPUT, OUTPUT> = Pick<
 };
 
 /**
+ * The original schemas a tool was defined with, for consumers that need the
+ * real contract rather than the provider-flattened one — Code Mode type
+ * generation renders TypeScript from these.
+ */
+export interface AIThreadToolRuntime {
+	inputSchema: FlexibleSchema<unknown>;
+	outputSchema: FlexibleSchema<unknown>;
+}
+
+const toolRuntimes = new WeakMap<object, AIThreadToolRuntime>();
+
+/**
+ * Look up the original schemas of a tool created by {@link defineAIThreadTool}.
+ *
+ * @param toolName - The tool's name, for the defect message only.
+ * @param aiTool - The tool object returned by `defineAIThreadTool`.
+ * @returns The tool's original input and output schemas.
+ * @throws When the tool was not created via `defineAIThreadTool` — every
+ *   first-party chat tool must be.
+ */
+export function requireAIThreadToolRuntime(toolName: string, aiTool: object): AIThreadToolRuntime {
+	const runtime = toolRuntimes.get(aiTool);
+
+	if (!runtime) {
+		throw new Error(`Tool "${toolName}" was not defined via defineAIThreadTool`);
+	}
+
+	return runtime;
+}
+
+/**
  * Defines a first-party tool with runtime-validated input and output. The
  * output schema stays application-side (providers only need the input
  * contract), and the model-facing input schema is made provider-portable.
@@ -48,7 +79,7 @@ export function defineAIThreadTool<INPUT, OUTPUT>(
 	const validateInput = inputSchema.validate;
 	const validateOutput = validatedOutputSchema.validate;
 
-	return tool<INPUT, OUTPUT, Record<string, unknown>>({
+	const created = tool<INPUT, OUTPUT, Record<string, unknown>>({
 		...modelDefinition,
 		inputSchema: modelInputSchema,
 		execute: async (input: INPUT, options: ToolExecutionOptions<unknown>) => {
@@ -69,6 +100,16 @@ export function defineAIThreadTool<INPUT, OUTPUT>(
 			return validatedOutput.value;
 		},
 	} as unknown as Tool<INPUT, OUTPUT, Record<string, unknown>>) as Tool<any, any, any>;
+
+	toolRuntimes.set(created, {
+		// SAFETY: FlexibleSchema is read here only to render JSON Schema /
+		// TypeScript types, never to produce typed values, so widening the
+		// generic to unknown cannot be misused.
+		inputSchema: definition.inputSchema as FlexibleSchema<unknown>,
+		outputSchema: outputSchema as FlexibleSchema<unknown>,
+	});
+
+	return created;
 }
 
 type ModelJsonSchema = Awaited<Schema["jsonSchema"]>;

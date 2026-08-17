@@ -190,13 +190,6 @@ export async function handleAiChatTurn(input: {
 			promptScope,
 			userId,
 		};
-		const tools = createAiChatTools({
-			env,
-			threadContext,
-			canMutate: promptScope.canMutate,
-			timeZone: body.timeZone,
-		});
-
 		const systemPrompt = buildAiChatSystemPrompt({
 			promptScope,
 			timeZone: body.timeZone,
@@ -290,6 +283,30 @@ export async function handleAiChatTurn(input: {
 			execute: async ({ writer }) => {
 				// Started inside execute so a pre-stream throw never leaks the timer.
 				turn.startPinging();
+
+				// Tools are created here, not before the stream, so the orchestrate
+				// (Code Mode) tool can surface its nested calls live: transient data
+				// parts keyed by the outer call id, replaced in place as each nested
+				// tool starts and finishes. Never persisted — the durable record is
+				// the tool part's own `calls` output.
+				const tools = createAiChatTools({
+					env,
+					threadContext,
+					canMutate: promptScope.canMutate,
+					timeZone: body.timeZone,
+					onCodemodeActivity: (event) => {
+						try {
+							writer.write({
+								type: "data-codemode-activity",
+								id: `codemode-${event.invocationId}`,
+								data: event,
+								transient: true,
+							});
+						} catch {
+							// Stream already closed — progress is best-effort.
+						}
+					},
+				});
 
 				if (isFirstExchange && userMessage) {
 					// Title generation runs concurrently with the reply and is DELIVERED
