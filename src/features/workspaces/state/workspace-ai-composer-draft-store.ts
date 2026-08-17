@@ -2,6 +2,7 @@ import type { FileUIPart } from "ai";
 import { nanoid } from "nanoid";
 import { type SetStateAction, useMemo } from "react";
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 import {
 	type FileAttachmentData,
 	getFileAttachmentData,
@@ -57,166 +58,203 @@ const EMPTY_DRAFT_FILES: WorkspaceAiComposerDraftFile[] = [];
 const EMPTY_DRAFT_QUOTES: WorkspaceSelectedQuote[] = [];
 
 export const useWorkspaceAiComposerDraftStore = create<WorkspaceAiComposerDraftState>()(
-	(set, get) => ({
-		addFiles: (workspaceId, threadId, fileList, options) => {
-			const current = get().filesByThreadId[threadId] ?? EMPTY_DRAFT_FILES;
-			const capped = acceptIncomingFiles([...fileList], {
-				accept: options.accept,
-				currentCount: current.length,
-				maxFileSize: options.maxFileSize,
-				maxFiles: options.maxFiles,
-				onError: options.onError,
-			});
+	persist(
+		(set, get) => ({
+			addFiles: (workspaceId, threadId, fileList, options) => {
+				const current = get().filesByThreadId[threadId] ?? EMPTY_DRAFT_FILES;
+				const capped = acceptIncomingFiles([...fileList], {
+					accept: options.accept,
+					currentCount: current.length,
+					maxFileSize: options.maxFileSize,
+					maxFiles: options.maxFiles,
+					onError: options.onError,
+				});
 
-			if (capped.length === 0) {
-				return;
-			}
-
-			const placeholders = capped.map(createLoadingDraftFile);
-
-			set((state) => ({
-				filesByThreadId: {
-					...state.filesByThreadId,
-					[threadId]: [...current, ...placeholders],
-				},
-			}));
-
-			for (const [index, file] of capped.entries()) {
-				const placeholder = placeholders[index];
-				if (!placeholder) {
-					continue;
+				if (capped.length === 0) {
+					return;
 				}
 
-				void uploadWorkspaceAiChatAttachment({
-					file,
-					threadId,
-					workspaceId,
-				})
-					.then((attachment) => {
-						const draftStillExists = get().filesByThreadId[threadId]?.some(
-							(item) => item.id === placeholder.id,
-						);
-						if (!draftStillExists) {
-							void discardUploadedAttachment(attachment.url);
-							return;
-						}
-						set((state) => markDraftFileReady(state, threadId, placeholder.id, attachment));
-					})
-					.catch((error) => {
-						set((state) => removeDraftFile(state, threadId, placeholder.id));
-						options.onError?.({
-							code: "read",
-							message:
-								error instanceof Error && error.message.trim()
-									? error.message
-									: `Could not prepare "${file.name}".`,
-						});
-					});
-			}
-		},
-		addQuote: (workspaceId, quote) =>
-			set((state) => {
-				const normalizedQuote = normalizeWorkspaceSelectedQuote(quote);
-				if (!normalizedQuote) {
-					return state;
-				}
+				const placeholders = capped.map(createLoadingDraftFile);
 
-				const current = state.quotesByWorkspaceId[workspaceId] ?? EMPTY_DRAFT_QUOTES;
-
-				return {
-					quotesByWorkspaceId: {
-						...state.quotesByWorkspaceId,
-						[workspaceId]: [
-							...current.filter((item) => item.id !== normalizedQuote.id),
-							normalizedQuote,
-						],
-					},
-				};
-			}),
-		clearDraftArtifacts: (workspaceId, threadId) =>
-			set((state) => clearDraftArtifacts(state, workspaceId, threadId)),
-		clearFiles: (threadId) => set((state) => clearFilesForThread(state, threadId)),
-		clearQuotes: (workspaceId) =>
-			set((state) => {
-				const current = state.quotesByWorkspaceId[workspaceId] ?? EMPTY_DRAFT_QUOTES;
-				if (current.length === 0) {
-					return state;
-				}
-
-				return {
-					quotesByWorkspaceId: {
-						...state.quotesByWorkspaceId,
-						[workspaceId]: undefined,
-					},
-				};
-			}),
-		addReadyFiles: (threadId, parts) => {
-			const current = get().filesByThreadId[threadId] ?? EMPTY_DRAFT_FILES;
-			const next = [...current];
-			for (const part of parts) {
-				const file = getFileAttachmentData(part);
-				if (!next.some((item) => item.id === file.id)) {
-					next.push(file);
-				}
-			}
-
-			if (next.length > WORKSPACE_AI_CHAT_ATTACHMENT_POLICY.maxFiles) {
-				return false;
-			}
-			if (next.length !== current.length) {
 				set((state) => ({
 					filesByThreadId: {
 						...state.filesByThreadId,
-						[threadId]: next,
+						[threadId]: [...current, ...placeholders],
 					},
 				}));
-			}
 
-			return true;
-		},
-		filesByThreadId: {},
-		quotesByWorkspaceId: {},
-		removeFile: (threadId, fileId) => {
-			const file = get().filesByThreadId[threadId]?.find((item) => item.id === fileId);
-			set((state) => removeDraftFile(state, threadId, fileId));
-			if (file?.url) {
-				void discardUploadedAttachment(file.url);
-			}
-		},
-		removeQuote: (workspaceId, quoteId) =>
-			set((state) => {
-				const current = state.quotesByWorkspaceId[workspaceId] ?? EMPTY_DRAFT_QUOTES;
-				if (!current.some((quote) => quote.id === quoteId)) {
-					return state;
+				for (const [index, file] of capped.entries()) {
+					const placeholder = placeholders[index];
+					if (!placeholder) {
+						continue;
+					}
+
+					void uploadWorkspaceAiChatAttachment({
+						file,
+						threadId,
+						workspaceId,
+					})
+						.then((attachment) => {
+							const draftStillExists = get().filesByThreadId[threadId]?.some(
+								(item) => item.id === placeholder.id,
+							);
+							if (!draftStillExists) {
+								void discardUploadedAttachment(attachment.url);
+								return;
+							}
+							set((state) => markDraftFileReady(state, threadId, placeholder.id, attachment));
+						})
+						.catch((error) => {
+							set((state) => removeDraftFile(state, threadId, placeholder.id));
+							options.onError?.({
+								code: "read",
+								message:
+									error instanceof Error && error.message.trim()
+										? error.message
+										: `Could not prepare "${file.name}".`,
+							});
+						});
+				}
+			},
+			addQuote: (workspaceId, quote) =>
+				set((state) => {
+					const normalizedQuote = normalizeWorkspaceSelectedQuote(quote);
+					if (!normalizedQuote) {
+						return state;
+					}
+
+					const current = state.quotesByWorkspaceId[workspaceId] ?? EMPTY_DRAFT_QUOTES;
+
+					return {
+						quotesByWorkspaceId: {
+							...state.quotesByWorkspaceId,
+							[workspaceId]: [
+								...current.filter((item) => item.id !== normalizedQuote.id),
+								normalizedQuote,
+							],
+						},
+					};
+				}),
+			clearDraftArtifacts: (workspaceId, threadId) =>
+				set((state) => clearDraftArtifacts(state, workspaceId, threadId)),
+			clearFiles: (threadId) => set((state) => clearFilesForThread(state, threadId)),
+			clearQuotes: (workspaceId) =>
+				set((state) => {
+					const current = state.quotesByWorkspaceId[workspaceId] ?? EMPTY_DRAFT_QUOTES;
+					if (current.length === 0) {
+						return state;
+					}
+
+					return {
+						quotesByWorkspaceId: {
+							...state.quotesByWorkspaceId,
+							[workspaceId]: undefined,
+						},
+					};
+				}),
+			addReadyFiles: (threadId, parts) => {
+				const current = get().filesByThreadId[threadId] ?? EMPTY_DRAFT_FILES;
+				const next = [...current];
+				for (const part of parts) {
+					const file = getFileAttachmentData(part);
+					if (!next.some((item) => item.id === file.id)) {
+						next.push(file);
+					}
 				}
 
-				const next = current.filter((quote) => quote.id !== quoteId);
-				return {
-					quotesByWorkspaceId: {
-						...state.quotesByWorkspaceId,
-						[workspaceId]: next.length > 0 ? next : undefined,
-					},
-				};
-			}),
-		setText: (threadId, value) =>
-			set((state) => {
-				const current = state.textByThreadId[threadId] ?? "";
-				const next = typeof value === "function" ? value(current) : value;
-
-				if (next === current) {
-					return state;
+				if (next.length > WORKSPACE_AI_CHAT_ATTACHMENT_POLICY.maxFiles) {
+					return false;
+				}
+				if (next.length !== current.length) {
+					set((state) => ({
+						filesByThreadId: {
+							...state.filesByThreadId,
+							[threadId]: next,
+						},
+					}));
 				}
 
-				return {
-					textByThreadId: {
-						...state.textByThreadId,
-						[threadId]: next || undefined,
-					},
-				};
+				return true;
+			},
+			filesByThreadId: {},
+			quotesByWorkspaceId: {},
+			removeFile: (threadId, fileId) => {
+				const file = get().filesByThreadId[threadId]?.find((item) => item.id === fileId);
+				set((state) => removeDraftFile(state, threadId, fileId));
+				if (file?.url) {
+					void discardUploadedAttachment(file.url);
+				}
+			},
+			removeQuote: (workspaceId, quoteId) =>
+				set((state) => {
+					const current = state.quotesByWorkspaceId[workspaceId] ?? EMPTY_DRAFT_QUOTES;
+					if (!current.some((quote) => quote.id === quoteId)) {
+						return state;
+					}
+
+					const next = current.filter((quote) => quote.id !== quoteId);
+					return {
+						quotesByWorkspaceId: {
+							...state.quotesByWorkspaceId,
+							[workspaceId]: next.length > 0 ? next : undefined,
+						},
+					};
+				}),
+			setText: (threadId, value) =>
+				set((state) => {
+					const current = state.textByThreadId[threadId] ?? "";
+					const next = typeof value === "function" ? value(current) : value;
+
+					if (next === current) {
+						return state;
+					}
+
+					return {
+						textByThreadId: {
+							...state.textByThreadId,
+							[threadId]: next || undefined,
+						},
+					};
+				}),
+			textByThreadId: {},
+		}),
+		{
+			name: "thinkex.ai-composer-drafts.v1",
+			skipHydration: true,
+			// Only settled state survives a reload: a "loading" chip's upload died
+			// with the page, so restoring it would show a spinner that never
+			// resolves. (Ready files are just {id, name, mediaType, url} records —
+			// the bytes are already server-side.) Empty slots are pruned so the
+			// stored blob stays small.
+			partialize: (state) => ({
+				filesByThreadId: persistableDraftFiles(state.filesByThreadId),
+				quotesByWorkspaceId: pruneEmptyDraftSlots(state.quotesByWorkspaceId),
+				textByThreadId: pruneEmptyDraftSlots(state.textByThreadId),
 			}),
-		textByThreadId: {},
-	}),
+		},
+	),
 );
+
+function persistableDraftFiles(filesByThreadId: WorkspaceAiComposerDraftState["filesByThreadId"]) {
+	const persisted: WorkspaceAiComposerDraftState["filesByThreadId"] = {};
+
+	for (const [threadId, files] of Object.entries(filesByThreadId)) {
+		const ready = files?.filter((file) => file.status === "ready") ?? [];
+		if (ready.length > 0) {
+			persisted[threadId] = ready;
+		}
+	}
+
+	return persisted;
+}
+
+// Writers store `undefined` when a slot empties, so undefined is the only
+// empty shape to prune.
+function pruneEmptyDraftSlots<T>(map: Record<string, T | undefined>): Record<string, T> {
+	return Object.fromEntries(
+		Object.entries(map).filter((entry): entry is [string, T] => entry[1] !== undefined),
+	);
+}
 
 export function useWorkspaceAiComposerDraftFiles(threadId: string) {
 	return useWorkspaceAiComposerDraftStore(

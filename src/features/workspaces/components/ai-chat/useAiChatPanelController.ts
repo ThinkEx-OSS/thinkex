@@ -150,6 +150,10 @@ export function useAiChatPanelController({ workspaceId }: UseAiChatPanelControll
 
 	return {
 		activeThreadId: resolvedActiveThreadId,
+		// LOAD-BEARING: keying the thread view remounts it per thread (and per
+		// delete-epoch), so per-thread view state — edit mode, scroll, animations,
+		// the useChat instance — resets without any thread-change effects. New
+		// per-thread state can rely on this instead of watching threadId.
 		threadViewKey: `${resolvedActiveThreadId}:${threadViewEpoch}`,
 		isLoading: !areThreadsReady,
 		isMaximized,
