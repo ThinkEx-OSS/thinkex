@@ -1,6 +1,6 @@
 import { ChevronDown, FilePen } from "lucide-react";
 
-import { Popover, PopoverContent, PopoverTrigger } from "#/components/ui/popover";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "#/components/ui/collapsible";
 import type { AiChatDocumentEditGroup } from "#/features/workspaces/components/ai-chat/ai-chat-document-edit-actions";
 import { useDocumentEditReview } from "#/features/workspaces/documents/document-edit-review-context";
 import { useWorkspaceLocationActions } from "#/features/workspaces/locations/workspace-location-context";
@@ -36,23 +36,28 @@ export function AiChatDocumentEditActions({
 	const headerLabel = `Edited ${knownGroups.length} ${knownGroups.length === 1 ? "document" : "documents"}`;
 
 	if (collapsed) {
+		// Expands in place inside its own container, so the receipt keeps the
+		// chat's colors instead of opening a floating surface.
 		return (
-			<Popover>
-				<PopoverTrigger className="block w-fit max-w-full text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/50">
-					<div className="inline-flex items-center gap-1.5 rounded-lg bg-muted/40 px-2.5 py-1.5 text-muted-foreground text-xs">
+			<Collapsible className="w-fit max-w-full overflow-hidden rounded-lg bg-muted/40">
+				<CollapsibleTrigger className="group/receipt block w-full text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/50">
+					<div className="flex items-center gap-1.5 px-2.5 py-1.5 text-muted-foreground text-xs">
 						<FilePen className="size-3 shrink-0" aria-hidden="true" />
 						<span className="font-medium">{headerLabel}</span>
-						<ChevronDown className="size-3 shrink-0" aria-hidden="true" />
+						<ChevronDown
+							className="size-3 shrink-0 transition-transform group-data-[panel-open]/receipt:rotate-180"
+							aria-hidden="true"
+						/>
 					</div>
-				</PopoverTrigger>
-				<PopoverContent align="start" className="w-72 p-0">
-					<div className="divide-y divide-foreground/5">
+				</CollapsibleTrigger>
+				<CollapsibleContent>
+					<div className="divide-y divide-foreground/5 border-foreground/5 border-t">
 						{knownGroups.map((group) => (
 							<DocumentEditRow key={group.itemId} group={group} />
 						))}
 					</div>
-				</PopoverContent>
-			</Popover>
+				</CollapsibleContent>
+			</Collapsible>
 		);
 	}
 

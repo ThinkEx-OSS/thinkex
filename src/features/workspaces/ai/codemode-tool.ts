@@ -7,6 +7,10 @@ import {
 	defineAIThreadTool,
 	requireAIThreadToolRuntime,
 } from "#/features/workspaces/ai/ai-thread-tool";
+// Pure TS despite the components path (strings in, strings out) — the same
+// summarizer the chat rows use, so a nested call reads identically to a
+// direct one.
+import { getFinishedToolSummary } from "#/features/workspaces/components/ai-chat/ai-chat-tool-summaries";
 
 /**
  * The namespace generated code uses to call tools (`tools.web_search(...)`).
@@ -62,6 +66,8 @@ const codemodeCallSchema = z.object({
 	action: codemodeCallActionSchema.optional(),
 	toolName: z.string(),
 	status: z.enum(["completed", "failed"]),
+	/** The chat-row one-liner for this call; stripped from the model's view. */
+	summary: z.string().optional(),
 	error: z.string().optional(),
 });
 
@@ -209,17 +215,21 @@ export function createAiChatCodemodeTool(input: {
 										...(context.abortSignal ? { abortSignal: context.abortSignal } : {}),
 									});
 									const action = getDocumentEditAction(name, output, invocationId);
+									const callSummary = getCallSummary(name, "completed", args, output);
 									calls.push({
 										toolName: name,
 										status: "completed",
+										...(callSummary ? { summary: callSummary } : {}),
 										...(action ? { action } : {}),
 									});
 									emit(index, name, "completed");
 									return output;
 								} catch (error) {
+									const callSummary = getCallSummary(name, "failed", args, undefined);
 									calls.push({
 										toolName: name,
 										status: "failed",
+										...(callSummary ? { summary: callSummary } : {}),
 										error: truncate(errorMessage(error), MAX_ERROR_CHARS),
 									});
 									emit(index, name, "failed");
@@ -269,9 +279,26 @@ export function createAiChatCodemodeTool(input: {
 	});
 }
 
-/** The model's view of a run: call records without app-only `action` payloads. */
+/** One-liner for a nested call, same phrasing as a direct chat row. */
+function getCallSummary(
+	toolName: string,
+	status: "completed" | "failed",
+	toolInput: unknown,
+	output: unknown,
+) {
+	try {
+		return truncate(
+			getFinishedToolSummary({ baseStatus: status, output, toolInput, toolName }).summary,
+			200,
+		);
+	} catch {
+		return undefined;
+	}
+}
+
+/** The model's view of a run: call records without app-only UI payloads. */
 function getCodemodeModelOutput(output: AiCodemodeOutput): JSONValue {
-	const calls = output.calls.map(({ action: _action, ...call }) => call);
+	const calls = output.calls.map(({ action: _action, summary: _summary, ...call }) => call);
 	// SAFETY: every field is JSON — `result` crossed the isolate's JSON-RPC
 	// boundary and was bounded by boundResult; the rest is schema-validated
 	// strings, booleans, and arrays of them.

@@ -3,7 +3,6 @@ import { LazyMotion, domAnimation, m, useReducedMotion } from "motion/react";
 import type { ReactNode } from "react";
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "#/components/ui/collapsible";
-import { Popover, PopoverContent, PopoverTrigger } from "#/components/ui/popover";
 import {
 	getAiToolPresentation,
 	type AiToolActivityIconKind,
@@ -56,16 +55,18 @@ export function AiChatToolActivityRow({
 			: [];
 
 	if (orchestrateCalls.length > 0) {
+		// Inline expansion, same shape as the sources list: the detail renders in
+		// the chat's own flow and background instead of a floating surface.
 		return (
 			<ToolActivityMotion disabled={shouldReduceMotion}>
-				<Popover>
-					<PopoverTrigger className="block min-w-0 max-w-full text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/50">
+				<Collapsible className="w-fit max-w-full">
+					<CollapsibleTrigger className="group/collapsible min-w-0 max-w-full text-left">
 						<ActivitySummary activity={activity} canExpand sourcePreviews={[]} />
-					</PopoverTrigger>
-					<PopoverContent align="start" className="w-64 p-1.5">
+					</CollapsibleTrigger>
+					<CollapsibleContent className="mt-1">
 						<OrchestrateCallList calls={orchestrateCalls} />
-					</PopoverContent>
-				</Popover>
+					</CollapsibleContent>
+				</Collapsible>
 			</ToolActivityMotion>
 		);
 	}
@@ -128,6 +129,7 @@ function ToolActivityMotion({
 interface OrchestrateCallView {
 	toolName: string;
 	status: "completed" | "failed";
+	summary?: string;
 }
 
 function withLiveNestedAction(
@@ -165,6 +167,7 @@ function getOrchestrateCalls(part: AiChatToolPart): OrchestrateCallView[] {
 			views.push({
 				toolName: record.toolName,
 				status: record.status === "failed" ? "failed" : "completed",
+				...(typeof record.summary === "string" ? { summary: record.summary } : {}),
 			});
 		}
 	}
@@ -174,23 +177,30 @@ function getOrchestrateCalls(part: AiChatToolPart): OrchestrateCallView[] {
 
 function OrchestrateCallList({ calls }: { calls: OrchestrateCallView[] }) {
 	return (
-		<div className="grid gap-0.5" aria-label="Steps in this run">
+		// Indented under the parent row's text so the steps read as its children.
+		<div className="grid gap-1 pl-5" aria-label="Steps in this run">
 			{calls.map((call, index) => {
 				const presentation = getAiToolPresentation(call.toolName);
+				const label = call.summary ?? presentation.title;
 
 				return (
 					<div
 						// biome-ignore lint/suspicious/noArrayIndexKey: calls are append-only per run
 						key={index}
-						className="flex items-center gap-1.5 rounded-sm px-1.5 py-1 text-muted-foreground text-xs"
+						title={label}
+						className="inline-flex min-w-0 max-w-full items-center gap-1.5 text-muted-foreground text-xs"
 					>
 						<span className="grid size-3.5 shrink-0 place-items-center text-muted-foreground/70">
 							<ToolActivityIcon icon={presentation.icon} />
 						</span>
-						<span className="min-w-0 truncate font-medium">{presentation.title}</span>
-						{call.status === "failed" ? (
-							<span className="shrink-0 text-destructive/80">failed</span>
-						) : null}
+						<span
+							className={cn(
+								"min-w-0 truncate font-medium",
+								call.status === "failed" && "text-destructive/80",
+							)}
+						>
+							{label}
+						</span>
 					</div>
 				);
 			})}

@@ -1,7 +1,7 @@
 import { isToolUIPart } from "ai";
 import { ChevronDown } from "lucide-react";
 
-import { Popover, PopoverContent, PopoverTrigger } from "#/components/ui/popover";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "#/components/ui/collapsible";
 import {
 	getToolActivityForPart,
 	isVisibleToolPart,
@@ -23,8 +23,8 @@ import { cn } from "#/lib/utils";
  * A run of consecutive tool calls rendered as one line. While any member is
  * still running, only the latest action shows — its text swaps in place, so
  * the transcript height stays stable during streaming. Once the run settles it
- * collapses to "latest action · ran N actions", with the full list in a
- * popover (no layout shift on expand).
+ * collapses to "latest action · N steps", expanding inline (the same shape as
+ * the sources list, in the chat's own flow and background).
  */
 export function AiChatToolActivityGroup({
 	interrupted = false,
@@ -61,8 +61,8 @@ export function AiChatToolActivityGroup({
 	const failedCount = activities.filter((activity) => activity.status === "failed").length;
 
 	return (
-		<Popover>
-			<PopoverTrigger className="block min-w-0 max-w-full text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/50">
+		<Collapsible className="w-fit max-w-full">
+			<CollapsibleTrigger className="group/collapsible block min-w-0 max-w-full text-left">
 				<div
 					title={latest.summary}
 					className="group/tool-row inline-flex min-w-0 max-w-full items-center gap-1.5 py-0.5 text-muted-foreground text-xs"
@@ -72,23 +72,23 @@ export function AiChatToolActivityGroup({
 					</span>
 					<span className="min-w-0 truncate font-medium">{latest.summary}</span>
 					<span className="shrink-0 whitespace-pre text-muted-foreground/70">
-						· ran {activities.length} actions
+						· {activities.length} steps
 						{failedCount > 0 ? `, ${failedCount} failed` : ""}
 					</span>
 					<ChevronDown
-						className="size-3.5 shrink-0 self-center text-muted-foreground/70"
+						className="size-3.5 shrink-0 self-center text-muted-foreground/70 transition-transform group-data-[panel-open]/collapsible:rotate-180"
 						aria-hidden="true"
 					/>
 				</div>
-			</PopoverTrigger>
-			<PopoverContent align="start" className="w-72 p-1.5">
-				<div className="grid gap-0.5" aria-label="Actions in this run">
+			</CollapsibleTrigger>
+			<CollapsibleContent className="mt-1">
+				<div className="grid gap-1 pl-5" aria-label="Actions in this run">
 					{activities.map((activity, index) => (
 						<div
 							// biome-ignore lint/suspicious/noArrayIndexKey: activities mirror settled, ordered parts
 							key={index}
 							title={activity.summary}
-							className="flex items-center gap-1.5 rounded-sm px-1.5 py-1 text-muted-foreground text-xs"
+							className="inline-flex min-w-0 max-w-full items-center gap-1.5 text-muted-foreground text-xs"
 						>
 							<span className="grid size-3.5 shrink-0 place-items-center text-muted-foreground/70">
 								<ToolActivityIcon icon={activity.presentation.icon} />
@@ -104,8 +104,8 @@ export function AiChatToolActivityGroup({
 						</div>
 					))}
 				</div>
-			</PopoverContent>
-		</Popover>
+			</CollapsibleContent>
+		</Collapsible>
 	);
 }
 

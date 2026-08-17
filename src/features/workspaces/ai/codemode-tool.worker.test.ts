@@ -96,7 +96,7 @@ describe("orchestrate tool execution", () => {
 		expect(output).toMatchObject({
 			status: "completed",
 			result: 42,
-			calls: [{ toolName: "double_number", status: "completed" }],
+			calls: [{ toolName: "double_number", status: "completed", summary: "Ran double number" }],
 		});
 		expect(events).toEqual([
 			{
