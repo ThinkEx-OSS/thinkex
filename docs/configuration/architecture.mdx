@@ -13,11 +13,11 @@ ThinkEx is a full-stack TypeScript app hosted as a Cloudflare Worker. The fronte
 | Workspace item tree, relationships, current document checkpoints, extracted text, revisions | PlanetScale Postgres through Drizzle and cache-disabled Hyperdrive |
 | Workspace presence, realtime fanout, cleanup coordination | `WorkspaceRoom` Durable Object |
 | Original and preview workspace file bytes | R2 `WORKSPACE_FILES` |
-| User AI thread directory | `UserAIStore` Durable Object |
-| AI conversation runtime | `AIThread` Agent / Durable Object |
+| AI chat threads, transcripts, and attachment bytes | PlanetScale Postgres through Drizzle and cache-disabled Hyperdrive |
+| AI chat turn streaming | Plain Worker route (`/ai-chat/threads/:id`) with AI SDK `streamText` |
 | Collaborative document sessions | `DocumentSession` Durable Object |
 | File extraction | Cloudflare Workflows plus configured providers |
-| Code execution and conversion | Cloudflare Containers |
+| Document conversion | Cloudflare Containers |
 
 ## Code Map
 

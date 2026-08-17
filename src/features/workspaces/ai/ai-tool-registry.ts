@@ -1,27 +1,13 @@
-export type AiToolActivityIconKind =
-	| "code"
-	| "edit"
-	| "file"
-	| "guidance"
-	| "search"
-	| "web"
-	| "work";
+export type AiToolActivityIconKind = "edit" | "file" | "guidance" | "search" | "web";
 export type AiToolAccess = "read" | "write";
 export type AiToolVisibility = "hidden" | "visible";
 
 export interface AiToolModelPolicy {
 	access: AiToolAccess;
-	codemode: boolean;
 }
 
 interface AiToolDefinition {
 	model: AiToolModelPolicy;
-	/**
-	 * True when the entry exists only to label activity in the transcript and
-	 * has no tool factory behind it — the skill entries below are receipts the
-	 * runtime emits, not tools the model calls through this registry.
-	 */
-	presentationOnly: boolean;
 	ui: {
 		icon: AiToolActivityIconKind;
 		title: string;
@@ -36,17 +22,9 @@ function defineAiToolRegistry<const TRegistry extends Record<string, AiToolDefin
 }
 
 export const AI_TOOL_REGISTRY = defineAiToolRegistry({
-	activate_skill: activityTool({ icon: "guidance", title: "Use guidance" }),
-	read_skill_resource: activityTool({
-		icon: "guidance",
-		title: "Read guidance",
-		visibility: "hidden",
-	}),
-	sandbox_bash: readTool({ icon: "code", title: "Sandbox", visibility: "hidden" }, false),
-	orchestrate: readTool({ icon: "work", title: "Work through task" }, false),
-	compute: readTool({ icon: "code", title: "Run Python" }),
+	activate_skill: readTool({ icon: "guidance", title: "Use guidance" }),
 	web_search: readTool({ icon: "search", title: "Search web" }),
-	web_fetch: readTool({ icon: "web", title: "Read URL" }, false),
+	web_fetch: readTool({ icon: "web", title: "Read URL" }),
 	research_discover: readTool({
 		icon: "search",
 		title: "Discover research",
@@ -106,31 +84,17 @@ export function getAiToolPresentation(name: string): AiToolDefinition["ui"] {
 type AiToolPresentationInput = Pick<AiToolDefinition["ui"], "icon" | "title"> &
 	Partial<Omit<AiToolDefinition["ui"], "icon" | "title">>;
 
-function readTool(ui: AiToolPresentationInput, codemode = true): AiToolDefinition {
-	return toolDefinition("read", codemode, ui);
-}
-
-/** A transcript label with no tool behind it. See `presentationOnly`. */
-function activityTool(ui: AiToolPresentationInput): AiToolDefinition {
-	return { ...toolDefinition("read", false, ui), presentationOnly: true };
+function readTool(ui: AiToolPresentationInput): AiToolDefinition {
+	return toolDefinition("read", ui);
 }
 
 function writeTool(ui: AiToolPresentationInput): AiToolDefinition {
-	// Code Mode's durable log is what makes a mutation safe to replay: an
-	// applied call returns its recorded result on resume instead of executing
-	// again. Workspace operation IDs never deduplicated anything, so keeping
-	// mutations out of Code Mode only gave up that guarantee.
-	return toolDefinition("write", true, ui);
+	return toolDefinition("write", ui);
 }
 
-function toolDefinition(
-	access: AiToolAccess,
-	codemode: boolean,
-	ui: AiToolPresentationInput,
-): AiToolDefinition {
+function toolDefinition(access: AiToolAccess, ui: AiToolPresentationInput): AiToolDefinition {
 	return {
-		model: { access, codemode },
-		presentationOnly: false,
+		model: { access },
 		ui: {
 			icon: ui.icon,
 			title: ui.title,

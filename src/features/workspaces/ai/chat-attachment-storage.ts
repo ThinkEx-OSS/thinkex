@@ -1,31 +1,10 @@
-import type { UIMessage } from "ai";
-
-const CHAT_ATTACHMENT_PREFIX = "chat-attachments";
+// Chat attachment addressing. Bytes live in Postgres (ai_chat_attachments);
+// these helpers only build and parse the content URLs message parts carry.
 
 export interface ChatAttachmentIdentity {
 	attachmentId: string;
 	threadId: string;
 	workspaceId: string;
-}
-
-export interface StoredChatAttachmentIdentity extends ChatAttachmentIdentity {
-	userId: string;
-}
-
-export function getChatAttachmentObjectKey(identity: StoredChatAttachmentIdentity) {
-	return `${getChatAttachmentThreadPrefix(identity)}${encodeURIComponent(identity.attachmentId)}`;
-}
-
-export function getChatAttachmentWorkspacePrefix(workspaceId: string) {
-	return `${CHAT_ATTACHMENT_PREFIX}/workspaces/${encodeURIComponent(workspaceId)}/`;
-}
-
-export function getChatAttachmentThreadPrefix(input: {
-	threadId: string;
-	userId: string;
-	workspaceId: string;
-}) {
-	return `${getChatAttachmentWorkspacePrefix(input.workspaceId)}users/${encodeURIComponent(input.userId)}/threads/${encodeURIComponent(input.threadId)}/attachments/`;
 }
 
 export function getChatAttachmentContentUrl(identity: ChatAttachmentIdentity) {
@@ -58,107 +37,4 @@ export function parseChatAttachmentContentUrl(value: string): ChatAttachmentIden
 	} catch {
 		return null;
 	}
-}
-
-export async function deleteChatAttachmentsForThread(
-	bucket: R2Bucket,
-	input: { threadId: string; userId: string; workspaceId: string },
-) {
-	const prefix = getChatAttachmentThreadPrefix(input);
-	let cursor: string | undefined;
-
-	do {
-		const page = await bucket.list({ cursor, prefix });
-		const keys = page.objects.map((object) => object.key);
-
-		if (keys.length > 0) {
-			await bucket.delete(keys);
-		}
-
-		cursor = page.truncated ? page.cursor : undefined;
-	} while (cursor);
-}
-
-export async function copyChatAttachmentsForThread(
-	bucket: R2Bucket,
-	input: {
-		sourceThreadId: string;
-		sourceUserId: string;
-		targetThreadId: string;
-		targetUserId: string;
-		workspaceId: string;
-	},
-) {
-	if (input.sourceThreadId === input.targetThreadId && input.sourceUserId === input.targetUserId) {
-		return;
-	}
-
-	const sourcePrefix = getChatAttachmentThreadPrefix({
-		threadId: input.sourceThreadId,
-		userId: input.sourceUserId,
-		workspaceId: input.workspaceId,
-	});
-	const targetPrefix = getChatAttachmentThreadPrefix({
-		threadId: input.targetThreadId,
-		userId: input.targetUserId,
-		workspaceId: input.workspaceId,
-	});
-	let cursor: string | undefined;
-
-	do {
-		const page = await bucket.list({ cursor, prefix: sourcePrefix });
-
-		for (const listed of page.objects) {
-			const object = await bucket.get(listed.key);
-			if (!object) {
-				throw new Error(`Chat attachment "${listed.key}" disappeared during account linking.`);
-			}
-
-			await bucket.put(
-				`${targetPrefix}${listed.key.slice(sourcePrefix.length)}`,
-				await object.arrayBuffer(),
-				{
-					customMetadata: object.customMetadata,
-					httpMetadata: object.httpMetadata,
-				},
-			);
-		}
-
-		cursor = page.truncated ? page.cursor : undefined;
-	} while (cursor);
-}
-
-export function rebindChatAttachmentMessageUrls(
-	messages: UIMessage[],
-	input: { sourceThreadId: string; targetThreadId: string; workspaceId: string },
-) {
-	if (input.sourceThreadId === input.targetThreadId) {
-		return messages;
-	}
-
-	return messages.map((message) => ({
-		...message,
-		parts: message.parts.map((part) => {
-			if (part.type !== "file") {
-				return part;
-			}
-
-			const identity = parseChatAttachmentContentUrl(part.url);
-			if (
-				!identity ||
-				identity.threadId !== input.sourceThreadId ||
-				identity.workspaceId !== input.workspaceId
-			) {
-				return part;
-			}
-
-			return {
-				...part,
-				url: getChatAttachmentContentUrl({
-					...identity,
-					threadId: input.targetThreadId,
-				}),
-			};
-		}),
-	}));
 }

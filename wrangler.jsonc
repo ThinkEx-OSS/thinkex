@@ -75,7 +75,6 @@
 	"vars": {
 		"FIRECRAWL_API_URL": "https://api.firecrawl.dev",
 		"R2_BUCKET_NAME": "thinkex-workspace-kernel-files-staging",
-		"SANDBOX_TRANSPORT": "rpc",
 	},
 	"send_email": [
 		{
@@ -100,7 +99,6 @@
 			"LLAMA_CLOUD_API_KEY",
 			"AI_GATEWAY_API_KEY",
 			"AUTUMN_SECRET_KEY",
-			"TCC_API_KEY",
 			"R2_ACCOUNT_ID",
 			"R2_ACCESS_KEY_ID",
 			"R2_SECRET_ACCESS_KEY",
@@ -115,11 +113,6 @@
 		},
 	],
 	"containers": [
-		{
-			"class_name": "Sandbox",
-			"image": "./containers/sandbox/Dockerfile",
-			"instance_type": "basic",
-		},
 		{
 			"class_name": "OfficePdfConverter",
 			"image": "./containers/gotenberg/Dockerfile",
@@ -137,20 +130,12 @@
 	"durable_objects": {
 		"bindings": [
 			{
-				"name": "UserAIStore",
-				"class_name": "UserAIStore",
-			},
-			{
 				"name": "WorkspaceRoom",
 				"class_name": "WorkspaceRoom",
 			},
 			{
 				"name": "DocumentSession",
 				"class_name": "DocumentSession",
-			},
-			{
-				"name": "CODE_SANDBOX",
-				"class_name": "Sandbox",
 			},
 			{
 				"name": "OFFICE_PDF_CONVERTER",
@@ -213,6 +198,17 @@
 				},
 			],
 		},
+		{
+			// AI chat moved to Postgres; the per-user thread-directory DO is gone.
+			"tag": "v12_remove_user_ai_store",
+			"deleted_classes": ["UserAIStore"],
+		},
+		{
+			// The chat's Python/compute sandbox went with Code Mode; nothing
+			// references the container or binding anymore.
+			"tag": "v13_remove_code_sandbox",
+			"deleted_classes": ["Sandbox"],
+		},
 	],
 	// Replace this placeholder with the ID returned by:
 	// `wrangler hyperdrive create thinkex-dev --caching-disabled --connection-string=...`
@@ -240,7 +236,6 @@
 			"vars": {
 				"FIRECRAWL_API_URL": "https://api.firecrawl.dev",
 				"R2_BUCKET_NAME": "thinkex-workspace-kernel-files-staging",
-				"SANDBOX_TRANSPORT": "rpc",
 			},
 			"secrets": {
 				"required": [
@@ -252,7 +247,6 @@
 					"LLAMA_CLOUD_API_KEY",
 					"AI_GATEWAY_API_KEY",
 					"AUTUMN_SECRET_KEY",
-					"TCC_API_KEY",
 					"R2_ACCOUNT_ID",
 					"R2_ACCESS_KEY_ID",
 					"R2_SECRET_ACCESS_KEY",
@@ -296,11 +290,6 @@
 			],
 			"containers": [
 				{
-					"class_name": "Sandbox",
-					"image": "registry.cloudflare.com/676650ed1ca37ffdeba997fb2a7fa24a/thinkex-sandbox-production@sha256:e4362dd1268e85c681c9a4646785a473761ca6af8749bfff0236bf86a4809b6b",
-					"instance_type": "basic",
-				},
-				{
 					"class_name": "OfficePdfConverter",
 					"image": "registry.cloudflare.com/676650ed1ca37ffdeba997fb2a7fa24a/thinkex-officepdfconverter-production@sha256:a715bacdff834aa8a5cda7741e0baa21ab0cb9dde54155155b5ee722ecc162f0",
 					"instance_type": "standard-1",
@@ -316,20 +305,12 @@
 			"durable_objects": {
 				"bindings": [
 					{
-						"name": "UserAIStore",
-						"class_name": "UserAIStore",
-					},
-					{
 						"name": "WorkspaceRoom",
 						"class_name": "WorkspaceRoom",
 					},
 					{
 						"name": "DocumentSession",
 						"class_name": "DocumentSession",
-					},
-					{
-						"name": "CODE_SANDBOX",
-						"class_name": "Sandbox",
 					},
 					{
 						"name": "OFFICE_PDF_CONVERTER",
@@ -363,7 +344,6 @@
 			"vars": {
 				"FIRECRAWL_API_URL": "https://api.firecrawl.dev",
 				"R2_BUCKET_NAME": "thinkex-workspace-kernel-files",
-				"SANDBOX_TRANSPORT": "rpc",
 			},
 			"secrets": {
 				"required": [
@@ -375,7 +355,6 @@
 					"LLAMA_CLOUD_API_KEY",
 					"AI_GATEWAY_API_KEY",
 					"AUTUMN_PROD_SECRET_KEY",
-					"TCC_API_KEY",
 					"R2_ACCOUNT_ID",
 					"R2_ACCESS_KEY_ID",
 					"R2_SECRET_ACCESS_KEY",
@@ -419,11 +398,6 @@
 			],
 			"containers": [
 				{
-					"class_name": "Sandbox",
-					"image": "registry.cloudflare.com/676650ed1ca37ffdeba997fb2a7fa24a/thinkex-sandbox-production@sha256:e4362dd1268e85c681c9a4646785a473761ca6af8749bfff0236bf86a4809b6b",
-					"instance_type": "basic",
-				},
-				{
 					"class_name": "OfficePdfConverter",
 					"image": "registry.cloudflare.com/676650ed1ca37ffdeba997fb2a7fa24a/thinkex-officepdfconverter-production@sha256:a715bacdff834aa8a5cda7741e0baa21ab0cb9dde54155155b5ee722ecc162f0",
 					"instance_type": "standard-1",
@@ -440,20 +414,12 @@
 			"durable_objects": {
 				"bindings": [
 					{
-						"name": "UserAIStore",
-						"class_name": "UserAIStore",
-					},
-					{
 						"name": "WorkspaceRoom",
 						"class_name": "WorkspaceRoom",
 					},
 					{
 						"name": "DocumentSession",
 						"class_name": "DocumentSession",
-					},
-					{
-						"name": "CODE_SANDBOX",
-						"class_name": "Sandbox",
 					},
 					{
 						"name": "OFFICE_PDF_CONVERTER",

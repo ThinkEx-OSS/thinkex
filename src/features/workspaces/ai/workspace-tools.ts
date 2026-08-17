@@ -12,7 +12,7 @@ import { createWorkspaceAccessContext } from "#/features/workspaces/operations/w
 type WorkspaceThreadToolConfig = {
 	definition: (typeof workspaceToolDefinitions)[number];
 	env: Cloudflare.Env;
-	getThreadContext: () => Promise<AIThreadContext | null>;
+	threadContext: AIThreadContext;
 };
 
 function createWorkspaceThreadTool(input: WorkspaceThreadToolConfig) {
@@ -33,8 +33,7 @@ function createWorkspaceThreadTool(input: WorkspaceThreadToolConfig) {
 				}
 			: {}),
 		execute: async (args, context) => {
-			const thread = await requireThreadContext(input.getThreadContext);
-
+			const thread = input.threadContext;
 			const output = await definition.executeUnknown(
 				args,
 				createWorkspaceAccessContext({
@@ -52,7 +51,7 @@ function createWorkspaceThreadTool(input: WorkspaceThreadToolConfig) {
 
 export function createAIThreadWorkspaceTools(input: {
 	env: Cloudflare.Env;
-	getThreadContext: () => Promise<AIThreadContext | null>;
+	threadContext: AIThreadContext;
 }): ToolSet {
 	return Object.fromEntries(
 		workspaceToolDefinitions.map((definition) => [
@@ -60,18 +59,8 @@ export function createAIThreadWorkspaceTools(input: {
 			createWorkspaceThreadTool({
 				definition,
 				env: input.env,
-				getThreadContext: input.getThreadContext,
+				threadContext: input.threadContext,
 			}),
 		]),
 	) as ToolSet;
-}
-
-async function requireThreadContext(getThreadContext: () => Promise<AIThreadContext | null>) {
-	const thread = await getThreadContext();
-
-	if (!thread) {
-		throw new Error("Chat thread not found");
-	}
-
-	return thread;
 }

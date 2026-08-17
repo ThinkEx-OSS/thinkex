@@ -26,9 +26,7 @@ export function createAiChatTools(input: {
 		...createAIThreadSkillTools(),
 		...createAIThreadWorkspaceTools({
 			env: input.env,
-			// Adapter for the Think-era factory signature; flattened to a plain
-			// value when the Think runtime (its other caller) is retired.
-			getThreadContext: () => Promise.resolve(input.threadContext),
+			threadContext: input.threadContext,
 		}),
 	};
 

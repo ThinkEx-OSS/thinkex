@@ -1,13 +1,4 @@
-import {
-	BookOpen,
-	ChevronDown,
-	Code2,
-	FileText,
-	Globe2,
-	PencilLine,
-	Search,
-	Wrench,
-} from "lucide-react";
+import { BookOpen, ChevronDown, FileText, Globe2, PencilLine, Search } from "lucide-react";
 import { LazyMotion, domAnimation, m, useReducedMotion } from "motion/react";
 import type { ReactNode } from "react";
 
@@ -321,12 +312,6 @@ function Favicon({
 
 function ToolActivityIcon({ icon }: { icon: AiToolActivityIconKind }) {
 	switch (icon) {
-		// The code/work kinds belong to retired Code Mode entries; their cases
-		// leave with the registry trim in the Think retirement change.
-		case "code":
-			return <Code2 className="size-3.5" aria-hidden="true" />;
-		case "work":
-			return <Wrench className="size-3.5" aria-hidden="true" />;
 		case "edit":
 			return <PencilLine className="size-3.5" aria-hidden="true" />;
 		case "file":

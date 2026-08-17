@@ -1,4 +1,3 @@
-import { getChatAttachmentWorkspacePrefix } from "#/features/workspaces/ai/chat-attachment-storage";
 import { getDocumentSessionStubFromEnv } from "#/features/workspaces/document-session-access";
 import { getWorkspaceFileItemObjectPrefix } from "#/features/workspaces/files/workspace-file-object-keys";
 import type { ResourcePurgeResult } from "#/features/workspaces/resource-purge-result";
@@ -31,7 +30,7 @@ export async function purgeWorkspaceStorage(
 	const documentItemIds = Array.from(new Set(input.documentItemIds));
 	const results = await Promise.allSettled([
 		...documentItemIds.map((itemId) => purgeDocumentSession(env, input.workspaceId, itemId)),
-		deleteR2Prefix(env.WORKSPACE_FILES, getChatAttachmentWorkspacePrefix(input.workspaceId)),
+		// Chat attachments live in Postgres and cascade with their threads.
 		deleteR2Prefix(env.WORKSPACE_FILES, `workspace_file_objects/${input.workspaceId}/`),
 		deleteR2Prefix(env.WORKSPACE_FILES, `workspace_file_uploads/${input.workspaceId}/`),
 	]);
