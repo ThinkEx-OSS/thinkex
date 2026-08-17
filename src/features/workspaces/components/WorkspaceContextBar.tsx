@@ -222,7 +222,12 @@ function WorkspaceBreadcrumbItem({
 	onDeleteItem: (item: WorkspaceItem) => void;
 }) {
 	const { Icon, iconClassName } = getWorkspaceItemDisplay(item);
-	const visibilityClassName = getCrumbVisibilityClassName(isCollapsed, isMobileHidden);
+	// Collapsed crumbs live in the "…" menu; the rest still make room for the current crumb on mobile.
+	const visibilityClassName = isCollapsed
+		? "hidden"
+		: isMobileHidden
+			? "hidden sm:flex"
+			: undefined;
 
 	return (
 		<>
@@ -264,15 +269,6 @@ function WorkspaceBreadcrumbItem({
 			</BreadcrumbItem>
 		</>
 	);
-}
-
-/** Collapsed crumbs move into the "…" menu; the rest still make room for the current crumb on mobile. */
-function getCrumbVisibilityClassName(isCollapsed: boolean, isMobileHidden: boolean) {
-	if (isCollapsed) {
-		return "hidden";
-	}
-
-	return isMobileHidden ? "hidden sm:flex" : undefined;
 }
 
 function CrumbButton({

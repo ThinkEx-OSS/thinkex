@@ -14,8 +14,6 @@ import { getWorkspaceItemDisplay } from "#/features/workspaces/model/item-displa
 import type { WorkspaceItem } from "#/features/workspaces/contracts";
 import { cn } from "#/lib/utils";
 
-const showPathLabel = "Show path";
-
 interface WorkspaceBreadcrumbOverflowProps {
 	items: WorkspaceItem[];
 	className?: string;
@@ -45,7 +43,7 @@ export default function WorkspaceBreadcrumbOverflow({
 										<button
 											type="button"
 											className="flex size-7 items-center justify-center rounded-sm text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-											aria-label={showPathLabel}
+											aria-label="Show path"
 										/>
 									}
 								>
@@ -53,7 +51,7 @@ export default function WorkspaceBreadcrumbOverflow({
 								</DropdownMenuTrigger>
 							}
 						/>
-						<TooltipContent>{showPathLabel}</TooltipContent>
+						<TooltipContent>Show path</TooltipContent>
 					</Tooltip>
 					<DropdownMenuContent align="start" className="w-56">
 						{items.map((item) => {
