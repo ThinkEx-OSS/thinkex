@@ -1,4 +1,4 @@
-import { BookOpen, ChevronDown, FileText, Globe2, PencilLine, Search } from "lucide-react";
+import { BookOpen, ChevronDown, FileText, Globe2, PencilLine, Search, Wrench } from "lucide-react";
 import { LazyMotion, domAnimation, m, useReducedMotion } from "motion/react";
 import type { ReactNode } from "react";
 
@@ -445,6 +445,8 @@ export function ToolActivityIcon({ icon }: { icon: AiToolActivityIconKind }) {
 			return <Search className="size-3.5" aria-hidden="true" />;
 		case "web":
 			return <Globe2 className="size-3.5" aria-hidden="true" />;
+		case "wrench":
+			return <Wrench className="size-3.5" aria-hidden="true" />;
 		default:
 			icon satisfies never;
 			return null;

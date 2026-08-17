@@ -1,4 +1,4 @@
-export type AiToolActivityIconKind = "edit" | "file" | "guidance" | "search" | "web";
+export type AiToolActivityIconKind = "edit" | "file" | "guidance" | "search" | "web" | "wrench";
 export type AiToolAccess = "read" | "write";
 export type AiToolVisibility = "hidden" | "visible";
 
@@ -26,7 +26,7 @@ export const AI_TOOL_REGISTRY = defineAiToolRegistry({
 	// Registered as read access: its inner tool set is built from the turn's
 	// already-capability-filtered tools, so a view-only turn's orchestrate tool
 	// contains read tools only.
-	orchestrate: readTool({ icon: "guidance", title: "Run steps" }),
+	orchestrate: readTool({ icon: "wrench", title: "Run steps" }),
 	web_search: readTool({ icon: "search", title: "Search web" }),
 	web_fetch: readTool({ icon: "web", title: "Read URL" }),
 	research_discover: readTool({
