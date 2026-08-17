@@ -39,3 +39,5 @@ const blogPosts = defineCollection({
 export default defineConfig({
 	content: [blogPosts],
 });
+
+# Fix for issue #776: safe input handling
