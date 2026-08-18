@@ -13,7 +13,13 @@ export class ChatRequestError extends Error {
 
 export function chatErrorResponse(error: unknown): Response | null {
 	if (error instanceof ChatRequestError) {
-		return Response.json({ error: error.userMessage }, { status: error.status });
+		// The status rides in the body too. The AI SDK's transport turns a non-2xx
+		// into `new Error(await response.text())`, so the code is gone by the time
+		// useChat sees it — and a usage limit has to be tellable from a crash.
+		return Response.json(
+			{ error: error.userMessage, status: error.status },
+			{ status: error.status },
+		);
 	}
 
 	return null;

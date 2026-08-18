@@ -10,7 +10,52 @@ describe("AI chat error state", () => {
 				hasConnectionError: false,
 				hasMessages: true,
 			}),
-		).toEqual({ kind: "assistant" });
+		).toEqual({ classification: null, kind: "assistant", message: null });
+	});
+
+	it("names the plan limit rather than a crash when the server refuses the turn", () => {
+		expect(
+			deriveAiChatAssistantErrorState({
+				chatError: new Error(
+					JSON.stringify({ error: "Usage limit reached. Resets 2026-09-01.", status: 429 }),
+				),
+				chatStatus: "error",
+				hasConnectionError: false,
+				hasMessages: true,
+			}),
+		).toEqual({
+			classification: "usage_limit",
+			kind: "assistant",
+			message: "Usage limit reached. Resets 2026-09-01.",
+		});
+	});
+
+	it("shows another refusal's own wording without calling it a limit", () => {
+		expect(
+			deriveAiChatAssistantErrorState({
+				chatError: new Error(
+					JSON.stringify({ error: "A response is already being generated", status: 409 }),
+				),
+				chatStatus: "error",
+				hasConnectionError: false,
+				hasMessages: true,
+			}),
+		).toEqual({
+			classification: null,
+			kind: "assistant",
+			message: "A response is already being generated",
+		});
+	});
+
+	it("leaves a transport failure that isn't ours as a plain error", () => {
+		expect(
+			deriveAiChatAssistantErrorState({
+				chatError: new Error("<html>502 Bad Gateway</html>"),
+				chatStatus: "error",
+				hasConnectionError: false,
+				hasMessages: true,
+			}),
+		).toEqual({ classification: null, kind: "assistant", message: null });
 	});
 
 	it("flags a turn that ended without assistant output so the send visibly ended", () => {

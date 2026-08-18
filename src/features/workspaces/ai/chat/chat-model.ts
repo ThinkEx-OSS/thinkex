@@ -6,7 +6,11 @@ import type { UIMessage } from "ai";
 // The classification/stage values the UI branches on. The chat does not
 // record per-thread error summaries yet, so these mostly type live error
 // state; the open unions keep old persisted values readable.
-export type AiChatErrorClassification = "context_overflow" | "rate_limit" | (string & {});
+export type AiChatErrorClassification =
+	| "context_overflow"
+	| "rate_limit"
+	| "usage_limit"
+	| (string & {});
 export type AiChatErrorStage = "recovery" | (string & {});
 
 // ChatGPT-shaped thread summary: identity, title, recency — nothing else.

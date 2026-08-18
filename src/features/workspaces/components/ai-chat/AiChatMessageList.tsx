@@ -24,6 +24,7 @@ import {
 	getAssistantRowDisplay,
 	isAiChatStreamActive,
 } from "#/features/workspaces/components/ai-chat/ai-chat-display-state";
+import { isAiChatUsageLimitErrorState } from "#/features/workspaces/components/ai-chat/ai-chat-error-state";
 import type { AiChatMessage } from "#/features/workspaces/components/ai-chat/types";
 import { WorkspaceFloatingAskSelectionMenu } from "#/features/workspaces/components/WorkspaceFloatingAskSelectionMenu";
 import { stageComposerQuote } from "#/features/workspaces/composer/workspace-composer-actions";
@@ -256,7 +257,11 @@ function AiChatListRowView({
 		return (
 			<AiChatTranscriptRail>
 				<AiChatAssistantError
-					canRetry={canRetry && row.errorState.kind !== "connection"}
+					canRetry={
+						canRetry &&
+						row.errorState.kind !== "connection" &&
+						!isAiChatUsageLimitErrorState(row.errorState)
+					}
 					errorState={row.errorState}
 					hasAssistantContent={hasAssistantContent}
 					onRetry={onRegenerateLastResponse}
@@ -506,6 +511,12 @@ function getChatErrorMessage({
 
 	if (errorState.kind === "aborted") {
 		return "The response was stopped before it started.";
+	}
+
+	// The server's own sentence names what ran out and when it comes back; the
+	// allowance notice under the composer carries the upgrade path.
+	if (errorState.classification === "usage_limit") {
+		return errorState.message ?? "You’ve used up this month’s messages.";
 	}
 
 	if (errorState.classification === "context_overflow") {

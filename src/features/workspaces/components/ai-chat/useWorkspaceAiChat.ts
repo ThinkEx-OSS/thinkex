@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DefaultChatTransport, generateId } from "ai";
 import { useEffect, useState } from "react";
 
+import { BILLING_STATE_QUERY_KEY } from "#/features/account/use-billing-state";
 import { getAiChatThreadUrl } from "#/features/workspaces/agent-routes";
 import {
 	aiChatThreadMessagesQueryKey,
@@ -10,6 +11,7 @@ import {
 	aiChatThreadsQueryKey,
 } from "#/features/workspaces/ai/chat/chat-queries";
 import { deriveAiChatPresentation } from "#/features/workspaces/components/ai-chat/ai-chat-display-state";
+import { isAiChatUsageLimitResponse } from "#/features/workspaces/components/ai-chat/ai-chat-error-state";
 import {
 	parseCodemodeActivityEvent,
 	type AiChatLiveCodemodeActivity,
@@ -75,6 +77,17 @@ export function useWorkspaceAiChat({
 				if (event) {
 					setLiveCodemodeActivity((current) => ({ ...current, [event.invocationId]: event }));
 				}
+			}
+		},
+		// A refused turn is the one moment the advisory balance cache is provably
+		// wrong, so it is the only moment worth refetching: the composer's
+		// allowance notice then appears at the wall instead of up to a minute
+		// after it, carrying the reset date and the upgrade path with it.
+		// Deliberately not on every turn end — that would spend an Autumn
+		// round-trip per message to close a window the server gate already covers.
+		onError: (chatError) => {
+			if (isAiChatUsageLimitResponse(chatError)) {
+				void queryClient.invalidateQueries({ queryKey: BILLING_STATE_QUERY_KEY });
 			}
 		},
 	});
@@ -218,6 +231,9 @@ export function useWorkspaceAiChat({
 
 	return {
 		canSend,
+		// The live turn error, for the row that has to explain it. `connectionError`
+		// only ever carries the history-load failure.
+		chatError: error,
 		connectionError,
 		editMessage,
 		inputStatus,

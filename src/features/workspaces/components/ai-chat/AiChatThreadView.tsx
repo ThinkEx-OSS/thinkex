@@ -57,6 +57,7 @@ export default function AiChatThreadView({
 	const [scrollAnchorMessageId, setScrollAnchorMessageId] = useState<string | null>(null);
 	const {
 		canSend,
+		chatError,
 		connectionError,
 		editMessage,
 		inputStatus,
@@ -116,6 +117,7 @@ export default function AiChatThreadView({
 	const lastMessage = messages.at(-1);
 	const lastMessageMetadata = lastMessage?.metadata as { errorMessage?: string } | undefined;
 	const assistantError = deriveAiChatAssistantErrorState({
+		chatError,
 		chatStatus: presentation.status,
 		hasConnectionError: Boolean(connectionError),
 		hasMessages: messages.length > 0,
