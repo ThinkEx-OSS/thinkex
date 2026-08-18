@@ -8,6 +8,8 @@ import { Skeleton } from "#/components/ui/skeleton";
 import { sendComposerPrompt } from "#/features/workspaces/composer/workspace-composer-actions";
 import { DocumentAskSelectionMenu } from "#/features/workspaces/components/document-editor/DocumentAskSelectionMenu";
 import { DocumentToolbar } from "#/features/workspaces/components/document-editor/DocumentToolbar";
+import { DocumentFindBar } from "#/features/workspaces/components/document-editor/DocumentFindBar";
+import { useWorkspaceFindStore } from "#/features/workspaces/find/workspace-find-store";
 import { DocumentWordCount } from "#/features/workspaces/components/document-editor/DocumentWordCount";
 import { useWorkspaceItemToolbar } from "#/features/workspaces/components/WorkspaceItemToolbarSlot";
 import { useWorkspacePaneRuntime } from "#/features/workspaces/components/WorkspacePaneRuntime";
@@ -97,7 +99,20 @@ function DocumentEditorInstance({
 				class: "workspace-document-prose min-h-full py-4 outline-none",
 			},
 			handleKeyDown: (_view, event) => {
-				if (event.key !== "Escape" || !paneRuntime?.onCloseItemView) {
+				if (event.key !== "Escape") {
+					return false;
+				}
+
+				// Escape dismisses an open find bar first; closing the document out from
+				// under someone who was only clearing their search is worse.
+				if (useWorkspaceFindStore.getState().openFindId) {
+					event.preventDefault();
+					event.stopPropagation();
+					useWorkspaceFindStore.getState().closeFind();
+					return true;
+				}
+
+				if (!paneRuntime?.onCloseItemView) {
 					return false;
 				}
 
@@ -142,6 +157,7 @@ function DocumentEditorInstance({
 
 	return (
 		<section className="relative flex h-full min-h-0 flex-col bg-background">
+			<DocumentFindBar editor={editor} viewInstanceId={viewInstanceId} />
 			<div data-scroll-root ref={setScrollTarget} className="min-h-0 flex-1 overflow-y-auto">
 				<div className="min-h-full w-full pb-8">
 					<DocumentAskSelectionMenu

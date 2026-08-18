@@ -9,6 +9,7 @@ import {
 
 type AppHotkeyAction =
 	| "workspace.aiChat.toggle"
+	| "workspace.find.open"
 	| "workspace.item.closeCurrent"
 	| "workspace.search.open";
 
@@ -22,6 +23,11 @@ const APP_HOTKEYS = {
 	"workspace.aiChat.toggle": {
 		hotkey: "Mod+J",
 		description: "Toggle AI chat",
+		scope: "workspace",
+	},
+	"workspace.find.open": {
+		hotkey: "Mod+F",
+		description: "Find in current view",
 		scope: "workspace",
 	},
 	"workspace.item.closeCurrent": {

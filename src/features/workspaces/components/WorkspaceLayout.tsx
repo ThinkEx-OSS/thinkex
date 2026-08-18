@@ -14,6 +14,7 @@ import WorkspaceDragProvider from "#/features/workspaces/components/WorkspaceDra
 import { WorkspaceFileIntakeProvider } from "#/features/workspaces/components/WorkspaceFileIntakeProvider";
 import { WorkspaceFileUploadProvider } from "#/features/workspaces/components/WorkspaceFileUploadProvider";
 import { WorkspaceItemToolbarProvider } from "#/features/workspaces/components/WorkspaceItemToolbarSlot";
+import { useWorkspaceFindStore } from "#/features/workspaces/find/workspace-find-store";
 import WorkspaceMobileLayout from "#/features/workspaces/components/WorkspaceMobileLayout";
 import WorkspacePaneRenderer from "#/features/workspaces/components/WorkspacePaneRenderer";
 import { WorkspacePdfEngineProvider } from "#/features/workspaces/components/WorkspacePdfEngineProvider";
@@ -172,8 +173,23 @@ export function WorkspaceShell({
 				return;
 			}
 
+			// A find bar handles its own Escape. Checking the origin rather than the
+			// store matters: the bar clears openFindId before this runs, so reading
+			// the store here would see no find open and close the item as well.
+			if (event.target instanceof Element && event.target.closest("[data-workspace-find-bar]")) {
+				return;
+			}
+
 			event.preventDefault();
 			event.stopPropagation();
+
+			// Escape from anywhere else dismisses an open find bar first; closing the
+			// item out from under someone who was only clearing a search is worse.
+			if (useWorkspaceFindStore.getState().openFindId) {
+				useWorkspaceFindStore.getState().closeFind();
+				return;
+			}
+
 			closeItemView();
 		},
 		{

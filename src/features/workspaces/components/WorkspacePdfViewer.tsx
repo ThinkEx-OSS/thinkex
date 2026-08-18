@@ -21,6 +21,7 @@ import {
 	RenderPluginPackage,
 	useRenderCapability,
 } from "@embedpdf/plugin-render/react";
+import { SearchLayer, SearchPluginPackage } from "@embedpdf/plugin-search/react";
 import { Rotate, RotatePluginPackage } from "@embedpdf/plugin-rotate/react";
 import {
 	type PageLayout,
@@ -46,6 +47,9 @@ import {
 } from "#/features/workspaces/components/WorkspaceCaptureChrome";
 import { WorkspaceFileToolbar } from "#/features/workspaces/components/WorkspaceFileToolbar";
 import { useWorkspaceItemToolbar } from "#/features/workspaces/components/WorkspaceItemToolbarSlot";
+import { WorkspaceFindBar } from "#/features/workspaces/components/WorkspaceFindBar";
+import { usePdfFindEngine } from "#/features/workspaces/find/use-pdf-find-engine";
+import { useWorkspaceFind } from "#/features/workspaces/find/use-workspace-find";
 import {
 	useWorkspacePaneHotkey,
 	useWorkspacePaneRuntime,
@@ -91,6 +95,7 @@ const pdfPlugins: PluginBatchRegistrations = [
 	createPluginRegistration(ZoomPluginPackage, {
 		defaultZoomLevel: ZoomMode.FitWidth,
 	}),
+	createPluginRegistration(SearchPluginPackage),
 	createPluginRegistration(RotatePluginPackage),
 	createPluginRegistration(RenderPluginPackage),
 	createPluginRegistration(TilingPluginPackage, {
@@ -440,7 +445,18 @@ function WorkspacePdfDocumentContent({
 				/>
 			</ZoomGestureWrapper>
 			<WorkspacePdfPageControl documentId={documentId} />
+			<WorkspacePdfFindBar documentId={documentId} />
 		</Viewport>
+	);
+}
+
+/** Bound to the viewer's plugin context, which is where the search engine lives. */
+function WorkspacePdfFindBar({ documentId }: { documentId: string }) {
+	const find = useWorkspaceFind();
+	const engine = usePdfFindEngine(documentId, find.query, find.caseSensitive);
+
+	return (
+		<WorkspaceFindBar engine={engine} find={find} findId={documentId} label="Find in document" />
 	);
 }
 
@@ -502,6 +518,13 @@ function WorkspacePdfPage({
 					background="var(--selection)"
 				/>
 			) : null}
+			<SearchLayer
+				className="absolute inset-0"
+				documentId={documentId}
+				pageIndex={pageLayout.pageIndex}
+				highlightColor="var(--find-match)"
+				activeHighlightColor="var(--find-match-active)"
+			/>
 			<AnnotationLayer
 				className="absolute inset-0"
 				documentId={documentId}

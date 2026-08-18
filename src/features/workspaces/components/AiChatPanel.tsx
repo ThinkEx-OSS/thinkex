@@ -1,4 +1,4 @@
-import { Suspense } from "react";
+import { Suspense, useCallback, useRef } from "react";
 import {
 	AiChatAttachmentDropProvider,
 	useAiChatAttachmentDrop,
@@ -10,6 +10,7 @@ import AiChatTranscriptRail from "#/features/workspaces/components/ai-chat/AiCha
 import { aiChatMessageScrollerContentClassName } from "#/features/workspaces/components/ai-chat/ai-chat-layout";
 import { useAiChatPanelController } from "#/features/workspaces/components/ai-chat/useAiChatPanelController";
 import { WorkspaceFileDropOverlay } from "#/features/workspaces/components/WorkspaceFileDropOverlay";
+import { AiChatFindBar } from "#/features/workspaces/components/ai-chat/AiChatFindBar";
 import type { WorkspaceAiContextScope } from "#/features/workspaces/model/workspace-ai-context-types";
 import { cn } from "#/lib/utils";
 
@@ -42,10 +43,18 @@ function AiChatPanelLayout({ context }: AiChatPanelProps) {
 		threads,
 	} = useAiChatPanelController({ workspaceId: context.workspaceId });
 	const { isDropActive, mergePanelRef } = useAiChatAttachmentDrop();
+	const panelRef = useRef<HTMLElement | null>(null);
+	const setPanelRef = useCallback(
+		(element: HTMLElement | null) => {
+			panelRef.current = element;
+			mergePanelRef(element);
+		},
+		[mergePanelRef],
+	);
 
 	return (
 		<aside
-			ref={mergePanelRef}
+			ref={setPanelRef}
 			className="relative flex h-full min-h-0 flex-col overflow-hidden bg-background"
 		>
 			<AiChatPanelToolbar
@@ -70,6 +79,8 @@ function AiChatPanelLayout({ context }: AiChatPanelProps) {
 					threadId={activeThreadId}
 				/>
 			</Suspense>
+
+			<AiChatFindBar panelRef={panelRef} />
 
 			{isDropActive ? (
 				<WorkspaceFileDropOverlay
