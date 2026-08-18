@@ -1,10 +1,9 @@
 import { type RefObject, useCallback, useEffect, useState } from "react";
 
-import type { WorkspaceFindEngine } from "#/features/workspaces/find/workspace-find-engine";
+import type { WorkspaceFindEngine } from "#/features/workspaces/find/use-workspace-find";
 
 const ALL_HIGHLIGHT_KEY = "ai-chat-find";
 const ACTIVE_HIGHLIGHT_KEY = "ai-chat-find-active";
-const MAX_MATCHES = 500;
 const RESCAN_DEBOUNCE_MS = 150;
 const TRANSCRIPT_SELECTOR = '[role="region"][aria-label="Messages"]';
 
@@ -13,11 +12,7 @@ function collectMatchRanges(root: Element, query: string, caseSensitive: boolean
 	const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
 	const loweredQuery = query.toLowerCase();
 
-	for (
-		let node = walker.nextNode();
-		node !== null && ranges.length < MAX_MATCHES;
-		node = walker.nextNode()
-	) {
+	for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
 		const parent = node.parentElement;
 
 		if (!parent || parent.checkVisibility?.() === false) {
@@ -35,7 +30,7 @@ function collectMatchRanges(root: Element, query: string, caseSensitive: boolean
 		const needle = foldable ? loweredQuery : query;
 		let matchIndex = text.indexOf(needle);
 
-		while (matchIndex !== -1 && ranges.length < MAX_MATCHES) {
+		while (matchIndex !== -1) {
 			const range = document.createRange();
 			range.setStart(node, matchIndex);
 			range.setEnd(node, matchIndex + needle.length);

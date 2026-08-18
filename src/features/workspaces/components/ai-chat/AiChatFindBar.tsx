@@ -11,9 +11,17 @@ import { useWorkspaceFind } from "#/features/workspaces/find/use-workspace-find"
  * and stops propagation, so the two never open together.
  */
 export function AiChatFindBar({ panelRef }: { panelRef: RefObject<HTMLElement | null> }) {
-	const find = useWorkspaceFind({ hotkeyTarget: panelRef });
+	const find = useWorkspaceFind();
 	const engine = useAiChatFindEngine(panelRef, find.query, find.caseSensitive);
 
 	// Sits below the panel toolbar rather than over it.
-	return <WorkspaceFindBar className="top-12" engine={engine} find={find} label="Find in chat" />;
+	return (
+		<WorkspaceFindBar
+			className="top-12"
+			engine={engine}
+			find={find}
+			hotkeyTarget={panelRef}
+			label="Find in chat"
+		/>
+	);
 }

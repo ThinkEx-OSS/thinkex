@@ -3,7 +3,7 @@ import { useScrollCapability } from "@embedpdf/plugin-scroll/react";
 import { useSearch } from "@embedpdf/plugin-search/react";
 import { useEffect } from "react";
 
-import type { WorkspaceFindEngine } from "#/features/workspaces/find/workspace-find-engine";
+import type { WorkspaceFindEngine } from "#/features/workspaces/find/use-workspace-find";
 
 /**
  * Drives the PDF text layer's own search plugin. Must be called inside the

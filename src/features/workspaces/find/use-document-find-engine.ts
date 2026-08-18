@@ -1,7 +1,7 @@
 import { type Editor, useEditorState } from "@tiptap/react";
 import { useEffect } from "react";
 
-import type { WorkspaceFindEngine } from "#/features/workspaces/find/workspace-find-engine";
+import type { WorkspaceFindEngine } from "#/features/workspaces/find/use-workspace-find";
 
 const emptyFindState = { activeIndex: -1, total: 0 };
 

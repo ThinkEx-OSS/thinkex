@@ -1,19 +1,32 @@
 import { CaseSensitive, ChevronDown, ChevronUp, X } from "lucide-react";
-import { type ComponentProps, useEffect, useRef } from "react";
+import {
+	type ComponentProps,
+	type KeyboardEvent,
+	type RefObject,
+	useEffect,
+	useRef,
+	useState,
+} from "react";
 
-import type { WorkspaceFindEngine } from "#/features/workspaces/find/workspace-find-engine";
-import type { WorkspaceFindState } from "#/features/workspaces/find/use-workspace-find";
+import { useWorkspacePaneHotkey } from "#/features/workspaces/components/WorkspacePaneRuntime";
+import type {
+	WorkspaceFindEngine,
+	WorkspaceFindState,
+} from "#/features/workspaces/find/use-workspace-find";
+import { getAppHotkey } from "#/lib/hotkeys-core";
 import { cn } from "#/lib/utils";
 
 /**
  * The one find bar. Every searchable surface renders this against its own
  * engine, so Mod+F looks and behaves the same in a document, a PDF, and chat.
+ * Owns its open state and its hotkey; the surface only supplies the engine.
  */
 export function WorkspaceFindBar({
 	engine,
 	find,
 	label,
 	className,
+	hotkeyTarget,
 }: {
 	engine: WorkspaceFindEngine;
 	find: WorkspaceFindState;
@@ -21,30 +34,51 @@ export function WorkspaceFindBar({
 	label: string;
 	/** Only for surfaces whose own chrome occupies the top-right corner. */
 	className?: string;
+	/** Scopes the hotkey to one element. Surfaces that own a pane omit it. */
+	hotkeyTarget?: RefObject<HTMLElement | null>;
 }) {
+	const [isOpen, setIsOpen] = useState(false);
 	const inputRef = useRef<HTMLInputElement>(null);
 	const hasQuery = find.query !== "";
 	const hasMatches = engine.total > 0;
 
-	// Every open request re-focuses, so pressing the hotkey again selects what is
-	// already typed rather than doing nothing.
+	useWorkspacePaneHotkey(
+		getAppHotkey("workspace.find.open").hotkey,
+		() => {
+			// Already open: the input exists, so select what is in it. Otherwise the
+			// effect below focuses it once it mounts.
+			if (isOpen) {
+				inputRef.current?.focus();
+				inputRef.current?.select();
+				return;
+			}
+
+			setIsOpen(true);
+		},
+		{ conflictBehavior: "allow", target: hotkeyTarget },
+	);
+
 	useEffect(() => {
-		if (find.isOpen) {
+		if (isOpen) {
 			inputRef.current?.focus();
 			inputRef.current?.select();
 		}
-	}, [find.isOpen, find.openCount]);
+	}, [isOpen]);
 
-	if (!find.isOpen) {
+	if (!isOpen) {
 		return null;
 	}
 
-	const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+	const close = () => {
+		setIsOpen(false);
+		find.setQuery("");
+	};
+	const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
 		if (event.key === "Escape") {
 			// The surfaces underneath bind Escape too; this one closes the bar only.
 			event.preventDefault();
 			event.stopPropagation();
-			find.close();
+			close();
 			return;
 		}
 
@@ -109,7 +143,7 @@ export function WorkspaceFindBar({
 			<FindBarButton aria-label="Next match" disabled={!hasMatches} onClick={engine.next}>
 				<ChevronDown className="size-4" />
 			</FindBarButton>
-			<FindBarButton aria-label="Close find bar" onClick={find.close}>
+			<FindBarButton aria-label="Close find bar" onClick={close}>
 				<X className="size-4" />
 			</FindBarButton>
 		</div>
