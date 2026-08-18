@@ -23,6 +23,12 @@ import {
 import { useWorkspaceAiAllowance } from "#/features/workspaces/ai/use-workspace-ai-allowance";
 import { AiChatAttachmentDropBridge } from "#/features/workspaces/components/ai-chat/AiChatAttachmentDrop";
 import AiChatComposerReveal from "#/features/workspaces/components/ai-chat/AiChatComposerReveal";
+import {
+	aiChatComposerFooterPadding,
+	aiChatComposerGroupClassName,
+	aiChatComposerHeaderPadding,
+	aiChatComposerInlinePadding,
+} from "#/features/workspaces/components/ai-chat/ai-chat-layout";
 import AiChatModelPicker from "#/features/workspaces/components/ai-chat/AiChatModelPicker";
 import { AiChatAllowanceNotice } from "#/features/workspaces/components/ai-chat/AiChatAllowanceNotice";
 import AiChatPromptContextBar from "#/features/workspaces/components/ai-chat/AiChatPromptContextBar";
@@ -57,13 +63,7 @@ import { cn } from "#/lib/utils";
 
 // InputGroup defaults to a single horizontal row. Stack vertically so the
 // footer toolbar stays visible below the textarea instead of being clipped.
-const PROMPT_INPUT_GROUP_CLASSNAME =
-	"h-auto flex-col border-border/70 bg-muted/30 shadow-none dark:bg-muted/30";
-const PROMPT_INPUT_INLINE_PADDING = "px-3.5";
-// gap-0: every header row self-pads (pt on its content), so the always-mounted
-// zero-height reveal wrappers add no phantom flex gaps to an idle composer.
-const PROMPT_INPUT_HEADER_PADDING = "gap-0 px-3.5 pb-1";
-const PROMPT_INPUT_FOOTER_PADDING = "pl-2 pr-3.5 pt-1 pb-2";
+// Shared with the question card, which takes this slot — see ai-chat-layout.
 const CHAT_ATTACHMENT_PICKER_ACCEPT = [
 	...new Set([WORKSPACE_AI_CHAT_ATTACHMENT_POLICY.accept, ...workspaceUploadAccept.split(",")]),
 ].join(",");
@@ -270,12 +270,12 @@ export default function AiChatPromptInput({
 			<PromptInput
 				accept={CHAT_ATTACHMENT_PICKER_ACCEPT}
 				attachments={attachments}
-				inputGroupClassName={PROMPT_INPUT_GROUP_CLASSNAME}
+				inputGroupClassName={aiChatComposerGroupClassName}
 				multiple
 				onSubmit={handleSubmit}
 			>
 				<AiChatAttachmentDropBridge />
-				<PromptInputHeader className={PROMPT_INPUT_HEADER_PADDING}>
+				<PromptInputHeader className={aiChatComposerHeaderPadding}>
 					<AiChatComposerReveal>
 						{isEditing ? (
 							<div className="flex items-center gap-1.5 pt-1 pb-1.5 text-muted-foreground text-xs">
@@ -311,12 +311,12 @@ export default function AiChatPromptInput({
 						onChange={(event) => setInput(event.currentTarget.value)}
 						className={cn(
 							"min-h-10 pt-2 pb-1 text-base placeholder:text-foreground/45 md:text-base",
-							PROMPT_INPUT_INLINE_PADDING,
+							aiChatComposerInlinePadding,
 						)}
 					/>
 				</PromptInputBody>
 
-				<PromptInputFooter className={PROMPT_INPUT_FOOTER_PADDING}>
+				<PromptInputFooter className={aiChatComposerFooterPadding}>
 					<PromptInputTools>
 						<AiChatAttachmentButton />
 
