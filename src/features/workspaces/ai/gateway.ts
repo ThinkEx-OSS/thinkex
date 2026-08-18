@@ -38,7 +38,7 @@ export function getWorkspaceAiLanguageModel(
 	return getWorkspaceAiLanguageModelForGatewayModel(getWorkspaceAiChatModel(modelId), env);
 }
 
-function getWorkspaceAiLanguageModelForGatewayModel(
+export function getWorkspaceAiLanguageModelForGatewayModel(
 	gatewayModel: string,
 	env: Cloudflare.Env,
 ): LanguageModel {
@@ -54,7 +54,7 @@ function getWorkspaceAiLanguageModelForGatewayModel(
 	});
 }
 
-function getWorkspaceAiGatewayTransportOptions() {
+export function getWorkspaceAiGatewayTransportOptions() {
 	return {
 		caching: "auto" as const,
 		// Buy the fast lane where it exists. The gateway only forwards a tier to

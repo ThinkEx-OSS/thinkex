@@ -72,3 +72,12 @@ export function getAIThreadTitleGatewayRoutingOptions() {
 		models: ["openai/gpt-5.4-nano"],
 	};
 }
+
+export function getWorkspaceImageExtractionGatewayRoutingOptions() {
+	return {
+		order: GOOGLE_GATEWAY_PROVIDER_ORDER,
+		// Cross-provider backstop so a Google outage still gets an image read.
+		// Both fallbacks accept image input; a text-only model would 400 the leg.
+		models: ["openai/gpt-5.6-luna", "anthropic/claude-haiku-4.5"],
+	};
+}

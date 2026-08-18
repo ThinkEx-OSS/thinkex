@@ -119,7 +119,7 @@ const WORKSPACE_UPLOAD_FAMILIES = [
 		defaultFileName: "Uploaded image.png",
 		requiresHeavyViewerRuntime: false,
 		extractionRoute: {
-			provider: "workers_ai_to_markdown",
+			provider: "gemini_image_markdown",
 			mode: "default",
 			reason: "default_image_upload_route",
 		},

@@ -5,7 +5,7 @@ export const workspaceFileAssetKindSchema = z.enum(workspaceFileAssetKinds);
 
 export type WorkspaceFileAssetKind = (typeof workspaceFileAssetKinds)[number];
 
-export const workspaceFileExtractionProviders = ["workers_ai_to_markdown", "llama_parse"] as const;
+export const workspaceFileExtractionProviders = ["gemini_image_markdown", "llama_parse"] as const;
 
 export type WorkspaceFileExtractionProviderId = (typeof workspaceFileExtractionProviders)[number];
 
