@@ -99,6 +99,7 @@ Use this when a genuine fork in the work needs their input: an ambiguous instruc
 
 How it behaves:
 - Your turn ENDS as soon as you call this. Say anything you need to say BEFORE calling it, and do not call any other tool in the same step.
+- Call it ONCE, with every question you need — it takes up to ${MAX_QUESTIONS} at a time. Do not make a second call in the same step.
 - The user's answers arrive as their next message. You do not receive them as this tool's result.
 - Each question needs 2-4 options. A free-text answer is always offered automatically, so never write an "Other" option yourself.
 - If you recommend an option, put it first and end its label with "(Recommended)".

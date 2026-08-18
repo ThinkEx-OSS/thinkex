@@ -18,7 +18,7 @@ import { canDrainQueuedMessage } from "#/features/workspaces/components/ai-chat/
 import AiChatQuestionCard from "#/features/workspaces/components/ai-chat/AiChatQuestionCard";
 import {
 	formatQuestionAnswerText,
-	getPendingQuestion,
+	getPendingQuestions,
 	type AiChatQuestionAnswer,
 } from "#/features/workspaces/components/ai-chat/ai-chat-question";
 import { AiChatLiveActivityProvider } from "#/features/workspaces/components/ai-chat/ai-chat-live-activity";
@@ -111,7 +111,7 @@ export default function AiChatThreadView({
 	const pauseQueue = useWorkspaceAiQueueStore((state) => state.pause);
 	const resumeQueue = useWorkspaceAiQueueStore((state) => state.resume);
 	const { isBlocked } = useWorkspaceAiAllowance(modelId);
-	const pendingQuestion = getPendingQuestion(messages);
+	const pendingQuestions = getPendingQuestions(messages);
 
 	const lastMessage = messages.at(-1);
 	const lastMessageMetadata = lastMessage?.metadata as { errorMessage?: string } | undefined;
@@ -214,7 +214,7 @@ export default function AiChatThreadView({
 			// Held while a question is up: the turn ended cleanly, so canSend is
 			// true and the queue would otherwise fire straight past the question
 			// the user is still looking at.
-			pendingQuestion !== null ||
+			pendingQuestions !== null ||
 			!canDrainQueuedMessage({
 				canSend,
 				errorKind: assistantError?.kind,
@@ -248,14 +248,14 @@ export default function AiChatThreadView({
 		assistantError?.kind,
 		editing,
 		isBlocked,
-		pendingQuestion,
+		pendingQuestions,
 		queueHead,
 		queuePaused,
 		takeQueueHead,
 		threadId,
 	]);
 	const answerQuestion = (answers: AiChatQuestionAnswer[]) => {
-		if (!pendingQuestion) {
+		if (!pendingQuestions) {
 			return;
 		}
 
@@ -304,10 +304,10 @@ export default function AiChatThreadView({
 
 			<div className="px-3 pb-3">
 				<div className={aiChatComposerRailClassName}>
-					{pendingQuestion ? (
+					{pendingQuestions ? (
 						<AiChatQuestionCard
 							disabled={!canSend}
-							pending={pendingQuestion}
+							questions={pendingQuestions}
 							onAnswer={answerQuestion}
 						/>
 					) : (

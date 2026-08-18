@@ -1,5 +1,5 @@
 import { isToolUIPart } from "ai";
-import type { z } from "zod";
+import { z } from "zod";
 
 import { ASK_USER_TOOL_NAME, askUserInputSchema } from "#/features/workspaces/ai/question-tools";
 import type { AiChatMessage } from "#/features/workspaces/components/ai-chat/types";
@@ -7,58 +7,67 @@ import { getToolPartName } from "#/features/workspaces/components/ai-chat/ai-cha
 
 export type AiChatQuestion = z.output<typeof askUserInputSchema>["questions"][number];
 
-export interface AiChatPendingQuestion {
-	toolCallId: string;
-	questions: AiChatQuestion[];
-}
+/**
+ * One question's answer: the labels chosen, or a skip. Schema-first because it
+ * round-trips through the message's jsonb metadata, where nothing else checks
+ * its shape — see getQuestionAnswerMetadata.
+ */
+const questionAnswerSchema = z.object({
+	header: z.string(),
+	question: z.string(),
+	values: z.array(z.string()),
+	skipped: z.boolean(),
+});
+const questionAnswersSchema = z.array(questionAnswerSchema);
 
-/** One question's answer: the labels chosen, or a skip. */
-export interface AiChatQuestionAnswer {
-	header: string;
-	question: string;
-	values: string[];
-	skipped: boolean;
-}
+export type AiChatQuestionAnswer = z.output<typeof questionAnswerSchema>;
 
 /**
- * The question awaiting an answer, if any. A question is pending only while its
+ * The questions awaiting an answer, if any. They are pending only while their
  * assistant message is the last in the thread — anything sent after it (an
- * answer, or the user ignoring it and typing) settles it, exactly as the model
- * sees it.
+ * answer, or the user ignoring it and typing) settles them, exactly as the
+ * model sees it.
+ *
+ * Every completed call contributes: the model can emit parallel tool calls in
+ * one step, and stopping at the first would drop the rest with no trace.
  */
-export function getPendingQuestion(messages: AiChatMessage[]): AiChatPendingQuestion | null {
+export function getPendingQuestions(messages: AiChatMessage[]): AiChatQuestion[] | null {
 	const last = messages.at(-1);
 
 	if (last?.role !== "assistant") {
 		return null;
 	}
 
-	for (const part of last.parts) {
-		if (!isToolUIPart(part) || getToolPartName(part) !== ASK_USER_TOOL_NAME) {
-			continue;
-		}
-
+	const questions = last.parts.flatMap((part): AiChatQuestion[] => {
 		// Only a completed call carries a question worth showing. An errored one
 		// (an interrupted turn, via settledParts) has nothing to ask — and having
-		// reached an output, its input is known to satisfy the schema below.
-		if (part.state !== "output-available") {
-			continue;
+		// reached an output, its input is known to satisfy the schema.
+		if (
+			!isToolUIPart(part) ||
+			getToolPartName(part) !== ASK_USER_TOOL_NAME ||
+			part.state !== "output-available"
+		) {
+			return [];
 		}
 
 		const parsed = askUserInputSchema.safeParse(part.input);
+		return parsed.success ? [...parsed.data.questions] : [];
+	});
 
-		if (parsed.success) {
-			return { toolCallId: part.toolCallId, questions: [...parsed.data.questions] };
-		}
-	}
-
-	return null;
+	return questions.length > 0 ? questions : null;
 }
 
+/**
+ * Answers ride the user message's metadata, which is persisted verbatim into
+ * jsonb — `validateUIMessages` runs without a metadataSchema and its result is
+ * discarded. Nothing else vouches for the shape, so old rows written before a
+ * field changed would otherwise reach the renderer and throw mid-transcript.
+ */
 export function getQuestionAnswerMetadata(message: AiChatMessage): AiChatQuestionAnswer[] | null {
-	const metadata = message.metadata as { questionAnswer?: AiChatQuestionAnswer[] } | undefined;
+	const metadata = message.metadata as { questionAnswer?: unknown } | undefined;
+	const parsed = questionAnswersSchema.safeParse(metadata?.questionAnswer);
 
-	return Array.isArray(metadata?.questionAnswer) ? metadata.questionAnswer : null;
+	return parsed.success && parsed.data.length > 0 ? parsed.data : null;
 }
 
 /**

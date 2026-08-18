@@ -23,7 +23,7 @@ import {
 	aiChatComposerInlinePadding,
 } from "#/features/workspaces/components/ai-chat/ai-chat-layout";
 import type {
-	AiChatPendingQuestion,
+	AiChatQuestion,
 	AiChatQuestionAnswer,
 } from "#/features/workspaces/components/ai-chat/ai-chat-question";
 import { useTypeToFocusTextInput } from "#/hooks/use-type-to-focus-text-input";
@@ -41,11 +41,11 @@ import { cn } from "#/lib/utils";
  */
 export default function AiChatQuestionCard({
 	disabled,
-	pending,
+	questions,
 	onAnswer,
 }: {
 	disabled: boolean;
-	pending: AiChatPendingQuestion;
+	questions: AiChatQuestion[];
 	onAnswer: (answers: AiChatQuestionAnswer[]) => void;
 }) {
 	const [selections, setSelections] = useState<Record<string, string[]>>({});
@@ -57,7 +57,7 @@ export default function AiChatQuestionCard({
 
 	// Choices belong here as well as in the markup — the root tracks answered
 	// vs unanswered state from this list, not from what happens to be rendered.
-	const items = pending.questions.map((question, index) => ({
+	const items = questions.map((question, index) => ({
 		name: questionFieldName(index),
 		choices: question.options.map((option) => ({ value: option.label })),
 		// Never `required`: the stepper would block Next on an unanswered
@@ -96,7 +96,7 @@ export default function AiChatQuestionCard({
 	};
 
 	const collectAnswers = (): AiChatQuestionAnswer[] =>
-		pending.questions.map((question, index) => {
+		questions.map((question, index) => {
 			const name = questionFieldName(index);
 			const custom = customText[name]?.trim() ?? "";
 			const values = [...(selections[name] ?? []), ...(custom ? [custom] : [])];
@@ -111,7 +111,7 @@ export default function AiChatQuestionCard({
 			};
 		});
 
-	const isMultiQuestion = pending.questions.length > 1;
+	const isMultiQuestion = questions.length > 1;
 
 	// Typing anywhere lands in the active question's free-text field, exactly as
 	// it does in the composer. Digits are left alone — the root binds them to
@@ -153,7 +153,7 @@ export default function AiChatQuestionCard({
 				>
 					<InputGroup className={aiChatComposerGroupClassName}>
 						<div className={cn("w-full min-w-0 pt-3 pb-1", aiChatComposerInlinePadding)}>
-							{pending.questions.map((question, index) => {
+							{questions.map((question, index) => {
 								const name = questionFieldName(index);
 								const chosen = selections[name] ?? [];
 
