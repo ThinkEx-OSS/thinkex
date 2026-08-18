@@ -1,4 +1,11 @@
-export type AiToolActivityIconKind = "edit" | "file" | "guidance" | "search" | "web" | "wrench";
+export type AiToolActivityIconKind =
+	| "edit"
+	| "file"
+	| "guidance"
+	| "question"
+	| "search"
+	| "web"
+	| "wrench";
 export type AiToolAccess = "read" | "write";
 export type AiToolVisibility = "hidden" | "visible";
 
@@ -23,6 +30,9 @@ function defineAiToolRegistry<const TRegistry extends Record<string, AiToolDefin
 
 export const AI_TOOL_REGISTRY = defineAiToolRegistry({
 	activate_skill: readTool({ icon: "guidance", title: "Use guidance" }),
+	// Read access: asking a question mutates nothing, so a view-only member
+	// gets a model that asks rather than one that guesses.
+	ask_user: readTool({ icon: "question", title: "Ask a question" }),
 	// Registered as read access: its inner tool set is built from the turn's
 	// already-capability-filtered tools, so a view-only turn's orchestrate tool
 	// contains read tools only.

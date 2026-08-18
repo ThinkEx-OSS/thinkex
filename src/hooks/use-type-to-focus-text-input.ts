@@ -7,10 +7,16 @@ type TypeToFocusElement = HTMLInputElement | HTMLTextAreaElement;
 
 export function useTypeToFocusTextInput({
 	enabled,
+	ignoreKey,
 	inputRef,
 	setValue,
 }: {
 	enabled: boolean;
+	/**
+	 * Keys this input must not swallow because something else on screen binds
+	 * them — the question card's number shortcuts, for one.
+	 */
+	ignoreKey?: (key: string) => boolean;
 	inputRef: RefObject<TypeToFocusElement | null>;
 	setValue: Dispatch<SetStateAction<string>>;
 }) {
@@ -22,7 +28,7 @@ export function useTypeToFocusTextInput({
 		}
 
 		const handleKeyDown = (event: KeyboardEvent) => {
-			if (!shouldRouteTypingToTextInput(event)) {
+			if (!shouldRouteTypingToTextInput(event) || ignoreKey?.(event.key)) {
 				return;
 			}
 
@@ -53,7 +59,7 @@ export function useTypeToFocusTextInput({
 
 		document.addEventListener("keydown", handleKeyDown);
 		return () => document.removeEventListener("keydown", handleKeyDown);
-	}, [enabled, inputRef, setValue]);
+	}, [enabled, ignoreKey, inputRef, setValue]);
 }
 
 function shouldRouteTypingToTextInput(event: KeyboardEvent) {

@@ -169,7 +169,15 @@ describe("WorkspaceContentReader", () => {
 	});
 
 	it("chunks a large document and continues by block range", async () => {
-		const html = Array.from({ length: 20_000 }, (_, index) => `<p>line ${index + 1}</p>`).join("");
+		// Blocks are wide rather than numerous: the chunker breaks on a 48k
+		// character budget, so a few hundred fat paragraphs cross it just as well
+		// as tens of thousands of thin ones — and parse two orders of magnitude
+		// faster. The thin version took longer than the suite's 5s timeout under
+		// parallel load.
+		const html = Array.from(
+			{ length: 200 },
+			(_, index) => `<p>line ${index + 1} ${"word ".repeat(200)}</p>`,
+		).join("");
 		const session = createDocumentSession({ html });
 		const read = createReader({
 			bucket: {} as R2Bucket,
@@ -179,7 +187,7 @@ describe("WorkspaceContentReader", () => {
 		const [first] = await read([{ mode: "start", path: "/Notes" }]);
 		expect(first).toMatchObject({
 			format: "html",
-			location: { kind: "blocks", startBlock: 1, totalBlocks: 20_000 },
+			location: { kind: "blocks", startBlock: 1, totalBlocks: 200 },
 			path: "/Notes",
 			ref: "refdoc01",
 			status: "ready",
@@ -193,7 +201,7 @@ describe("WorkspaceContentReader", () => {
 		) {
 			throw new Error("Expected a document chunk.");
 		}
-		expect(first.location.endBlock).toBeLessThan(20_000);
+		expect(first.location.endBlock).toBeLessThan(200);
 
 		const [second] = await read([
 			{

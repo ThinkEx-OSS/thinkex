@@ -15,6 +15,7 @@ import {
 	AiChatToolActivityGroup,
 	isToolGroupBreaker,
 } from "#/features/workspaces/components/ai-chat/AiChatToolActivityGroup";
+import { getQuestionAnswerMetadata } from "#/features/workspaces/components/ai-chat/ai-chat-question";
 import { stripWorkspaceCitationTags } from "#/features/workspaces/ai/workspace-references";
 import {
 	type AssistantRowDisplay,
@@ -156,7 +157,36 @@ function UserMessageBody({
 	parts: AiChatMessagePart[];
 }) {
 	const [isOpen, setIsOpen] = useState(false);
+	const questionAnswer = getQuestionAnswerMetadata(message);
 	const shouldCollapse = shouldCollapseUserMessage(parts);
+
+	// An answered question renders as what the user actually did — picked
+	// options — not as the prose the model reads.
+	if (questionAnswer) {
+		return (
+			<div className="flex flex-col gap-2">
+				{questionAnswer.map((answer, index) => (
+					<div key={`${message.id}-answer-${index}`} className="flex flex-col gap-1">
+						<span className="text-xs text-secondary-foreground/70">{answer.header}</span>
+						{answer.skipped ? (
+							<span className="text-sm text-secondary-foreground/70 italic">Skipped</span>
+						) : (
+							<div className="flex flex-wrap gap-1">
+								{answer.values.map((value) => (
+									<span
+										key={value}
+										className="rounded-md bg-background/60 px-2 py-0.5 text-sm text-secondary-foreground"
+									>
+										{value}
+									</span>
+								))}
+							</div>
+						)}
+					</div>
+				))}
+			</div>
+		);
+	}
 
 	if (!shouldCollapse) {
 		return <UserMessageParts message={message} parts={parts} />;
