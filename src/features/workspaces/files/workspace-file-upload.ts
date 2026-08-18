@@ -168,6 +168,28 @@ export async function uploadWorkspaceImageForItem(input: {
 	return command.result;
 }
 
+/**
+ * Asks the server to download a public web image and store it as an
+ * owner-bound workspace image — how an external image in pasted rich content
+ * becomes real workspace content instead of a hotlink that rots.
+ */
+export async function importWorkspaceImageFromUrl(input: {
+	ownerItemId: string;
+	url: string;
+	workspaceId: string;
+}): Promise<WorkspaceItem> {
+	const command = await requestUploadJson<WorkspaceCommandResult<WorkspaceItem>>(
+		`/api/v1/workspaces/${input.workspaceId}/file-upload?action=import-image`,
+		{
+			body: JSON.stringify({ ownerItemId: input.ownerItemId, url: input.url }),
+			headers: { "content-type": "application/json" },
+			method: "POST",
+			signal: AbortSignal.timeout(uploadRequestTimeoutMs),
+		},
+	);
+	return command.result;
+}
+
 async function uploadWorkspaceFile(
 	job: WorkspaceFileUploadJob,
 ): Promise<WorkspaceCommandResult<WorkspaceItem>> {

@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 
 import { createDbContext } from "#/db/server";
+import { fetchPublicImageForImport } from "#/features/workspaces/ai/web-fetch";
 import { WorkspaceFileConversionError } from "#/features/workspaces/conversion/errors";
 import { requestWorkspaceFileExtraction } from "#/features/workspaces/extraction/request-workspace-file-extraction";
 import { checkWorkspaceFileUploadAccess } from "#/integrations/autumn/workspace-file-usage";
@@ -10,9 +11,13 @@ import {
 	getWorkspaceFileItemObjectPrefix,
 	getWorkspaceFilePreviewObjectKey,
 	getWorkspaceFileSourceObjectKey,
+	getWorkspaceFileUploadObjectKey,
 } from "#/features/workspaces/files/workspace-file-object-keys";
 import { requireAppliedWorkspaceMutation } from "#/features/workspaces/persistence/workspace-persistence-types";
-import { WorkspaceFileUploadError } from "#/features/workspaces/model/workspace-file";
+import {
+	WorkspaceFileUploadError,
+	workspaceFileUploadLimits,
+} from "#/features/workspaces/model/workspace-file";
 import { createWorkspaceFileFromUpload } from "#/features/workspaces/persistence/workspace-files";
 import { createWorkspaceItem } from "#/features/workspaces/persistence/workspace-items";
 import {
@@ -65,7 +70,149 @@ async function handleWorkspaceUploadPost(request: Request, workspaceId: string) 
 		return completeWorkspaceFileUpload(request, workspaceId);
 	}
 
+	if (action === "import-image") {
+		return importWorkspaceImageFromUrl(request, workspaceId);
+	}
+
 	return apiError(getRequestId(request), 400, "INVALID_UPLOAD", "Unknown upload action.");
+}
+
+const importImageSchema = z.object({
+	ownerItemId: z.string().min(1),
+	url: z.string().min(1),
+});
+
+/**
+ * Imports a public web image (pasted rich content, later AI image search) as
+ * an owner-bound workspace image. The server downloads the bytes behind the
+ * same SSRF policy as AI web fetches, stages them where a direct upload would
+ * land, and reuses the exact completion path — conversion, preview,
+ * item creation, extraction.
+ */
+async function importWorkspaceImageFromUrl(request: Request, workspaceId: string) {
+	const requestId = getRequestId(request);
+	return observeWorkspaceFileIntake({
+		kind: "workspace_file",
+		request,
+		requestId,
+		workspaceId,
+		run: async (observation) => {
+			const itemId = crypto.randomUUID();
+			const fileObjectPrefix = getWorkspaceFileItemObjectPrefix({ itemId, workspaceId });
+			let fileItemCreated = false;
+			try {
+				const userId = await authorizeWorkspaceUpload(request, workspaceId);
+				observation.userId = userId;
+				const input = await parseJsonRequest(request, importImageSchema);
+
+				let fetched: Awaited<ReturnType<typeof fetchPublicImageForImport>>;
+				try {
+					fetched = await fetchPublicImageForImport({
+						maxBytes: workspaceFileUploadLimits.maxImageFileBytes,
+						url: input.url,
+					});
+				} catch (error) {
+					throw new WorkspaceUploadRequestError(
+						422,
+						"IMPORT_FAILED",
+						error instanceof Error ? error.message : "Unable to download this image.",
+					);
+				}
+
+				const validation = validateWorkspaceUpload({
+					contentType: fetched.mediaType,
+					fileName: fetched.fileName,
+					sizeBytes: fetched.bytes.byteLength,
+				});
+				if (
+					!validation.ok ||
+					validation.plan.kind !== "file" ||
+					validation.plan.descriptor.assetKind !== "image"
+				) {
+					throw invalidUpload(
+						validation.ok ? "This URL is not a supported image format." : validation.error.message,
+					);
+				}
+				observation.inputBytes = fetched.bytes.byteLength;
+				observation.plan = validation.plan.kind;
+
+				const uploadedObjectKey = getWorkspaceFileUploadObjectKey({ itemId, workspaceId });
+				await env.WORKSPACE_FILES.put(uploadedObjectKey, fetched.bytes, {
+					httpMetadata: { contentType: fetched.mediaType },
+				});
+				const uploadedObject = await env.WORKSPACE_FILES.get(uploadedObjectKey);
+				if (!uploadedObject) {
+					throw new Error("Staged import object could not be read back.");
+				}
+
+				try {
+					const upload = await finalizeWorkspaceFileUploadStorage({
+						contentType: fetched.mediaType,
+						descriptor: validation.plan.descriptor,
+						env,
+						finalObjectKey: getWorkspaceFileSourceObjectKey({ itemId, workspaceId }),
+						fileName: fetched.fileName,
+						fileSize: fetched.bytes.byteLength,
+						previewObjectKey: getWorkspaceFilePreviewObjectKey({ itemId, workspaceId }),
+						uploadedObject,
+						uploadedObjectKey,
+					});
+					observation.assetKind = upload.descriptor.assetKind;
+					observation.conversion = upload.source?.conversion;
+					observation.outputBytes = upload.fileSize;
+
+					const command = await createWorkspaceFileFromUpload(env, {
+						assetKind: upload.descriptor.assetKind,
+						contentType: upload.contentType,
+						fileName: upload.fileName,
+						fileSize: upload.fileSize,
+						id: itemId,
+						objectKey: upload.objectKey,
+						ownerItemId: input.ownerItemId,
+						parentId: null,
+						preview: upload.preview,
+						source: upload.source,
+						actorUserId: userId,
+						workspaceId,
+					});
+					fileItemCreated = true;
+					observation.itemId = command.result.id;
+
+					await requestWorkspaceFileExtraction({
+						actorUserId: userId,
+						assetKind: upload.descriptor.assetKind,
+						itemId: command.result.id,
+						ownerItemId: input.ownerItemId,
+						requestId,
+						workspaceId,
+					});
+					return apiJson(command, requestId);
+				} finally {
+					await deleteUploadObjectBestEffort({
+						cleanup: "staging_upload",
+						key: uploadedObjectKey,
+						requestId,
+						userId,
+						workspaceId,
+					});
+				}
+			} catch (error) {
+				observation.error = error;
+				return workspaceUploadErrorResponse(requestId, error);
+			} finally {
+				if (!fileItemCreated) {
+					await deleteUploadObjectBestEffort({
+						cleanup: "file_objects",
+						key: fileObjectPrefix,
+						prefix: true,
+						requestId,
+						userId: observation.userId,
+						workspaceId,
+					});
+				}
+			}
+		},
+	});
 }
 
 async function initiateWorkspaceFileUpload(request: Request, workspaceId: string) {

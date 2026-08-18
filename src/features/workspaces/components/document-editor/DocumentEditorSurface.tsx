@@ -15,7 +15,10 @@ import { useWorkspaceItemToolbar } from "#/features/workspaces/components/Worksp
 import { useWorkspacePaneRuntime } from "#/features/workspaces/components/WorkspacePaneRuntime";
 import { useWorkspaceMutationAccess } from "#/features/workspaces/components/workspace-mutation-access";
 import { DocumentEditReviewExtension } from "#/features/workspaces/documents/document-edit-review-extension";
-import { insertDocumentImageFiles } from "#/features/workspaces/documents/document-image-upload";
+import {
+	importDocumentImagesFromPastedHtml,
+	insertDocumentImageFiles,
+} from "#/features/workspaces/documents/document-image-upload";
 import { DocumentWidgetActionProvider } from "#/features/workspaces/documents/document-widget-node";
 import {
 	getTiptapDocumentBaseExtensions,
@@ -107,11 +110,15 @@ function DocumentEditorInstance({
 				if (!capabilities.canMutateContent || !activeEditor) {
 					return false;
 				}
+				const target = { documentItemId: item.id, editor: activeEditor, workspaceId };
 				const files = Array.from(event.clipboardData?.files ?? []);
-				return insertDocumentImageFiles(
-					{ documentItemId: item.id, editor: activeEditor, workspaceId },
-					files,
-				);
+				if (insertDocumentImageFiles(target, files)) {
+					return true;
+				}
+				// External images in pasted rich content import in the background;
+				// the paste itself proceeds normally.
+				importDocumentImagesFromPastedHtml(target, event.clipboardData?.getData("text/html") ?? "");
+				return false;
 			},
 			handleDrop: (_view, event, _slice, moved) => {
 				const activeEditor = editorRef.current;

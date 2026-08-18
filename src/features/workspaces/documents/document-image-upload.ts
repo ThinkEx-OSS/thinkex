@@ -1,7 +1,10 @@
 import type { Editor } from "@tiptap/core";
 import { toast } from "sonner";
 
-import { uploadWorkspaceImageForItem } from "#/features/workspaces/files/workspace-file-upload";
+import {
+	importWorkspaceImageFromUrl,
+	uploadWorkspaceImageForItem,
+} from "#/features/workspaces/files/workspace-file-upload";
 import { getWorkspaceUploadValidationError } from "#/features/workspaces/upload/workspace-upload-intake";
 import { getErrorMessage } from "#/lib/error-message";
 
@@ -31,6 +34,53 @@ export function insertDocumentImageFiles(
 		void uploadAndInsertDocumentImage(target, file);
 	}
 	return true;
+}
+
+const MAX_PASTED_IMAGE_IMPORTS = 10;
+
+/**
+ * Imports external images referenced by pasted rich HTML. The schema drops
+ * `img[src]` outright — an external URL in a stored document would rot and
+ * leak reader IPs — so each image is downloaded server-side into an
+ * owner-bound workspace file, then inserted. The pasted text lands first and
+ * the images follow it, rather than holding the whole paste hostage to slow
+ * downloads.
+ */
+export function importDocumentImagesFromPastedHtml(
+	target: DocumentImageUploadTarget,
+	html: string,
+): void {
+	const urls = new Set<string>();
+	for (const match of html.matchAll(/<img\b[^>]*\bsrc="(https?:\/\/[^"]+)"/gi)) {
+		if (match[1]) urls.add(match[1]);
+	}
+	for (const url of Array.from(urls).slice(0, MAX_PASTED_IMAGE_IMPORTS)) {
+		void importAndInsertDocumentImage(target, url);
+	}
+}
+
+async function importAndInsertDocumentImage(target: DocumentImageUploadTarget, url: string) {
+	const importPromise = importWorkspaceImageFromUrl({
+		ownerItemId: target.documentItemId,
+		url,
+		workspaceId: target.workspaceId,
+	});
+	toast.promise(importPromise, {
+		loading: "Adding image from the web...",
+		success: "Image added.",
+		error: (error: unknown) => getErrorMessage(error, "Unable to add this image right now."),
+	});
+
+	try {
+		const item = await importPromise;
+		target.editor
+			.chain()
+			.focus()
+			.insertContent({ type: "image", attrs: { itemId: item.id } })
+			.run();
+	} catch {
+		// The toast already reported the failure.
+	}
 }
 
 async function uploadAndInsertDocumentImage(target: DocumentImageUploadTarget, sourceFile: File) {

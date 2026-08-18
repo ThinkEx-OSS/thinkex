@@ -40,6 +40,7 @@ const pdfDocumentStyles = `
 	a { color: #1558b0; text-decoration: underline; }
 	mark { background: #fff1a8; }
 	hr { margin: 1.25em 0; border: 0; border-top: 1px solid #d8d8d8; }
+	img { max-width: 100%; max-height: 7.5in; height: auto; margin: 0.6em 0; border-radius: 6px; break-inside: avoid; }
 	table { width: 100%; margin: 1em 0; border-collapse: collapse; table-layout: fixed; }
 	tr { break-inside: avoid; }
 	th, td { padding: 0.45em 0.55em; border: 1px solid #cfcfcf; text-align: left; vertical-align: top; }

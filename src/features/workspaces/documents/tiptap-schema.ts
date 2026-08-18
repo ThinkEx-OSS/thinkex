@@ -162,6 +162,15 @@ export const WorkspaceImage = Node.create({
 			},
 		];
 	},
+
+	// Markdown exports link the image's item id: the exported archive carries
+	// the image bytes as their own file, and the id is the one stable handle.
+	renderMarkdown(node: { attrs?: Record<string, unknown> }) {
+		const itemId = typeof node.attrs?.itemId === "string" ? node.attrs.itemId : "";
+		const alt =
+			typeof node.attrs?.alt === "string" ? node.attrs.alt.replaceAll(/[\n\]]/g, " ") : "";
+		return `![${alt}](${itemId})`;
+	},
 });
 
 export const tiptapDocumentAiRefAttribute = "aiRef";

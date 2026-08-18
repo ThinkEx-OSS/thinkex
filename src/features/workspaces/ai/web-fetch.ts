@@ -128,6 +128,46 @@ export async function fetchPublicWebImage(input: {
 	};
 }
 
+/**
+ * Downloads a public image for import into workspace storage: same SSRF and
+ * redirect policy as the AI's image fetch, but the original bytes rather than
+ * a model-sized re-encode. Callers validate the media type against the upload
+ * formats — this only guarantees "public, an image by content type, bounded".
+ */
+export async function fetchPublicImageForImport(input: {
+	abortSignal?: AbortSignal;
+	maxBytes: number;
+	url: string;
+}): Promise<{ bytes: ArrayBuffer; fileName: string; mediaType: string }> {
+	const requestedUrl = assertPublicHttpUrl(input.url);
+	const { response, url } = await fetchImageFollowingPublicRedirects(
+		requestedUrl,
+		input.abortSignal,
+	);
+	const mediaType = normalizeMediaType(response.headers.get("content-type"));
+
+	if (!mediaType?.startsWith("image/")) {
+		await response.body?.cancel();
+		throw new Error("This URL did not return an image.");
+	}
+	if (!response.body) {
+		throw new Error("The image response did not include a body.");
+	}
+	await assertContentLengthWithinLimit(response, input.maxBytes);
+
+	const bytes = await new Response(
+		limitReadableStream(response.body, input.maxBytes),
+	).arrayBuffer();
+	const finalUrl = new URL(url);
+	const lastSegment = decodeURIComponent(finalUrl.pathname.split("/").filter(Boolean).at(-1) ?? "");
+	const extension = mediaType.split("/")[1]?.split("+")[0] ?? "png";
+	const fileName = /\.[A-Za-z0-9]{2,5}$/.test(lastSegment)
+		? lastSegment
+		: `${lastSegment || "Imported image"}.${extension}`;
+
+	return { bytes, fileName, mediaType };
+}
+
 async function fetchImageFollowingPublicRedirects(input: URL, abortSignal?: AbortSignal) {
 	let url = input;
 	const signal = abortSignal
