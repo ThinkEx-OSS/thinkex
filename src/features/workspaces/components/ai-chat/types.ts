@@ -11,6 +11,8 @@ export interface AiChatSendMessage {
 	id: string;
 	role: "user";
 	parts: AiChatMessagePart[];
+	/** Persisted verbatim; carries question-answer provenance for the transcript. */
+	metadata?: unknown;
 }
 
 export type AiChatSendMessageOptions = ChatRequestOptions;

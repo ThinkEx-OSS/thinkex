@@ -97,6 +97,8 @@ export function getRunningToolSummary(input: {
 	switch (input.toolName) {
 		case "activate_skill":
 			return summary.running("Using ", ...skillGuidanceName(toolInput));
+		case "ask_user":
+			return summary.running("Asking you something");
 		case "orchestrate":
 			// The model authors the label (schema: short plain-language title,
 			// streamed ahead of the code) — surface it verbatim.
@@ -163,6 +165,8 @@ export function getFinishedToolSummary(input: {
 	switch (input.toolName) {
 		case "activate_skill":
 			return summary.completed("Used ", ...skillGuidanceName(asRecord(input.toolInput)));
+		case "ask_user":
+			return summarizeAskUser(input.toolInput);
 		case "orchestrate":
 			return summarizeOrchestrate(input.output, input.toolInput);
 		case "workspace_create_items":
@@ -255,6 +259,19 @@ function summarizeFailedTool(
 		default:
 			return summary.failed(`${capitalize(formatToolNameFallback(toolName))} failed`);
 	}
+}
+
+function summarizeAskUser(toolInput: unknown): AiChatToolSummary {
+	const questions = getArray(asRecord(toolInput).questions);
+	const header = getString(asRecord(questions[0]).header);
+
+	if (questions.length > 1) {
+		return summary.completed(`Asked ${formatCount(questions.length, "question")}`);
+	}
+
+	return header
+		? summary.completed("Asked about ", ...name(header))
+		: summary.completed("Asked a question");
 }
 
 // The orchestrate tool reports failures as a successful output with

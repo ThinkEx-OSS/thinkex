@@ -15,6 +15,12 @@ import type {
 	AiChatSendMessage,
 } from "#/features/workspaces/components/ai-chat/types";
 import { canDrainQueuedMessage } from "#/features/workspaces/components/ai-chat/ai-chat-queue-drain";
+import AiChatQuestionCard from "#/features/workspaces/components/ai-chat/AiChatQuestionCard";
+import {
+	formatQuestionAnswerText,
+	getPendingQuestion,
+	type AiChatQuestionAnswer,
+} from "#/features/workspaces/components/ai-chat/ai-chat-question";
 import { AiChatLiveActivityProvider } from "#/features/workspaces/components/ai-chat/ai-chat-live-activity";
 import { useWorkspaceAiChat } from "#/features/workspaces/components/ai-chat/useWorkspaceAiChat";
 import { useWorkspaceAiAllowance } from "#/features/workspaces/ai/use-workspace-ai-allowance";
@@ -105,6 +111,7 @@ export default function AiChatThreadView({
 	const pauseQueue = useWorkspaceAiQueueStore((state) => state.pause);
 	const resumeQueue = useWorkspaceAiQueueStore((state) => state.resume);
 	const { isBlocked } = useWorkspaceAiAllowance(modelId);
+	const pendingQuestion = getPendingQuestion(messages);
 
 	const lastMessage = messages.at(-1);
 	const lastMessageMetadata = lastMessage?.metadata as { errorMessage?: string } | undefined;
@@ -204,6 +211,10 @@ export default function AiChatThreadView({
 			// Held during an edit: a drained turn would land after the message being
 			// edited, and the edit's truncate-and-rerun would then destroy it.
 			editing !== null ||
+			// Held while a question is up: the turn ended cleanly, so canSend is
+			// true and the queue would otherwise fire straight past the question
+			// the user is still looking at.
+			pendingQuestion !== null ||
 			!canDrainQueuedMessage({
 				canSend,
 				errorKind: assistantError?.kind,
@@ -237,11 +248,28 @@ export default function AiChatThreadView({
 		assistantError?.kind,
 		editing,
 		isBlocked,
+		pendingQuestion,
 		queueHead,
 		queuePaused,
 		takeQueueHead,
 		threadId,
 	]);
+	const answerQuestion = (answers: AiChatQuestionAnswer[]) => {
+		if (!pendingQuestion) {
+			return;
+		}
+
+		const chatMessage: AiChatSendMessage = {
+			id: generateId(),
+			role: "user",
+			parts: [{ type: "text", text: formatQuestionAnswerText(answers) }],
+			metadata: { questionAnswer: answers },
+		};
+
+		setScrollAnchorMessageId(chatMessage.id);
+		sendChatMessage(chatMessage);
+		setSentMessageAnimationId(chatMessage.id);
+	};
 	const stopGeneration = () => {
 		stop();
 	};
@@ -276,20 +304,30 @@ export default function AiChatThreadView({
 
 			<div className="px-3 pb-3">
 				<div className={aiChatComposerRailClassName}>
-					<AiChatPromptInput
-						activeThreadId={threadId}
-						canSend={canSend}
-						context={context}
-						isEditing={Boolean(editing)}
-						modelId={modelId}
-						status={inputStatus}
-						onCancelEdit={cancelEditing}
-						onModelChange={onModelChange}
-						onSubmit={(message) => (editing ? submitEditedMessage(message) : sendMessage(message))}
-						onStop={handleUserStop}
-						onInterrupt={stopGeneration}
-						onSendNow={handleSendNow}
-					/>
+					{pendingQuestion ? (
+						<AiChatQuestionCard
+							disabled={!canSend}
+							pending={pendingQuestion}
+							onAnswer={answerQuestion}
+						/>
+					) : (
+						<AiChatPromptInput
+							activeThreadId={threadId}
+							canSend={canSend}
+							context={context}
+							isEditing={Boolean(editing)}
+							modelId={modelId}
+							status={inputStatus}
+							onCancelEdit={cancelEditing}
+							onModelChange={onModelChange}
+							onSubmit={(message) =>
+								editing ? submitEditedMessage(message) : sendMessage(message)
+							}
+							onStop={handleUserStop}
+							onInterrupt={stopGeneration}
+							onSendNow={handleSendNow}
+						/>
+					)}
 				</div>
 			</div>
 		</div>
