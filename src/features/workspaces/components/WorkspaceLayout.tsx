@@ -173,11 +173,18 @@ export function WorkspaceShell({
 				return;
 			}
 
+			// A find bar handles its own Escape. Checking the origin rather than the
+			// store matters: the bar clears openFindId before this runs, so reading
+			// the store here would see no find open and close the item as well.
+			if (event.target instanceof Element && event.target.closest("[data-workspace-find-bar]")) {
+				return;
+			}
+
 			event.preventDefault();
 			event.stopPropagation();
 
-			// Escape dismisses an open find bar first; closing the item out from
-			// under someone who was only trying to clear their search is worse.
+			// Escape from anywhere else dismisses an open find bar first; closing the
+			// item out from under someone who was only clearing a search is worse.
 			if (useWorkspaceFindStore.getState().openFindId) {
 				useWorkspaceFindStore.getState().closeFind();
 				return;

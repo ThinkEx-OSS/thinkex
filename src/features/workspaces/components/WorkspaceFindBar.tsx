@@ -96,6 +96,7 @@ export function WorkspaceFindBar({
 		<search
 			aria-label={label}
 			data-prevent-type-to-focus
+			data-workspace-find-bar
 			className={cn(
 				"pointer-events-auto absolute top-3 right-3 z-30 flex items-center gap-1 rounded-lg border border-border bg-background/95 py-1 pr-1 pl-2 shadow-md backdrop-blur supports-[backdrop-filter]:bg-background/85",
 				className,
