@@ -1,4 +1,5 @@
 import CharacterCount from "@tiptap/extension-character-count";
+import { FindAndReplace } from "@tiptap/extension-find-and-replace";
 import Placeholder from "@tiptap/extension-placeholder";
 import "katex/dist/katex.min.css";
 // Extends the shared KaTeX instance with \ce{} chemistry and \pu{} units.
@@ -26,5 +27,8 @@ export function getTiptapDocumentBaseExtensions() {
 			placeholder: ({ node }) => (node.type.name === "heading" ? "Untitled" : "Write something..."),
 		}),
 		CharacterCount,
+		// Editor-only, so it stays out of the shared schema the server renders
+		// with. Highlight styles live in styles.css beside the other surfaces'.
+		FindAndReplace.configure({ injectCSS: false }),
 	];
 }

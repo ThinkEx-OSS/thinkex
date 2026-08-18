@@ -8,6 +8,7 @@ import { Skeleton } from "#/components/ui/skeleton";
 import { sendComposerPrompt } from "#/features/workspaces/composer/workspace-composer-actions";
 import { DocumentAskSelectionMenu } from "#/features/workspaces/components/document-editor/DocumentAskSelectionMenu";
 import { DocumentToolbar } from "#/features/workspaces/components/document-editor/DocumentToolbar";
+import { DocumentFindBar } from "#/features/workspaces/components/document-editor/DocumentFindBar";
 import { DocumentWordCount } from "#/features/workspaces/components/document-editor/DocumentWordCount";
 import { useWorkspaceItemToolbar } from "#/features/workspaces/components/WorkspaceItemToolbarSlot";
 import { useWorkspacePaneRuntime } from "#/features/workspaces/components/WorkspacePaneRuntime";
@@ -142,6 +143,7 @@ function DocumentEditorInstance({
 
 	return (
 		<section className="relative flex h-full min-h-0 flex-col bg-background">
+			<DocumentFindBar editor={editor} />
 			<div data-scroll-root ref={setScrollTarget} className="min-h-0 flex-1 overflow-y-auto">
 				<div className="min-h-full w-full pb-8">
 					<DocumentAskSelectionMenu

@@ -1021,3 +1021,22 @@ body,
 #app {
 	min-height: 100%;
 }
+
+/* Find highlights. One pair of colours for every surface: all matches, then the
+   active one. Chat paints via the CSS Custom Highlight API, documents via
+   ProseMirror decorations, and the PDF text layer via the search plugin, which
+   takes them as props — hence the custom properties. */
+:root {
+	--find-match: rgb(250 204 21 / 0.35);
+	--find-match-active: rgb(245 158 11 / 0.55);
+}
+
+::highlight(ai-chat-find),
+.find-and-replace-result {
+	background-color: var(--find-match);
+}
+
+::highlight(ai-chat-find-active),
+.find-and-replace-result-current {
+	background-color: var(--find-match-active);
+}
