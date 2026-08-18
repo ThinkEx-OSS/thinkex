@@ -9,7 +9,7 @@ import {
 } from "#/features/workspaces/ai/models";
 import { WORKSPACE_AI_MESSAGE_FEATURE_IDS } from "#/integrations/autumn/workspace-ai-access";
 import { capturePostHogClientEvent } from "#/integrations/posthog/provider";
-import { useBillingState } from "#/features/account/use-billing-state";
+import { formatBillingResetDate, useBillingState } from "#/features/account/use-billing-state";
 import {
 	useWorkspaceAiAllowance,
 	useWorkspaceAiTierBalances,
@@ -32,7 +32,7 @@ interface AiChatAllowanceNoticeProps {
 export function AiChatAllowanceNotice({ modelId }: AiChatAllowanceNoticeProps) {
 	const allowance = useWorkspaceAiAllowance(modelId);
 	const premiumLeft = useWorkspaceAiTierBalances().premium.hasBalance;
-	const resetsOn = formatResetDate(allowance.resetsAt);
+	const resetsOn = formatBillingResetDate(allowance.resetsAt);
 	// Subscribers get the fact without the pitch; there is nothing left to sell
 	// them, so an upgrade control would only advertise that we forgot they pay.
 	const { isPro } = useBillingState();
@@ -84,16 +84,4 @@ export function AiChatAllowanceNotice({ modelId }: AiChatAllowanceNoticeProps) {
 			) : null}
 		</AiChatComposerReveal>
 	);
-}
-
-function formatResetDate(resetsAt: number | null) {
-	if (!resetsAt) {
-		return null;
-	}
-
-	const date = new Date(resetsAt);
-
-	return Number.isNaN(date.getTime())
-		? null
-		: date.toLocaleDateString(undefined, { month: "long", day: "numeric" });
 }

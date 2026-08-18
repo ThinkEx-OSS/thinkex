@@ -38,3 +38,19 @@ export function useBillingState({ exact = false } = {}) {
 		isPro: data?.isPro ?? false,
 	};
 }
+
+/**
+ * One date format for every allowance surface: the composer notice, the plan
+ * panel, and the upload limit dialog all say the reset the same way.
+ */
+export function formatBillingResetDate(nextResetAt: number | null | undefined) {
+	if (!nextResetAt) {
+		return null;
+	}
+
+	const date = new Date(nextResetAt);
+
+	return Number.isNaN(date.getTime())
+		? null
+		: date.toLocaleDateString(undefined, { month: "long", day: "numeric" });
+}

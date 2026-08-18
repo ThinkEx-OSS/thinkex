@@ -17,7 +17,11 @@ import { Skeleton } from "#/components/ui/skeleton";
 import { Spinner } from "#/components/ui/spinner";
 import { openBillingPortalFn } from "#/features/account/billing-functions";
 import { showUpgradeDialog } from "#/features/account/upgrade-navigation";
-import { BILLING_STATE_QUERY_KEY, useBillingState } from "#/features/account/use-billing-state";
+import {
+	BILLING_STATE_QUERY_KEY,
+	formatBillingResetDate,
+	useBillingState,
+} from "#/features/account/use-billing-state";
 
 // Feature IDs are the contract with autumn.config.ts. Labels are ours.
 const METERS = [
@@ -33,7 +37,7 @@ export function PlanBillingSection() {
 	// say "unknown", and the plan row stays absent rather than lying.
 	const { balances, isPending, isPro } = useBillingState({ exact: true });
 
-	const resetsOn = formatResetDate(
+	const resetsOn = formatBillingResetDate(
 		METERS.map((meter) => balances?.[meter.featureId]?.next_reset_at).find(
 			(value): value is number => typeof value === "number",
 		),
@@ -179,16 +183,4 @@ function UsageMeter({ balance, label }: UsageMeterProps) {
 			</ItemContent>
 		</Item>
 	);
-}
-
-function formatResetDate(nextResetAt?: number) {
-	if (!nextResetAt) {
-		return null;
-	}
-
-	const date = new Date(nextResetAt);
-
-	return Number.isNaN(date.getTime())
-		? null
-		: date.toLocaleDateString(undefined, { month: "long", day: "numeric" });
 }

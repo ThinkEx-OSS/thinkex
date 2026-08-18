@@ -12,7 +12,7 @@ import {
 	AlertDialogHeader,
 	AlertDialogTitle,
 } from "#/components/ui/alert-dialog";
-import { useBillingState } from "#/features/account/use-billing-state";
+import { formatBillingResetDate, useBillingState } from "#/features/account/use-billing-state";
 import { showUpgradeDialog } from "#/features/account/upgrade-navigation";
 import { applyWorkspacePageDeltaToCache } from "#/features/workspaces/cache-page";
 import { useWorkspaceMutationAccess } from "#/features/workspaces/components/workspace-mutation-access";
@@ -120,7 +120,11 @@ function WorkspaceFileLimitDialog({
 	onOpenChange: (open: boolean) => void;
 	result: { successCount: number; total: number } | null;
 }) {
-	const { isPending, isPro } = useBillingState();
+	const { balances, isPending, isPro } = useBillingState();
+	// Read rather than hard-coded: the allowance lives in autumn.config.ts, and a
+	// second copy of the number here would drift the first time it moves.
+	const uploads = balances?.file_uploads;
+	const resetsOn = formatBillingResetDate(uploads?.next_reset_at);
 	const partialUpload = result && result.successCount > 0;
 
 	return (
@@ -130,10 +134,14 @@ function WorkspaceFileLimitDialog({
 					<AlertDialogTitle>You&rsquo;ve reached your file upload limit</AlertDialogTitle>
 					<AlertDialogDescription>
 						{partialUpload ? `Uploaded ${result.successCount} of ${result.total} files. ` : null}
-						{isPending
-							? "Your file upload allowance resets monthly."
-							: `${isPro ? "Pro" : "Free"} includes ${isPro ? "500" : "50"} file uploads each month.`}{" "}
-						Markdown, CSV, and text files still import.
+						{uploads?.granted
+							? `${isPro ? "Pro" : "Free"} includes ${uploads.granted.toLocaleString()} file uploads each month.`
+							: "Your file upload allowance resets monthly."}
+						{/* The date, not just "monthly": being stopped is the moment someone
+						    decides whether to pay or to wait, and they can't weigh waiting
+						    without knowing how long. */}
+						{resetsOn ? ` Yours reset on ${resetsOn}.` : ""} Markdown, CSV, and text files still
+						import.
 					</AlertDialogDescription>
 				</AlertDialogHeader>
 				<AlertDialogFooter>
