@@ -140,8 +140,7 @@ function WorkspaceFileLimitDialog({
 						{/* The date, not just "monthly": being stopped is the moment someone
 						    decides whether to pay or to wait, and they can't weigh waiting
 						    without knowing how long. */}
-						{resetsOn ? ` Yours reset on ${resetsOn}.` : ""} Markdown, CSV, and text files still
-						import.
+						{resetsOn ? ` Resets on ${resetsOn}.` : ""} Markdown, CSV, and text files still import.
 					</AlertDialogDescription>
 				</AlertDialogHeader>
 				<AlertDialogFooter>
