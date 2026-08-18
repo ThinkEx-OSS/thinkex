@@ -1,6 +1,9 @@
 import { type RefObject, useCallback, useEffect, useState } from "react";
 
-import type { WorkspaceFindEngine } from "#/features/workspaces/find/use-workspace-find";
+import {
+	findScrollBehavior,
+	type WorkspaceFindEngine,
+} from "#/features/workspaces/find/use-workspace-find";
 
 const ALL_HIGHLIGHT_KEY = "ai-chat-find";
 const ACTIVE_HIGHLIGHT_KEY = "ai-chat-find-active";
@@ -50,12 +53,10 @@ function scrollMatchIntoView(viewport: Element | null, match: Range | undefined)
 	const matchRect = match.getBoundingClientRect();
 	const viewportRect = viewport.getBoundingClientRect();
 
-	// Smooth, to match the PDF viewer — stepping through matches reads as
-	// movement rather than the view teleporting between them.
+	// Eased, to match the PDF viewer — stepping through matches reads as movement
+	// rather than the view teleporting between them.
 	viewport.scrollTo({
-		behavior: globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches
-			? "auto"
-			: "smooth",
+		behavior: findScrollBehavior(),
 		top: viewport.scrollTop + matchRect.top - viewportRect.top - viewportRect.height / 2,
 	});
 }

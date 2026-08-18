@@ -1,7 +1,10 @@
 import { type Editor, useEditorState } from "@tiptap/react";
 import { useEffect } from "react";
 
-import type { WorkspaceFindEngine } from "#/features/workspaces/find/use-workspace-find";
+import {
+	findScrollBehavior,
+	type WorkspaceFindEngine,
+} from "#/features/workspaces/find/use-workspace-find";
 
 const emptyFindState = { activeIndex: -1, searchTerm: "", total: 0 };
 
@@ -46,6 +49,21 @@ export function useDocumentFindEngine(
 
 		editor?.commands.setSearchTerm(query);
 	}, [editor, query]);
+
+	// ProseMirror asks to scroll the selection into view when the extension moves
+	// between results, but it refuses while the DOM selection sits outside the
+	// editor — which is exactly where it sits, in the find input. So reveal the
+	// match ourselves rather than leaving navigation silent in a long document.
+	useEffect(() => {
+		if (!editor || activeIndex < 0 || total === 0) {
+			return;
+		}
+
+		const { node } = editor.view.domAtPos(editor.state.selection.from);
+		const element = node instanceof Element ? node : node.parentElement;
+
+		element?.scrollIntoView({ behavior: findScrollBehavior(), block: "center" });
+	}, [activeIndex, editor, total]);
 
 	return {
 		activeIndex,

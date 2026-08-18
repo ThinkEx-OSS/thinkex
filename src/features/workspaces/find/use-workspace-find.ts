@@ -1,5 +1,10 @@
 import { useState } from "react";
 
+/** Eased unless the reader asked for less motion. */
+export function findScrollBehavior(): ScrollBehavior {
+	return globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+}
+
 /**
  * What a surface must provide for Mod+F to work on it. Each surface searches a
  * different substrate — a PDF's text layer, the chat transcript's DOM, a
