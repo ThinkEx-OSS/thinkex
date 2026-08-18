@@ -3,6 +3,7 @@ import {
 	ChevronDown,
 	FileText,
 	Globe2,
+	ImageIcon,
 	MessageCircleQuestionMark,
 	PencilLine,
 	Search,
@@ -450,6 +451,8 @@ export function ToolActivityIcon({ icon }: { icon: AiToolActivityIconKind }) {
 			return <FileText className="size-3.5" aria-hidden="true" />;
 		case "guidance":
 			return <BookOpen className="size-3.5" aria-hidden="true" />;
+		case "image":
+			return <ImageIcon className="size-3.5" aria-hidden="true" />;
 		case "question":
 			return <MessageCircleQuestionMark className="size-3.5" aria-hidden="true" />;
 		case "search":

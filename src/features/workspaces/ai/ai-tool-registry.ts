@@ -2,6 +2,7 @@ export type AiToolActivityIconKind =
 	| "edit"
 	| "file"
 	| "guidance"
+	| "image"
 	| "question"
 	| "search"
 	| "web"
@@ -39,6 +40,7 @@ export const AI_TOOL_REGISTRY = defineAiToolRegistry({
 	orchestrate: readTool({ icon: "wrench", title: "Run steps" }),
 	web_search: readTool({ icon: "search", title: "Search web" }),
 	web_fetch: readTool({ icon: "web", title: "Read URL" }),
+	view_image: readTool({ icon: "image", title: "View image" }),
 	research_discover: readTool({
 		icon: "search",
 		title: "Discover research",
