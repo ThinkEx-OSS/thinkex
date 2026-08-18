@@ -21,6 +21,7 @@ import {
 	resolveWorkspacePaths,
 } from "#/features/workspaces/persistence/workspace-items";
 import { readWorkspaceFileExtraction } from "#/features/workspaces/persistence/workspace-files";
+import { annotateWorkspaceImageDescriptions } from "#/features/workspaces/content/workspace-image-descriptions";
 import {
 	parseWorkspacePageRange,
 	WorkspacePageSelectionError,
@@ -282,8 +283,12 @@ async function readFlashcards(
 				if (!source) throw new Error("Serialized flashcard does not match its source set.");
 				return {
 					ref: `${card.id}.r_${await createFlashcardRevision(source)}`,
-					front: card.front,
-					back: card.back,
+					front: await annotateWorkspaceImageDescriptions(card.front, {
+						workspaceId: input.workspaceId,
+					}),
+					back: await annotateWorkspaceImageDescriptions(card.back, {
+						workspaceId: input.workspaceId,
+					}),
 					...(studyState.cards[card.id] ? { study: studyState.cards[card.id] } : {}),
 				};
 			}),
@@ -354,11 +359,18 @@ async function readQuiz(
 				const selectedIndex = answer
 					? source.options.findIndex((option) => option.id === answer.selectedOptionId)
 					: -1;
+				const annotate = (html: string) =>
+					annotateWorkspaceImageDescriptions(html, { workspaceId: input.workspaceId });
 				return {
 					ref: `${question.id}.r_${await createQuizQuestionRevision(source)}`,
-					question: question.question,
-					options: question.options.map(({ text, correct }) => ({ text, correct })),
-					explanation: question.explanation,
+					question: await annotate(question.question),
+					options: await Promise.all(
+						question.options.map(async ({ text, correct }) => ({
+							text: await annotate(text),
+							correct,
+						})),
+					),
+					explanation: await annotate(question.explanation),
 					...(answer && selectedIndex >= 0
 						? {
 								answer: {
@@ -459,6 +471,7 @@ async function readDocumentBlock(
 		getDocumentSession: (itemId: string) => DocumentContentReader | Promise<DocumentContentReader>;
 		item: WorkspaceItem;
 		path: string;
+		workspaceId: string;
 	},
 	blockId: string,
 ): Promise<WorkspaceContentReadResult> {
@@ -469,7 +482,9 @@ async function readDocumentBlock(
 	}
 
 	return {
-		content: block.content,
+		content: await annotateWorkspaceImageDescriptions(block.content, {
+			workspaceId: input.workspaceId,
+		}),
 		contentRef: block.contentRef,
 		format: "html",
 		itemId: input.item.id,
@@ -515,7 +530,9 @@ async function readDocument(input: {
 	}
 
 	return {
-		content: chunk.content,
+		content: await annotateWorkspaceImageDescriptions(chunk.content, {
+			workspaceId: input.workspaceId,
+		}),
 		format: "html",
 		itemId: input.item.id,
 		location: { kind: "blocks", ...chunk.location },

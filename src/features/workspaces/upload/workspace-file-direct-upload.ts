@@ -10,7 +10,7 @@ import type { WorkspaceDirectUploadTarget } from "#/features/workspaces/upload/w
 import { decodeBase64Url, decodeBase64UrlText, encodeBase64Url } from "#/lib/binary";
 
 const uploadUrlLifetimeSeconds = 30 * 60;
-const uploadTokenVersion = 2;
+const uploadTokenVersion = 3;
 const encoder = new TextEncoder();
 const uploadClaimsSchema = z.object({
 	contentType: z.string().min(1),
@@ -18,6 +18,7 @@ const uploadClaimsSchema = z.object({
 	fileName: z.string().min(1),
 	fileSize: z.number().int().positive(),
 	itemId: z.uuid(),
+	ownerItemId: z.string().min(1).nullable(),
 	parentId: z.string().min(1).nullable(),
 	target: z.enum(["source", "staging"]),
 	userId: z.string().min(1),

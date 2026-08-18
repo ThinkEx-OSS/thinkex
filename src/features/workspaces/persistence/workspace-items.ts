@@ -1,14 +1,16 @@
-import { and, asc, desc, eq, inArray, or } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, like, notInArray, or } from "drizzle-orm";
 
 import { workspaceItemContents, workspaceItemRelations, workspaceItems } from "#/db/schema";
 import { withDb } from "#/db/server";
 import { createWorkspaceItemRefKey } from "#/features/workspaces/locations/workspace-location";
 import {
+	type JsonValue,
 	type WorkspaceItem,
 	getWorkspaceItemContentKind,
 	workspaceItemTypeSchema,
 	workspaceRelationKindSchema,
 } from "#/features/workspaces/contracts";
+import { getMetadataOwnerItemId } from "#/features/workspaces/model/workspace-file";
 import { buildWorkspaceItemCreateBootstrap } from "#/features/workspaces/model/workspace-item-create-bootstrap";
 import { getWorkspaceItemNameKey, WORKSPACE_ITEM_SORT_STEP } from "#/features/workspaces/defaults";
 import { listWorkspaceTreeItems as formatWorkspaceTreeItems } from "#/features/workspaces/model/workspace-tree-list";
@@ -62,6 +64,7 @@ import {
 	readWorkspacePageSnapshot,
 	resolveWorkspaceItemName,
 	withWorkspaceTransaction,
+	type Transaction,
 	type ItemRow,
 } from "./workspace-postgres-support";
 
@@ -461,13 +464,20 @@ export async function deleteWorkspaceItems(
 			(itemId) => !hasSelectedAncestor(rowsById.get(itemId)!, selected, rowsById),
 		);
 		const deleteIds = collectDescendants(rootIds, allRows);
+		// Images pasted into a deleted item ride along — unless another surviving
+		// item still embeds them (copy-paste shares the reference, not the bytes),
+		// in which case the bytes stay and only the dead owner link goes stale.
+		const orphanedSidecarIds = await collectUnreferencedSidecarIds(transaction, allRows, deleteIds);
+		deleteIds.push(...orphanedSidecarIds);
 		const deletingRows = deleteIds.flatMap((itemId) => {
 			const row = rowsById.get(itemId);
 			return row ? [row] : [];
 		});
 		if (deleteIds.length > 0) {
 			// Parent and relation foreign keys cascade from these roots.
-			await transaction.delete(workspaceItems).where(inArray(workspaceItems.id, rootIds));
+			await transaction
+				.delete(workspaceItems)
+				.where(inArray(workspaceItems.id, [...rootIds, ...orphanedSidecarIds]));
 		}
 
 		const revision =
@@ -489,6 +499,42 @@ export async function deleteWorkspaceItems(
 		}
 		return { result, documentItemIds, fileItemIds, revision };
 	});
+
+	async function collectUnreferencedSidecarIds(
+		transaction: Transaction,
+		allRows: Awaited<ReturnType<typeof getActiveWorkspaceItemRows>>,
+		deleteIds: string[],
+	) {
+		const deleted = new Set(deleteIds);
+		const sidecarIds = allRows
+			.filter((row) => {
+				if (deleted.has(row.id)) return false;
+				const ownerItemId = getMetadataOwnerItemId(row.metadata as Record<string, JsonValue>);
+				return ownerItemId !== null && deleted.has(ownerItemId);
+			})
+			.map((row) => row.id);
+		if (sidecarIds.length === 0) return [];
+
+		// Content is JSON text and image nodes store the item id verbatim, so a
+		// LIKE over surviving contents is an exact-enough reference check — the
+		// canonical content can lag a live editing session by one flush, which
+		// only ever errs toward keeping bytes.
+		const orphaned: string[] = [];
+		for (const sidecarId of sidecarIds) {
+			const referenced = await transaction
+				.select({ itemId: workspaceItemContents.itemId })
+				.from(workspaceItemContents)
+				.where(
+					and(
+						like(workspaceItemContents.content, `%${sidecarId}%`),
+						notInArray(workspaceItemContents.itemId, [...deleteIds, ...sidecarIds]),
+					),
+				)
+				.limit(1);
+			if (referenced.length === 0) orphaned.push(sidecarId);
+		}
+		return orphaned;
+	}
 	await Promise.all([
 		command.result.deletedItemIds.length > 0
 			? notifyWorkspaceRoom(env, {

@@ -1,11 +1,13 @@
 import type { Editor } from "@tiptap/react";
-import { Check, Download, Redo2, Shapes, Undo2 } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import { Check, Download, ImageIcon, Redo2, Shapes, Undo2 } from "lucide-react";
+import { type ReactNode, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "#/components/ui/button";
 import { DocumentEditUndoButton } from "#/features/workspaces/components/document-editor/DocumentEditUndoButton";
 import { useDocumentEditReview } from "#/features/workspaces/documents/document-edit-review-context";
+import { insertDocumentImageFiles } from "#/features/workspaces/documents/document-image-upload";
+import { workspaceFileUploadFormats } from "#/features/workspaces/model/workspace-file";
 import { downloadWorkspaceDocumentPdf } from "#/features/workspaces/export/download-workspace-document-pdf";
 import { getErrorMessage } from "#/lib/error-message";
 import {
@@ -42,6 +44,11 @@ import {
 } from "#/features/workspaces/components/WorkspaceToolbar";
 import { workspaceToolbarTextButtonSizeClass } from "#/features/workspaces/components/workspace-toolbar-styles";
 
+const workspaceImageUploadAccept = workspaceFileUploadFormats
+	.filter((format) => format.assetKind === "image")
+	.flatMap((format) => [format.mime, `.${format.ext}`])
+	.join(",");
+
 export function DocumentToolbar({
 	canEdit,
 	documentPath,
@@ -57,6 +64,7 @@ export function DocumentToolbar({
 }) {
 	const editorState = useDocumentEditorUiState(editor);
 	const [addWidgetOpen, setAddWidgetOpen] = useState(false);
+	const imageInputRef = useRef<HTMLInputElement>(null);
 	const { activeReview, hideReview } = useDocumentEditReview();
 	const handleExportPdf = () => {
 		void toast.promise(downloadWorkspaceDocumentPdf({ documentPath, itemId, workspaceId }), {
@@ -124,11 +132,28 @@ export function DocumentToolbar({
 				>
 					<Redo2 />
 				</ToolbarButton>
+				<ToolbarButton label="Add image" onClick={() => imageInputRef.current?.click()}>
+					<ImageIcon />
+				</ToolbarButton>
 				<ToolbarButton label="Add widget" onClick={() => setAddWidgetOpen(true)}>
 					<Shapes />
 				</ToolbarButton>
 				<DocumentMoreMenu disabled={!editor} onExportPdf={handleExportPdf} />
 			</WorkspaceResponsiveToolbar>
+			<input
+				ref={imageInputRef}
+				type="file"
+				accept={workspaceImageUploadAccept}
+				multiple
+				className="hidden"
+				onChange={(event) => {
+					const files = Array.from(event.target.files ?? []);
+					event.target.value = "";
+					if (editor && files.length > 0) {
+						insertDocumentImageFiles({ documentItemId: itemId, editor, workspaceId }, files);
+					}
+				}}
+			/>
 			<WorkspaceAddWidgetDialog
 				documentPath={documentPath}
 				open={addWidgetOpen}

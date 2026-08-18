@@ -125,6 +125,45 @@ export const Widget = Node.create({
 	},
 });
 
+/**
+ * An image stored as a workspace file item. The node carries the item id, not
+ * a URL: the client resolves it to an authenticated preview URL, exports
+ * inline the actual bytes, and AI reads annotate it with the item's stored
+ * description as alt text. Plain `img[src]` deliberately does not parse —
+ * external images enter the workspace through import, never by reference.
+ */
+export const WorkspaceImage = Node.create({
+	name: "image",
+	group: "block",
+	atom: true,
+	selectable: true,
+	draggable: true,
+
+	addAttributes() {
+		return {
+			itemId: { default: null, parseHTML: (el) => el.getAttribute("data-item-id") },
+			alt: {
+				default: null,
+				parseHTML: (el) => el.getAttribute("alt"),
+			},
+		};
+	},
+
+	parseHTML() {
+		return [{ tag: "img[data-item-id]" }];
+	},
+
+	renderHTML({ node }) {
+		return [
+			"img",
+			{
+				"data-item-id": node.attrs.itemId ? String(node.attrs.itemId) : null,
+				...(node.attrs.alt ? { alt: String(node.attrs.alt) } : {}),
+			},
+		];
+	},
+});
+
 export const tiptapDocumentAiRefAttribute = "aiRef";
 
 const DocumentAiRef = Extension.create({
@@ -170,15 +209,18 @@ export const tiptapDocumentServerCodeBlock = CodeBlock;
 export function getTiptapDocumentSchemaExtensions({
 	citation = Citation,
 	codeBlock = tiptapDocumentServerCodeBlock,
+	image = WorkspaceImage,
 	widget = Widget,
 }: {
 	citation?: AnyExtension;
 	codeBlock?: AnyExtension;
+	image?: AnyExtension;
 	widget?: AnyExtension;
 } = {}) {
 	return [
 		DocumentAiRef,
 		citation,
+		image,
 		StarterKit.configure({
 			heading: {
 				levels: [1, 2, 3, 4],

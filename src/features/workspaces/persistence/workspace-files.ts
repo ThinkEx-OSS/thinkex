@@ -73,6 +73,12 @@ export async function createWorkspaceFileFromUpload(
 		}
 		const parentId = input.parentId ?? null;
 		await assertWorkspaceParentIsValid(transaction, input.workspaceId, parentId);
+		if (
+			input.ownerItemId &&
+			!(await getActiveWorkspaceItemRow(transaction, input.workspaceId, input.ownerItemId))
+		) {
+			throw new Error("Workspace image owner item does not exist.");
+		}
 		const descriptor = getWorkspaceUploadFamily(input.assetKind);
 		const originalName = normalizeWorkspaceUploadFileName(input.fileName, descriptor);
 		const contentType = resolveWorkspaceFileContentType({
@@ -93,6 +99,7 @@ export async function createWorkspaceFileFromUpload(
 			assetKind: input.assetKind,
 			contentType,
 			originalName,
+			ownerItemId: input.ownerItemId,
 			sizeBytes: source.size,
 			source: input.source,
 		});

@@ -46,6 +46,10 @@ const uploadIntentSchema = z.object({
 	contentType: z.string().min(1),
 	fileName: z.string().min(1),
 	fileSize: z.number().int().positive(),
+	// The document or card set this image rides inside. Owner-bound uploads
+	// stay hidden from listings and skip the upload meter, so they are only
+	// accepted for images — anything else could bypass billing.
+	ownerItemId: z.string().min(1).nullable().optional(),
 	parentId: z.string().min(1).nullable(),
 });
 const uploadCompletionSchema = z.object({ completionToken: z.string().min(1) });
@@ -85,11 +89,26 @@ async function initiateWorkspaceFileUpload(request: Request, workspaceId: string
 			);
 		}
 
+		const ownerItemId = input.ownerItemId ?? null;
+		if (
+			ownerItemId &&
+			(validation.plan.kind !== "file" || validation.plan.descriptor.assetKind !== "image")
+		) {
+			return apiError(
+				requestId,
+				400,
+				"INVALID_UPLOAD",
+				"Only images can be uploaded into another item.",
+			);
+		}
+
 		// Only uploads headed for extraction: that's the part that costs money and the
 		// only path that decrements the meter. Gating local conversions would block
 		// something free and never counted. Before the presigned URL, so nobody
-		// uploads bytes we then reject.
-		if (validation.plan.kind === "file") {
+		// uploads bytes we then reject. Owner-bound images are exempt: their
+		// description pass costs a fraction of a cent, and metering a paste
+		// mid-edit would read as the editor breaking.
+		if (validation.plan.kind === "file" && !ownerItemId) {
 			const access = await checkWorkspaceFileUploadAccess({ env, userId });
 
 			if (!access.allowed) {
@@ -111,6 +130,7 @@ async function initiateWorkspaceFileUpload(request: Request, workspaceId: string
 
 		const session = await createWorkspaceDirectUploadSession(env, {
 			...input,
+			ownerItemId,
 			target: resolveWorkspaceDirectUploadTarget({
 				contentType: input.contentType,
 				fileName: input.fileName,
@@ -227,6 +247,7 @@ async function finalizeWorkspaceFileUpload(
 				fileSize: upload.fileSize,
 				id: claims.itemId,
 				objectKey: upload.objectKey,
+				ownerItemId: claims.ownerItemId,
 				parentId: claims.parentId,
 				preview: upload.preview,
 				source: upload.source,
@@ -240,6 +261,7 @@ async function finalizeWorkspaceFileUpload(
 				actorUserId: userId,
 				assetKind: upload.descriptor.assetKind,
 				itemId: command.result.id,
+				ownerItemId: claims.ownerItemId,
 				requestId,
 				workspaceId,
 			});

@@ -1,5 +1,8 @@
 export { workspaceFileUploadLimits } from "#/features/workspaces/model/workspace-file/limits";
-export { getMetadataNumber } from "#/features/workspaces/model/workspace-file/metadata";
+export {
+	getMetadataNumber,
+	getMetadataOwnerItemId,
+} from "#/features/workspaces/model/workspace-file/metadata";
 export {
 	getWorkspaceConvertedFileName,
 	getWorkspaceUploadFamily,

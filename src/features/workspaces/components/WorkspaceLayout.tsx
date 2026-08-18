@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { workspacePageQueryKey } from "#/features/workspaces/cache-keys";
 import { applyWorkspacePageDeltaToCache } from "#/features/workspaces/cache-page";
 import AiChatPanel from "#/features/workspaces/components/AiChatPanel";
@@ -35,7 +35,11 @@ import { WorkspaceLocationProvider } from "#/features/workspaces/locations/works
 import { DocumentEditReviewProvider } from "#/features/workspaces/documents/document-edit-review-context";
 import { isWorkspaceItemView } from "#/features/workspaces/model/view";
 import { getWorkspaceItemPath } from "#/features/workspaces/model/tree";
-import { workspaceItemRequiresHeavyViewerRuntime } from "#/features/workspaces/model/workspace-file";
+import { WorkspaceImageProvider } from "#/features/workspaces/documents/document-image-node";
+import {
+	getMetadataOwnerItemId,
+	workspaceItemRequiresHeavyViewerRuntime,
+} from "#/features/workspaces/model/workspace-file";
 import {
 	getActiveWorkspaceViewInstanceId,
 	getWorkspaceMobileChatSurfaceMode,
@@ -67,10 +71,16 @@ interface WorkspaceShellProps {
 
 export function WorkspaceShell({
 	workspace,
-	items,
+	items: allItems,
 	activeTabIdFromUrl,
 	activeViewFromUrl,
 }: WorkspaceShellProps) {
+	// Owner-bound images render inside their document or card set; surfacing
+	// them in the sidebar would fill it with paste artifacts.
+	const items = useMemo(
+		() => allItems.filter((item) => !getMetadataOwnerItemId(item.metadataJson)),
+		[allItems],
+	);
 	const queryClient = useQueryClient();
 	const createWorkspaceItemMutation = useCreateWorkspaceItemMutation();
 	const moveWorkspaceItemsMutation = useMoveWorkspaceItemsMutation();
@@ -326,22 +336,24 @@ export function WorkspaceShell({
 
 	return (
 		<WorkspaceMutationAccessProvider membershipRole={workspace.membershipRole}>
-			<WorkspaceLocationProvider itemsById={itemsById} navigate={navigateToWorkspaceLocation}>
-				<DocumentEditReviewProvider workspaceId={workspace.id}>
-					<WorkspacePdfEngineProvider active={hasHeavyViewerRuntimeItems}>
-						{workspaceInteractionContent}
-					</WorkspacePdfEngineProvider>
-					<CreateStudyItemDialog
-						type={studyDraft?.type ?? "flashcard"}
-						open={studyDialogOpen}
-						parentPath={studyParentPath}
-						workspaceId={workspace.id}
-						onOpenChange={(open) => {
-							if (!open) setStudyDraft(undefined);
-						}}
-					/>
-				</DocumentEditReviewProvider>
-			</WorkspaceLocationProvider>
+			<WorkspaceImageProvider workspaceId={workspace.id}>
+				<WorkspaceLocationProvider itemsById={itemsById} navigate={navigateToWorkspaceLocation}>
+					<DocumentEditReviewProvider workspaceId={workspace.id}>
+						<WorkspacePdfEngineProvider active={hasHeavyViewerRuntimeItems}>
+							{workspaceInteractionContent}
+						</WorkspacePdfEngineProvider>
+						<CreateStudyItemDialog
+							type={studyDraft?.type ?? "flashcard"}
+							open={studyDialogOpen}
+							parentPath={studyParentPath}
+							workspaceId={workspace.id}
+							onOpenChange={(open) => {
+								if (!open) setStudyDraft(undefined);
+							}}
+						/>
+					</DocumentEditReviewProvider>
+				</WorkspaceLocationProvider>
+			</WorkspaceImageProvider>
 		</WorkspaceMutationAccessProvider>
 	);
 }

@@ -16,6 +16,7 @@ import { getErrorMessage } from "#/lib/error-message";
 interface WorkspaceFileUploadJob {
 	workspaceId: string;
 	parentId: string | null;
+	ownerItemId?: string | null;
 	file: File;
 	onProgress: (loadedBytes: number) => void;
 	signal: AbortSignal;
@@ -144,6 +145,29 @@ export async function runWorkspaceFileUploadBatch(
 	}
 }
 
+/**
+ * Uploads one image that lives inside another item — a paste into a document
+ * or card — rather than in the file list. The created file item is hidden,
+ * unmetered, and purged with its owner. Resolves to the created item whose id
+ * the embedding image node stores.
+ */
+export async function uploadWorkspaceImageForItem(input: {
+	file: File;
+	ownerItemId: string;
+	signal?: AbortSignal;
+	workspaceId: string;
+}): Promise<WorkspaceItem> {
+	const command = await uploadWorkspaceFile({
+		file: input.file,
+		onProgress: () => {},
+		ownerItemId: input.ownerItemId,
+		parentId: null,
+		signal: input.signal ?? new AbortController().signal,
+		workspaceId: input.workspaceId,
+	});
+	return command.result;
+}
+
 async function uploadWorkspaceFile(
 	job: WorkspaceFileUploadJob,
 ): Promise<WorkspaceCommandResult<WorkspaceItem>> {
@@ -156,6 +180,7 @@ async function uploadWorkspaceFile(
 				contentType,
 				fileName: job.file.name,
 				fileSize: job.file.size,
+				ownerItemId: job.ownerItemId ?? null,
 				parentId: job.parentId,
 			}),
 			headers: { "content-type": "application/json" },

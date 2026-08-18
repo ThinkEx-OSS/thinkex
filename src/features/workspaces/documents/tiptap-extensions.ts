@@ -11,6 +11,7 @@ import {
 	getTiptapDocumentSchemaExtensions,
 	tiptapDocumentYjsField,
 } from "#/features/workspaces/documents/tiptap-schema";
+import { DocumentImage } from "#/features/workspaces/documents/document-image-extension";
 import { DocumentWidget } from "#/features/workspaces/documents/document-widget-extension";
 
 export { tiptapDocumentYjsField };
@@ -18,9 +19,10 @@ export { tiptapDocumentYjsField };
 export function getTiptapDocumentBaseExtensions() {
 	return [
 		...getTiptapDocumentSchemaExtensions({
-			// All three extend the node spec the server uses, adding only how it draws.
+			// All four extend the node spec the server uses, adding only how it draws.
 			citation: WorkspaceCitationNode,
 			codeBlock: CodeBlockShiki,
+			image: DocumentImage,
 			widget: DocumentWidget,
 		}),
 		Placeholder.configure({
