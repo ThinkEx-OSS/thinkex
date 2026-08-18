@@ -67,6 +67,20 @@ export function WorkspaceFindBar({
 		}
 	}, [isOpen]);
 
+	// A bar can unmount while still open — switching tabs, closing the item. Its
+	// id would outlive it, and the next Escape would go on dismissing a find bar
+	// that is no longer there instead of closing what is.
+	useEffect(
+		() => () => {
+			const store = useWorkspaceFindStore.getState();
+
+			if (store.openFindId === findId) {
+				store.closeFind();
+			}
+		},
+		[findId],
+	);
+
 	if (!isOpen) {
 		return null;
 	}

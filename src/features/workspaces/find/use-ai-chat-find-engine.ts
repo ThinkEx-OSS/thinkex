@@ -50,7 +50,14 @@ function scrollMatchIntoView(viewport: Element | null, match: Range | undefined)
 	const matchRect = match.getBoundingClientRect();
 	const viewportRect = viewport.getBoundingClientRect();
 
-	viewport.scrollTop += matchRect.top - viewportRect.top - viewportRect.height / 2;
+	// Smooth, to match the PDF viewer — stepping through matches reads as
+	// movement rather than the view teleporting between them.
+	viewport.scrollTo({
+		behavior: globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+			? "auto"
+			: "smooth",
+		top: viewport.scrollTop + matchRect.top - viewportRect.top - viewportRect.height / 2,
+	});
 }
 
 /**
