@@ -54,7 +54,10 @@ export function WorkspaceFindBar({
 
 			openFind(findId);
 		},
-		{ conflictBehavior: "allow", target: hotkeyTarget },
+		// ignoreInputs would drop the hotkey whenever the caret sits in a text field,
+		// and the library counts contenteditable as one — so Mod+F would do nothing
+		// in exactly the place you reach for it. A modifier combo is safe to accept.
+		{ conflictBehavior: "allow", ignoreInputs: false, target: hotkeyTarget },
 	);
 
 	useEffect(() => {
