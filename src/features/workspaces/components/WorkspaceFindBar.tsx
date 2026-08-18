@@ -1,14 +1,8 @@
 import { CaseSensitive, ChevronDown, ChevronUp, X } from "lucide-react";
-import {
-	type ComponentProps,
-	type KeyboardEvent,
-	type RefObject,
-	useEffect,
-	useRef,
-	useState,
-} from "react";
+import { type ComponentProps, type KeyboardEvent, type RefObject, useEffect, useRef } from "react";
 
 import { useWorkspacePaneHotkey } from "#/features/workspaces/components/WorkspacePaneRuntime";
+import { useWorkspaceFindStore } from "#/features/workspaces/find/workspace-find-store";
 import type {
 	WorkspaceFindEngine,
 	WorkspaceFindState,
@@ -24,12 +18,15 @@ import { cn } from "#/lib/utils";
 export function WorkspaceFindBar({
 	engine,
 	find,
+	findId,
 	label,
 	className,
 	hotkeyTarget,
 }: {
 	engine: WorkspaceFindEngine;
 	find: WorkspaceFindState;
+	/** Identifies this surface, so only its bar is open at a time. */
+	findId: string;
 	/** Names the surface being searched, e.g. "Find in document". */
 	label: string;
 	/** Only for surfaces whose own chrome occupies the top-right corner. */
@@ -37,7 +34,9 @@ export function WorkspaceFindBar({
 	/** Scopes the hotkey to one element. Surfaces that own a pane omit it. */
 	hotkeyTarget?: RefObject<HTMLElement | null>;
 }) {
-	const [isOpen, setIsOpen] = useState(false);
+	const isOpen = useWorkspaceFindStore((state) => state.openFindId === findId);
+	const openFind = useWorkspaceFindStore((state) => state.openFind);
+	const closeFind = useWorkspaceFindStore((state) => state.closeFind);
 	const inputRef = useRef<HTMLInputElement>(null);
 	const hasQuery = find.query !== "";
 	const hasMatches = engine.total > 0;
@@ -53,7 +52,7 @@ export function WorkspaceFindBar({
 				return;
 			}
 
-			setIsOpen(true);
+			openFind(findId);
 		},
 		{ conflictBehavior: "allow", target: hotkeyTarget },
 	);
@@ -70,7 +69,7 @@ export function WorkspaceFindBar({
 	}
 
 	const close = () => {
-		setIsOpen(false);
+		closeFind();
 		find.setQuery("");
 	};
 	const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
@@ -94,8 +93,7 @@ export function WorkspaceFindBar({
 	};
 
 	return (
-		<div
-			role="search"
+		<search
 			aria-label={label}
 			data-prevent-type-to-focus
 			className={cn(
@@ -118,15 +116,15 @@ export function WorkspaceFindBar({
 				aria-live="polite"
 				className={cn(
 					"min-w-12 text-right text-muted-foreground text-xs tabular-nums",
-					hasQuery && !engine.isSearching && !hasMatches && "text-destructive",
+					hasQuery && !hasMatches && !engine.isSearching && "text-destructive",
 				)}
 			>
 				{!hasQuery
 					? null
-					: engine.isSearching
-						? "Searching"
-						: hasMatches
-							? `${engine.activeIndex + 1} of ${engine.total}`
+					: hasMatches
+						? `${engine.activeIndex + 1} of ${engine.total}`
+						: engine.isSearching
+							? "Searching"
 							: "No matches"}
 			</span>
 			<FindBarButton
@@ -146,7 +144,7 @@ export function WorkspaceFindBar({
 			<FindBarButton aria-label="Close find bar" onClick={close}>
 				<X className="size-4" />
 			</FindBarButton>
-		</div>
+		</search>
 	);
 }
 

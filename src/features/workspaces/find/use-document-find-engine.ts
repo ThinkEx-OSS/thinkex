@@ -3,7 +3,7 @@ import { useEffect } from "react";
 
 import type { WorkspaceFindEngine } from "#/features/workspaces/find/use-workspace-find";
 
-const emptyFindState = { activeIndex: -1, total: 0 };
+const emptyFindState = { activeIndex: -1, searchTerm: "", total: 0 };
 
 /**
  * Searches the ProseMirror document rather than the rendered page, so it
@@ -14,14 +14,18 @@ export function useDocumentFindEngine(
 	query: string,
 	caseSensitive: boolean,
 ): WorkspaceFindEngine {
-	const { activeIndex, total } =
+	const { activeIndex, searchTerm, total } =
 		useEditorState({
 			editor,
 			selector: ({ editor: currentEditor }) => {
 				const storage = currentEditor?.storage.findAndReplace;
 
 				return storage
-					? { activeIndex: storage.currentIndex ?? -1, total: storage.results.length }
+					? {
+							activeIndex: storage.currentIndex ?? -1,
+							searchTerm: storage.searchTerm,
+							total: storage.results.length,
+						}
 					: emptyFindState;
 			},
 		}) ?? emptyFindState;
@@ -46,7 +50,8 @@ export function useDocumentFindEngine(
 	return {
 		activeIndex,
 		total,
-		isSearching: false,
+		// setSearchTerm is debounced, so the committed term lags the typed one.
+		isSearching: searchTerm !== query,
 		next: () => {
 			editor?.commands.goToNextResult();
 		},

@@ -14,6 +14,7 @@ import WorkspaceDragProvider from "#/features/workspaces/components/WorkspaceDra
 import { WorkspaceFileIntakeProvider } from "#/features/workspaces/components/WorkspaceFileIntakeProvider";
 import { WorkspaceFileUploadProvider } from "#/features/workspaces/components/WorkspaceFileUploadProvider";
 import { WorkspaceItemToolbarProvider } from "#/features/workspaces/components/WorkspaceItemToolbarSlot";
+import { useWorkspaceFindStore } from "#/features/workspaces/find/workspace-find-store";
 import WorkspaceMobileLayout from "#/features/workspaces/components/WorkspaceMobileLayout";
 import WorkspacePaneRenderer from "#/features/workspaces/components/WorkspacePaneRenderer";
 import { WorkspacePdfEngineProvider } from "#/features/workspaces/components/WorkspacePdfEngineProvider";
@@ -174,6 +175,14 @@ export function WorkspaceShell({
 
 			event.preventDefault();
 			event.stopPropagation();
+
+			// Escape dismisses an open find bar first; closing the item out from
+			// under someone who was only trying to clear their search is worse.
+			if (useWorkspaceFindStore.getState().openFindId) {
+				useWorkspaceFindStore.getState().closeFind();
+				return;
+			}
+
 			closeItemView();
 		},
 		{

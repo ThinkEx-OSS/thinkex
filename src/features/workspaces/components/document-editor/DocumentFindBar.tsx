@@ -5,9 +5,22 @@ import { useDocumentFindEngine } from "#/features/workspaces/find/use-document-f
 import { useWorkspaceFind } from "#/features/workspaces/find/use-workspace-find";
 
 /** A leaf so typing in the find bar re-renders the bar, not the whole editor. */
-export function DocumentFindBar({ editor }: { editor: Editor | null }) {
+export function DocumentFindBar({
+	editor,
+	viewInstanceId,
+}: {
+	editor: Editor | null;
+	viewInstanceId: string;
+}) {
 	const find = useWorkspaceFind();
 	const engine = useDocumentFindEngine(editor, find.query, find.caseSensitive);
 
-	return <WorkspaceFindBar engine={engine} find={find} label="Find in document" />;
+	return (
+		<WorkspaceFindBar
+			engine={engine}
+			find={find}
+			findId={viewInstanceId}
+			label="Find in document"
+		/>
+	);
 }

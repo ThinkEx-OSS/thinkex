@@ -63,10 +63,13 @@ export function useAiChatFindEngine(
 	query: string,
 	caseSensitive: boolean,
 ): WorkspaceFindEngine {
-	const [{ activeIndex, matches }, setResults] = useState<{
+	// resolvedQuery is the query these matches belong to, which is what makes the
+	// debounce observable: while it lags the typed query, the search is pending.
+	const [{ activeIndex, matches, resolvedQuery }, setResults] = useState<{
 		activeIndex: number;
 		matches: Range[];
-	}>({ activeIndex: -1, matches: [] });
+		resolvedQuery: string;
+	}>({ activeIndex: -1, matches: [], resolvedQuery: "" });
 
 	const getViewport = useCallback(
 		() => panelRef.current?.querySelector(TRANSCRIPT_SELECTOR) ?? null,
@@ -105,6 +108,7 @@ export function useAiChatFindEngine(
 								? 0
 								: Math.min(Math.max(current.activeIndex, 0), nextMatches.length - 1),
 					matches: nextMatches,
+					resolvedQuery: query,
 				}));
 
 				if (isNewQuery) {
@@ -165,14 +169,14 @@ export function useAiChatFindEngine(
 
 		const wrapped = (activeIndex + offset + matches.length) % matches.length;
 
-		setResults({ activeIndex: wrapped, matches });
+		setResults({ activeIndex: wrapped, matches, resolvedQuery });
 		scrollMatchIntoView(getViewport(), matches[wrapped]);
 	};
 
 	return {
 		activeIndex,
 		total: matches.length,
-		isSearching: false,
+		isSearching: resolvedQuery !== query,
 		next: () => goToMatch(1),
 		previous: () => goToMatch(-1),
 	};

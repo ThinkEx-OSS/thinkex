@@ -20,6 +20,7 @@ export function AiChatFindBar({ panelRef }: { panelRef: RefObject<HTMLElement | 
 			className="top-12"
 			engine={engine}
 			find={find}
+			findId="ai-chat"
 			hotkeyTarget={panelRef}
 			label="Find in chat"
 		/>

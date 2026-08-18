@@ -455,7 +455,9 @@ function WorkspacePdfFindBar({ documentId }: { documentId: string }) {
 	const find = useWorkspaceFind();
 	const engine = usePdfFindEngine(documentId, find.query, find.caseSensitive);
 
-	return <WorkspaceFindBar engine={engine} find={find} label="Find in document" />;
+	return (
+		<WorkspaceFindBar engine={engine} find={find} findId={documentId} label="Find in document" />
+	);
 }
 
 function WorkspacePdfPage({
