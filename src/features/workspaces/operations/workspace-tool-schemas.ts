@@ -60,7 +60,7 @@ const workspaceHtmlCodeInstruction =
  * work — external URLs never render, which is what keeps every displayed
  * image inside the workspace's storage and access checks.
  */
-const workspaceHtmlImageInstruction = `Embed a workspace image as <img data-item-id="..."> using the itemId of an image file from a read result or an existing embed — never a URL; external images cannot be embedded. Reads show each embedded image's stored description as alt text; call view_image when you need the pixels.`;
+const workspaceHtmlImageInstruction = `Embed a workspace image as <img data-item-id="..."> using an itemId from the images field of a read result or from an existing embed — never a URL; external images cannot be embedded. Reads return each embedded image's stored description in that images field; call view_image when you need the pixels.`;
 
 const workspaceWidgetHtmlInstruction = `A widget is one interactive block inside a document. Use one when the user explicitly asks for a widget, asks for interaction or live computation, or wants a document visual that ordinary blocks cannot express. Keep ordinary content in ordinary blocks. Before authoring or editing widget source, activate the "widget-authoring" skill and follow its HTML, sandbox, layout, and editing contract. Serialize the result as <div data-type="widget" title="Short title">…HTML-escaped fragment…</div>.`;
 

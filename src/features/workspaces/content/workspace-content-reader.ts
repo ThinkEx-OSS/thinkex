@@ -21,7 +21,10 @@ import {
 	resolveWorkspacePaths,
 } from "#/features/workspaces/persistence/workspace-items";
 import { readWorkspaceFileExtraction } from "#/features/workspaces/persistence/workspace-files";
-import { annotateWorkspaceImageDescriptions } from "#/features/workspaces/content/workspace-image-descriptions";
+import {
+	collectWorkspaceImageDescriptions,
+	truncateWorkspaceImageDescription,
+} from "#/features/workspaces/content/workspace-image-descriptions";
 import {
 	parseWorkspacePageRange,
 	WorkspacePageSelectionError,
@@ -221,6 +224,12 @@ async function readWorkspaceItem(input: {
 	}
 }
 
+/** The optional `images` field for a ready result, omitted when empty. */
+async function embeddedImagesField(htmls: readonly string[], workspaceId: string) {
+	const images = await collectWorkspaceImageDescriptions(htmls, { workspaceId });
+	return images.length > 0 ? { images } : {};
+}
+
 /** Reads the exact content an address identifies: one page, block, or entry. */
 async function readWorkspaceUnit(
 	input: Parameters<typeof readWorkspaceItem>[0],
@@ -283,17 +292,17 @@ async function readFlashcards(
 				if (!source) throw new Error("Serialized flashcard does not match its source set.");
 				return {
 					ref: `${card.id}.r_${await createFlashcardRevision(source)}`,
-					front: await annotateWorkspaceImageDescriptions(card.front, {
-						workspaceId: input.workspaceId,
-					}),
-					back: await annotateWorkspaceImageDescriptions(card.back, {
-						workspaceId: input.workspaceId,
-					}),
+					front: card.front,
+					back: card.back,
 					...(studyState.cards[card.id] ? { study: studyState.cards[card.id] } : {}),
 				};
 			}),
 		),
 		format: "html",
+		...(await embeddedImagesField(
+			selection.selected.flatMap((card) => [card.front, card.back]),
+			input.workspaceId,
+		)),
 		itemId: input.item.id,
 		location: {
 			kind: "entries",
@@ -343,6 +352,14 @@ async function readQuiz(
 
 	return {
 		format: "html",
+		...(await embeddedImagesField(
+			selection.selected.flatMap((question) => [
+				question.question,
+				question.explanation,
+				...question.options.map((option) => option.text),
+			]),
+			input.workspaceId,
+		)),
 		itemId: input.item.id,
 		location: {
 			kind: "entries",
@@ -359,18 +376,11 @@ async function readQuiz(
 				const selectedIndex = answer
 					? source.options.findIndex((option) => option.id === answer.selectedOptionId)
 					: -1;
-				const annotate = (html: string) =>
-					annotateWorkspaceImageDescriptions(html, { workspaceId: input.workspaceId });
 				return {
 					ref: `${question.id}.r_${await createQuizQuestionRevision(source)}`,
-					question: await annotate(question.question),
-					options: await Promise.all(
-						question.options.map(async ({ text, correct }) => ({
-							text: await annotate(text),
-							correct,
-						})),
-					),
-					explanation: await annotate(question.explanation),
+					question: question.question,
+					options: question.options.map(({ text, correct }) => ({ text, correct })),
+					explanation: question.explanation,
 					...(answer && selectedIndex >= 0
 						? {
 								answer: {
@@ -482,11 +492,10 @@ async function readDocumentBlock(
 	}
 
 	return {
-		content: await annotateWorkspaceImageDescriptions(block.content, {
-			workspaceId: input.workspaceId,
-		}),
+		content: block.content,
 		contentRef: block.contentRef,
 		format: "html",
+		...(await embeddedImagesField([block.content], input.workspaceId)),
 		itemId: input.item.id,
 		path: input.path,
 		ref: input.item.refKey,
@@ -530,10 +539,9 @@ async function readDocument(input: {
 	}
 
 	return {
-		content: await annotateWorkspaceImageDescriptions(chunk.content, {
-			workspaceId: input.workspaceId,
-		}),
+		content: chunk.content,
 		format: "html",
+		...(await embeddedImagesField([chunk.content], input.workspaceId)),
 		itemId: input.item.id,
 		location: { kind: "blocks", ...chunk.location },
 		path: input.path,
@@ -587,6 +595,18 @@ async function readFile(input: {
 		assetKind: fileType.assetKind,
 		content: pageRead.content,
 		...(pageRead.emptyPages.length > 0 ? { emptyPages: pageRead.emptyPages } : {}),
+		// The model-facing projection drops the top-level item id, and embedding
+		// needs it — an image file's read is where the embeddable id comes from.
+		...(fileType.assetKind === "image"
+			? {
+					images: [
+						{
+							itemId: input.item.id,
+							description: truncateWorkspaceImageDescription(pageRead.content) ?? "This image",
+						},
+					],
+				}
+			: {}),
 		format: "markdown",
 		itemId: input.item.id,
 		location: { kind: "pages", ...pageRead.pages },

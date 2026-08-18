@@ -154,7 +154,6 @@ export async function runWorkspaceFileUploadBatch(
 export async function uploadWorkspaceImageForItem(input: {
 	file: File;
 	ownerItemId: string;
-	signal?: AbortSignal;
 	workspaceId: string;
 }): Promise<WorkspaceItem> {
 	const command = await uploadWorkspaceFile({
@@ -162,7 +161,7 @@ export async function uploadWorkspaceImageForItem(input: {
 		onProgress: () => {},
 		ownerItemId: input.ownerItemId,
 		parentId: null,
-		signal: input.signal ?? new AbortController().signal,
+		signal: new AbortController().signal,
 		workspaceId: input.workspaceId,
 	});
 	return command.result;

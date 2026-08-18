@@ -61,12 +61,20 @@ async function writeWorkspaceExport(
 				continue;
 			}
 			if (getWorkspaceItemContentKind(item.type) === "document") {
-				const markdown = serializeTiptapDocumentToMarkdown(readers.readDocument(item));
+				const markdown = rewriteMarkdownImageLinks(
+					serializeTiptapDocumentToMarkdown(readers.readDocument(item)),
+					path,
+					archivePaths,
+				);
 				await addZipBytes(zip, path, textEncoder.encode(`${markdown}\n`), () => output);
 				continue;
 			}
 			if (getWorkspaceItemContentKind(item.type) === "structured") {
-				const markdown = readers.readStructuredMarkdown(item);
+				const markdown = rewriteMarkdownImageLinks(
+					readers.readStructuredMarkdown(item),
+					path,
+					archivePaths,
+				);
 				await addZipBytes(zip, path, textEncoder.encode(markdown), () => output);
 				continue;
 			}
@@ -120,6 +128,41 @@ function buildArchivePathIndex(
 	}
 
 	return archivePaths;
+}
+
+/**
+ * Serialized markdown links images by item id (the only stable in-document
+ * handle); the archive is where those ids resolve to real files, so rewrite
+ * them into relative links a markdown viewer can follow. Unknown ids stay put.
+ */
+export function rewriteMarkdownImageLinks(
+	markdown: string,
+	fromPath: string,
+	archivePaths: ReadonlyMap<string, string>,
+) {
+	return markdown.replace(
+		/!\[([^\]]*)\]\(([0-9a-fA-F-]{36})\)/g,
+		(match, alt: string, itemId: string) => {
+			const target = archivePaths.get(itemId);
+			if (!target) return match;
+			const relative = relativeArchivePath(fromPath, target);
+			return `![${alt}](${/\s/.test(relative) ? `<${relative}>` : relative})`;
+		},
+	);
+}
+
+function relativeArchivePath(fromPath: string, toPath: string) {
+	const fromSegments = fromPath.split("/").slice(0, -1);
+	const toSegments = toPath.split("/");
+	let common = 0;
+	while (
+		common < fromSegments.length &&
+		common < toSegments.length - 1 &&
+		fromSegments[common] === toSegments[common]
+	) {
+		common += 1;
+	}
+	return [...fromSegments.slice(common).map(() => ".."), ...toSegments.slice(common)].join("/");
 }
 
 function reserveArchivePath(path: string, reservedPaths: ReadonlySet<string>) {

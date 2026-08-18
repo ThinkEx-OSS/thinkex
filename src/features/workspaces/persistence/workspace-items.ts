@@ -506,11 +506,15 @@ export async function deleteWorkspaceItems(
 		deleteIds: string[],
 	) {
 		const deleted = new Set(deleteIds);
+		const liveIds = new Set(allRows.map((row) => row.id));
 		const sidecarIds = allRows
 			.filter((row) => {
 				if (deleted.has(row.id)) return false;
 				const ownerItemId = getMetadataOwnerItemId(row.metadata as Record<string, JsonValue>);
-				return ownerItemId !== null && deleted.has(ownerItemId);
+				// A dangling owner means an earlier delete kept this sidecar for a
+				// reference that may itself be going away now — re-check it, or it
+				// leaks invisibly forever.
+				return ownerItemId !== null && (deleted.has(ownerItemId) || !liveIds.has(ownerItemId));
 			})
 			.map((row) => row.id);
 		if (sidecarIds.length === 0) return [];

@@ -50,9 +50,13 @@ export function importDocumentImagesFromPastedHtml(
 	target: DocumentImageUploadTarget,
 	html: string,
 ): void {
+	// A real parse rather than a regex: clipboard HTML entity-encodes query
+	// strings (&amp;), quotes vary, and getAttribute decodes all of it.
+	const parsed = new DOMParser().parseFromString(html, "text/html");
 	const urls = new Set<string>();
-	for (const match of html.matchAll(/<img\b[^>]*\bsrc="(https?:\/\/[^"]+)"/gi)) {
-		if (match[1]) urls.add(match[1]);
+	for (const image of Array.from(parsed.querySelectorAll("img"))) {
+		const src = image.getAttribute("src") ?? "";
+		if (/^https?:\/\//i.test(src)) urls.add(src);
 	}
 	for (const url of Array.from(urls).slice(0, MAX_PASTED_IMAGE_IMPORTS)) {
 		void importAndInsertDocumentImage(target, url);
@@ -84,12 +88,11 @@ async function importAndInsertDocumentImage(target: DocumentImageUploadTarget, u
 }
 
 async function uploadAndInsertDocumentImage(target: DocumentImageUploadTarget, sourceFile: File) {
-	// Clipboard image files often arrive nameless; uploads require a name.
+	// Clipboard image files often arrive nameless; uploads require a name, and
+	// the server appends the right extension from the media type.
 	const file = sourceFile.name
 		? sourceFile
-		: new File([sourceFile], `Pasted image.${sourceFile.type.split("/")[1] ?? "png"}`, {
-				type: sourceFile.type,
-			});
+		: new File([sourceFile], "Pasted image", { type: sourceFile.type });
 	const validationError = getWorkspaceUploadValidationError({
 		contentType: file.type,
 		fileName: file.name,

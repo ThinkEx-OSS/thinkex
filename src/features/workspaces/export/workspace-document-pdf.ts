@@ -3,6 +3,7 @@ import { getDocumentSessionFromEnv } from "#/features/workspaces/document-sessio
 import { parseTiptapDocumentJson } from "#/features/workspaces/documents/tiptap-document";
 import { renderWorkspaceDocumentPdfHtml } from "#/features/workspaces/export/workspace-document-pdf-html";
 import { readWorkspaceFilePreview } from "#/features/workspaces/persistence/workspace-files";
+import { encodeBase64 } from "#/lib/binary";
 import { WorkspaceForbiddenError } from "#/features/workspaces/server/permissions";
 import { getWorkspacePageForUser } from "#/features/workspaces/server/queries";
 import { getWorkspaceItemContentKind } from "#/features/workspaces/contracts";
@@ -48,15 +49,6 @@ async function inlineWorkspaceImagesForPdf(
 		const dataUrl = dataUrls.get(itemId);
 		return dataUrl ? tag.replace(/^<img\b/, `<img src="${dataUrl}"`) : tag;
 	});
-}
-
-function encodeBase64(bytes: Uint8Array) {
-	let binary = "";
-	const chunkSize = 0x8000;
-	for (let offset = 0; offset < bytes.length; offset += chunkSize) {
-		binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
-	}
-	return btoa(binary);
 }
 
 export async function createWorkspaceDocumentPdf(input: {

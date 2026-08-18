@@ -33,14 +33,22 @@ export const webFetchOutputSchema = z.discriminatedUnion("kind", [
 	unsupportedWebResourceSchema,
 ]);
 
+// `source` rather than `url`: view_image reads workspace paths too, and the
+// workspace arm reuses this schema verbatim.
 export const webImageFetchOutputSchema = z.discriminatedUnion("kind", [
 	z.object({
 		kind: z.literal("image"),
-		url: z.url(),
+		source: z.string().min(1),
 		mediaType: z.literal("image/jpeg"),
 		sizeBytes: z.number().int().positive(),
 	}),
-	unsupportedWebResourceSchema,
+	z.object({
+		kind: z.literal("unsupported"),
+		source: z.string().min(1),
+		mediaType: z.string().nullable(),
+		reason: z.enum(["pdf", "media_type"]),
+		message: z.string(),
+	}),
 ]);
 
 export type WebFetchOutput = z.output<typeof webFetchOutputSchema>;
@@ -89,7 +97,15 @@ export async function fetchPublicWebImage(input: {
 
 	if (mediaType === "application/pdf") {
 		await response.body?.cancel();
-		return unsupportedPdf(url, mediaType);
+		return {
+			output: {
+				kind: "unsupported",
+				source: url,
+				mediaType,
+				reason: "pdf",
+				message: UNSUPPORTED_PDF_MESSAGE,
+			},
+		};
 	}
 
 	if (!mediaType || !supportedImageMediaTypes.has(mediaType)) {
@@ -97,7 +113,7 @@ export async function fetchPublicWebImage(input: {
 		return {
 			output: {
 				kind: "unsupported",
-				url,
+				source: url,
 				mediaType,
 				reason: "media_type",
 				message: mediaType
@@ -121,7 +137,7 @@ export async function fetchPublicWebImage(input: {
 		image: { bytes: normalized.bytes, mediaType: normalized.contentType },
 		output: {
 			kind: "image",
-			url,
+			source: url,
 			mediaType: normalized.contentType,
 			sizeBytes: normalized.sizeBytes,
 		},
@@ -158,14 +174,13 @@ export async function fetchPublicImageForImport(input: {
 	const bytes = await new Response(
 		limitReadableStream(response.body, input.maxBytes),
 	).arrayBuffer();
-	const finalUrl = new URL(url);
-	const lastSegment = decodeURIComponent(finalUrl.pathname.split("/").filter(Boolean).at(-1) ?? "");
-	const extension = mediaType.split("/")[1]?.split("+")[0] ?? "png";
-	const fileName = /\.[A-Za-z0-9]{2,5}$/.test(lastSegment)
-		? lastSegment
-		: `${lastSegment || "Imported image"}.${extension}`;
+	// Validation matches by media type first and the upload path appends the
+	// right extension itself, so the URL's last segment is only a display name.
+	const lastSegment = decodeURIComponent(
+		new URL(url).pathname.split("/").filter(Boolean).at(-1) ?? "",
+	);
 
-	return { bytes, fileName, mediaType };
+	return { bytes, fileName: lastSegment || "Imported image", mediaType };
 }
 
 async function fetchImageFollowingPublicRedirects(input: URL, abortSignal?: AbortSignal) {
@@ -213,6 +228,9 @@ async function assertContentLengthWithinLimit(response: Response, maxBytes: numb
 	}
 }
 
+const UNSUPPORTED_PDF_MESSAGE =
+	"Public PDFs are not supported here. Ask the user to upload the PDF to the workspace, then read it with workspace_read_items.";
+
 function unsupportedPdf(url: string, mediaType: string | null = "application/pdf") {
 	return {
 		output: {
@@ -220,8 +238,7 @@ function unsupportedPdf(url: string, mediaType: string | null = "application/pdf
 			url,
 			mediaType,
 			reason: "pdf" as const,
-			message:
-				"Public PDFs are not supported here. Ask the user to upload the PDF to the workspace, then read it with workspace_read_items.",
+			message: UNSUPPORTED_PDF_MESSAGE,
 		},
 	};
 }

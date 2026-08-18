@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, count, eq, inArray, sql } from "drizzle-orm";
 
 import { createWorkspaceItemRefKey } from "#/features/workspaces/locations/workspace-location";
 
@@ -13,6 +13,7 @@ import {
 	type JsonValue,
 	type WorkspaceItem,
 	getWorkspaceItemContentKind,
+	workspaceItemTypeSchema,
 } from "#/features/workspaces/contracts";
 import { getWorkspaceItemNameKey } from "#/features/workspaces/defaults";
 import { WORKSPACE_FILE_PREVIEW_CONTENT_TYPE } from "#/features/workspaces/files/workspace-file-preview.constants";
@@ -28,6 +29,7 @@ import {
 	getWorkspaceUploadFamily,
 	normalizeWorkspaceUploadFileName,
 	resolveWorkspaceFileContentType,
+	WorkspaceFileUploadError,
 } from "#/features/workspaces/model/workspace-file";
 import type { WorkspaceCommandResult } from "#/features/workspaces/realtime/messages";
 import { notifyWorkspaceRoom } from "#/features/workspaces/realtime/workspace-room-notifier";
@@ -45,6 +47,7 @@ import {
 	requireWorkspaceFileAsset,
 	resolveWorkspaceItemName,
 	withWorkspaceTransaction,
+	type Transaction,
 } from "./workspace-postgres-support";
 
 export async function createWorkspaceFileFromUpload(
@@ -73,11 +76,8 @@ export async function createWorkspaceFileFromUpload(
 		}
 		const parentId = input.parentId ?? null;
 		await assertWorkspaceParentIsValid(transaction, input.workspaceId, parentId);
-		if (
-			input.ownerItemId &&
-			!(await getActiveWorkspaceItemRow(transaction, input.workspaceId, input.ownerItemId))
-		) {
-			throw new Error("Workspace image owner item does not exist.");
+		if (input.ownerItemId) {
+			await assertValidWorkspaceImageOwner(transaction, input.workspaceId, input.ownerItemId);
 		}
 		const descriptor = getWorkspaceUploadFamily(input.assetKind);
 		const originalName = normalizeWorkspaceUploadFileName(input.fileName, descriptor);
@@ -138,6 +138,46 @@ export async function createWorkspaceFileFromUpload(
 		items: [command.result],
 	});
 	return command;
+}
+
+// Owner-bound images skip the upload meter, so the exemption has to be
+// enforceable here: only embeddable item types can own images, and one owner
+// cannot accumulate unbounded unmetered uploads.
+const maxWorkspaceImagesPerOwner = 100;
+
+async function assertValidWorkspaceImageOwner(
+	transaction: Transaction,
+	workspaceId: string,
+	ownerItemId: string,
+) {
+	const owner = await getActiveWorkspaceItemRow(transaction, workspaceId, ownerItemId);
+	if (!owner) {
+		throw new Error("Workspace image owner item does not exist.");
+	}
+	const ownerKind = getWorkspaceItemContentKind(workspaceItemTypeSchema.parse(owner.type));
+	if (ownerKind !== "document" && ownerKind !== "structured") {
+		throw new WorkspaceFileUploadError({
+			code: "INVALID_UPLOAD",
+			message: "Images can only be embedded in documents, flashcard sets, or quizzes.",
+			status: 400,
+		});
+	}
+	const [ownedCount] = await transaction
+		.select({ count: count() })
+		.from(workspaceItems)
+		.where(
+			and(
+				eq(workspaceItems.workspaceId, workspaceId),
+				sql`${workspaceItems.metadata}->>'ownerItemId' = ${ownerItemId}`,
+			),
+		);
+	if ((ownedCount?.count ?? 0) >= maxWorkspaceImagesPerOwner) {
+		throw new WorkspaceFileUploadError({
+			code: "INVALID_UPLOAD",
+			message: `One item can hold up to ${maxWorkspaceImagesPerOwner} images.`,
+			status: 400,
+		});
+	}
 }
 
 export async function readWorkspaceFileSource(

@@ -111,21 +111,33 @@ function DocumentEditorInstance({
 					return false;
 				}
 				const target = { documentItemId: item.id, editor: activeEditor, workspaceId };
-				const files = Array.from(event.clipboardData?.files ?? []);
-				if (insertDocumentImageFiles(target, files)) {
-					return true;
+				const html = event.clipboardData?.getData("text/html") ?? "";
+				// Office apps put a bitmap of the copied selection on the clipboard
+				// beside the HTML; taking the file would paste a screenshot of an
+				// editable table. When HTML is present it wins, and any external
+				// images it references import in the background.
+				if (html.trim()) {
+					importDocumentImagesFromPastedHtml(target, html);
+					return false;
 				}
-				// External images in pasted rich content import in the background;
-				// the paste itself proceeds normally.
-				importDocumentImagesFromPastedHtml(target, event.clipboardData?.getData("text/html") ?? "");
-				return false;
+				const files = Array.from(event.clipboardData?.files ?? []);
+				return (
+					files.length > 0 &&
+					files.every((file) => file.type.startsWith("image/")) &&
+					insertDocumentImageFiles(target, files)
+				);
 			},
 			handleDrop: (_view, event, _slice, moved) => {
 				const activeEditor = editorRef.current;
 				if (moved || !capabilities.canMutateContent || !activeEditor) {
 					return false;
 				}
+				// Claim only all-image drops; a mixed drop falls through to the
+				// workspace-level handler that files everything as uploads.
 				const files = Array.from(event.dataTransfer?.files ?? []);
+				if (files.length === 0 || !files.every((file) => file.type.startsWith("image/"))) {
+					return false;
+				}
 				const handled = insertDocumentImageFiles(
 					{ documentItemId: item.id, editor: activeEditor, workspaceId },
 					files,

@@ -99,6 +99,14 @@ const workspaceReadyResultBase = {
 	/** The item's durable address; cite units as `ref/unit`. */
 	ref: z.string().min(1),
 	itemId: z.string().min(1),
+	// Beside the content rather than injected into it: the returned HTML is
+	// the byte-exact anchor replace_text edits match against.
+	images: z
+		.array(z.object({ itemId: z.string().min(1), description: z.string().min(1) }))
+		.optional()
+		.describe(
+			"Stored descriptions of the images this content embeds, keyed by each <img data-item-id>. Call view_image only when a description is not enough.",
+		),
 	path: workspacePathSchema,
 	relations: workspaceReadRelationsSchema.optional(),
 	status: z.literal("ready"),

@@ -16,58 +16,68 @@ vi.mock("#/features/workspaces/extraction/workspace-projection-readiness", () =>
 	resolveWorkspaceProjectionReadiness,
 }));
 
-import { annotateWorkspaceImageDescriptions } from "#/features/workspaces/content/workspace-image-descriptions";
+import { collectWorkspaceImageDescriptions } from "#/features/workspaces/content/workspace-image-descriptions";
 
-describe("annotateWorkspaceImageDescriptions", () => {
+describe("collectWorkspaceImageDescriptions", () => {
 	beforeEach(() => {
 		persistence.readWorkspaceFileExtraction.mockReset();
 		readWorkspacePageProjection.mockReset();
 		resolveWorkspaceProjectionReadiness.mockReset();
 	});
 
-	it("returns html without image tags untouched and reads nothing", async () => {
-		const html = "<p>No images here</p>";
-		await expect(annotateWorkspaceImageDescriptions(html, { workspaceId: "w1" })).resolves.toBe(
-			html,
-		);
+	it("returns nothing for image-free html and reads nothing", async () => {
+		await expect(
+			collectWorkspaceImageDescriptions(["<p>No images here</p>"], { workspaceId: "w1" }),
+		).resolves.toEqual([]);
 		expect(persistence.readWorkspaceFileExtraction).not.toHaveBeenCalled();
 	});
 
-	it("writes the stored description as alt text, replacing any stale alt", async () => {
+	it("returns the stored description per embedded image", async () => {
 		resolveWorkspaceProjectionReadiness.mockReturnValue({ state: "ready", pageCount: 1 });
-		readWorkspacePageProjection.mockResolvedValue({
-			content: 'A labeled diagram of the "Krebs" cycle <with arrows>',
-		});
+		readWorkspacePageProjection.mockResolvedValue({ content: "A labeled Krebs cycle diagram" });
 
-		const html = '<p>Before</p><img data-item-id="item-1" alt="old"><p>After</p>';
-		await expect(annotateWorkspaceImageDescriptions(html, { workspaceId: "w1" })).resolves.toBe(
-			'<p>Before</p><img alt="A labeled diagram of the &quot;Krebs&quot; cycle &lt;with arrows&gt;" data-item-id="item-1"><p>After</p>',
-		);
+		await expect(
+			collectWorkspaceImageDescriptions(
+				['<p>Before</p><img data-item-id="item-1" alt="old"><p>After</p>'],
+				{ workspaceId: "w1" },
+			),
+		).resolves.toEqual([{ itemId: "item-1", description: "A labeled Krebs cycle diagram" }]);
 	});
 
-	it("leaves the tag alone while extraction is still pending", async () => {
+	it("matches a serialized tag whose alt contains a closing angle bracket", async () => {
+		resolveWorkspaceProjectionReadiness.mockReturnValue({ state: "ready", pageCount: 1 });
+		readWorkspacePageProjection.mockResolvedValue({ content: "A cell" });
+
+		// The serializer emits data-item-id first, so a ">" later in alt (which
+		// linkedom does not escape) cannot hide the id from the matcher.
+		await expect(
+			collectWorkspaceImageDescriptions(['<img data-item-id="item-1" alt="a &gt; b > c">'], {
+				workspaceId: "w1",
+			}),
+		).resolves.toEqual([{ itemId: "item-1", description: "A cell" }]);
+	});
+
+	it("omits images whose extraction is still pending", async () => {
 		resolveWorkspaceProjectionReadiness.mockReturnValue({ state: "pending" });
 
-		const html = '<img data-item-id="item-1" alt="user alt">';
-		await expect(annotateWorkspaceImageDescriptions(html, { workspaceId: "w1" })).resolves.toBe(
-			html,
-		);
+		await expect(
+			collectWorkspaceImageDescriptions(['<img data-item-id="item-1">'], { workspaceId: "w1" }),
+		).resolves.toEqual([]);
 	});
 
 	it("truncates long descriptions to one attribute-sized line", async () => {
 		resolveWorkspaceProjectionReadiness.mockReturnValue({ state: "ready", pageCount: 1 });
 		readWorkspacePageProjection.mockResolvedValue({ content: `${"word ".repeat(200)}end` });
 
-		const result = await annotateWorkspaceImageDescriptions('<img data-item-id="item-1">', {
+		const [image] = await collectWorkspaceImageDescriptions(['<img data-item-id="item-1">'], {
 			workspaceId: "w1",
 		});
-		const alt = /alt="([^"]*)"/.exec(result)?.[1] ?? "";
-		expect(alt.length).toBeLessThanOrEqual(300);
-		expect(alt.endsWith("…")).toBe(true);
-		expect(alt).not.toContain("\n");
+		expect(image?.description.length).toBeLessThanOrEqual(300);
+		expect(image?.description.endsWith("…")).toBe(true);
+		expect(image?.description).not.toContain("\n");
 	});
 
-	it("reads each distinct image once and survives a failed read", async () => {
+	it("reads each distinct image once across strings and survives a failed read", async () => {
 		resolveWorkspaceProjectionReadiness.mockReturnValue({ state: "ready", pageCount: 1 });
 		persistence.readWorkspaceFileExtraction.mockImplementation(({ itemId }: { itemId: string }) => {
 			if (itemId === "broken") throw new Error("boom");
@@ -75,11 +85,11 @@ describe("annotateWorkspaceImageDescriptions", () => {
 		});
 		readWorkspacePageProjection.mockResolvedValue({ content: "A cell" });
 
-		const html =
-			'<img data-item-id="a"><img data-item-id="a"><img data-item-id="broken"><img data-item-id="b">';
-		const result = await annotateWorkspaceImageDescriptions(html, { workspaceId: "w1" });
-		expect(persistence.readWorkspaceFileExtraction).toHaveBeenCalledTimes(3);
-		expect(result).toContain('<img alt="A cell" data-item-id="a">');
-		expect(result).toContain('<img data-item-id="broken">');
+		const images = await collectWorkspaceImageDescriptions(
+			['<img data-item-id="a"><img data-item-id="a">', '<img data-item-id="broken">'],
+			{ workspaceId: "w1" },
+		);
+		expect(persistence.readWorkspaceFileExtraction).toHaveBeenCalledTimes(2);
+		expect(images).toEqual([{ itemId: "a", description: "A cell" }]);
 	});
 });

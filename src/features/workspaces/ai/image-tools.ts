@@ -3,7 +3,11 @@ import { z } from "zod";
 
 import type { AIThreadContext } from "#/features/workspaces/ai/ai-thread-metadata";
 import { defineAIThreadTool } from "#/features/workspaces/ai/ai-thread-tool";
-import { fetchPublicWebImage, type FreshWebImage } from "#/features/workspaces/ai/web-fetch";
+import {
+	fetchPublicWebImage,
+	webImageFetchOutputSchema,
+	type FreshWebImage,
+} from "#/features/workspaces/ai/web-fetch";
 import { viewWorkspaceImageOperation } from "#/features/workspaces/operations/view-image";
 import { createWorkspaceAccessContext } from "#/features/workspaces/operations/workspace-access-context";
 
@@ -33,22 +37,6 @@ const viewImageInputSchema = z
 		}
 	});
 
-const viewImageOutputSchema = z.discriminatedUnion("kind", [
-	z.object({
-		kind: z.literal("image"),
-		source: z.string(),
-		mediaType: z.literal("image/jpeg"),
-		sizeBytes: z.number().int().positive(),
-	}),
-	z.object({
-		kind: z.literal("unsupported"),
-		source: z.string(),
-		mediaType: z.string().nullable(),
-		reason: z.enum(["pdf", "media_type"]),
-		message: z.string(),
-	}),
-]);
-
 const viewImageInputExamples = [
 	{ input: { path: "/Biology/Krebs cycle.png" } },
 	{ input: { ref: "aB3xK9pQ" } },
@@ -67,7 +55,7 @@ export function createAIThreadImageTools(input: {
 				"Look at an image's actual pixels when its stored description is not enough — exact wording, labels, layout, or fine visual detail. Workspace image files already have a text description that workspace_read_items returns; prefer that first. Pass exactly one of url (public web image), path, or ref (workspace image file). The pixels attach temporarily for this model step only; call again if you need another look.",
 			inputSchema: viewImageInputSchema,
 			inputExamples: viewImageInputExamples,
-			outputSchema: viewImageOutputSchema,
+			outputSchema: webImageFetchOutputSchema,
 			toModelOutput: ({ output, toolCallId }) => {
 				const image = freshImages.get(toolCallId);
 				freshImages.delete(toolCallId);
@@ -97,8 +85,7 @@ export function createAIThreadImageTools(input: {
 					if (result.image) {
 						freshImages.set(context.invocationId, result.image);
 					}
-					const { url: resolvedUrl, ...rest } = result.output;
-					return { ...rest, source: resolvedUrl };
+					return result.output;
 				}
 
 				const pixels = await viewWorkspaceImageOperation(
