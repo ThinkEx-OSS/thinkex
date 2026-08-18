@@ -5,6 +5,7 @@ import {
 	createUIMessageStreamResponse,
 	generateId,
 	generateText,
+	hasToolCall,
 	stepCountIs,
 	streamText,
 	validateUIMessages,
@@ -29,6 +30,7 @@ import {
 	prepareCompactedContext,
 } from "#/features/workspaces/ai/chat/chat-compaction";
 import { ChatRequestError } from "#/features/workspaces/ai/chat/chat-errors";
+import { ASK_USER_TOOL_NAME } from "#/features/workspaces/ai/question-tools";
 import { WORKSPACE_AI_CHAT_ATTACHMENT_POLICY } from "#/features/workspaces/ai/chat-attachment-policy";
 import { parseChatAttachmentContentUrl } from "#/features/workspaces/ai/chat-attachment-storage";
 import {
@@ -388,7 +390,11 @@ export async function handleAiChatTurn(input: {
 					instructions: systemPrompt,
 					messages: modelMessages,
 					tools,
-					stopWhen: stepCountIs(MAX_AGENT_STEPS),
+					// ask_user completes instantly with a receipt, so without this the
+					// model would read its own question back and keep going. Stopping
+					// here is what hands control to the user: their answer arrives as
+					// an ordinary user message and the next turn continues from it.
+					stopWhen: [stepCountIs(MAX_AGENT_STEPS), hasToolCall(ASK_USER_TOOL_NAME)],
 					abortSignal: turn.signal,
 					onChunk: () => {
 						firstTokenAt ??= Date.now();

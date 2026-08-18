@@ -4,6 +4,7 @@ import type { AIThreadContext } from "#/features/workspaces/ai/ai-thread-metadat
 import { requireAiToolDefinition } from "#/features/workspaces/ai/ai-tool-registry";
 import type { AiCodemodeActivityListener } from "#/features/workspaces/ai/codemode-tool";
 import { createAiChatCodemodeTool } from "#/features/workspaces/ai/codemode-tool";
+import { createAIThreadQuestionTools } from "#/features/workspaces/ai/question-tools";
 import { createAIThreadResearchTools } from "#/features/workspaces/ai/research-tools";
 import { createAIThreadSkillTools } from "#/features/workspaces/ai/skill-tools";
 import { createAIThreadTimeTools } from "#/features/workspaces/ai/time-tools";
@@ -48,5 +49,9 @@ export function createAiChatTools(input: {
 			tools: allowed,
 			...(input.onCodemodeActivity ? { onActivity: input.onCodemodeActivity } : {}),
 		}),
+		// Built outside `allowed`, so Code Mode can never reach it: asking ends
+		// the turn, and a generated program that "asks" mid-run would just get a
+		// receipt back and carry on past the answer it was waiting for.
+		...createAIThreadQuestionTools(),
 	};
 }
