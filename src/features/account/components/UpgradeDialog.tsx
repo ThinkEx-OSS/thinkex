@@ -13,23 +13,16 @@ import {
 import { Spinner } from "#/components/ui/spinner";
 import { openBillingPortalFn, startProCheckoutFn } from "#/features/account/billing-functions";
 import { PricingPlanCard } from "#/features/account/components/PricingPlanCard";
-import { type BillingPeriod, getPricingPlans } from "#/features/account/pricing";
+import { PRICING_PLANS } from "#/features/account/pricing";
 import { BILLING_STATE_QUERY_KEY, useBillingState } from "#/features/account/use-billing-state";
 import { UPGRADE_REASON_LABELS, type UpgradeReason } from "#/features/account/upgrade-navigation";
 import { capturePostHogClientEvent } from "#/integrations/posthog/provider";
 
-/**
- * billingPeriod is no longer pickable in the UI — it comes from the caller's
- * `billing` search param, so the annual plan stays reachable by link while only
- * monthly is advertised.
- */
 export function UpgradeDialog({
-	billingPeriod = "monthly",
 	onOpenChange,
 	open,
 	reason,
 }: {
-	billingPeriod?: BillingPeriod;
 	onOpenChange: (open: boolean) => void;
 	open: boolean;
 	reason?: UpgradeReason;
@@ -37,7 +30,6 @@ export function UpgradeDialog({
 	const queryClient = useQueryClient();
 	const { isPending, isPro } = useBillingState({ exact: true });
 	const currentPlanId = isPro ? "pro" : "free";
-	const pricingPlans = getPricingPlans();
 
 	const billingAction = useMutation({
 		mutationFn: (run: () => Promise<{ url: string | null }>) => run(),
@@ -68,7 +60,7 @@ export function UpgradeDialog({
 					) : null}
 				</DialogHeader>
 				<div className="grid gap-5 p-5 sm:grid-cols-2">
-					{pricingPlans.map((plan) => {
+					{PRICING_PLANS.map((plan) => {
 						const current = !isPending && plan.id === currentPlanId;
 						let action: ReactNode;
 
@@ -96,17 +88,12 @@ export function UpgradeDialog({
 										// customer managing billing, which is not a conversion.
 										if (!current) {
 											capturePostHogClientEvent("upgrade_checkout_started", {
-												billing_period: billingPeriod,
 												reason: reason ?? null,
 											});
 										}
 
 										billingAction.mutate(() =>
-											current
-												? openBillingPortalFn()
-												: startProCheckoutFn({
-														data: { billingPeriod },
-													}),
+											current ? openBillingPortalFn() : startProCheckoutFn(),
 										);
 									}}
 								>

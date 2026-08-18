@@ -1,4 +1,3 @@
-import type { BillingPeriod } from "#/features/account/pricing";
 import type { WorkspaceMembershipRole, WorkspaceSummary } from "#/features/workspaces/contracts";
 
 export type WorkspaceInviteType = "email" | "link";
@@ -155,7 +154,6 @@ export interface PostHogEventPropertiesByName {
 	 * it came from, via a PostHog funnel back to the click.
 	 */
 	upgrade_checkout_started: {
-		billing_period: BillingPeriod;
 		reason: string | null;
 	};
 	workspace_file_intake_completed: {

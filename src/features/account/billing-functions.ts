@@ -1,7 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getRequestHeaders } from "@tanstack/react-start/server";
 import { env } from "cloudflare:workers";
-import { z } from "zod";
 
 import { getAutumnCustomerFields } from "#/integrations/autumn/client.server";
 import {
@@ -25,13 +24,12 @@ export interface WorkspaceBillingState {
 	isPro: boolean;
 }
 
+// Both ids, though only monthly is ever sold: an existing annual subscriber
+// must still read as Pro rather than being shown Free.
 const PRO_PLAN_IDS = {
 	annual: "pro_annual",
 	monthly: "pro",
 } as const;
-const proCheckoutInputSchema = z.object({
-	billingPeriod: z.enum(["annual", "monthly"]),
-});
 
 async function getSignedInUserId() {
 	return await withAuth(async (auth) => {
@@ -83,9 +81,8 @@ export const getWorkspaceBillingStateFn = createServerFn({ method: "GET" }).hand
 			// enum is open, so only an explicitly active Pro counts.
 			isPro: customer.subscriptions.some(
 				(subscription) =>
-					Object.values(PRO_PLAN_IDS).includes(
-						subscription.plan_id as (typeof PRO_PLAN_IDS)[keyof typeof PRO_PLAN_IDS],
-					) && subscription.status === "active",
+					Object.values(PRO_PLAN_IDS).some((planId) => planId === subscription.plan_id) &&
+					subscription.status === "active",
 			),
 		};
 	},
@@ -96,9 +93,8 @@ export const getWorkspaceBillingStateFn = createServerFn({ method: "GET" }).hand
  * caller is a button inside a dialog, and a server redirect would tear the whole
  * page down before Stripe answered.
  */
-export const startProCheckoutFn = createServerFn({ method: "POST" })
-	.validator(proCheckoutInputSchema)
-	.handler(async ({ data }): Promise<{ url: string | null }> => {
+export const startProCheckoutFn = createServerFn({ method: "POST" }).handler(
+	async (): Promise<{ url: string | null }> => {
 		const userId = await getSignedInUserId();
 		const secretKey = resolveAutumnSecretKey(env);
 
@@ -116,7 +112,7 @@ export const startProCheckoutFn = createServerFn({ method: "POST" })
 				payment_method_collection: "always",
 			},
 			customerId: userId,
-			planId: PRO_PLAN_IDS[data.billingPeriod],
+			planId: PRO_PLAN_IDS.monthly,
 			redirectMode: "always",
 			secretKey,
 			// Return with the plan dialog open so the updated plan is visible.
@@ -124,7 +120,8 @@ export const startProCheckoutFn = createServerFn({ method: "POST" })
 		});
 
 		return { url: result.payment_url };
-	});
+	},
+);
 
 export const openBillingPortalFn = createServerFn({ method: "POST" }).handler(
 	async (): Promise<{ url: string | null }> => {

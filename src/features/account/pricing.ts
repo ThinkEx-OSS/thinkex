@@ -1,5 +1,3 @@
-export type BillingPeriod = "annual" | "monthly";
-
 const freePlan = {
 	id: "free",
 	name: "Free",
@@ -23,23 +21,18 @@ const proFeatures = [
 	"Priority access to new features",
 ] as const;
 
-/**
- * Only monthly pricing is shown. Annual still exists in the backend (see
- * PRO_PLAN_IDS in billing-functions and the `billing` search param), it just
- * isn't offered in the UI yet.
- */
-export function getPricingPlans() {
-	return [
-		freePlan,
-		{
-			id: "pro",
-			name: "Pro",
-			price: "$8",
-			pricePeriod: "/month",
-			features: proFeatures,
-			emphasized: true,
-		},
-	] as const;
-}
+// Only monthly is sold. `pro_annual` still exists in autumn.config.ts so an
+// existing annual subscriber keeps reading as Pro, but nothing offers it.
+export const PRICING_PLANS = [
+	freePlan,
+	{
+		id: "pro",
+		name: "Pro",
+		price: "$8",
+		pricePeriod: "/month",
+		features: proFeatures,
+		emphasized: true,
+	},
+] as const;
 
-export type PricingPlan = ReturnType<typeof getPricingPlans>[number];
+export type PricingPlan = (typeof PRICING_PLANS)[number];
