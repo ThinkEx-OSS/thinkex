@@ -28,6 +28,17 @@ describe("flashcard content", () => {
 		).toThrow("Flashcard content cannot contain heading nodes.");
 	});
 
+	it("accepts an embedded workspace image and round-trips its item id", () => {
+		const set = createFlashcardSetFromHtml([
+			{ front: '<p>Label this</p><img data-item-id="item-1">', back: "<p>A cell</p>" },
+		]);
+		const parsed = parseFlashcardSetContent(stringifyFlashcardSetContent(set));
+
+		expect(serializeFlashcardSetToHtml(parsed)[0]?.front).toBe(
+			'<p>Label this</p><img data-item-id="item-1">',
+		);
+	});
+
 	it("rejects empty sets and malformed stored rich text", () => {
 		expect(() => parseFlashcardSetContent('{"version":1,"cards":[]}')).toThrow(
 			"A flashcard set needs at least one card.",
