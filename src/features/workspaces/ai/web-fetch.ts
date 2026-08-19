@@ -15,14 +15,6 @@ const supportedImageMediaTypes: ReadonlySet<string> = new Set(
 		.map((format) => format.mime),
 );
 
-const unsupportedWebResourceSchema = z.object({
-	kind: z.literal("unsupported"),
-	url: z.url(),
-	mediaType: z.string().nullable(),
-	reason: z.enum(["pdf", "media_type"]),
-	message: z.string(),
-});
-
 export const webFetchOutputSchema = z.discriminatedUnion("kind", [
 	z.object({
 		kind: z.literal("page"),
@@ -30,7 +22,13 @@ export const webFetchOutputSchema = z.discriminatedUnion("kind", [
 		content: z.string(),
 		truncated: z.boolean(),
 	}),
-	unsupportedWebResourceSchema,
+	z.object({
+		kind: z.literal("unsupported"),
+		url: z.url(),
+		mediaType: z.string().nullable(),
+		reason: z.enum(["pdf", "media_type"]),
+		message: z.string(),
+	}),
 ]);
 
 // `source` rather than `url`: view_image reads workspace paths too, and the

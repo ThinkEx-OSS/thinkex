@@ -135,7 +135,7 @@ function buildArchivePathIndex(
  * handle); the archive is where those ids resolve to real files, so rewrite
  * them into relative links a markdown viewer can follow. Unknown ids stay put.
  */
-export function rewriteMarkdownImageLinks(
+function rewriteMarkdownImageLinks(
 	markdown: string,
 	fromPath: string,
 	archivePaths: ReadonlyMap<string, string>,

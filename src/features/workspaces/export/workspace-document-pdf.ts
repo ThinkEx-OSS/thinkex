@@ -10,45 +10,24 @@ import { getWorkspaceItemContentKind } from "#/features/workspaces/contracts";
 
 export class WorkspaceDocumentNotFoundError extends Error {}
 
-const pdfImageTagPattern = /<img\b[^>]*\bdata-item-id="([^"]+)"[^>]*>/g;
-
-/**
- * The PDF renderer runs with JavaScript off and no session cookie, so image
- * nodes get their preview bytes inlined as data URLs. A missing or unfinished
- * preview leaves the tag src-less, which prints as its alt text.
- */
-async function inlineWorkspaceImagesForPdf(
-	html: string,
-	input: { env: Cloudflare.Env; workspaceId: string },
-): Promise<string> {
-	const itemIds = Array.from(
-		new Set(Array.from(html.matchAll(pdfImageTagPattern), (match) => match[1] ?? "")),
-	).filter(Boolean);
-	if (itemIds.length === 0) return html;
-
-	const dataUrls = new Map<string, string>();
-	await Promise.all(
-		itemIds.map(async (itemId) => {
-			try {
-				const preview = await readWorkspaceFilePreview({
-					itemId,
-					workspaceId: input.workspaceId,
-				});
-				if (!preview.objectKey) return;
-				const object = await input.env.WORKSPACE_FILES.get(preview.objectKey);
-				if (!object) return;
-				const bytes = new Uint8Array(await object.arrayBuffer());
-				dataUrls.set(itemId, `data:${preview.contentType};base64,${encodeBase64(bytes)}`);
-			} catch {
-				// The document still exports; this image just falls back to alt text.
-			}
-		}),
-	);
-
-	return html.replace(pdfImageTagPattern, (tag, itemId: string) => {
-		const dataUrl = dataUrls.get(itemId);
-		return dataUrl ? tag.replace(/^<img\b/, `<img src="${dataUrl}"`) : tag;
-	});
+/** Resolves image items to preview data URLs, once each per export. */
+function createImageDataUrlResolver(env: Cloudflare.Env, workspaceId: string) {
+	const dataUrls = new Map<string, Promise<string | null>>();
+	return (itemId: string) => {
+		const cached = dataUrls.get(itemId);
+		if (cached) return cached;
+		const dataUrl = (async () => {
+			const preview = await readWorkspaceFilePreview({ itemId, workspaceId });
+			if (!preview.objectKey) return null;
+			const object = await env.WORKSPACE_FILES.get(preview.objectKey);
+			if (!object) return null;
+			const bytes = new Uint8Array(await object.arrayBuffer());
+			return `data:${preview.contentType};base64,${encodeBase64(bytes)}`;
+			// The document still exports when this fails; the image prints as alt text.
+		})().catch(() => null);
+		dataUrls.set(itemId, dataUrl);
+		return dataUrl;
+	};
 }
 
 export async function createWorkspaceDocumentPdf(input: {
@@ -72,9 +51,9 @@ export async function createWorkspaceDocumentPdf(input: {
 		workspaceId: input.workspaceId,
 	});
 	const snapshot = await session.readDocumentSnapshot();
-	const html = await inlineWorkspaceImagesForPdf(
-		await renderWorkspaceDocumentPdfHtml(parseTiptapDocumentJson(snapshot.content)),
-		{ env: input.env, workspaceId: input.workspaceId },
+	const html = await renderWorkspaceDocumentPdfHtml(
+		parseTiptapDocumentJson(snapshot.content),
+		createImageDataUrlResolver(input.env, input.workspaceId),
 	);
 	const response = await input.env.BROWSER.quickAction("pdf", {
 		html,

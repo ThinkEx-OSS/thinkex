@@ -5,7 +5,6 @@ import {
 	importWorkspaceImageFromUrl,
 	uploadWorkspaceImageForItem,
 } from "#/features/workspaces/files/workspace-file-upload";
-import { getWorkspaceUploadValidationError } from "#/features/workspaces/upload/workspace-upload-intake";
 import { getErrorMessage } from "#/lib/error-message";
 
 export interface DocumentImageUploadTarget {
@@ -89,20 +88,11 @@ async function importAndInsertDocumentImage(target: DocumentImageUploadTarget, u
 
 async function uploadAndInsertDocumentImage(target: DocumentImageUploadTarget, sourceFile: File) {
 	// Clipboard image files often arrive nameless; uploads require a name, and
-	// the server appends the right extension from the media type.
+	// the server appends the right extension from the media type. Validation
+	// happens server-side at initiate; its message reaches the same toast.
 	const file = sourceFile.name
 		? sourceFile
 		: new File([sourceFile], "Pasted image", { type: sourceFile.type });
-	const validationError = getWorkspaceUploadValidationError({
-		contentType: file.type,
-		fileName: file.name,
-		sizeBytes: file.size,
-	});
-	if (validationError) {
-		toast.error(validationError.message);
-		return;
-	}
-
 	const upload = uploadWorkspaceImageForItem({
 		file,
 		ownerItemId: target.documentItemId,

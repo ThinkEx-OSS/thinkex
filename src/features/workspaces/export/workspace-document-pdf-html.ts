@@ -81,7 +81,10 @@ const pdfDocumentStyles = `
 	[data-type="taskItem"] > label { flex: 0 0 auto; }
 `;
 
-export async function renderWorkspaceDocumentPdfHtml(document: TiptapDocumentJson) {
+export async function renderWorkspaceDocumentPdfHtml(
+	document: TiptapDocumentJson,
+	resolveImageDataUrl: (itemId: string) => Promise<string | null>,
+) {
 	const schema = getTiptapDocumentSchema();
 	const proseMirrorDocument = schema.nodeFromJSON(document);
 	const { document: htmlDocument } = parseHTML("<html><head></head><body></body></html>");
@@ -94,6 +97,7 @@ export async function renderWorkspaceDocumentPdfHtml(document: TiptapDocumentJso
 	);
 
 	removeUnexportedNodes(article);
+	await inlineImages(article, resolveImageDataUrl);
 	renderMath(article);
 	await renderCodeBlocks(htmlDocument, article);
 
@@ -119,6 +123,21 @@ function removeUnexportedNodes(article: Element) {
 		if (isMermaidCodeLanguage(readCodeBlockLanguage(code))) {
 			code.parentElement?.remove();
 		}
+	}
+}
+
+/**
+ * The PDF renderer runs with JavaScript off and no session cookie, so image
+ * nodes get their preview bytes inlined as data URLs. An unresolvable image
+ * keeps its tag and prints as alt text.
+ */
+async function inlineImages(
+	article: Element,
+	resolveImageDataUrl: (itemId: string) => Promise<string | null>,
+) {
+	for (const image of article.querySelectorAll("img[data-item-id]")) {
+		const dataUrl = await resolveImageDataUrl(image.getAttribute("data-item-id") ?? "");
+		if (dataUrl) image.setAttribute("src", dataUrl);
 	}
 }
 

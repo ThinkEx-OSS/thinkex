@@ -95,7 +95,7 @@ export function createAIThreadImageTools(input: {
 						userId: input.threadContext.userId,
 						workspaceId: input.threadContext.workspaceId,
 					}),
-					{ ...(path ? { path } : {}), ...(ref ? { ref } : {}) },
+					{ path, ref },
 				);
 				freshImages.set(context.invocationId, {
 					bytes: pixels.bytes,

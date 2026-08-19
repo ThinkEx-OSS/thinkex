@@ -57,7 +57,7 @@ async function readImageDescription(itemId: string, workspaceId: string) {
 			pages: "1",
 			workspaceId,
 		});
-		return truncateDescription(page.content);
+		return truncateWorkspaceImageDescription(page.content);
 	} catch {
 		// A missing or broken extraction only costs the description, never the read.
 		return null;
@@ -66,10 +66,6 @@ async function readImageDescription(itemId: string, workspaceId: string) {
 
 /** One attribute-sized line of a stored image description. */
 export function truncateWorkspaceImageDescription(content: string) {
-	return truncateDescription(content);
-}
-
-function truncateDescription(content: string) {
 	const collapsed = content.replace(/\s+/g, " ").trim();
 	if (!collapsed) return null;
 	return collapsed.length > IMAGE_DESCRIPTION_MAX_CHARACTERS
