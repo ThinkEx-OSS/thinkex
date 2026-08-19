@@ -128,9 +128,14 @@ export const Widget = Node.create({
 /**
  * An image stored as a workspace file item. The node carries the item id, not
  * a URL: the client resolves it to an authenticated preview URL, exports
- * inline the actual bytes, and AI reads annotate it with the item's stored
- * description as alt text. Plain `img[src]` deliberately does not parse —
+ * inline the actual bytes, and AI reads return the item's stored description
+ * beside the content. Plain `img[src]` deliberately does not parse —
  * external images enter the workspace through import, never by reference.
+ *
+ * ponytail: the model addresses items by refKey everywhere except here, where
+ * it handles the raw item id. Accepting `data-ref` too (resolved like
+ * citations in create/edit) would unify the currencies; deferred until the
+ * model demonstrably fumbles ids in practice.
  */
 export const WorkspaceImage = Node.create({
 	name: "image",

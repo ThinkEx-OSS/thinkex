@@ -520,9 +520,11 @@ export async function deleteWorkspaceItems(
 		if (sidecarIds.length === 0) return [];
 
 		// Content is JSON text and image nodes store the item id verbatim, so a
-		// LIKE over surviving contents is an exact-enough reference check — the
-		// canonical content can lag a live editing session by one flush, which
-		// only ever errs toward keeping bytes.
+		// LIKE over surviving contents is an exact-enough reference check.
+		// ponytail: canonical content lags a live session by up to one checkpoint
+		// flush (~8s), so copying an image into doc B and deleting doc A inside
+		// that window purges bytes B references. Accepted: the window is small
+		// and the alternative is consulting live sessions on every delete.
 		const orphaned: string[] = [];
 		for (const sidecarId of sidecarIds) {
 			const referenced = await transaction
