@@ -10,11 +10,16 @@ function Slider({
 	max = 100,
 	...props
 }: SliderPrimitive.Root.Props) {
+	// A scalar value is a single-thumb slider. Falling through to [min, max]
+	// renders two thumbs, and Base UI gives both index 0, so they stack: it looks
+	// right while shipping two range inputs per slider to keyboards and AT.
 	const _values = Array.isArray(value)
 		? value
-		: Array.isArray(defaultValue)
-			? defaultValue
-			: [min, max];
+		: value != null
+			? [value]
+			: Array.isArray(defaultValue)
+				? defaultValue
+				: [min];
 
 	return (
 		<SliderPrimitive.Root
