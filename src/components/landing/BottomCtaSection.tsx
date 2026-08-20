@@ -2,10 +2,20 @@ import { Link } from "@tanstack/react-router";
 
 import { Button } from "#/components/ui/button";
 
+const ACCENT_RULE = ["bg-brand-1", "bg-brand-2", "bg-brand-3", "bg-brand-4"] as const;
+
+/** Closing call to action, full bleed above the footer. */
 export function BottomCtaSection() {
 	return (
 		<section className="relative left-1/2 mt-14 w-screen -translate-x-1/2 bg-muted/45 py-16 text-center sm:mt-20 sm:py-24 dark:bg-white/[0.055]">
-			<div className="mx-auto w-full max-w-7xl px-4 sm:px-6">
+			{/* The mark taken apart into a rule across the full width. */}
+			<div className="absolute inset-x-0 bottom-0 flex h-1" aria-hidden="true">
+				{ACCENT_RULE.map((color) => (
+					<span key={color} className={`h-full flex-1 ${color}`} />
+				))}
+			</div>
+
+			<div className="relative mx-auto w-full max-w-7xl px-4 sm:px-6">
 				<h2 className="mx-auto max-w-3xl text-4xl font-medium tracking-tight text-balance sm:text-6xl">
 					Create your workspace
 				</h2>

@@ -1,40 +1,48 @@
 import { FilePen, MousePointer2 } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { cn } from "#/lib/utils";
 
+/** Cursor size, so it can be kept inside the card rather than escaping it. */
+const USER_CURSOR_BOUNDS = { height: 38, padding: 4, width: 62 };
+
+/** A shared document with peers editing it, and your own cursor following. */
 export function CollaborationVisual() {
-	const [userCursor, setUserCursor] = useState<{ x: number; y: number } | null>(null);
+	const userCursorRef = useRef<HTMLDivElement | null>(null);
 	const [userCursorVisible, setUserCursorVisible] = useState(false);
-	const userCursorBounds = {
-		height: 38,
-		padding: 4,
-		width: 62,
-	};
 
 	return (
 		<div
 			className="relative h-full min-h-52 w-full max-w-xl cursor-none overflow-hidden p-1"
+			// Written straight to the node. Holding the position in state re-rendered
+			// this component and its three cursors on every mousemove, which on a
+			// 120Hz trackpad is ~120 React renders a second for a decorative dot.
 			onMouseMove={(event) => {
+				const cursor = userCursorRef.current;
+
+				if (!cursor) {
+					return;
+				}
+
 				const rect = event.currentTarget.getBoundingClientRect();
-				setUserCursor({
-					x: Math.min(
-						Math.max(event.clientX - rect.left, userCursorBounds.padding),
-						rect.width - userCursorBounds.width,
-					),
-					y: Math.min(
-						Math.max(event.clientY - rect.top, userCursorBounds.padding),
-						rect.height - userCursorBounds.height,
-					),
-				});
+				const x = Math.min(
+					Math.max(event.clientX - rect.left, USER_CURSOR_BOUNDS.padding),
+					rect.width - USER_CURSOR_BOUNDS.width,
+				);
+				const y = Math.min(
+					Math.max(event.clientY - rect.top, USER_CURSOR_BOUNDS.padding),
+					rect.height - USER_CURSOR_BOUNDS.height,
+				);
+
+				cursor.style.transform = `translate3d(${x}px, ${y}px, 0)`;
 				setUserCursorVisible(true);
 			}}
 			onMouseLeave={() => setUserCursorVisible(false)}
 		>
 			<div className="flex items-center gap-2 border-border/60 border-b pb-3">
 				<FilePen className="size-5 text-sky-600 dark:text-sky-400" aria-hidden="true" />
-				<div className="text-base font-medium text-muted-foreground">Shared research notes</div>
-				<div className="ml-auto flex -space-x-2">
+				<div className="text-base font-medium">Shared study guide</div>
+				<div className="ml-auto flex -space-x-2" aria-hidden="true">
 					<div className="grid size-7 place-items-center rounded-full border-2 border-background bg-sky-600 text-[0.62rem] font-medium text-white">
 						TM
 					</div>
@@ -46,14 +54,10 @@ export function CollaborationVisual() {
 					</div>
 				</div>
 			</div>
-			<div className="space-y-3 pt-4 text-sm leading-6 text-muted-foreground/85">
-				<p>
-					Prime editing depends on guide RNA design, repair pathway bias, and delivery constraints.
-				</p>
-				<p>Add comparison notes for efficiency across cell types before the methods section.</p>
-				<p>
-					Use the paper table as the source of truth, then summarize the tradeoffs in plain English.
-				</p>
+			<div className="space-y-3 pt-4 text-sm leading-6 text-muted-foreground">
+				<p>Memory works in three stages: encoding, storage, and retrieval.</p>
+				<p>Working memory is small. Most estimates put it near four items, not seven.</p>
+				<p>Spaced practice beats cramming because each recall attempt strengthens the trace.</p>
 			</div>
 			<CollaborationCursor
 				name="Teddy"
@@ -73,23 +77,22 @@ export function CollaborationVisual() {
 				labelClassName="bg-fuchsia-600"
 				pointerClassName="rotate-18"
 			/>
-			{userCursor ? (
-				<div
-					className={cn(
-						"pointer-events-none absolute z-20 flex items-start gap-1 text-orange-600 opacity-0 transition-opacity duration-200 ease-out",
-						userCursorVisible && "opacity-100",
-					)}
-					style={{ left: userCursor.x, top: userCursor.y }}
-				>
-					<MousePointer2
-						className="size-6 -rotate-6 fill-current drop-shadow-sm"
-						aria-hidden="true"
-					/>
-					<span className="mt-4 rounded-sm bg-orange-600 px-2 py-0.5 text-[0.65rem] font-medium text-white shadow-sm">
-						You
-					</span>
-				</div>
-			) : null}
+			<div
+				ref={userCursorRef}
+				aria-hidden="true"
+				className={cn(
+					"pointer-events-none absolute top-0 left-0 z-20 flex items-start gap-1 text-orange-600 opacity-0 transition-opacity duration-200 ease-out",
+					userCursorVisible && "opacity-100",
+				)}
+			>
+				<MousePointer2
+					className="size-6 -rotate-6 fill-current drop-shadow-sm"
+					aria-hidden="true"
+				/>
+				<span className="mt-4 rounded-sm bg-orange-600 px-2 py-0.5 text-[0.65rem] font-medium text-white shadow-sm">
+					You
+				</span>
+			</div>
 		</div>
 	);
 }
@@ -107,8 +110,9 @@ function CollaborationCursor({
 }) {
 	return (
 		<div
+			aria-hidden="true"
 			className={cn(
-				"collaboration-cursor-float pointer-events-none absolute z-10 flex items-start gap-1",
+				"collaboration-cursor-float pointer-events-none absolute z-10 flex items-start gap-1 motion-reduce:animate-none",
 				className,
 			)}
 		>

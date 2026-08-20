@@ -29,7 +29,7 @@ type ToolRow = {
 	support: Record<CapabilityId, Support>;
 };
 
-const TOOLS: ToolRow[] = [
+const TOOLS: ReadonlyArray<ToolRow> = [
 	{
 		name: "ThinkEx",
 		highlighted: true,
@@ -77,6 +77,7 @@ const TOOLS: ToolRow[] = [
 	},
 ];
 
+/** How ThinkEx compares to the tools people already use. */
 export function ComparisonSection() {
 	return (
 		<section className="mt-14 sm:mt-20" aria-label="How others compare">
@@ -163,16 +164,21 @@ export function ComparisonSection() {
 								const support = tool.support[capability.id];
 
 								return (
-									<div key={capability.id} className="flex items-center justify-between gap-4">
-										<dt className="text-sm leading-6 text-muted-foreground">{capability.label}</dt>
-										<dd className="flex shrink-0 items-center gap-2 text-right">
-											{support.note ? (
-												<span className="text-xs leading-6 text-muted-foreground">
-													{support.note}
-												</span>
-											) : null}
+									// The note sits under the label rather than beside it: on a phone
+									// the two competed for the same line and both wrapped to shreds.
+									<div
+										key={capability.id}
+										className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4"
+									>
+										<dt className="text-sm leading-6">{capability.label}</dt>
+										<dd className="flex shrink-0 items-center">
 											<SupportIcon level={support.level} />
 										</dd>
+										{support.note ? (
+											<dd className="col-start-1 text-xs leading-5 text-muted-foreground">
+												{support.note}
+											</dd>
+										) : null}
 									</div>
 								);
 							})}

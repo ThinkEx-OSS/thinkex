@@ -4,11 +4,19 @@
  * 1. Primitives — raw palette. Override --tx-neutral-* in .dark for dark mode.
  * 2. Semantics — map meaning → primitives. Components use these via Tailwind.
  *
- * Logo / brand accent colors are intentionally NOT wired here yet.
- * UI uses neutral chrome + standard utility hues until brand is defined.
+ * Brand accents (--tx-brand-*) come straight from the logo mark in
+ * public/favicon.svg. They are already mid-lightness and low-chroma, so they
+ * carry at full strength without shouting — no muting needed. Use them for
+ * shapes and fills, never for small text: the green misses AA on white.
  */
 
 :root {
+	/* Brand accents — the four squares of the logo mark */
+	--tx-brand-green: oklch(0.738 0.124 146.3); /* #73BF7A */
+	--tx-brand-red: oklch(0.607 0.182 26.1); /* #DA4944 */
+	--tx-brand-blue: oklch(0.637 0.125 259.4); /* #5C8BD6 */
+	--tx-brand-yellow: oklch(0.815 0.151 78.4); /* #F7B53B */
+
 	/* UI utility palette (generic — not logo) */
 	--tx-ui-blue-400: oklch(0.707 0.165 254.6);
 	--tx-ui-blue-500: oklch(0.623 0.214 259.8);
@@ -52,6 +60,10 @@
 	--ring: oklch(0.708 0 0);
 	/* Translucent brand blue (Twitter/X-style): tint only, keep text color */
 	--selection: rgb(37 99 235 / 20%);
+	--brand-1: var(--tx-brand-blue);
+	--brand-2: var(--tx-brand-green);
+	--brand-3: var(--tx-brand-yellow);
+	--brand-4: var(--tx-brand-red);
 	--chart-1: var(--tx-ui-blue-400);
 	--chart-2: var(--tx-ui-blue-600);
 	--chart-3: var(--tx-ui-emerald-500);
