@@ -9,6 +9,7 @@ import { BrowserChromeBar } from "#/components/landing/BrowserChromeBar";
 import { ComparisonSection } from "#/components/landing/ComparisonSection";
 import { FeatureGridSection } from "#/components/landing/FeatureGridSection";
 import { GroundedSection } from "#/components/landing/GroundedSection";
+import { HeroShot } from "#/components/landing/HeroShot";
 import { ItemTypesSection } from "#/components/landing/ItemTypesSection";
 import { LatestBlogSection } from "#/components/landing/LatestBlogSection";
 import { PricingSection } from "#/components/landing/PricingSection";
@@ -64,21 +65,7 @@ export default function LandingPage({ signedIn = false }: LandingPageProps) {
 
 							<div className="mt-10 overflow-hidden rounded-md border border-border bg-background sm:mt-16 dark:bg-black">
 								<BrowserChromeBar />
-								{/* The full-size file is 2936px for a slot that is at most 1232 CSS px
-								    wide, so a phone was downloading and decoding roughly 150KB it could
-								    not use. sizes matches the max-w-7xl container minus its padding. */}
-								<img
-									src="/landing-hero-2936.webp"
-									srcSet="/landing-hero-800.webp 800w, /landing-hero-1200.webp 1200w, /landing-hero-1800.webp 1800w, /landing-hero-2936.webp 2936w"
-									sizes="(min-width: 1280px) 1232px, calc(100vw - 2rem)"
-									alt="ThinkEx workspace with documents, folders, and AI assistant"
-									className="block h-auto w-full"
-									width={2936}
-									height={1642}
-									loading="eager"
-									decoding="async"
-									fetchPriority="high"
-								/>
+								<HeroShot />
 							</div>
 
 							<WorkspaceShowcaseSection />
