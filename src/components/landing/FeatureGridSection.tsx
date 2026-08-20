@@ -33,6 +33,8 @@ export function FeatureGridSection() {
 					description="Choose the right model for the task."
 					visual={<ModelsVisual />}
 				/>
+				{/* Figure per Firecrawl's Research Index docs, checked 2026-08-19:
+				    "roughly 43 million paper abstracts". Recheck before editing it. */}
 				<FeatureCard
 					icon={BookOpenText}
 					iconClassName="text-emerald-600 dark:text-emerald-400"
