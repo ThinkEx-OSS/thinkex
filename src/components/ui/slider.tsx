@@ -42,10 +42,13 @@ function Slider({
 						className="bg-primary select-none data-horizontal:h-full data-vertical:w-full"
 					/>
 				</SliderPrimitive.Track>
-				{_values.map((value) => (
+				{_values.map((_value, index) => (
 					<SliderPrimitive.Thumb
 						data-slot="slider-thumb"
-						key={value}
+						// Keyed by position: keying by value remounts the focused thumb on
+						// every change, so a keyboard drag loses focus after one keypress.
+						// biome-ignore lint/suspicious/noArrayIndexKey: position is the identity
+						key={index}
 						className="block size-4 shrink-0 rounded-full border border-foreground/25 bg-background shadow-sm ring-ring/50 transition-[color,box-shadow] select-none hover:ring-4 focus-visible:ring-4 focus-visible:outline-hidden disabled:pointer-events-none disabled:opacity-50"
 					/>
 				))}
