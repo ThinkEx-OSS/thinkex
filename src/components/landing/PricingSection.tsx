@@ -11,11 +11,6 @@ export function PricingSection() {
 	return (
 		<section id={PRICING_SECTION_ID} className="mt-14 scroll-mt-6 sm:mt-20" aria-label="Pricing">
 			<h2 className="text-3xl font-medium tracking-tight text-balance sm:text-4xl">Pricing</h2>
-			{/* Deliberately quotes no allowances: the cards state them, and they are
-			    defined once in features/account/pricing. */}
-			<p className="mt-4 max-w-2xl text-base leading-7 text-muted-foreground">
-				Start free, no credit card. Upgrade when you outgrow it.
-			</p>
 			<div className="mt-6 grid gap-5 md:grid-cols-2 lg:gap-6 dark:[&_article]:bg-black">
 				{PRICING_PLANS.map((plan) => (
 					<PricingPlanCard

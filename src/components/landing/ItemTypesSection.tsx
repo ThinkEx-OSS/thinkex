@@ -20,14 +20,9 @@ const quizDisplay = getWorkspaceItemTypeDisplay("quiz");
 export function ItemTypesSection() {
 	return (
 		<section className="mt-14 sm:mt-20" aria-label="Create what you need">
-			<div className="max-w-2xl">
-				<h2 className="text-3xl font-medium tracking-tight text-balance sm:text-4xl">
-					Create what you need
-				</h2>
-				<p className="mt-4 text-base leading-7 text-muted-foreground">
-					All made from your own sources and prompts.
-				</p>
-			</div>
+			<h2 className="text-3xl font-medium tracking-tight text-balance sm:text-4xl">
+				Create what you need
+			</h2>
 			<div className="mt-6 grid gap-5 md:grid-cols-2 lg:grid-cols-3 lg:gap-6">
 				<ItemCard
 					title="Flashcards"

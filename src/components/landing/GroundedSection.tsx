@@ -18,14 +18,9 @@ export function GroundedSection() {
 			className="mt-14 scroll-mt-6 sm:mt-20"
 			aria-label="Start with your sources"
 		>
-			<div className="max-w-2xl">
-				<h2 className="text-3xl font-medium tracking-tight text-balance sm:text-4xl">
-					Start with your sources
-				</h2>
-				<p className="mt-4 text-base leading-7 text-muted-foreground">
-					Read them yourself or ask the AI. Either way they stay in your workspace.
-				</p>
-			</div>
+			<h2 className="text-3xl font-medium tracking-tight text-balance sm:text-4xl">
+				Start with your sources
+			</h2>
 			<div className="mt-6 grid gap-5 md:grid-cols-2 lg:grid-cols-3 lg:gap-6">
 				<Panel
 					step={1}

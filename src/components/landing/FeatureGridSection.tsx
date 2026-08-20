@@ -15,16 +15,7 @@ import { ResearchVisual } from "./visuals/ResearchVisual";
 export function FeatureGridSection() {
 	return (
 		<section className="mt-14 sm:mt-20" aria-label="All built in">
-			<div className="max-w-2xl">
-				<h2 className="text-3xl font-medium tracking-tight text-balance sm:text-4xl">
-					All built in
-				</h2>
-				<p className="mt-4 text-base leading-7 text-muted-foreground">
-					No plugins, no extensions, nothing else to set up.
-				</p>
-			</div>
-			{/* Two wide tiles over three narrow ones. Equal cards would read as a
-			    plain grid, and the point of the row is that these are not equal. */}
+			<h2 className="text-3xl font-medium tracking-tight text-balance sm:text-4xl">All built in</h2>
 			<div className="mt-6 grid gap-5 md:grid-cols-2 lg:grid-cols-3 lg:gap-6">
 				<FeatureCard
 					icon={Bot}
