@@ -152,6 +152,7 @@ export function ResearchVisual() {
 						<button
 							key={corpus.id}
 							type="button"
+							aria-pressed={isActive}
 							onClick={() => setActiveId(corpus.id)}
 							onMouseEnter={() => setActiveId(corpus.id)}
 							className={cn(

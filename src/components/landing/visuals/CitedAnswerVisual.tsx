@@ -111,6 +111,7 @@ function CitationMarker({
 	return (
 		<button
 			type="button"
+			aria-pressed={isActive}
 			onClick={() => onSelect(citation.id)}
 			onMouseEnter={() => onSelect(citation.id)}
 			className={cn(

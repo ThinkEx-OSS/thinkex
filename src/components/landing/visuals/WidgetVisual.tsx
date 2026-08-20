@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 
 import { Slider } from "#/components/ui/slider";
 
@@ -120,9 +120,13 @@ function CoefficientSlider({
 	step: number;
 	value: number;
 }) {
+	const labelId = useId();
+
 	return (
 		<div className="flex items-center gap-3">
-			<span className="w-3 shrink-0 font-mono text-xs text-muted-foreground">{label}</span>
+			<span id={labelId} className="w-3 shrink-0 font-mono text-xs text-muted-foreground">
+				{label}
+			</span>
 			<Slider
 				min={min}
 				max={max}
@@ -131,7 +135,9 @@ function CoefficientSlider({
 				// Base UI reports an array for range sliders; this one has a single
 				// thumb, so the first entry is the whole value.
 				onValueChange={(next) => onChange(Array.isArray(next) ? next[0] : next)}
-				aria-label={`Coefficient ${label}`}
+				// aria-labelledby, not aria-label: Root forwards the former to the
+				// range input and drops the latter on the wrapper.
+				aria-labelledby={labelId}
 			/>
 			<span className="w-9 shrink-0 text-right font-mono text-xs tabular-nums">
 				{value.toFixed(2)}
