@@ -1,6 +1,5 @@
-import type { ReactNode } from "react";
-
 import { FEATURES_SECTION_ID } from "#/components/landing/landing-sections";
+import { LandingCard } from "#/components/landing/LandingCard";
 
 import { CitedAnswerVisual } from "./visuals/CitedAnswerVisual";
 import { FoldersVisual } from "./visuals/FoldersVisual";
@@ -22,8 +21,8 @@ export function GroundedSection() {
 				Start with your sources
 			</h2>
 			<div className="mt-6 grid gap-5 md:grid-cols-2 lg:grid-cols-3 lg:gap-6">
-				<Panel
-					step={1}
+				<LandingCard
+					badge={<StepBadge step={1} />}
 					title="Bring everything in"
 					description="PDFs, slides, images, and more."
 					visual={<SourcesVisual />}
@@ -31,14 +30,14 @@ export function GroundedSection() {
 				{/* The least interesting of the three, which is why it sits in the middle:
 				    people scan the ends of a row, so this reads as the step between the
 				    other two rather than as a feature asking to be admired. */}
-				<Panel
-					step={2}
+				<LandingCard
+					badge={<StepBadge step={2} />}
 					title="Organize how you want"
 					description="Folders inside folders, if that helps."
 					visual={<FoldersVisual />}
 				/>
-				<Panel
-					step={3}
+				<LandingCard
+					badge={<StepBadge step={3} />}
 					title="Get cited responses"
 					description="Other apps make things up. ThinkEx shows its work."
 					visual={<CitedAnswerVisual />}
@@ -48,31 +47,14 @@ export function GroundedSection() {
 	);
 }
 
-function Panel({
-	description,
-	step,
-	title,
-	visual,
-}: {
-	description: string;
-	step: number;
-	title: string;
-	visual: ReactNode;
-}) {
+/**
+ * Sits where the other sections put an icon. Outlined rather than filled: the
+ * caption behind it is already tinted, so a `muted` disc would vanish into it.
+ */
+function StepBadge({ step }: { step: number }) {
 	return (
-		<article className="flex min-h-72 flex-col overflow-hidden rounded-md border border-border bg-background dark:bg-black">
-			<div className="flex min-h-0 flex-1 items-center justify-center border-border/60 border-b p-5">
-				{visual}
-			</div>
-			<div className="p-5">
-				<div className="flex items-center gap-2.5">
-					<span className="grid size-6 shrink-0 place-items-center rounded-full bg-muted text-xs font-medium text-muted-foreground">
-						{step}
-					</span>
-					<h3 className="text-xl font-medium tracking-tight text-balance sm:text-2xl">{title}</h3>
-				</div>
-				<p className="mt-3 text-sm leading-6 text-muted-foreground">{description}</p>
-			</div>
-		</article>
+		<span className="grid size-6 shrink-0 place-items-center rounded-full bg-background text-xs font-medium text-muted-foreground ring-1 ring-border">
+			{step}
+		</span>
 	);
 }

@@ -1,6 +1,6 @@
-import { type LucideIcon, Shapes } from "lucide-react";
-import type { ReactNode } from "react";
+import { Shapes } from "lucide-react";
 
+import { LandingCard } from "#/components/landing/LandingCard";
 import { getWorkspaceItemTypeDisplay } from "#/features/workspaces/model/item-display";
 import { workspaceColors } from "#/features/workspaces/model/workspace-colors";
 import { cn } from "#/lib/utils";
@@ -24,57 +24,43 @@ export function ItemTypesSection() {
 				Create what you need
 			</h2>
 			<div className="mt-6 grid gap-5 md:grid-cols-2 lg:grid-cols-3 lg:gap-6">
-				<ItemCard
+				<LandingCard
+					badge={
+						<flashcardDisplay.icon
+							className={cn(
+								"size-6 shrink-0",
+								workspaceColors[flashcardDisplay.color].iconClassName,
+							)}
+							aria-hidden="true"
+						/>
+					}
 					title="Flashcards"
 					description="Study until it sticks."
-					icon={flashcardDisplay.icon}
-					iconClassName={workspaceColors[flashcardDisplay.color].iconClassName}
 					visual={<FlashcardVisual />}
 				/>
-				<ItemCard
+				<LandingCard
+					badge={
+						<quizDisplay.icon
+							className={cn("size-6 shrink-0", workspaceColors[quizDisplay.color].iconClassName)}
+							aria-hidden="true"
+						/>
+					}
 					title="Quizzes"
 					description="Find out what you actually know."
-					icon={quizDisplay.icon}
-					iconClassName={workspaceColors[quizDisplay.color].iconClassName}
 					visual={<QuizVisual />}
 				/>
-				<ItemCard
+				<LandingCard
+					badge={
+						<Shapes
+							className={cn("size-6 shrink-0", workspaceColors.blue.iconClassName)}
+							aria-hidden="true"
+						/>
+					}
 					title="Widgets"
 					description="Interactive tools built for whatever you need."
-					icon={Shapes}
-					iconClassName={workspaceColors.blue.iconClassName}
 					visual={<WidgetVisual />}
 				/>
 			</div>
 		</section>
-	);
-}
-
-function ItemCard({
-	description,
-	icon: Icon,
-	iconClassName,
-	title,
-	visual,
-}: {
-	description: string;
-	icon: LucideIcon;
-	iconClassName: string;
-	title: string;
-	visual: ReactNode;
-}) {
-	return (
-		<article className="flex min-h-72 flex-col overflow-hidden rounded-md border border-border bg-background dark:bg-black">
-			<div className="flex min-h-0 flex-1 items-center justify-center border-border/60 border-b p-5">
-				{visual}
-			</div>
-			<div className="p-5">
-				<div className="flex items-center gap-2">
-					<Icon className={cn("size-6 shrink-0", iconClassName)} aria-hidden="true" />
-					<h3 className="text-xl font-medium tracking-tight text-balance sm:text-2xl">{title}</h3>
-				</div>
-				<p className="mt-3 text-sm leading-6 text-muted-foreground">{description}</p>
-			</div>
-		</article>
 	);
 }
