@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { useState } from "react";
 
 import {
 	getWorkspaceAiChatModelById,
@@ -21,61 +21,14 @@ const MODEL_GROUPS = WORKSPACE_AI_CHAT_PROVIDERS.map((provider) => ({
 
 export function ModelsVisual() {
 	const [selectedModelId, setSelectedModelId] = useState<WorkspaceAiChatModelId>("gpt-terra");
-	const listRef = useRef<HTMLDivElement | null>(null);
-	const rowRefs = useRef<Partial<Record<WorkspaceAiChatModelId, HTMLButtonElement | null>>>({});
-	const [activeIndicator, setActiveIndicator] = useState({ height: 0, top: 0 });
 	// Derived from the registry rather than restated, so a new provider or model
 	// shows up here without an edit. Hoisted out of render: it is constant.
 	const detailModel = getWorkspaceAiChatModelById(selectedModelId);
 	const detailProvider = detailModel.provider === "auto" ? null : detailModel.provider;
 
-	// Layout effect so the bar is placed before paint, and observed so it does not
-	// go stale when the card is resized by its grid, a font load, or zoom.
-	useLayoutEffect(() => {
-		const listElement = listRef.current;
-
-		if (!listElement) {
-			return;
-		}
-
-		const measure = () => {
-			const rowElement = rowRefs.current[selectedModelId];
-
-			if (!rowElement) {
-				return;
-			}
-
-			const listRect = listElement.getBoundingClientRect();
-			const rowRect = rowElement.getBoundingClientRect();
-
-			setActiveIndicator({
-				height: rowRect.height,
-				top: rowRect.top - listRect.top + listElement.scrollTop,
-			});
-		};
-
-		measure();
-
-		const observer = new ResizeObserver(measure);
-		observer.observe(listElement);
-
-		return () => observer.disconnect();
-	}, [selectedModelId]);
-
 	return (
 		<div className="grid h-full min-h-52 w-full grid-cols-[minmax(0,max-content)_minmax(0,1fr)] overflow-hidden">
-			<div
-				ref={listRef}
-				className="relative min-w-0 overflow-y-auto border-border/60 border-r pr-1.5"
-			>
-				<div
-					className="pointer-events-none absolute right-1.5 left-0 rounded-md bg-accent transition-[transform,height,opacity] duration-150 ease-out"
-					style={{
-						height: activeIndicator.height,
-						opacity: activeIndicator.height > 0 ? 1 : 0,
-						transform: `translateY(${activeIndicator.top}px)`,
-					}}
-				/>
+			<div className="relative min-w-0 overflow-y-auto border-border/60 border-r pr-1.5">
 				{MODEL_GROUPS.map((group, groupIndex) => (
 					<div
 						key={group.id}
@@ -92,17 +45,14 @@ export function ModelsVisual() {
 								<button
 									key={model.id}
 									type="button"
-									ref={(element) => {
-										rowRefs.current[model.id] = element;
-									}}
 									onClick={() => setSelectedModelId(model.id)}
 									onMouseEnter={() => setSelectedModelId(model.id)}
 									onFocus={() => setSelectedModelId(model.id)}
 									className={cn(
-										"relative z-10 flex w-full min-w-0 cursor-default items-center gap-3 rounded-md px-3 py-1.5 text-left outline-none transition-colors duration-100",
+										"flex w-full min-w-0 items-center gap-3 rounded-md px-3 py-1.5 text-left transition-colors duration-100 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
 										isSelected
-											? "text-accent-foreground"
-											: "text-foreground hover:text-accent-foreground focus-visible:text-accent-foreground",
+											? "bg-accent text-accent-foreground"
+											: "text-foreground hover:bg-accent/50 hover:text-accent-foreground",
 									)}
 								>
 									<div className="min-w-0 truncate text-sm font-medium">{model.name}</div>
