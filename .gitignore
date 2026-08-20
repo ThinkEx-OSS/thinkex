@@ -44,3 +44,6 @@ public/widget-libs/
 
 # Local agent worktrees
 .claude/worktrees/
+
+# Local research notes; scratch, not part of the published docs site
+docs/research/
