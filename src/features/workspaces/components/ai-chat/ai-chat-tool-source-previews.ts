@@ -26,11 +26,18 @@ export function getToolSourcePreviews(activity: AiChatToolActivity): ToolSourceP
 		case "web_fetch": {
 			const url = getString(input.url);
 			let label = "Page";
-			if (output.kind === "image") label = "Image";
 			if (output.kind === "unsupported") {
 				label = output.reason === "pdf" ? "PDF" : "Unsupported";
 			}
 			return url ? [sourcePreviewFromUrl(url, label)] : [];
+		}
+		case "view_image": {
+			const url = getString(input.url);
+			const label = output.kind === "unsupported" ? "Unsupported" : "Image";
+			if (url) return [sourcePreviewFromUrl(url, label)];
+			const path = getString(input.path) ?? getString(output.source);
+			const title = path?.split("/").filter(Boolean).at(-1) ?? getString(input.ref);
+			return title ? [{ kind: label, title }] : [];
 		}
 		case "research_discover":
 			return [

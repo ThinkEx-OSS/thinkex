@@ -4,6 +4,7 @@ import type { AIThreadContext } from "#/features/workspaces/ai/ai-thread-metadat
 import { requireAiToolDefinition } from "#/features/workspaces/ai/ai-tool-registry";
 import type { AiCodemodeActivityListener } from "#/features/workspaces/ai/codemode-tool";
 import { createAiChatCodemodeTool } from "#/features/workspaces/ai/codemode-tool";
+import { createAIThreadImageTools } from "#/features/workspaces/ai/image-tools";
 import { createAIThreadQuestionTools } from "#/features/workspaces/ai/question-tools";
 import { createAIThreadResearchTools } from "#/features/workspaces/ai/research-tools";
 import { createAIThreadSkillTools } from "#/features/workspaces/ai/skill-tools";
@@ -25,6 +26,7 @@ export function createAiChatTools(input: {
 }): ToolSet {
 	const tools: ToolSet = {
 		...createAIThreadWebTools(input.env),
+		...createAIThreadImageTools({ env: input.env, threadContext: input.threadContext }),
 		...createAIThreadResearchTools(input.env),
 		...createAIThreadTimeTools({ defaultTimeZone: input.timeZone }),
 		...createAIThreadSkillTools(),

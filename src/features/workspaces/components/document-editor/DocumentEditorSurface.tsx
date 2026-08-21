@@ -1,8 +1,8 @@
 import Collaboration from "@tiptap/extension-collaboration";
 import CollaborationCaret from "@tiptap/extension-collaboration-caret";
-import { EditorContent, useEditor } from "@tiptap/react";
+import { EditorContent, useEditor, type Editor } from "@tiptap/react";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Skeleton } from "#/components/ui/skeleton";
 import { sendComposerPrompt } from "#/features/workspaces/composer/workspace-composer-actions";
@@ -15,6 +15,10 @@ import { useWorkspaceItemToolbar } from "#/features/workspaces/components/Worksp
 import { useWorkspacePaneRuntime } from "#/features/workspaces/components/WorkspacePaneRuntime";
 import { useWorkspaceMutationAccess } from "#/features/workspaces/components/workspace-mutation-access";
 import { DocumentEditReviewExtension } from "#/features/workspaces/documents/document-edit-review-extension";
+import {
+	importDocumentImagesFromPastedHtml,
+	insertDocumentImageFiles,
+} from "#/features/workspaces/documents/document-image-upload";
 import { DocumentWidgetActionProvider } from "#/features/workspaces/documents/document-widget-node";
 import {
 	getTiptapDocumentBaseExtensions,
@@ -82,6 +86,9 @@ function DocumentEditorInstance({
 	const { capabilities } = useWorkspaceMutationAccess();
 	const paneRuntime = useWorkspacePaneRuntime();
 	const [scrollTarget, setScrollTarget] = useState<HTMLDivElement | null>(null);
+	// Paste/drop handlers live inside the editor's own options, so they reach
+	// the instance through a ref instead of the (circular) `editor` binding.
+	const editorRef = useRef<Editor | null>(null);
 	const editor = useEditor({
 		immediatelyRender: false,
 		autofocus: capabilities.canMutateContent ? "start" : false,
@@ -97,6 +104,48 @@ function DocumentEditorInstance({
 					? `${item.name} editor`
 					: `${item.name} document`,
 				class: "workspace-document-prose min-h-full py-4 outline-none",
+			},
+			handlePaste: (_view, event) => {
+				const activeEditor = editorRef.current;
+				if (!capabilities.canMutateContent || !activeEditor) {
+					return false;
+				}
+				const target = { documentItemId: item.id, editor: activeEditor, workspaceId };
+				const html = event.clipboardData?.getData("text/html") ?? "";
+				// Office apps put a bitmap of the copied selection on the clipboard
+				// beside the HTML; taking the file would paste a screenshot of an
+				// editable table. When HTML is present it wins, and any external
+				// images it references import in the background.
+				if (html.trim()) {
+					importDocumentImagesFromPastedHtml(target, html);
+					return false;
+				}
+				const files = Array.from(event.clipboardData?.files ?? []);
+				return (
+					files.length > 0 &&
+					files.every((file) => file.type.startsWith("image/")) &&
+					insertDocumentImageFiles(target, files)
+				);
+			},
+			handleDrop: (_view, event, _slice, moved) => {
+				const activeEditor = editorRef.current;
+				if (moved || !capabilities.canMutateContent || !activeEditor) {
+					return false;
+				}
+				// Claim only all-image drops; a mixed drop falls through to the
+				// workspace-level handler that files everything as uploads.
+				const files = Array.from(event.dataTransfer?.files ?? []);
+				if (files.length === 0 || !files.every((file) => file.type.startsWith("image/"))) {
+					return false;
+				}
+				const handled = insertDocumentImageFiles(
+					{ documentItemId: item.id, editor: activeEditor, workspaceId },
+					files,
+				);
+				if (handled) {
+					event.preventDefault();
+				}
+				return handled;
 			},
 			handleKeyDown: (_view, event) => {
 				if (event.key !== "Escape") {
@@ -123,6 +172,9 @@ function DocumentEditorInstance({
 			},
 		},
 	});
+	useEffect(() => {
+		editorRef.current = editor;
+	}, [editor]);
 	const { complete: completeRevealRequest, request: revealRequest } = useWorkspaceRevealRequest(
 		viewInstanceId,
 		"document-block",

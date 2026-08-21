@@ -141,6 +141,8 @@ export function getRunningToolSummary(input: {
 			return summary.running("Reading ", {
 				name: formatUrlWithPath(getString(toolInput.url)),
 			});
+		case "view_image":
+			return summary.running("Viewing ", { name: formatViewImageTarget(toolInput) });
 		case "web_search":
 			return summary.running("Searching for ", ...name(getString(toolInput.query)));
 		case "research_deepen":
@@ -207,6 +209,8 @@ export function getFinishedToolSummary(input: {
 			return summarizeWebSearch(input.output, input.toolInput);
 		case "web_fetch":
 			return summarizeWebFetch(input.output, input.toolInput);
+		case "view_image":
+			return summarizeViewImage(input.output, input.toolInput);
 		case "research_discover":
 			return summarizeResearchDiscover(input.output, input.toolInput);
 		case "research_deepen":
@@ -256,6 +260,8 @@ function summarizeFailedTool(
 				: summary.failed("Couldn’t read workspace");
 		case "workspace_search_items":
 			return summary.failed("Couldn’t search workspace");
+		case "view_image":
+			return summary.failed("Couldn’t view ", { name: formatViewImageTarget(asRecord(toolInput)) });
 		default:
 			return summary.failed(`${capitalize(formatToolNameFallback(toolName))} failed`);
 	}
@@ -491,7 +497,24 @@ function summarizeWebFetch(output: unknown, toolInput: unknown): AiChatToolSumma
 	const kind = getString(asRecord(output).kind);
 	const target = { name: formatUrlWithPath(getString(asRecord(toolInput).url)) };
 	if (kind === "unsupported") return summary.completed("Couldn’t read ", target);
-	return summary.completed(kind === "image" ? "Inspected " : "Read ", target);
+	return summary.completed("Read ", target);
+}
+
+function summarizeViewImage(output: unknown, toolInput: unknown): AiChatToolSummary {
+	const target = { name: formatViewImageTarget(asRecord(toolInput)) };
+	if (getString(asRecord(output).kind) === "unsupported") {
+		return summary.completed("Couldn’t view ", target);
+	}
+	return summary.completed("Viewed ", target);
+}
+
+/** The image the model asked to see, named the way the user knows it. */
+function formatViewImageTarget(toolInput: Record<string, unknown>) {
+	const url = getString(toolInput.url);
+	if (url) return formatUrlWithPath(url);
+	const path = getString(toolInput.path);
+	if (path) return getBaseName(path) ?? "an image";
+	return getString(toolInput.ref) ?? "an image";
 }
 
 function summarizeResearchDiscover(output: unknown, toolInput: unknown): AiChatToolSummary {

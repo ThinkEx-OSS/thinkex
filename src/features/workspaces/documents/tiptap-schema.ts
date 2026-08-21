@@ -125,6 +125,59 @@ export const Widget = Node.create({
 	},
 });
 
+/**
+ * An image stored as a workspace file item. The node carries the item id, not
+ * a URL: the client resolves it to an authenticated preview URL, exports
+ * inline the actual bytes, and AI reads return the item's stored description
+ * beside the content. Plain `img[src]` deliberately does not parse —
+ * external images enter the workspace through import, never by reference.
+ *
+ * ponytail: the model addresses items by refKey everywhere except here, where
+ * it handles the raw item id. Accepting `data-ref` too (resolved like
+ * citations in create/edit) would unify the currencies; deferred until the
+ * model demonstrably fumbles ids in practice.
+ */
+export const WorkspaceImage = Node.create({
+	name: "image",
+	group: "block",
+	atom: true,
+	selectable: true,
+	draggable: true,
+
+	addAttributes() {
+		return {
+			itemId: { default: null, parseHTML: (el) => el.getAttribute("data-item-id") },
+			alt: {
+				default: null,
+				parseHTML: (el) => el.getAttribute("alt"),
+			},
+		};
+	},
+
+	parseHTML() {
+		return [{ tag: "img[data-item-id]" }];
+	},
+
+	renderHTML({ node }) {
+		return [
+			"img",
+			{
+				"data-item-id": node.attrs.itemId ? String(node.attrs.itemId) : null,
+				...(node.attrs.alt ? { alt: String(node.attrs.alt) } : {}),
+			},
+		];
+	},
+
+	// Markdown exports link the image's item id: the exported archive carries
+	// the image bytes as their own file, and the id is the one stable handle.
+	renderMarkdown(node: { attrs?: Record<string, unknown> }) {
+		const itemId = typeof node.attrs?.itemId === "string" ? node.attrs.itemId : "";
+		const alt =
+			typeof node.attrs?.alt === "string" ? node.attrs.alt.replaceAll(/[\n\]]/g, " ") : "";
+		return `![${alt}](${itemId})`;
+	},
+});
+
 export const tiptapDocumentAiRefAttribute = "aiRef";
 
 const DocumentAiRef = Extension.create({
@@ -170,15 +223,18 @@ export const tiptapDocumentServerCodeBlock = CodeBlock;
 export function getTiptapDocumentSchemaExtensions({
 	citation = Citation,
 	codeBlock = tiptapDocumentServerCodeBlock,
+	image = WorkspaceImage,
 	widget = Widget,
 }: {
 	citation?: AnyExtension;
 	codeBlock?: AnyExtension;
+	image?: AnyExtension;
 	widget?: AnyExtension;
 } = {}) {
 	return [
 		DocumentAiRef,
 		citation,
+		image,
 		StarterKit.configure({
 			heading: {
 				levels: [1, 2, 3, 4],

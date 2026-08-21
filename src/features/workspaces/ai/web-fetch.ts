@@ -23,12 +23,6 @@ export const webFetchOutputSchema = z.discriminatedUnion("kind", [
 		truncated: z.boolean(),
 	}),
 	z.object({
-		kind: z.literal("image"),
-		url: z.url(),
-		mediaType: z.literal("image/jpeg"),
-		sizeBytes: z.number().int().positive(),
-	}),
-	z.object({
 		kind: z.literal("unsupported"),
 		url: z.url(),
 		mediaType: z.string().nullable(),
@@ -37,41 +31,62 @@ export const webFetchOutputSchema = z.discriminatedUnion("kind", [
 	}),
 ]);
 
+// `source` rather than `url`: view_image reads workspace paths too, and the
+// workspace arm reuses this schema verbatim.
+export const webImageFetchOutputSchema = z.discriminatedUnion("kind", [
+	z.object({
+		kind: z.literal("image"),
+		source: z.string().min(1),
+		mediaType: z.literal("image/jpeg"),
+		sizeBytes: z.number().int().positive(),
+	}),
+	z.object({
+		kind: z.literal("unsupported"),
+		source: z.string().min(1),
+		mediaType: z.string().nullable(),
+		reason: z.enum(["pdf", "media_type"]),
+		message: z.string(),
+	}),
+]);
+
 export type WebFetchOutput = z.output<typeof webFetchOutputSchema>;
+export type WebImageFetchOutput = z.output<typeof webImageFetchOutputSchema>;
 
 export interface FreshWebImage {
 	bytes: ArrayBuffer;
 	mediaType: "image/jpeg";
 }
 
-export async function fetchPublicWebResource(input: {
+export async function fetchPublicWebPage(input: {
 	abortSignal?: AbortSignal;
 	env: Cloudflare.Env;
-	kind: "page" | "image";
 	url: string;
-}): Promise<{ image?: FreshWebImage; output: WebFetchOutput }> {
+}): Promise<WebFetchOutput> {
 	const requestedUrl = assertPublicHttpUrl(input.url);
-	if (input.kind === "page") {
-		if (requestedUrl.pathname.toLowerCase().endsWith(".pdf")) {
-			return unsupportedPdf(requestedUrl.toString());
-		}
-
-		const url = requestedUrl.toString();
-		const content = await scrapePublicWebPage({
-			abortSignal: input.abortSignal,
-			env: input.env,
-			url,
-		});
-		return {
-			output: {
-				kind: "page",
-				url,
-				content: content.slice(0, MAX_PAGE_CHARACTERS),
-				truncated: content.length > MAX_PAGE_CHARACTERS,
-			},
-		};
+	if (requestedUrl.pathname.toLowerCase().endsWith(".pdf")) {
+		return unsupportedPdf(requestedUrl.toString()).output;
 	}
 
+	const url = requestedUrl.toString();
+	const content = await scrapePublicWebPage({
+		abortSignal: input.abortSignal,
+		env: input.env,
+		url,
+	});
+	return {
+		kind: "page",
+		url,
+		content: content.slice(0, MAX_PAGE_CHARACTERS),
+		truncated: content.length > MAX_PAGE_CHARACTERS,
+	};
+}
+
+export async function fetchPublicWebImage(input: {
+	abortSignal?: AbortSignal;
+	env: Cloudflare.Env;
+	url: string;
+}): Promise<{ image?: FreshWebImage; output: WebImageFetchOutput }> {
+	const requestedUrl = assertPublicHttpUrl(input.url);
 	const { response, url } = await fetchImageFollowingPublicRedirects(
 		requestedUrl,
 		input.abortSignal,
@@ -80,7 +95,15 @@ export async function fetchPublicWebResource(input: {
 
 	if (mediaType === "application/pdf") {
 		await response.body?.cancel();
-		return unsupportedPdf(url, mediaType);
+		return {
+			output: {
+				kind: "unsupported",
+				source: url,
+				mediaType,
+				reason: "pdf",
+				message: UNSUPPORTED_PDF_MESSAGE,
+			},
+		};
 	}
 
 	if (!mediaType || !supportedImageMediaTypes.has(mediaType)) {
@@ -88,7 +111,7 @@ export async function fetchPublicWebResource(input: {
 		return {
 			output: {
 				kind: "unsupported",
-				url,
+				source: url,
 				mediaType,
 				reason: "media_type",
 				message: mediaType
@@ -112,11 +135,50 @@ export async function fetchPublicWebResource(input: {
 		image: { bytes: normalized.bytes, mediaType: normalized.contentType },
 		output: {
 			kind: "image",
-			url,
+			source: url,
 			mediaType: normalized.contentType,
 			sizeBytes: normalized.sizeBytes,
 		},
 	};
+}
+
+/**
+ * Downloads a public image for import into workspace storage: same SSRF and
+ * redirect policy as the AI's image fetch, but the original bytes rather than
+ * a model-sized re-encode. Callers validate the media type against the upload
+ * formats — this only guarantees "public, an image by content type, bounded".
+ */
+export async function fetchPublicImageForImport(input: {
+	abortSignal?: AbortSignal;
+	maxBytes: number;
+	url: string;
+}): Promise<{ bytes: ArrayBuffer; fileName: string; mediaType: string }> {
+	const requestedUrl = assertPublicHttpUrl(input.url);
+	const { response, url } = await fetchImageFollowingPublicRedirects(
+		requestedUrl,
+		input.abortSignal,
+	);
+	const mediaType = normalizeMediaType(response.headers.get("content-type"));
+
+	if (!mediaType?.startsWith("image/")) {
+		await response.body?.cancel();
+		throw new Error("This URL did not return an image.");
+	}
+	if (!response.body) {
+		throw new Error("The image response did not include a body.");
+	}
+	await assertContentLengthWithinLimit(response, input.maxBytes);
+
+	const bytes = await new Response(
+		limitReadableStream(response.body, input.maxBytes),
+	).arrayBuffer();
+	// Validation matches by media type first and the upload path appends the
+	// right extension itself, so the URL's last segment is only a display name.
+	const lastSegment = decodeURIComponent(
+		new URL(url).pathname.split("/").filter(Boolean).at(-1) ?? "",
+	);
+
+	return { bytes, fileName: lastSegment || "Imported image", mediaType };
 }
 
 async function fetchImageFollowingPublicRedirects(input: URL, abortSignal?: AbortSignal) {
@@ -164,6 +226,9 @@ async function assertContentLengthWithinLimit(response: Response, maxBytes: numb
 	}
 }
 
+const UNSUPPORTED_PDF_MESSAGE =
+	"Public PDFs are not supported here. Ask the user to upload the PDF to the workspace, then read it with workspace_read_items.";
+
 function unsupportedPdf(url: string, mediaType: string | null = "application/pdf") {
 	return {
 		output: {
@@ -171,8 +236,7 @@ function unsupportedPdf(url: string, mediaType: string | null = "application/pdf
 			url,
 			mediaType,
 			reason: "pdf" as const,
-			message:
-				"Public PDFs are not supported here. Ask the user to upload the PDF to the workspace, then read it with workspace_read_items.",
+			message: UNSUPPORTED_PDF_MESSAGE,
 		},
 	};
 }

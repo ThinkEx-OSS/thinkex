@@ -7,12 +7,16 @@ export function toArrayBuffer(bytes: Uint8Array) {
 	return copy.buffer;
 }
 
-export function encodeBase64Url(bytes: Uint8Array) {
+export function encodeBase64(bytes: Uint8Array) {
 	let binary = "";
 	for (const byte of bytes) {
 		binary += String.fromCharCode(byte);
 	}
-	return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
+	return btoa(binary);
+}
+
+export function encodeBase64Url(bytes: Uint8Array) {
+	return encodeBase64(bytes).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
 }
 
 export function decodeBase64Url(value: string) {

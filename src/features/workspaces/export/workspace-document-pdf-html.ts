@@ -40,6 +40,7 @@ const pdfDocumentStyles = `
 	a { color: #1558b0; text-decoration: underline; }
 	mark { background: #fff1a8; }
 	hr { margin: 1.25em 0; border: 0; border-top: 1px solid #d8d8d8; }
+	img { max-width: 100%; max-height: 7.5in; height: auto; margin: 0.6em 0; border-radius: 6px; break-inside: avoid; }
 	table { width: 100%; margin: 1em 0; border-collapse: collapse; table-layout: fixed; }
 	tr { break-inside: avoid; }
 	th, td { padding: 0.45em 0.55em; border: 1px solid #cfcfcf; text-align: left; vertical-align: top; }
@@ -80,7 +81,10 @@ const pdfDocumentStyles = `
 	[data-type="taskItem"] > label { flex: 0 0 auto; }
 `;
 
-export async function renderWorkspaceDocumentPdfHtml(document: TiptapDocumentJson) {
+export async function renderWorkspaceDocumentPdfHtml(
+	document: TiptapDocumentJson,
+	resolveImageDataUrl: (itemId: string) => Promise<string | null>,
+) {
 	const schema = getTiptapDocumentSchema();
 	const proseMirrorDocument = schema.nodeFromJSON(document);
 	const { document: htmlDocument } = parseHTML("<html><head></head><body></body></html>");
@@ -93,6 +97,7 @@ export async function renderWorkspaceDocumentPdfHtml(document: TiptapDocumentJso
 	);
 
 	removeUnexportedNodes(article);
+	await inlineImages(article, resolveImageDataUrl);
 	renderMath(article);
 	await renderCodeBlocks(htmlDocument, article);
 
@@ -118,6 +123,21 @@ function removeUnexportedNodes(article: Element) {
 		if (isMermaidCodeLanguage(readCodeBlockLanguage(code))) {
 			code.parentElement?.remove();
 		}
+	}
+}
+
+/**
+ * The PDF renderer runs with JavaScript off and no session cookie, so image
+ * nodes get their preview bytes inlined as data URLs. An unresolvable image
+ * keeps its tag and prints as alt text.
+ */
+async function inlineImages(
+	article: Element,
+	resolveImageDataUrl: (itemId: string) => Promise<string | null>,
+) {
+	for (const image of article.querySelectorAll("img[data-item-id]")) {
+		const dataUrl = await resolveImageDataUrl(image.getAttribute("data-item-id") ?? "");
+		if (dataUrl) image.setAttribute("src", dataUrl);
 	}
 }
 
