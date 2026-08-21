@@ -1,17 +1,19 @@
 import { useChat } from "@ai-sdk/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DefaultChatTransport, generateId } from "ai";
-import { useEffect, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 
 import { BILLING_STATE_QUERY_KEY } from "#/features/account/use-billing-state";
 import { getAiChatThreadUrl } from "#/features/workspaces/agent-routes";
 import {
-	aiChatThreadMessagesQueryKey,
-	aiChatThreadMessagesQueryOptions,
+	aiChatThreadTranscriptQueryKey,
+	aiChatThreadTranscriptQueryOptions,
 	aiChatThreadsQueryKey,
 } from "#/features/workspaces/ai/chat/chat-queries";
+import type { SerializedAiChatThreadTranscript } from "#/features/workspaces/ai/chat/functions";
 import { deriveAiChatPresentation } from "#/features/workspaces/components/ai-chat/ai-chat-display-state";
 import { isAiChatUsageLimitResponse } from "#/features/workspaces/components/ai-chat/ai-chat-error-state";
+import { serverTranscriptAdvanced } from "#/features/workspaces/components/ai-chat/ai-chat-transcript-recovery";
 import {
 	parseCodemodeActivityEvent,
 	type AiChatLiveCodemodeActivity,
@@ -46,12 +48,29 @@ export function useWorkspaceAiChat({
 	workspaceId,
 	getWorkspaceAiContext,
 }: UseWorkspaceAiChatOptions) {
+	const [requestAccepted, setRequestAccepted] = useState(false);
+	const [pendingStop, setPendingStop] = useState(false);
+	const [isStopping, setIsStopping] = useState(false);
+	const stopRequestRef = useRef<Promise<boolean> | null>(null);
+	const deferredStopRef = useRef<{
+		promise: Promise<boolean>;
+		resolve: (stopped: boolean) => void;
+	} | null>(null);
 	// The transport is static per thread. The *current* model and workspace
 	// ride each send's request body instead of living in the transport — the
 	// send/regenerate closures re-form every render, so they always carry the
 	// latest props without refs or effect events.
-	const transport = createAiChatTransport(threadId);
+	const transport = createAiChatTransport(threadId, () => setRequestAccepted(true));
 	const queryClient = useQueryClient();
+	const markTranscriptActive = () => {
+		queryClient.setQueryData<SerializedAiChatThreadTranscript>(
+			aiChatThreadTranscriptQueryKey(threadId),
+			(current) => ({
+				isTurnActive: true,
+				messages: current?.messages ?? [],
+			}),
+		);
+	};
 	// Live progress for orchestrate (Code Mode) runs: transient stream parts,
 	// latest event per call id. Never persisted — settled tool parts carry a
 	// durable record — so the map only matters while its turn streams.
@@ -86,12 +105,36 @@ export function useWorkspaceAiChat({
 		// Deliberately not on every turn end — that would spend an Autumn
 		// round-trip per message to close a window the server gate already covers.
 		onError: (chatError) => {
+			deferredStopRef.current?.resolve(false);
+			deferredStopRef.current = null;
+			setRequestAccepted(false);
+			setPendingStop(false);
+			setIsStopping(false);
+			// A refused request and a severed live stream look identical locally.
+			// Block sends until Postgres says whether the Worker still owns the turn.
+			markTranscriptActive();
+			void queryClient.invalidateQueries({
+				queryKey: aiChatThreadTranscriptQueryKey(threadId),
+			});
 			if (isAiChatUsageLimitResponse(chatError)) {
 				void queryClient.invalidateQueries({ queryKey: BILLING_STATE_QUERY_KEY });
 			}
 		},
+		onFinish: () => {
+			// Natural completion or the local abort after an acknowledged Stop both
+			// make it safe for the convenience queue to continue.
+			deferredStopRef.current?.resolve(true);
+			deferredStopRef.current = null;
+			setRequestAccepted(false);
+			setPendingStop(false);
+			setIsStopping(false);
+			void queryClient.invalidateQueries({
+				queryKey: aiChatThreadTranscriptQueryKey(threadId),
+			});
+		},
 	});
 	const {
+		clearError,
 		error,
 		messages,
 		regenerate: regenerateChatMessage,
@@ -104,7 +147,7 @@ export function useWorkspaceAiChat({
 	// Transcript seed via react-query: an instant paint from cache on remount,
 	// with a background refetch. The server is the source of truth; an empty
 	// result is a valid (new/draft) thread.
-	const transcriptQuery = useQuery(aiChatThreadMessagesQueryOptions(threadId));
+	const transcriptQuery = useQuery(aiChatThreadTranscriptQueryOptions(threadId));
 	// A failed transcript load must NOT present as an empty, sendable thread —
 	// sending into unseen history would fork the conversation. It surfaces as a
 	// connection error (react-query keeps retrying) and blocks the composer.
@@ -114,47 +157,40 @@ export function useWorkspaceAiChat({
 		: undefined;
 	// The wire type is plain JSON (see SerializedUiMessage); these rows were
 	// UIMessages when persisted, so the cast back is faithful.
-	const transcriptData = transcriptQuery.data as AiChatMessage[] | undefined;
+	const transcript = transcriptQuery.data;
+	const transcriptData = transcript?.messages as AiChatMessage[] | undefined;
+	const serverTurnActive = transcript?.isTurnActive ?? false;
 
 	useEffect(() => {
-		if (!transcriptData || transcriptData.length === 0 || status !== "ready") {
+		const recoveredAfterError =
+			status === "error" &&
+			Boolean(transcriptData && serverTranscriptAdvanced(messages, transcriptData));
+		if (!transcriptData || serverTurnActive || (status !== "ready" && !recoveredAfterError)) {
 			return;
 		}
 
-		// Seed only while the live chat is idle: adopt the stored transcript when
-		// it is longer (cold mount) or same-length-but-different (a remount seeded
-		// a stale cache entry that a background refetch then corrected — length
-		// alone can't see that). A shorter store never wins: mid-regenerate the
-		// server transcript is intentionally behind the live stream.
-		setMessages((current) =>
-			current.length < transcriptData.length ||
-			(current.length === transcriptData.length && current.at(-1)?.id !== transcriptData.at(-1)?.id)
-				? transcriptData
-				: current,
-		);
-	}, [setMessages, status, transcriptData]);
-
-	// Write settled transcripts back to the query cache so a remount paints the
-	// latest state instantly (the successor of the old client-side LRU cache).
-	useEffect(() => {
-		if (status !== "ready" || messages.length === 0) {
-			return;
+		// Once Postgres says the turn is settled, its complete snapshot wins. IDs
+		// and lengths are insufficient: the SDK's local row can share an id with
+		// the durable row while lacking its interrupted/error metadata.
+		setMessages(transcriptData);
+		if (recoveredAfterError) {
+			clearError();
 		}
-
-		queryClient.setQueryData(aiChatThreadMessagesQueryKey(threadId), messages);
-	}, [messages, queryClient, status, threadId]);
+	}, [clearError, messages, serverTurnActive, setMessages, status, transcriptData]);
 
 	// True from the stop click until the server confirms the stopped turn
 	// settled (its interrupted partial persisted, claim cleared). Gating sends
 	// on it means a stop-then-send-now never races the dying turn.
-	const [isStopping, setIsStopping] = useState(false);
-	const presentation = deriveAiChatPresentation(messages, status);
+	// Reloading severs only the browser stream; the Worker keeps generating.
+	// The server claim remains authoritative until its durable outcome lands.
+	const recoveredStatus: AiChatStatus = serverTurnActive ? "streaming" : status;
+	const presentation = deriveAiChatPresentation(messages, recoveredStatus);
 	const connectionError = transcriptLoadError ?? (!historyReady && error ? error : undefined);
 	const inputStatus: AiChatStatus = connectionError
 		? "error"
-		: status === "error"
+		: recoveredStatus === "error"
 			? "ready"
-			: status;
+			: recoveredStatus;
 	const canSend = historyReady && inputStatus === "ready" && !presentation.isBusy && !isStopping;
 
 	const sendMessage = (message: AiChatSendMessage, options?: AiChatSendMessageOptions) => {
@@ -164,6 +200,8 @@ export function useWorkspaceAiChat({
 
 		const isFirstMessage = messages.length === 0;
 
+		setRequestAccepted(false);
+		markTranscriptActive();
 		void sendChatMessage(message, withRequestContext(options)).then(() => {
 			// A draft thread's row materializes on its first message. The generated
 			// title arrives mid-stream via onData; this covers the row itself for
@@ -186,6 +224,8 @@ export function useWorkspaceAiChat({
 			const index = current.findIndex((entry) => entry.id === message.id);
 			return index === -1 ? current : current.slice(0, index);
 		});
+		setRequestAccepted(false);
+		markTranscriptActive();
 		void sendChatMessage(message, withRequestContext());
 	};
 	const regenerate = (options?: AiChatSendMessageOptions) => {
@@ -202,10 +242,14 @@ export function useWorkspaceAiChat({
 			// treats a resent id as truncate-and-rerun. Pop first so the SDK's
 			// push doesn't duplicate it locally.
 			setMessages((current) => current.slice(0, -1));
+			setRequestAccepted(false);
+			markTranscriptActive();
 			void sendChatMessage(last, withRequestContext(options));
 			return;
 		}
 
+		setRequestAccepted(false);
+		markTranscriptActive();
 		void regenerateChatMessage(withRequestContext(options));
 	};
 	const withRequestContext = (options?: AiChatSendMessageOptions): AiChatSendMessageOptions => ({
@@ -220,14 +264,76 @@ export function useWorkspaceAiChat({
 
 	// Stop is explicit and server-side: closing the SSE branch alone never
 	// aborts generation (Workers don't fire request.signal). The stop endpoint
-	// tombstones the claim and responds only after the stopped turn settles.
-	const stopTurn = () => {
+	// durably tombstones the claim; transcript polling observes settlement.
+	const sendStopRequest = (): Promise<boolean> => {
+		if (stopRequestRef.current) {
+			return stopRequestRef.current;
+		}
+
+		// The stop endpoint acknowledges durable intent, not terminal settlement.
+		// Mark the cached snapshot active before closing the browser stream so the
+		// local queue cannot drain until polling observes the released claim.
+		markTranscriptActive();
 		setIsStopping(true);
-		void fetch(`${getAiChatThreadUrl(threadId)}/stop`, { method: "POST" })
-			.catch(() => {})
-			.finally(() => setIsStopping(false));
-		void stop();
+		const request = fetch(`${getAiChatThreadUrl(threadId)}/stop`, { method: "POST" })
+			.then((response) => {
+				deferredStopRef.current?.resolve(response.ok);
+				deferredStopRef.current = null;
+				if (!response.ok) {
+					return false;
+				}
+				// Only close the local stream after the server has persisted the
+				// stop tombstone. Postgres polling owns terminal settlement.
+				void stop();
+				void queryClient.invalidateQueries({
+					queryKey: aiChatThreadTranscriptQueryKey(threadId),
+				});
+				return true;
+			})
+			.catch(() => {
+				deferredStopRef.current?.resolve(false);
+				deferredStopRef.current = null;
+				return false;
+			})
+			.finally(() => {
+				stopRequestRef.current = null;
+				setPendingStop(false);
+				setIsStopping(false);
+			});
+		stopRequestRef.current = request;
+		return request;
 	};
+	const stopTurn = (): Promise<boolean> => {
+		setIsStopping(true);
+		// useChat exposes Stop before the transport has a response. At that point
+		// the streaming request may not have acquired its database claim yet, so a
+		// concurrent stop request could arrive first and stop nothing. Remember the
+		// click locally and send it as soon as the successful response proves the
+		// turn has been accepted. The queue itself remains local and disposable.
+		if (status !== "ready" && !requestAccepted) {
+			setPendingStop(true);
+			if (!deferredStopRef.current) {
+				let resolve!: (stopped: boolean) => void;
+				const promise = new Promise<boolean>((resolvePromise) => {
+					resolve = resolvePromise;
+				});
+				deferredStopRef.current = { promise, resolve };
+			}
+			return deferredStopRef.current.promise;
+		}
+
+		setPendingStop(false);
+		return sendStopRequest();
+	};
+	const sendAcceptedStop = useEffectEvent(sendStopRequest);
+	useEffect(() => {
+		if (requestAccepted && pendingStop) {
+			void sendAcceptedStop().then((stopped) => {
+				deferredStopRef.current?.resolve(stopped);
+				deferredStopRef.current = null;
+			});
+		}
+	}, [pendingStop, requestAccepted]);
 
 	return {
 		canSend,
@@ -246,9 +352,16 @@ export function useWorkspaceAiChat({
 	};
 }
 
-function createAiChatTransport(threadId: string) {
+function createAiChatTransport(threadId: string, onResponseAccepted: () => void) {
 	return new DefaultChatTransport<AiChatMessage>({
 		api: getAiChatThreadUrl(threadId),
+		fetch: async (input, init) => {
+			const response = await fetch(input, init);
+			if (response.ok) {
+				onResponseAccepted();
+			}
+			return response;
+		},
 		// modelId and workspaceId arrive via request.body (merged in by
 		// withRequestContext at send time).
 		prepareSendMessagesRequest: (request) => ({

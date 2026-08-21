@@ -82,7 +82,7 @@ export interface AiChatRequestBody {
 //   the pipeline settling server-side and the finished reply is there on
 //   reload. (Workers never fire request.signal without enable_request_signal
 //   anyway; we lean on that instead of fighting it.)
-// - Stop is explicit: POST /threads/:id/stop clears the claim. The generator
+// - Stop is explicit: POST /threads/:id/stop tombstones the claim. The generator
 //   pings its claim on every step and on an interval; losing it aborts
 //   generation and the partial persists as "interrupted".
 // - The same ping is the liveness heartbeat, so a live long turn is never

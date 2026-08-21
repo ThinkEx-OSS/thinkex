@@ -1,7 +1,7 @@
 import { queryOptions } from "@tanstack/react-query";
 
 import {
-	getAiChatThreadMessagesFn,
+	getAiChatThreadTranscriptFn,
 	listAiChatThreadsFn,
 } from "#/features/workspaces/ai/chat/functions";
 
@@ -9,8 +9,8 @@ export function aiChatThreadsQueryKey(workspaceId: string) {
 	return ["ai-chat-threads", workspaceId] as const;
 }
 
-export function aiChatThreadMessagesQueryKey(threadId: string) {
-	return ["ai-chat-thread-messages", threadId] as const;
+export function aiChatThreadTranscriptQueryKey(threadId: string) {
+	return ["ai-chat-thread-transcript", threadId] as const;
 }
 
 export function aiChatThreadsQueryOptions(workspaceId: string) {
@@ -22,12 +22,13 @@ export function aiChatThreadsQueryOptions(workspaceId: string) {
 	});
 }
 
-export function aiChatThreadMessagesQueryOptions(threadId: string) {
+export function aiChatThreadTranscriptQueryOptions(threadId: string) {
 	return queryOptions({
-		queryKey: aiChatThreadMessagesQueryKey(threadId),
-		queryFn: () => getAiChatThreadMessagesFn({ data: { threadId } }),
-		// The live chat writes settled transcripts into this cache itself, so a
-		// background refetch is only a safety net.
+		queryKey: aiChatThreadTranscriptQueryKey(threadId),
+		queryFn: () => getAiChatThreadTranscriptFn({ data: { threadId } }),
+		refetchInterval: (query) => (query.state.data?.isTurnActive ? 1_000 : false),
+		// A remount during a live server turn polls until its durable assistant
+		// row lands. Idle transcripts stay fresh long enough to avoid noisy reads.
 		staleTime: 30_000,
 	});
 }

@@ -8,6 +8,20 @@ import {
 import type { AiChatMessage, AiChatToolPart } from "#/features/workspaces/components/ai-chat/types";
 
 describe("interrupted tool receipts", () => {
+	it("shows an explicit stop when no visible assistant part was produced", () => {
+		const message = {
+			...createMessage([{ type: "step-start" }]),
+			metadata: { turnStatus: "interrupted" },
+		};
+		const presentation = deriveAiChatPresentation([message], "ready");
+
+		expect(getAssistantRowDisplay(message, presentation)).toEqual({
+			kind: "content",
+			parts: [],
+			interruptUnfinishedTools: true,
+		});
+	});
+
 	it("marks unfinished tools in the latest failed assistant turn as interrupted", () => {
 		const part = {
 			type: "dynamic-tool",

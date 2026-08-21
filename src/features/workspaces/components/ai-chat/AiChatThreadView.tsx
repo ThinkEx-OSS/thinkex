@@ -272,17 +272,22 @@ export default function AiChatThreadView({
 		sendChatMessage(chatMessage);
 		setSentMessageAnimationId(chatMessage.id);
 	};
-	const stopGeneration = () => {
-		stop();
+	const stopGeneration = async () => {
+		if (!(await stop())) {
+			pauseQueue(threadId);
+			toast.error("Couldn’t confirm Stop. Your queued message is paused.", {
+				id: "ai-chat-stop-failed",
+			});
+		}
 	};
 	const handleUserStop = () => {
 		pauseQueue(threadId);
-		stopGeneration();
+		void stopGeneration();
 	};
 	const handleSendNow = (entryId: string) => {
 		moveQueueEntryToHead(threadId, entryId);
 		resumeQueue(threadId);
-		if (inputStatus !== "ready") stopGeneration();
+		if (inputStatus !== "ready") void stopGeneration();
 	};
 
 	return (
@@ -326,7 +331,7 @@ export default function AiChatThreadView({
 								editing ? submitEditedMessage(message) : sendMessage(message)
 							}
 							onStop={handleUserStop}
-							onInterrupt={stopGeneration}
+							onInterrupt={() => void stopGeneration()}
 							onSendNow={handleSendNow}
 						/>
 					)}

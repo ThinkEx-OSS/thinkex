@@ -136,7 +136,10 @@ function AiChatQueueTrayItem({
 		id: entry.id,
 		group,
 		index,
-		element,
+		// With one entry there is nothing to reorder. Leaving the element
+		// unregistered avoids dnd-kit marking the whole row aria-disabled,
+		// which otherwise disables its nested Send now/Edit/Remove controls.
+		element: canReorder ? element : undefined,
 		disabled: !canReorder,
 		type: AI_CHAT_QUEUE_DRAG_TYPE,
 		accept: AI_CHAT_QUEUE_DRAG_TYPE,

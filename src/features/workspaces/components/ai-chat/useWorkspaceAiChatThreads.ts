@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
-	aiChatThreadMessagesQueryKey,
+	aiChatThreadTranscriptQueryKey,
 	aiChatThreadsQueryOptions,
 } from "#/features/workspaces/ai/chat/chat-queries";
 import { deleteAiChatThreadFn } from "#/features/workspaces/ai/chat/functions";
@@ -24,7 +24,7 @@ export function useWorkspaceAiChatThreads({ workspaceId }: UseWorkspaceAiChatThr
 			queryClient.setQueryData(aiChatThreadsQueryOptions(workspaceId).queryKey, (current) =>
 				current?.filter((thread) => thread.id !== threadId),
 			);
-			queryClient.removeQueries({ queryKey: aiChatThreadMessagesQueryKey(threadId) });
+			queryClient.removeQueries({ queryKey: aiChatThreadTranscriptQueryKey(threadId) });
 			// A refetch that started before the delete would resolve with the
 			// pre-delete list and resurrect the thread over the local filter above;
 			// invalidating cancels it and fetches fresh.

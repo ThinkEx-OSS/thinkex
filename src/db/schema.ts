@@ -569,7 +569,7 @@ export const aiChatThreads = pgTable(
 			.references(() => workspaces.id, { onDelete: "cascade" }),
 		title: text("title"),
 		// Claimed by an in-flight generation; doubles as the per-thread
-		// serialization guard and, later, the handle a resume component keys on.
+		// serialization guard and durable stop signal.
 		activeStreamId: text("active_stream_id"),
 		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 		updatedAt: timestamp("updated_at", { withTimezone: true })

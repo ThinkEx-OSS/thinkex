@@ -1,7 +1,8 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { aiChatThreadMessagesQueryKey } from "#/features/workspaces/ai/chat/chat-queries";
+import { aiChatThreadTranscriptQueryKey } from "#/features/workspaces/ai/chat/chat-queries";
+import type { SerializedAiChatThreadTranscript } from "#/features/workspaces/ai/chat/functions";
 import type { AiChatModelId } from "#/features/workspaces/components/ai-chat/types";
 import { useWorkspaceAiChatThreads } from "#/features/workspaces/components/ai-chat/useWorkspaceAiChatThreads";
 import {
@@ -76,10 +77,10 @@ export function useAiChatPanelController({ workspaceId }: UseAiChatPanelControll
 		if (threads.some((thread) => thread.id === explicitActiveThreadId)) {
 			return;
 		}
-		const transcript = queryClient.getQueryState(
-			aiChatThreadMessagesQueryKey(explicitActiveThreadId),
+		const transcript = queryClient.getQueryState<SerializedAiChatThreadTranscript>(
+			aiChatThreadTranscriptQueryKey(explicitActiveThreadId),
 		);
-		if (transcript?.status === "success" && (transcript.data as unknown[])?.length === 0) {
+		if (transcript?.status === "success" && transcript.data?.messages.length === 0) {
 			setActiveAiChatThread(workspaceId, undefined);
 		}
 	}, [
@@ -112,10 +113,10 @@ export function useAiChatPanelController({ workspaceId }: UseAiChatPanelControll
 		// Repeated "new chat" on a pristine draft is a no-op rather than a pile
 		// of drafts. "Pristine" = no server row and no local transcript (the
 		// thread list can lag the first message by one refetch).
-		const cachedTranscript = queryClient.getQueryData(
-			aiChatThreadMessagesQueryKey(resolvedActiveThreadId),
-		) as unknown[] | undefined;
-		const activeDraftHasMessages = (cachedTranscript?.length ?? 0) > 0;
+		const cachedTranscript = queryClient.getQueryData<SerializedAiChatThreadTranscript>(
+			aiChatThreadTranscriptQueryKey(resolvedActiveThreadId),
+		);
+		const activeDraftHasMessages = (cachedTranscript?.messages.length ?? 0) > 0;
 
 		if (!activeThreadHasRow && !activeDraftHasMessages) {
 			return;

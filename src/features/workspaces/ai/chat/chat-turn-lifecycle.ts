@@ -2,12 +2,13 @@ import type { UIMessage } from "ai";
 import { generateId } from "ai";
 
 import { settledParts } from "#/features/workspaces/ai/chat/chat-model";
+import { isStreamClaimFresh } from "#/features/workspaces/ai/chat/chat-claim";
 
 import {
 	claimStream,
 	pingStreamClaim,
 	releaseStream,
-	saveMessage,
+	settleStream,
 	type AiChatThreadRow,
 } from "#/features/workspaces/ai/chat/chat-store";
 
@@ -16,17 +17,17 @@ import {
 //
 // - claimTurn takes the per-thread claim (breaking only a provably stale one).
 // - The pings refresh the claim's timestamp (so a live long turn is never
-//   mistaken for a crashed one) and observe loss: the stop endpoint clears the
-//   claim, and the generator aborts on its next ping.
+//   mistaken for a crashed one) and observe loss: the stop endpoint
+//   tombstones the claim, and the generator aborts on its next ping.
 // - settle persists the turn's terminal outcome and only THEN releases the
 //   claim, and the caller must await it before the stream closes — the
 //   composer queue drains the instant the client sees the stream end, and its
 //   next turn must find the outcome persisted and the claim free.
 
 // A claim older than this with no pings is presumed orphaned (crashed
-// isolate). Live turns ping every ~2.5s streaming and every 30s idle, so a
-// stale claim really is dead.
-const STALE_STREAM_CLAIM_MS = 5 * 60 * 1000;
+// isolate). The interval keeps live claims fresh; chunk callbacks observe stop
+// intent promptly while tokens are flowing. A Worker suspended in a provider
+// or tool request may not run timers, so stop completion has no clock bound.
 const CLAIM_PING_INTERVAL_MS = 30_000;
 const CLAIM_PING_THROTTLE_MS = 2_500;
 
@@ -109,17 +110,15 @@ export async function claimTurn(input: {
 		},
 		settle: async ({ assistantMessage, errorMessage, isAborted, metadata }) => {
 			stopPinging();
-			try {
-				const failed = errorMessage !== undefined;
-				const clean = !failed && !isAborted;
-				const parts = clean
-					? (assistantMessage?.parts ?? [])
-					: settledParts(assistantMessage?.parts ?? []);
-
-				if (assistantMessage && parts.length > 0) {
-					await saveMessage({
-						threadId,
-						message: {
+			const failed = errorMessage !== undefined;
+			const clean = !failed && !isAborted;
+			const status = failed ? "error" : isAborted ? "interrupted" : "complete";
+			const parts = clean
+				? (assistantMessage?.parts ?? [])
+				: settledParts(assistantMessage?.parts ?? []);
+			const message =
+				assistantMessage && parts.length > 0
+					? {
 							...assistantMessage,
 							parts,
 							metadata: {
@@ -127,26 +126,24 @@ export async function claimTurn(input: {
 								...metadata,
 								...(failed ? { errorMessage } : {}),
 							},
-						},
-						status: failed ? "error" : isAborted ? "interrupted" : "complete",
-					});
-				} else if (failed) {
-					// Nothing streamed before the error: a stub row keeps the failure
-					// visible after reload (Pi's durable stopReason).
-					await saveMessage({
-						threadId,
-						message: {
-							id: `turn-error-${streamId}`,
-							role: "assistant",
-							parts: [],
-							metadata: { errorMessage },
-						},
-						status: "error",
-					});
-				}
-			} finally {
-				await releaseStream({ threadId, streamId });
-			}
+						}
+					: !clean
+						? {
+								// Nothing streamed before termination: a stub row keeps the
+								// failure or explicit stop visible after reload.
+								id: `turn-${status}-${streamId}`,
+								role: "assistant" as const,
+								parts: [],
+								metadata: failed ? { errorMessage } : {},
+							}
+						: undefined;
+
+			await settleStream({
+				threadId,
+				streamId,
+				message,
+				status,
+			});
 		},
 		releaseOnFailure: () => {
 			stopPinging();
@@ -156,8 +153,5 @@ export async function claimTurn(input: {
 }
 
 function isThreadClaimStale(thread: { activeStreamId: string | null; updatedAt: Date }) {
-	return (
-		thread.activeStreamId !== null &&
-		Date.now() - thread.updatedAt.getTime() > STALE_STREAM_CLAIM_MS
-	);
+	return thread.activeStreamId !== null && !isStreamClaimFresh(thread);
 }

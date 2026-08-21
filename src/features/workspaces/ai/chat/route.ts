@@ -4,7 +4,7 @@ import {
 	type AiChatRequestBody,
 } from "#/features/workspaces/ai/chat/chat-endpoint";
 import { ChatRequestError, chatErrorResponse } from "#/features/workspaces/ai/chat/chat-errors";
-import { getThread, stopStream } from "#/features/workspaces/ai/chat/chat-store";
+import { stopStream } from "#/features/workspaces/ai/chat/chat-store";
 import { WorkspaceForbiddenError } from "#/features/workspaces/server/permissions";
 import { recordOperationalFailure } from "#/integrations/observability/operational-events";
 import { hasServerAnalyticsConsent } from "#/integrations/posthog/consent.server";
@@ -15,7 +15,7 @@ const threadsPrefix = `${aiChatPathPrefix}/threads/`;
 
 // The chat's raw Worker routes: POST /ai-chat/threads/:threadId streams a
 // turn as a UIMessage SSE response (which TanStack server functions can't do),
-// and POST /ai-chat/threads/:threadId/stop clears the thread's stream claim —
+// and POST /ai-chat/threads/:threadId/stop tombstones the thread's stream claim —
 // the generating isolate notices on its next ping and aborts. Every other
 // read/mutation lives in functions.ts as server functions consumed through
 // react-query. Threads are never created explicitly — a row materializes on
@@ -46,22 +46,10 @@ export async function routeAiChatRequest(request: Request, env: Env, ctx: Execut
 		}
 
 		if (subresource === "stop") {
-			const stopped = await stopStream({ threadId, userId: session.user.id });
-
-			if (stopped) {
-				// Hold the response until the stopped turn settles (its interrupted
-				// partial is persisted and the claim clears), so a follow-up send
-				// fired on this response never races the dying turn. The generator
-				// observes the tombstone within ~2.5s while streaming.
-				for (let i = 0; i < 20; i += 1) {
-					await new Promise((resolve) => setTimeout(resolve, 300));
-					const thread = await getThread({ threadId, userId: session.user.id });
-					if (!thread || thread.activeStreamId === null) {
-						break;
-					}
-				}
-			}
-
+			// Acknowledge durable stop intent, not completion. The generating Worker
+			// observes the tombstone at its next chunk/step boundary; the client keeps
+			// the queue blocked on the transcript's active-turn flag until settlement.
+			await stopStream({ threadId, userId: session.user.id });
 			return Response.json({ ok: true });
 		}
 

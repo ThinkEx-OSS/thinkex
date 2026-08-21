@@ -6,7 +6,7 @@ import { requireThreadAccess } from "#/features/workspaces/ai/chat/chat-access";
 import { ChatRequestError } from "#/features/workspaces/ai/chat/chat-errors";
 import {
 	deleteThread,
-	listThreadMessages,
+	getThreadTranscript,
 	listThreadSummaries,
 } from "#/features/workspaces/ai/chat/chat-store";
 import { getCurrentUserId } from "#/features/workspaces/server/permissions";
@@ -35,6 +35,11 @@ export interface SerializedUiMessage {
 	metadata?: Json;
 }
 
+export interface SerializedAiChatThreadTranscript {
+	isTurnActive: boolean;
+	messages: SerializedUiMessage[];
+}
+
 export const listAiChatThreadsFn = createServerFn({ method: "GET" })
 	.validator(workspaceIdInputSchema)
 	.handler(async ({ data }) => {
@@ -44,7 +49,7 @@ export const listAiChatThreadsFn = createServerFn({ method: "GET" })
 		return listThreadSummaries({ userId, workspaceId: data.workspaceId });
 	});
 
-export const getAiChatThreadMessagesFn = createServerFn({ method: "GET" })
+export const getAiChatThreadTranscriptFn = createServerFn({ method: "GET" })
 	.validator(threadIdInputSchema)
 	.handler(async ({ data }) => {
 		const userId = await getCurrentUserId();
@@ -58,10 +63,10 @@ export const getAiChatThreadMessagesFn = createServerFn({ method: "GET" })
 			throw error;
 		});
 
-		return (await listThreadMessages({
+		return (await getThreadTranscript({
 			userId,
 			threadId: data.threadId,
-		})) as unknown as SerializedUiMessage[];
+		})) as unknown as SerializedAiChatThreadTranscript;
 	});
 
 export const deleteAiChatThreadFn = createServerFn({ method: "POST" })

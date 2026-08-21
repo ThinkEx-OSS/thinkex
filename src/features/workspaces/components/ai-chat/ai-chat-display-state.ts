@@ -95,6 +95,13 @@ export function getAssistantRowDisplay(
 		};
 	}
 
+	// A stop before the first visible token still has a durable assistant row.
+	// Render its empty content shell so AiChatMessageRow can show the explicit
+	// interruption footer instead of the generic "didn't return" fallback.
+	if ((message.metadata as { turnStatus?: string } | undefined)?.turnStatus === "interrupted") {
+		return { kind: "content", parts: [], interruptUnfinishedTools: true };
+	}
+
 	if (message.parts.some((part) => isToolUIPart(part))) {
 		return { kind: "hidden" };
 	}

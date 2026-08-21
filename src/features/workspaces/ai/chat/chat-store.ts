@@ -7,6 +7,7 @@ import {
 	FALLBACK_THREAD_TITLE,
 	type AiChatThreadSummary,
 } from "#/features/workspaces/ai/chat/chat-model";
+import { isStreamClaimFresh } from "#/features/workspaces/ai/chat/chat-claim";
 
 // Postgres persistence for the option-zero chat implementation. All access is
 // scoped by (threadId, userId): the caller passes the authenticated user and
@@ -92,52 +93,70 @@ export async function getThread(input: {
 	});
 }
 
-export async function listThreadMessages(input: {
+export async function getThreadTranscript(input: {
 	threadId: string;
 	userId: string;
-}): Promise<UIMessage[]> {
-	return await withDb(async (db) => {
-		const rows = await db
-			.select({
-				id: aiChatMessages.id,
-				role: aiChatMessages.role,
-				parts: aiChatMessages.parts,
-				metadata: aiChatMessages.metadata,
-				status: aiChatMessages.status,
-			})
-			.from(aiChatMessages)
-			.innerJoin(aiChatThreads, eq(aiChatMessages.threadId, aiChatThreads.id))
-			.where(
-				and(
-					eq(aiChatMessages.threadId, input.threadId),
-					eq(aiChatThreads.userId, input.userId),
-					// System rows (compaction summaries) are model plumbing, not chat.
-					sql`${aiChatMessages.role} != 'system'`,
-				),
-			)
-			.orderBy(asc(aiChatMessages.seq));
+}): Promise<{ isTurnActive: boolean; messages: UIMessage[] }> {
+	return await withDb((db) =>
+		db.transaction(
+			async (transaction) => {
+				const [thread] = await transaction
+					.select({
+						activeStreamId: aiChatThreads.activeStreamId,
+						updatedAt: aiChatThreads.updatedAt,
+					})
+					.from(aiChatThreads)
+					.where(and(eq(aiChatThreads.id, input.threadId), eq(aiChatThreads.userId, input.userId)))
+					.limit(1);
+				const rows = await transaction
+					.select({
+						id: aiChatMessages.id,
+						role: aiChatMessages.role,
+						parts: aiChatMessages.parts,
+						metadata: aiChatMessages.metadata,
+						status: aiChatMessages.status,
+					})
+					.from(aiChatMessages)
+					.innerJoin(aiChatThreads, eq(aiChatMessages.threadId, aiChatThreads.id))
+					.where(
+						and(
+							eq(aiChatMessages.threadId, input.threadId),
+							eq(aiChatThreads.userId, input.userId),
+							// System rows (compaction summaries) are model plumbing, not chat.
+							sql`${aiChatMessages.role} != 'system'`,
+						),
+					)
+					.orderBy(asc(aiChatMessages.seq));
 
-		// Malformed rows are dropped rather than poisoning the transcript
-		// (OpenCode decodes at every load boundary; this is the light version).
-		return rows
-			.filter((row) => Array.isArray(row.parts))
-			.map((row) => {
-				// Non-complete outcomes ride the metadata so a reload can explain a
-				// mid-sentence cutoff ("You stopped this response") instead of
-				// presenting the partial as a finished answer.
-				const metadata =
-					row.status === "complete"
-						? row.metadata
-						: { ...(row.metadata ?? {}), turnStatus: row.status };
+				// Malformed rows are dropped rather than poisoning the transcript
+				// (OpenCode decodes at every load boundary; this is the light version).
+				const messages = rows
+					.filter((row) => Array.isArray(row.parts))
+					.map((row) => {
+						// Non-complete outcomes ride the metadata so a reload can explain a
+						// mid-sentence cutoff ("You stopped this response") instead of
+						// presenting the partial as a finished answer.
+						const metadata =
+							row.status === "complete"
+								? row.metadata
+								: { ...(row.metadata ?? {}), turnStatus: row.status };
 
-				return {
-					id: row.id,
-					role: row.role,
-					parts: row.parts as UIMessage["parts"],
-					...(metadata == null ? {} : { metadata }),
-				};
-			});
-	});
+						return {
+							id: row.id,
+							role: row.role,
+							parts: row.parts as UIMessage["parts"],
+							metadata,
+						};
+					});
+
+				// A dead Worker cannot clear its claim. Present a stale claim as terminal
+				// so the user can retry; claimTurn's compare-and-swap then replaces that
+				// exact orphan without weakening live-turn serialization.
+				return { isTurnActive: thread ? isStreamClaimFresh(thread) : false, messages };
+			},
+			{ isolationLevel: "repeatable read" },
+		),
+	);
 }
 
 export interface ThreadMessageRow {
@@ -251,6 +270,58 @@ export async function saveMessage(input: {
 
 		return written.length > 0;
 	});
+}
+
+/** Persist a turn outcome and release its claim in one guarded transaction. */
+export async function settleStream(input: {
+	threadId: string;
+	streamId: string;
+	message: UIMessage | undefined;
+	status: AiChatMessageStatus;
+}): Promise<boolean> {
+	return await withDb(async (db) =>
+		db.transaction(async (tx) => {
+			const [thread] = await tx
+				.select({ activeStreamId: aiChatThreads.activeStreamId })
+				.from(aiChatThreads)
+				.where(eq(aiChatThreads.id, input.threadId))
+				.for("update");
+			if (
+				thread?.activeStreamId !== input.streamId &&
+				thread?.activeStreamId !== `stop:${input.streamId}`
+			) {
+				return false;
+			}
+
+			if (input.message) {
+				await tx
+					.insert(aiChatMessages)
+					.values({
+						id: input.message.id,
+						threadId: input.threadId,
+						role: input.message.role,
+						parts: input.message.parts,
+						metadata: input.message.metadata ?? null,
+						status: input.status,
+					})
+					.onConflictDoUpdate({
+						target: [aiChatMessages.threadId, aiChatMessages.id],
+						set: {
+							parts: input.message.parts,
+							metadata: input.message.metadata ?? null,
+							status: input.status,
+						},
+						setWhere: sql`${aiChatMessages.role} = ${input.message.role}`,
+					});
+			}
+
+			await tx
+				.update(aiChatThreads)
+				.set({ activeStreamId: null, updatedAt: new Date() })
+				.where(eq(aiChatThreads.id, input.threadId));
+			return true;
+		}),
+	);
 }
 
 // Regeneration: drop everything after the last user message and re-run.
