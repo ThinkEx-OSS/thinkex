@@ -109,7 +109,7 @@
 		"agents": "^0.19.0",
 		"ai": "^7.0.66",
 		"aws4fetch": "^1.0.20",
-		"better-auth": "^1.6.27",
+		"better-auth": "^1.7.0",
 		"class-variance-authority": "^0.7.1",
 		"clsx": "^2.1.1",
 		"drizzle-kit": "^0.31.10",
