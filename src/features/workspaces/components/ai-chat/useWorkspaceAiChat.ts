@@ -50,7 +50,6 @@ export function useWorkspaceAiChat({
 }: UseWorkspaceAiChatOptions) {
 	const [requestAccepted, setRequestAccepted] = useState(false);
 	const [pendingStop, setPendingStop] = useState(false);
-	const [isStopping, setIsStopping] = useState(false);
 	const stopRequestRef = useRef<Promise<boolean> | null>(null);
 	const deferredStopRef = useRef<{
 		promise: Promise<boolean>;
@@ -60,7 +59,6 @@ export function useWorkspaceAiChat({
 	// ride each send's request body instead of living in the transport — the
 	// send/regenerate closures re-form every render, so they always carry the
 	// latest props without refs or effect events.
-	const transport = createAiChatTransport(threadId, () => setRequestAccepted(true));
 	const queryClient = useQueryClient();
 	const markTranscriptActive = () => {
 		queryClient.setQueryData<SerializedAiChatThreadTranscript>(
@@ -71,6 +69,13 @@ export function useWorkspaceAiChat({
 			}),
 		);
 	};
+	const transport = createAiChatTransport(threadId, {
+		onRequestStarted: () => {
+			setRequestAccepted(false);
+			markTranscriptActive();
+		},
+		onResponseAccepted: () => setRequestAccepted(true),
+	});
 	// Live progress for orchestrate (Code Mode) runs: transient stream parts,
 	// latest event per call id. Never persisted — settled tool parts carry a
 	// durable record — so the map only matters while its turn streams.
@@ -109,7 +114,6 @@ export function useWorkspaceAiChat({
 			deferredStopRef.current = null;
 			setRequestAccepted(false);
 			setPendingStop(false);
-			setIsStopping(false);
 			// A refused request and a severed live stream look identical locally.
 			// Block sends until Postgres says whether the Worker still owns the turn.
 			markTranscriptActive();
@@ -127,7 +131,6 @@ export function useWorkspaceAiChat({
 			deferredStopRef.current = null;
 			setRequestAccepted(false);
 			setPendingStop(false);
-			setIsStopping(false);
 			void queryClient.invalidateQueries({
 				queryKey: aiChatThreadTranscriptQueryKey(threadId),
 			});
@@ -191,7 +194,7 @@ export function useWorkspaceAiChat({
 		: recoveredStatus === "error"
 			? "ready"
 			: recoveredStatus;
-	const canSend = historyReady && inputStatus === "ready" && !presentation.isBusy && !isStopping;
+	const canSend = historyReady && inputStatus === "ready" && !presentation.isBusy;
 
 	const sendMessage = (message: AiChatSendMessage, options?: AiChatSendMessageOptions) => {
 		if (message.parts.length === 0 || !canSend) {
@@ -200,8 +203,6 @@ export function useWorkspaceAiChat({
 
 		const isFirstMessage = messages.length === 0;
 
-		setRequestAccepted(false);
-		markTranscriptActive();
 		void sendChatMessage(message, withRequestContext(options)).then(() => {
 			// A draft thread's row materializes on its first message. The generated
 			// title arrives mid-stream via onData; this covers the row itself for
@@ -224,8 +225,6 @@ export function useWorkspaceAiChat({
 			const index = current.findIndex((entry) => entry.id === message.id);
 			return index === -1 ? current : current.slice(0, index);
 		});
-		setRequestAccepted(false);
-		markTranscriptActive();
 		void sendChatMessage(message, withRequestContext());
 	};
 	const regenerate = (options?: AiChatSendMessageOptions) => {
@@ -242,14 +241,10 @@ export function useWorkspaceAiChat({
 			// treats a resent id as truncate-and-rerun. Pop first so the SDK's
 			// push doesn't duplicate it locally.
 			setMessages((current) => current.slice(0, -1));
-			setRequestAccepted(false);
-			markTranscriptActive();
 			void sendChatMessage(last, withRequestContext(options));
 			return;
 		}
 
-		setRequestAccepted(false);
-		markTranscriptActive();
 		void regenerateChatMessage(withRequestContext(options));
 	};
 	const withRequestContext = (options?: AiChatSendMessageOptions): AiChatSendMessageOptions => ({
@@ -274,7 +269,6 @@ export function useWorkspaceAiChat({
 		// Mark the cached snapshot active before closing the browser stream so the
 		// local queue cannot drain until polling observes the released claim.
 		markTranscriptActive();
-		setIsStopping(true);
 		const request = fetch(`${getAiChatThreadUrl(threadId)}/stop`, { method: "POST" })
 			.then((response) => {
 				deferredStopRef.current?.resolve(response.ok);
@@ -298,13 +292,11 @@ export function useWorkspaceAiChat({
 			.finally(() => {
 				stopRequestRef.current = null;
 				setPendingStop(false);
-				setIsStopping(false);
 			});
 		stopRequestRef.current = request;
 		return request;
 	};
 	const stopTurn = (): Promise<boolean> => {
-		setIsStopping(true);
 		// useChat exposes Stop before the transport has a response. At that point
 		// the streaming request may not have acquired its database claim yet, so a
 		// concurrent stop request could arrive first and stop nothing. Remember the
@@ -352,13 +344,17 @@ export function useWorkspaceAiChat({
 	};
 }
 
-function createAiChatTransport(threadId: string, onResponseAccepted: () => void) {
+function createAiChatTransport(
+	threadId: string,
+	lifecycle: { onRequestStarted: () => void; onResponseAccepted: () => void },
+) {
 	return new DefaultChatTransport<AiChatMessage>({
 		api: getAiChatThreadUrl(threadId),
 		fetch: async (input, init) => {
+			lifecycle.onRequestStarted();
 			const response = await fetch(input, init);
 			if (response.ok) {
-				onResponseAccepted();
+				lifecycle.onResponseAccepted();
 			}
 			return response;
 		},
