@@ -11,8 +11,9 @@ import {
 	isConsentRequiredCountry,
 } from "#/integrations/posthog/consent-region";
 import { getTelemetryRequestDetails } from "#/integrations/posthog/server-context";
+import { apiError, getRequestId } from "#/lib/api/http";
 import { buildContentSecurityPolicy } from "#/lib/http/content-security-policy";
-import { addPublicDiscoveryHeaders } from "#/lib/http/public-discovery";
+import { addPublicDiscoveryHeaders, negotiatePublicResponse } from "#/lib/http/public-discovery";
 import { fetchWithHtmlFallback } from "#/lib/http/tanstack-html-fallback";
 
 export {
@@ -120,12 +121,11 @@ export default {
 
 			const workspaceResponse = await routeWorkspaceRoomRequest(request, env);
 
-			return withSecurityHeaders(
+			const appResponse =
 				workspaceResponse ??
-					(await fetchWithHtmlFallback(request, (appRequest) => handler.fetch(appRequest))),
-				env,
-				request,
-			);
+				(await fetchWithHtmlFallback(request, (appRequest) => handler.fetch(appRequest)));
+
+			return withSecurityHeaders(negotiatePublicResponse(request, appResponse), env, request);
 		} catch (error) {
 			recordOperationalFailure({
 				error,
@@ -135,6 +135,16 @@ export default {
 				},
 				request: getTelemetryRequestDetails(request, "worker.fetch"),
 			});
+
+			if (new URL(request.url).pathname.startsWith("/api/")) {
+				return apiError(
+					getRequestId(request),
+					500,
+					"INTERNAL_ERROR",
+					"ThinkEx could not complete this API request.",
+					{ resolution: "Retry the request. Contact support if the error persists." },
+				);
+			}
 
 			throw error;
 		}
