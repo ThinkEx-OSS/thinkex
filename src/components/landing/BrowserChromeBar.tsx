@@ -9,7 +9,7 @@ const SITE_HOST = seo.siteUrl.replace(/^https?:\/\//, "");
  * Matches the `/workspaces/$workspaceId` route and the workspace shown in the
  * screenshot. Decorative, so the id is a readable slug rather than a real one.
  */
-const DISPLAY_URL = `${SITE_HOST}/workspaces/biology-lab`;
+const DISPLAY_URL = `${SITE_HOST}/workspaces/biology-101`;
 
 /**
  * Fake browser chrome above the hero screenshot, so the capture reads as a real
@@ -43,6 +43,9 @@ export function BrowserChromeBar() {
 				<Lock className="size-3 shrink-0 opacity-60" />
 				<span className="flex-1 truncate text-center">{DISPLAY_URL}</span>
 			</div>
+			<span className="ml-auto text-[11px] font-medium text-muted-foreground">
+				Interactive demo
+			</span>
 		</div>
 	);
 }

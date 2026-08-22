@@ -62,9 +62,50 @@
 		font-size: clamp(0.95rem, 1.7vw, 1.2rem);
 	}
 
+	.landing-flashcard-feedback {
+		animation: landing-flashcard-feedback 650ms ease-in-out;
+	}
+
+	.landing-flashcard-feedback-again {
+		--landing-flashcard-feedback-color: color-mix(in srgb, var(--color-red-500) 62%, transparent);
+	}
+
+	.landing-flashcard-feedback-good {
+		--landing-flashcard-feedback-color: color-mix(
+			in srgb,
+			var(--color-emerald-500) 62%,
+			transparent
+		);
+	}
+
+	@keyframes landing-flashcard-feedback {
+		0%,
+		100% {
+			transform: scale(1);
+			box-shadow: inset 0 0 0 5px transparent;
+		}
+
+		20% {
+			box-shadow: inset 0 0 0 5px var(--landing-flashcard-feedback-color);
+		}
+
+		30% {
+			transform: scale(0.96);
+		}
+
+		65% {
+			transform: scale(1.015);
+			box-shadow: inset 0 0 0 5px var(--landing-flashcard-feedback-color);
+		}
+	}
+
 	@media (prefers-reduced-motion: reduce) {
 		.workspace-flashcard-face {
 			transition-duration: 1ms;
+		}
+
+		.landing-flashcard-feedback {
+			animation-duration: 1ms;
 		}
 	}
 }
