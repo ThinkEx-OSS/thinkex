@@ -14,6 +14,7 @@ import { Route as ProtectedRouteImport } from './routes/_protected'
 import { Route as AccountDeletedRouteImport } from './routes/account-deleted'
 import { Route as BlogRouteImport } from './routes/blog'
 import { Route as CookiesRouteImport } from './routes/cookies'
+import { Route as DevelopersRouteImport } from './routes/developers'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as SignupRouteImport } from './routes/signup'
@@ -61,6 +62,11 @@ const BlogRoute = BlogRouteImport.update({
 const CookiesRoute = CookiesRouteImport.update({
   id: '/cookies',
   path: '/cookies',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DevelopersRoute = DevelopersRouteImport.update({
+  id: '/developers',
+  path: '/developers',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -201,6 +207,7 @@ export interface FileRoutesByFullPath {
   '/account-deleted': typeof AccountDeletedRoute
   '/blog': typeof BlogRouteWithChildren
   '/cookies': typeof CookiesRoute
+  '/developers': typeof DevelopersRoute
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
   '/signup': typeof SignupRoute
@@ -230,6 +237,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/account-deleted': typeof AccountDeletedRoute
   '/cookies': typeof CookiesRoute
+  '/developers': typeof DevelopersRoute
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
   '/signup': typeof SignupRoute
@@ -262,6 +270,7 @@ export interface FileRoutesById {
   '/account-deleted': typeof AccountDeletedRoute
   '/blog': typeof BlogRouteWithChildren
   '/cookies': typeof CookiesRoute
+  '/developers': typeof DevelopersRoute
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
   '/signup': typeof SignupRoute
@@ -294,6 +303,7 @@ export interface FileRouteTypes {
     | '/account-deleted'
     | '/blog'
     | '/cookies'
+    | '/developers'
     | '/login'
     | '/privacy'
     | '/signup'
@@ -323,6 +333,7 @@ export interface FileRouteTypes {
     | '/'
     | '/account-deleted'
     | '/cookies'
+    | '/developers'
     | '/login'
     | '/privacy'
     | '/signup'
@@ -354,6 +365,7 @@ export interface FileRouteTypes {
     | '/account-deleted'
     | '/blog'
     | '/cookies'
+    | '/developers'
     | '/login'
     | '/privacy'
     | '/signup'
@@ -386,6 +398,7 @@ export interface RootRouteChildren {
   AccountDeletedRoute: typeof AccountDeletedRoute
   BlogRoute: typeof BlogRouteWithChildren
   CookiesRoute: typeof CookiesRoute
+  DevelopersRoute: typeof DevelopersRoute
   LoginRoute: typeof LoginRoute
   PrivacyRoute: typeof PrivacyRoute
   SignupRoute: typeof SignupRoute
@@ -434,6 +447,13 @@ declare module '@tanstack/react-router' {
       path: '/cookies'
       fullPath: '/cookies'
       preLoaderRoute: typeof CookiesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/developers': {
+      id: '/developers'
+      path: '/developers'
+      fullPath: '/developers'
+      preLoaderRoute: typeof DevelopersRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -685,6 +705,7 @@ const rootRouteChildren: RootRouteChildren = {
   AccountDeletedRoute: AccountDeletedRoute,
   BlogRoute: BlogRouteWithChildren,
   CookiesRoute: CookiesRoute,
+  DevelopersRoute: DevelopersRoute,
   LoginRoute: LoginRoute,
   PrivacyRoute: PrivacyRoute,
   SignupRoute: SignupRoute,

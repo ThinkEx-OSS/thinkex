@@ -1,5 +1,6 @@
 # https://www.robotstxt.org/robotstxt.html
 User-agent: *
+Content-Signal: search=yes, ai-input=yes, ai-train=yes, use=full
 Disallow:
 
 Sitemap: https://thinkex.app/sitemap.xml

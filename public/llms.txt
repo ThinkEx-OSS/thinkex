@@ -1,0 +1,25 @@
+# ThinkEx
+
+> ThinkEx is a workspace for source-heavy study, research, and creation.
+
+Use the product documentation for supported behavior. ThinkEx currently exposes an MCP server for agent integrations; it does not publish a general-purpose REST API, OpenAPI specification, or webhooks.
+
+## Product
+
+- [ThinkEx home](https://thinkex.app/): Product overview, features, and pricing.
+- [ThinkEx documentation](https://docs.thinkex.app/index.md): Documentation index.
+- [ThinkEx quickstart](https://docs.thinkex.app/quickstart.md): Create a workspace and begin working with sources.
+
+## Developers and agents
+
+- [ThinkEx developer resources](https://thinkex.app/developers): Supported integration surfaces and source code.
+- [ThinkEx MCP server](https://docs.thinkex.app/guides/mcp.md): MCP endpoint, OAuth flow, permissions, clients, and available actions.
+- [ThinkEx architecture](https://docs.thinkex.app/configuration/architecture.md): Application architecture and service boundaries.
+- [ThinkEx local development](https://docs.thinkex.app/configuration/local-development.md): Run the open-source project locally.
+- [ThinkEx deployments](https://docs.thinkex.app/configuration/deployments.md): Deployment configuration.
+- [ThinkEx source code](https://github.com/ThinkEx-OSS/thinkex): Open-source repository.
+
+## Optional
+
+- [Sitemap](https://thinkex.app/sitemap.xml): Index of public pages.
+- [ThinkEx blog](https://thinkex.app/blog): Product updates and articles.

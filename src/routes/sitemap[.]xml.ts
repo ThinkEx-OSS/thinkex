@@ -13,6 +13,7 @@ type SitemapUrl = {
 function buildSitemap() {
 	const urls: SitemapUrl[] = [
 		{ loc: getAbsoluteUrl("/"), priority: "1.0" },
+		{ loc: getAbsoluteUrl("/developers"), priority: "0.8" },
 		{ loc: getAbsoluteUrl("/blog"), priority: "0.8" },
 		...publishedBlogPosts.map((post) => ({
 			loc: getAbsoluteUrl(getBlogPostUrl(post.slug)),

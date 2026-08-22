@@ -25,6 +25,7 @@ const footerColumns = [
 		title: "Resources",
 		links: [
 			{ label: "Blog", to: "/blog" },
+			{ label: "Developers", to: "/developers" },
 			{ label: "Docs", href: "https://docs.thinkex.app" },
 			{ label: "GitHub", href: "https://github.com/thinkex-oss/thinkex" },
 		],
