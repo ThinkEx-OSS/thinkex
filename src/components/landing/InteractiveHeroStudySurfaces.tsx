@@ -43,6 +43,10 @@ export function FlashcardSurface() {
 						ratingFeedback === "good" && "landing-flashcard-feedback-good",
 					)}
 				>
+					<span
+						aria-hidden="true"
+						className="landing-flashcard-feedback-ring pointer-events-none absolute inset-0 z-10 rounded-2xl"
+					/>
 					<div
 						className={cn(
 							"workspace-flashcard-inner transition-transform duration-300",

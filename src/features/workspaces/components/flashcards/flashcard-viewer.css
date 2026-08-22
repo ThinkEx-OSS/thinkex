@@ -66,6 +66,15 @@
 		animation: landing-flashcard-feedback 650ms ease-in-out;
 	}
 
+	.landing-flashcard-feedback-ring {
+		opacity: 0;
+		box-shadow: inset 0 0 0 5px var(--landing-flashcard-feedback-color);
+	}
+
+	.landing-flashcard-feedback .landing-flashcard-feedback-ring {
+		animation: landing-flashcard-feedback-ring 650ms ease-out;
+	}
+
 	.landing-flashcard-feedback-again {
 		--landing-flashcard-feedback-color: color-mix(in srgb, var(--color-red-500) 62%, transparent);
 	}
@@ -82,11 +91,6 @@
 		0%,
 		100% {
 			transform: scale(1);
-			box-shadow: inset 0 0 0 5px transparent;
-		}
-
-		20% {
-			box-shadow: inset 0 0 0 5px var(--landing-flashcard-feedback-color);
 		}
 
 		30% {
@@ -95,7 +99,18 @@
 
 		65% {
 			transform: scale(1.015);
-			box-shadow: inset 0 0 0 5px var(--landing-flashcard-feedback-color);
+		}
+	}
+
+	@keyframes landing-flashcard-feedback-ring {
+		0%,
+		100% {
+			opacity: 0;
+		}
+
+		20%,
+		65% {
+			opacity: 1;
 		}
 	}
 
@@ -105,6 +120,10 @@
 		}
 
 		.landing-flashcard-feedback {
+			animation-duration: 1ms;
+		}
+
+		.landing-flashcard-feedback .landing-flashcard-feedback-ring {
 			animation-duration: 1ms;
 		}
 	}

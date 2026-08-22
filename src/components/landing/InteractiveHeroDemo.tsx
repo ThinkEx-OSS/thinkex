@@ -927,7 +927,7 @@ function NotesSurface() {
 							title="Cell cycle checkpoint explorer widget"
 							sandbox="allow-scripts"
 							srcDoc={landingWidgetDocument}
-							className="h-[30rem] w-full border-0 bg-background"
+							className="h-[34rem] w-full border-0 bg-background sm:h-[22rem]"
 						/>
 					</div>
 					<h2>Cell cycle checkpoints</h2>
