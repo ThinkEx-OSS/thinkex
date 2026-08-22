@@ -27,7 +27,7 @@ export function ModelsVisual() {
 	const detailProvider = detailModel.provider === "auto" ? null : detailModel.provider;
 
 	return (
-		<div className="grid h-full min-h-52 w-full grid-cols-[minmax(0,max-content)_minmax(0,1fr)] overflow-hidden">
+		<div className="grid h-full min-h-52 w-full grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] overflow-hidden">
 			<div className="relative min-w-0 overflow-y-auto border-border/60 border-r pr-1.5">
 				{MODEL_GROUPS.map((group, groupIndex) => (
 					<div
