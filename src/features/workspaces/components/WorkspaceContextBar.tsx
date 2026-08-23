@@ -63,7 +63,6 @@ export default function WorkspaceContextBar({
 	const { Icon: WorkspaceIcon, color } = getWorkspaceDisplay(workspace);
 	const [searchOpen, setSearchOpen] = useState(false);
 	const breadcrumbs = getWorkspaceBreadcrumbItems(activeItem, itemsById);
-	const breadcrumbPath = [workspace.name, ...breadcrumbs.map((item) => item.name)].join(" / ");
 	// Mobile only ever has room for the current crumb, so it collapses everything above it.
 	const mobileOverflowBreadcrumbs = breadcrumbs.slice(0, -1);
 	const collapsedCrumbCount =
@@ -130,13 +129,11 @@ export default function WorkspaceContextBar({
 						<WorkspaceBreadcrumbOverflow
 							className="sm:hidden"
 							items={mobileOverflowBreadcrumbs}
-							path={breadcrumbPath}
 							onNavigateToItem={onNavigateToItem}
 						/>
 						<WorkspaceBreadcrumbOverflow
 							className="hidden sm:flex"
 							items={overflowBreadcrumbs}
-							path={breadcrumbPath}
 							onNavigateToItem={onNavigateToItem}
 						/>
 						{breadcrumbs.map((item, index) => (

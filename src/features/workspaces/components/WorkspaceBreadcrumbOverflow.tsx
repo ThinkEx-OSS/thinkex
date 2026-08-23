@@ -9,14 +9,12 @@ import {
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from "#/components/ui/dropdown-menu";
-import { Tooltip, TooltipContent, TooltipTrigger } from "#/components/ui/tooltip";
 import { getWorkspaceItemDisplay } from "#/features/workspaces/model/item-display";
 import type { WorkspaceItem } from "#/features/workspaces/contracts";
 import { cn } from "#/lib/utils";
 
 interface WorkspaceBreadcrumbOverflowProps {
 	items: WorkspaceItem[];
-	path: string;
 	className?: string;
 	onNavigateToItem: (item: WorkspaceItem) => void;
 }
@@ -24,7 +22,6 @@ interface WorkspaceBreadcrumbOverflowProps {
 /** Crumbs hidden from the bar, reachable through a bare "…" menu. */
 export default function WorkspaceBreadcrumbOverflow({
 	items,
-	path,
 	className,
 	onNavigateToItem,
 }: WorkspaceBreadcrumbOverflowProps) {
@@ -37,24 +34,18 @@ export default function WorkspaceBreadcrumbOverflow({
 			<BreadcrumbSeparator className={cn("text-muted-foreground/60", className)} />
 			<BreadcrumbItem className={className}>
 				<DropdownMenu>
-					<Tooltip>
-						<TooltipTrigger
-							render={
-								<DropdownMenuTrigger
-									render={
-										<button
-											type="button"
-											className="flex size-7 items-center justify-center rounded-sm text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-											aria-label={`Show path: ${path}`}
-										/>
-									}
-								>
-									<BreadcrumbEllipsis className="size-7" />
-								</DropdownMenuTrigger>
-							}
-						/>
-						<TooltipContent>{path}</TooltipContent>
-					</Tooltip>
+					<DropdownMenuTrigger
+						openOnHover
+						render={
+							<button
+								type="button"
+								className="flex size-7 items-center justify-center rounded-sm text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+								aria-label="Show path"
+							/>
+						}
+					>
+						<BreadcrumbEllipsis className="size-7" />
+					</DropdownMenuTrigger>
 					<DropdownMenuContent align="start" className="w-56">
 						{items.map((item) => {
 							const { Icon, iconClassName } = getWorkspaceItemDisplay(item);
