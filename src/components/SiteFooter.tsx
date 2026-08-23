@@ -12,6 +12,8 @@ import { openConsentPreferences } from "#/integrations/posthog/consent";
 const externalLinkClassName =
 	"text-base text-foreground/80 underline-offset-4 transition-colors hover:text-foreground hover:underline";
 
+const ACCENT_RULE = ["bg-brand-1", "bg-brand-2", "bg-brand-3", "bg-brand-4"] as const;
+
 const footerColumns = [
 	{
 		title: "Product",
@@ -55,6 +57,12 @@ export default function SiteFooter() {
 
 	return (
 		<footer className="bg-background text-foreground dark:bg-black">
+			{/* The mark taken apart into a rule across the full width. */}
+			<div className="flex h-1" aria-hidden="true">
+				{ACCENT_RULE.map((color) => (
+					<span key={color} className={`h-full flex-1 ${color}`} />
+				))}
+			</div>
 			<div className="mx-auto w-full max-w-7xl px-6 py-14 sm:py-16">
 				<div className="grid gap-10 lg:grid-cols-[minmax(12rem,1.1fr)_minmax(0,3fr)] lg:gap-16">
 					<div>
