@@ -48,7 +48,7 @@ const TOOLS: ReadonlyArray<ToolRow> = [
 		support: {
 			sources: { level: "partial", note: "No organization/interactivity" },
 			models: { level: "none", note: "Slow and incapable" },
-			collaborate: { level: "none" },
+			collaborate: { level: "none", note: "No co-editable docs" },
 		},
 	},
 	{
