@@ -51,6 +51,7 @@
 					"configuration/local-development",
 					"configuration/environment",
 					"configuration/architecture",
+					"configuration/self-hosting",
 					"configuration/deployments"
 				]
 			},

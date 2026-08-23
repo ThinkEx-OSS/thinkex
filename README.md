@@ -89,6 +89,12 @@ See [`package.json`](package.json), [`wrangler.jsonc`](wrangler.jsonc), and [`do
 
 </details>
 
+## Self-hosting
+
+ThinkEx is MIT licensed and runs locally from this repository. Production self-deployment currently means deploying to your own Cloudflare account; generic Docker, VPS, and on-premises deployments are not supported.
+
+The production setup is not yet a turnkey or officially supported installation path. See the [self-hosting guide](https://docs.thinkex.app/configuration/self-hosting) for the current requirements and account-specific configuration.
+
 ## Supporters
 
 Programs and platforms supporting ThinkEx with credits, tools, and infrastructure.

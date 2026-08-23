@@ -1,0 +1,49 @@
+---
+title: Self-hosting
+description: Current support and requirements for running your own ThinkEx deployment.
+---
+
+ThinkEx is MIT licensed and can run from this repository. Today, production self-hosting means deploying into your own Cloudflare account; ThinkEx is not portable to a generic Docker host, VPS, or on-premises server.
+
+<Warning>
+  This path is not yet turnkey or officially supported. It has not been verified from a fresh Cloudflare account, and the checked-in production configuration contains ThinkEx-owned resource identifiers that must not be reused.
+</Warning>
+
+## Support
+
+| Deployment | Status |
+| --- | --- |
+| Local development | Supported for contributors; core workspace flows run locally |
+| Your own Cloudflare account | Possible with manual provisioning; not yet verified or supported |
+| Docker, VPS, Kubernetes, or on-premises | Not supported |
+
+For local use, follow [Local development](/configuration/local-development). The lite profile emulates Cloudflare bindings but omits remote-only features such as browser rendering, PDF export, image extraction, and email delivery.
+
+## Production requirements
+
+A production deployment needs:
+
+- A Cloudflare account with Workers, Durable Objects, R2, Workflows, Containers, Images, Browser Rendering, Worker Loaders, Hyperdrive, and email sending available.
+- A PostgreSQL database reachable through a cache-disabled Hyperdrive configuration.
+- A custom domain, Better Auth secret, and Google OAuth credentials. Guest sign-in is development-only.
+- R2 API credentials and a separate upload-token secret for direct file uploads.
+- Provider keys for the features you enable: AI Gateway for AI chat, Firecrawl for web tools, and LlamaParse for document extraction. Analytics integrations are optional.
+
+## Account-specific setup
+
+Before deploying, replace the ThinkEx-owned values in `wrangler.jsonc`:
+
+1. Worker name and custom domain route.
+2. R2 bucket name in both the binding and `R2_BUCKET_NAME`.
+3. Hyperdrive configuration ID.
+4. Both Cloudflare Container image digests. Build the checked-in Dockerfiles into your own account; the pinned production images belong to the ThinkEx account.
+
+Also update the allowed origin in `config/r2/cors.production.json`, configure the bucket CORS and abandoned-upload lifecycle rules, and set the production secrets described in [Environment](/configuration/environment).
+
+The normal release order is:
+
+1. Apply the Postgres migrations with `DATABASE_URL` set to a direct administrative connection.
+2. Build with `pnpm build:production`.
+3. Deploy with `CLOUDFLARE_ENV=production pnpm deploy:worker`.
+
+See [Deployments](/configuration/deployments) for the existing build, migration, container, and R2 commands. Do not call a deployment complete until sign-in, workspace creation, file upload, document editing, realtime collaboration, AI chat, and file processing have been tested against the new account.
