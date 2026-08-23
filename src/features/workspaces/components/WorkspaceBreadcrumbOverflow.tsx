@@ -16,6 +16,7 @@ import { cn } from "#/lib/utils";
 
 interface WorkspaceBreadcrumbOverflowProps {
 	items: WorkspaceItem[];
+	path: string;
 	className?: string;
 	onNavigateToItem: (item: WorkspaceItem) => void;
 }
@@ -23,6 +24,7 @@ interface WorkspaceBreadcrumbOverflowProps {
 /** Crumbs hidden from the bar, reachable through a bare "…" menu. */
 export default function WorkspaceBreadcrumbOverflow({
 	items,
+	path,
 	className,
 	onNavigateToItem,
 }: WorkspaceBreadcrumbOverflowProps) {
@@ -43,7 +45,7 @@ export default function WorkspaceBreadcrumbOverflow({
 										<button
 											type="button"
 											className="flex size-7 items-center justify-center rounded-sm text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-											aria-label="Show path"
+											aria-label={`Show path: ${path}`}
 										/>
 									}
 								>
@@ -51,7 +53,7 @@ export default function WorkspaceBreadcrumbOverflow({
 								</DropdownMenuTrigger>
 							}
 						/>
-						<TooltipContent>Show path</TooltipContent>
+						<TooltipContent>{path}</TooltipContent>
 					</Tooltip>
 					<DropdownMenuContent align="start" className="w-56">
 						{items.map((item) => {
