@@ -168,7 +168,7 @@
 		"@tiptap/y-tiptap": "^3.0.8",
 		"@types/node": "^26.2.0",
 		"@types/papaparse": "^5.5.2",
-		"@types/pg": "^8.21.0",
+		"@types/pg": "^8.23.1",
 		"@types/react": "^19.2.18",
 		"@types/react-dom": "^19.2.4",
 		"@vitejs/plugin-react": "^6.0.5",
