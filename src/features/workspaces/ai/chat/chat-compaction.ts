@@ -162,8 +162,6 @@ function serializeMessage(message: UIMessage): string {
 	for (const part of message.parts) {
 		if (part.type === "text") {
 			lines.push(`[${message.role === "user" ? "User" : "Assistant"}]: ${part.text}`);
-		} else if (part.type === "reasoning" && part.text) {
-			lines.push(`[Assistant reasoning]: ${truncate(part.text)}`);
 		} else if (part.type === "file") {
 			lines.push(`[Attached ${part.mediaType}${part.filename ? `: ${part.filename}` : ""}]`);
 		} else if ("toolCallId" in part && "state" in part) {

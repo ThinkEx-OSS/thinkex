@@ -151,6 +151,21 @@ describe("prepareCompactedContext", () => {
 });
 
 describe("prompt building", () => {
+	it("does not promote hidden reasoning into durable summaries", () => {
+		const message: UIMessage = {
+			id: "a1",
+			role: "assistant",
+			parts: [
+				{ type: "reasoning", text: "private chain of thought" },
+				{ type: "text", text: "The user-visible answer." },
+			],
+		};
+		const serialized = serializeMessagesForSummary([message]);
+
+		expect(serialized).not.toContain("private chain of thought");
+		expect(serialized).toContain("The user-visible answer.");
+	});
+
 	it("serializes tool parts with truncated output", () => {
 		const message: UIMessage = {
 			id: "a1",

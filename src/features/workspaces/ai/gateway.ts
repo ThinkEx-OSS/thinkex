@@ -1,12 +1,5 @@
 import type { LanguageModel, UIMessage } from "ai";
-import {
-	addToolInputExamplesMiddleware,
-	createGateway,
-	generateText,
-	Output,
-	wrapLanguageModel,
-} from "ai";
-import { z } from "zod";
+import { addToolInputExamplesMiddleware, createGateway, generateText, wrapLanguageModel } from "ai";
 
 import type { AIThreadContext } from "#/features/workspaces/ai/ai-thread-metadata";
 import {
@@ -33,7 +26,6 @@ type WorkspaceAiProviderOptions = NonNullable<
 export function getWorkspaceAiLanguageModel(
 	modelId: ReturnType<typeof resolveWorkspaceAiChatModelId>,
 	env: Cloudflare.Env,
-	_sessionAffinity: string,
 ): LanguageModel {
 	return getWorkspaceAiLanguageModelForGatewayModel(getWorkspaceAiChatModel(modelId), env);
 }
@@ -104,6 +96,26 @@ export function getWorkspaceAiGatewayProviderOptions(input?: {
 	} satisfies WorkspaceAiProviderOptions;
 }
 
+/** Returns the title model's complete Gateway and provider configuration. */
+export function getAIThreadTitleGatewayProviderOptions(): WorkspaceAiProviderOptions {
+	return {
+		gateway: {
+			...getWorkspaceAiGatewayTransportOptions(),
+			...getAIThreadTitleGatewayRoutingOptions(),
+			tags: [
+				"app:thinkex",
+				"feature:workspace-chat",
+				"task:title-generation",
+				`model:${AI_THREAD_TITLE_GATEWAY_MODEL}`,
+			],
+		},
+		// The 2.5-series title model rejects `thinkingLevel`; budget is its knob.
+		google: { thinkingConfig: { thinkingBudget: 0 } },
+		vertex: { thinkingConfig: { thinkingBudget: 0 } },
+		openai: { reasoningEffort: "none" },
+	};
+}
+
 function getWorkspaceAiReasoningOptions(
 	modelId: ReturnType<typeof resolveWorkspaceAiChatModelId>,
 ): WorkspaceAiProviderOptions {
@@ -148,56 +160,21 @@ export async function generateAIThreadTitle(input: { env: Cloudflare.Env; messag
 
 	const result = await generateText({
 		model: getWorkspaceAiLanguageModelForGatewayModel(AI_THREAD_TITLE_GATEWAY_MODEL, input.env),
-		providerOptions: {
-			gateway: {
-				...getWorkspaceAiGatewayTransportOptions(),
-				...getAIThreadTitleGatewayRoutingOptions(),
-				tags: [
-					"app:thinkex",
-					"feature:workspace-chat",
-					"task:title-generation",
-					`model:${AI_THREAD_TITLE_GATEWAY_MODEL}`,
-				],
-			},
-			// The 2.5-series title model rejects `thinkingLevel` outright, which
-			// 400s every Google leg; budget is its knob. The fallback nano is a
-			// reasoning model; a six-word title needs none of it.
-			google: {
-				thinkingConfig: { thinkingBudget: 0 },
-			},
-			vertex: {
-				thinkingConfig: { thinkingBudget: 0 },
-			},
-			openai: {
-				reasoningEffort: "none",
-			},
-		} as WorkspaceAiProviderOptions,
+		providerOptions: getAIThreadTitleGatewayProviderOptions(),
 		instructions:
 			"Produce a concise chat title for the user message. Two to six words. No quotes, no trailing punctuation.",
 		prompt: firstUserMessage,
-		output: Output.object({
-			schema: AI_THREAD_TITLE_OUTPUT_SCHEMA,
-			name: "chat_title",
-			description: "A concise 2-6 word title summarizing the chat.",
-		}),
 	});
 
 	return {
-		title: result.output?.title,
+		title: result.text,
 		usage: result.totalUsage,
 		providerMetadata: await Promise.resolve(result.providerMetadata).catch(() => undefined),
 		gatewayModel: AI_THREAD_TITLE_GATEWAY_MODEL,
+		responseModel: result.response.modelId,
+		durationMs: result.finalStep.performance.responseTimeMs,
 	};
 }
-
-const AI_THREAD_TITLE_OUTPUT_SCHEMA = z.object({
-	title: z
-		.string()
-		.trim()
-		.min(1)
-		.max(80)
-		.describe("Two to six word chat title. No quotes, no trailing punctuation."),
-});
 
 function getFirstUserMessageText(messages: UIMessage[]) {
 	const firstUserMessage = messages.find((message) => message.role === "user");

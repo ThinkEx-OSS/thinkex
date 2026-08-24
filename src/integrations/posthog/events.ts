@@ -69,6 +69,8 @@ export interface PostHogEventPropertiesByName {
 		trace_id: string;
 		status: string;
 		step_count: number;
+		duration_ms: number;
+		time_to_first_visible_text_ms: number | null;
 	};
 	ai_tool_invoked: {
 		thread_id: string;
@@ -85,6 +87,8 @@ export interface PostHogEventPropertiesByName {
 		compute_error_code?: string | null;
 		compute_error_retryable?: boolean | null;
 		compute_error_line_number?: number | null;
+		call_id?: string;
+		tool_call_id?: string;
 	};
 	ai_turn_failed: {
 		thread_id: string;

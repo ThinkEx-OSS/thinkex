@@ -1,6 +1,5 @@
 import type { UIMessage } from "ai";
 import {
-	convertToModelMessages,
 	createUIMessageStream,
 	createUIMessageStreamResponse,
 	generateId,
@@ -13,6 +12,7 @@ import {
 
 import type { AIThreadContext } from "#/features/workspaces/ai/ai-thread-metadata";
 import { normalizeGeneratedThreadTitle } from "#/features/workspaces/ai/chat/chat-model";
+import { convertPersistedMessagesToModelMessages } from "#/features/workspaces/ai/chat/chat-model-context";
 import { requireThreadAccess } from "#/features/workspaces/ai/chat/chat-access";
 import { getAIThreadSoulPrompt } from "#/features/workspaces/ai/ai-thread-soul-prompt";
 import {
@@ -44,7 +44,7 @@ import {
 } from "#/features/workspaces/ai/chat/chat-store";
 import {
 	captureAiChatGeneration,
-	toolNamesFromParts,
+	createAiChatTurnTelemetry,
 } from "#/features/workspaces/ai/chat/chat-telemetry";
 import { claimTurn } from "#/features/workspaces/ai/chat/chat-turn-lifecycle";
 import { createAiChatTools } from "#/features/workspaces/ai/chat/chat-tools";
@@ -226,7 +226,7 @@ export async function handleAiChatTurn(input: {
 
 				try {
 					result = await generateText({
-						model: getWorkspaceAiLanguageModel(AI_CHAT_COMPACTION_MODEL_ID, env, threadId),
+						model: getWorkspaceAiLanguageModel(AI_CHAT_COMPACTION_MODEL_ID, env),
 						providerOptions: getWorkspaceAiGatewayProviderOptions({
 							modelId: AI_CHAT_COMPACTION_MODEL_ID,
 							tags: ["task:chat-compaction"],
@@ -250,6 +250,8 @@ export async function handleAiChatTurn(input: {
 					...telemetryBase,
 					usage: result.totalUsage,
 					providerMetadata: await Promise.resolve(result.providerMetadata).catch(() => undefined),
+					responseModel: result.response.modelId,
+					durationMs: result.finalStep.performance.responseTimeMs,
 					outcome: "complete",
 					output: [{ role: "assistant", content: result.text }],
 				});
@@ -272,13 +274,25 @@ export async function handleAiChatTurn(input: {
 
 		// Resolved by execute; read in onEnd so usage lands on the persisted row.
 		let totalUsagePromise: PromiseLike<unknown> | undefined;
-		let providerMetadataPromise: PromiseLike<unknown> | undefined;
 		// Set by onError; consumed by onEnd, which is the single writer for the
 		// turn's outcome (both callbacks fire on a failed stream — treating them
 		// as exclusive double-persisted the reply).
 		let turnErrorMessage: string | undefined;
-		const turnStartedAt = Date.now();
-		let firstTokenAt: number | undefined;
+		const turnTelemetry = createAiChatTurnTelemetry({
+			userId,
+			workspaceId: threadContext.workspaceId,
+			threadId,
+			traceId: turn.streamId,
+			modelId,
+			gatewayModel: getWorkspaceAiChatModelById(modelId).gatewayModel,
+			continuation: isRegenerate,
+			includeContent: analyticsConsent,
+			modelInput: context.messages.map((message) => ({
+				role: message.role,
+				content: message.parts,
+			})),
+			schedule: (task) => ctx.waitUntil(task),
+		});
 
 		const stream = createUIMessageStream({
 			generateId,
@@ -352,6 +366,8 @@ export async function handleAiChatTurn(input: {
 							captureAiChatGeneration({
 								...titleTelemetryBase,
 								gatewayModel: generated.gatewayModel,
+								responseModel: generated.responseModel,
+								durationMs: generated.durationMs,
 								usage: generated.usage,
 								providerMetadata: generated.providerMetadata,
 								outcome: "complete",
@@ -373,15 +389,11 @@ export async function handleAiChatTurn(input: {
 					);
 				}
 
-				const modelMessages = await convertToModelMessages(
+				const modelMessages = await convertPersistedMessagesToModelMessages(
 					await hydrateAttachmentParts(context.messages, { userId, threadId }),
-					// An interrupted earlier turn may have persisted a tool call whose
-					// result never arrived; replaying it verbatim 400s at the provider
-					// and would brick the thread. Dropping it is always safe.
-					{ ignoreIncompleteToolCalls: true },
 				);
 				const result = streamText({
-					model: getWorkspaceAiLanguageModel(modelId, env, threadId),
+					model: getWorkspaceAiLanguageModel(modelId, env),
 					providerOptions: getWorkspaceAiGatewayProviderOptions({
 						modelId,
 						thread: threadContext,
@@ -396,15 +408,18 @@ export async function handleAiChatTurn(input: {
 					// an ordinary user message and the next turn continues from it.
 					stopWhen: [stepCountIs(MAX_AGENT_STEPS), hasToolCall(ASK_USER_TOOL_NAME)],
 					abortSignal: turn.signal,
-					onChunk: () => {
-						firstTokenAt ??= Date.now();
+					onChunk: ({ chunk }) => {
+						turnTelemetry.onChunk(chunk);
 						turn.onChunk();
 					},
-					onStepFinish: () => turn.onStepFinish(),
+					onStepEnd: (step) => {
+						turn.onStepFinish();
+						turnTelemetry.onStepEnd(step);
+					},
+					onToolExecutionEnd: (event) => turnTelemetry.onToolExecutionEnd(event),
 				});
 
 				totalUsagePromise = result.totalUsage;
-				providerMetadataPromise = result.providerMetadata;
 				writer.merge(result.toUIMessageStream({ sendReasoning: false }));
 			},
 			onError: (error) => {
@@ -440,36 +455,17 @@ export async function handleAiChatTurn(input: {
 				ctx.waitUntil(settled);
 				// Bounded: a hung settle must not pin the client in "streaming"
 				// forever — waitUntil above still carries the real write to completion.
-				await Promise.race([settled, new Promise((resolve) => setTimeout(resolve, 5_000))]);
+				try {
+					await Promise.race([settled, new Promise((resolve) => setTimeout(resolve, 5_000))]);
+				} catch (error) {
+					turnTelemetry.finish("error", "Turn persistence failed");
+					throw error;
+				}
 
-				captureAiChatGeneration({
-					userId,
-					workspaceId: threadContext.workspaceId,
-					threadId,
-					traceId: turn.streamId,
-					gatewayModel: getWorkspaceAiChatModelById(modelId).gatewayModel,
-					requestedModel: modelId,
-					task: "chat-turn",
-					startedAt: turnStartedAt,
-					firstTokenAt,
-					usage,
-					providerMetadata: clean
-						? await Promise.resolve(providerMetadataPromise).catch(() => undefined)
-						: undefined,
-					outcome:
-						turnErrorMessage !== undefined ? "error" : isAborted ? "interrupted" : "complete",
-					errorMessage: turnErrorMessage,
-					toolNames: assistantMessage ? toolNamesFromParts(assistantMessage.parts) : undefined,
-					includeContent: analyticsConsent,
-					// Pre-hydration parts: attachment URLs, never inlined image bytes.
-					input: context.messages.map((message) => ({
-						role: message.role,
-						content: message.parts,
-					})),
-					...(assistantMessage
-						? { output: [{ role: "assistant", content: assistantMessage.parts }] }
-						: {}),
-				});
+				turnTelemetry.finish(
+					turnErrorMessage !== undefined ? "error" : isAborted ? "interrupted" : "complete",
+					turnErrorMessage,
+				);
 
 				if (clean && assistantMessage) {
 					ctx.waitUntil(
