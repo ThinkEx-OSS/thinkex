@@ -153,7 +153,7 @@
 	"devDependencies": {
 		"@babel/plugin-proposal-decorators": "^8.0.2",
 		"@cloudflare/vite-plugin": "^1.52.0",
-		"@cloudflare/vitest-pool-workers": "^0.21.2",
+		"@cloudflare/vitest-pool-workers": "^0.22.0",
 		"@cloudflare/workers-types": "^5.20260812.1",
 		"@commitlint/cli": "^21.2.1",
 		"@commitlint/config-conventional": "^21.2.0",
