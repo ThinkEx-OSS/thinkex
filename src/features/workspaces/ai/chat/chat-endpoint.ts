@@ -49,6 +49,7 @@ import {
 import { claimTurn } from "#/features/workspaces/ai/chat/chat-turn-lifecycle";
 import { createAiChatTools } from "#/features/workspaces/ai/chat/chat-tools";
 import { formatWorkspaceAiContextForPrompt } from "#/features/workspaces/model/workspace-ai-context-prompt";
+import { getWorkspaceToolDefinition } from "#/features/workspaces/operations/workspace-tool-definitions";
 import {
 	checkWorkspaceAiMessageAccess,
 	trackWorkspaceAiMessageUsage,
@@ -292,6 +293,8 @@ export async function handleAiChatTurn(input: {
 				content: message.parts,
 			})),
 			schedule: (task) => ctx.waitUntil(task),
+			summarizeToolOutput: (name, output) =>
+				getWorkspaceToolDefinition(name)?.summarizeOutput(output) ?? null,
 		});
 
 		const stream = createUIMessageStream({

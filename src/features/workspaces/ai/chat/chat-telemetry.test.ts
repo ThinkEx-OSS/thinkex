@@ -62,7 +62,11 @@ describe("fitTelemetryContent", () => {
 });
 
 describe("createAiChatTurnTelemetry", () => {
-	function createObserver() {
+	function createObserver(
+		summarizeToolOutput: Parameters<
+			typeof createAiChatTurnTelemetry
+		>[0]["summarizeToolOutput"] = () => null,
+	) {
 		return createAiChatTurnTelemetry({
 			userId: "user-1",
 			workspaceId: "workspace-1",
@@ -74,6 +78,7 @@ describe("createAiChatTurnTelemetry", () => {
 			includeContent: true,
 			modelInput: [{ role: "user", content: "hello" }],
 			schedule: () => {},
+			summarizeToolOutput,
 		});
 	}
 
@@ -108,7 +113,7 @@ describe("createAiChatTurnTelemetry", () => {
 			callId: "step-0",
 			toolCall: { toolCallId: "tool-call-1", toolName: "workspace_search" },
 			toolExecutionMs: 5,
-			toolOutput: { type: "tool-result" },
+			toolOutput: { type: "tool-result", output: {} },
 		});
 
 		vi.setSystemTime(1_030);
@@ -180,6 +185,43 @@ describe("createAiChatTurnTelemetry", () => {
 					step_count: 2,
 					duration_ms: 100,
 					time_to_first_visible_text_ms: 30,
+				}),
+			}),
+		);
+	});
+
+	it("records a resolved workspace failure as a semantic failure", () => {
+		const summarizeToolOutput = vi.fn(() => ({
+			failureCodes: ["path_already_exists"],
+			failedCount: 1,
+			outcome: "error" as const,
+		}));
+		const observer = createObserver(summarizeToolOutput);
+		const output = {
+			items: [],
+			failed: [{ code: "path_already_exists", path: "/Existing", index: 0 }],
+		};
+
+		observer.onToolExecutionEnd({
+			callId: "step-0",
+			toolCall: { toolCallId: "tool-call-1", toolName: "workspace_create_items" },
+			toolExecutionMs: 5,
+			toolOutput: {
+				type: "tool-result",
+				output,
+			},
+		});
+		expect(summarizeToolOutput).toHaveBeenCalledWith("workspace_create_items", output);
+
+		expect(mocks.captureEvent).toHaveBeenCalledWith(
+			expect.objectContaining({
+				event: "ai_tool_invoked",
+				properties: expect.objectContaining({
+					success: false,
+					runtime_success: true,
+					outcome: "error",
+					failure_count: 1,
+					failure_codes: ["path_already_exists"],
 				}),
 			}),
 		);

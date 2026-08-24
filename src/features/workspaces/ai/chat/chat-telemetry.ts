@@ -6,6 +6,7 @@ import type {
 } from "ai";
 
 import { fitTelemetryContent } from "#/features/workspaces/ai/chat/chat-model";
+import type { WorkspaceOperationSummary } from "#/features/workspaces/operations/workspace-operation-observability";
 import { capturePostHogAiGeneration } from "#/integrations/posthog/ai-observability";
 import { capturePostHogServerEvent } from "#/integrations/posthog/server";
 import type { PostHogTelemetryScheduler } from "#/integrations/posthog/scheduler";
@@ -116,7 +117,9 @@ type AiChatStepTelemetry = Pick<
 
 type AiToolExecutionTelemetry = Pick<ToolExecutionEndEvent, "callId" | "toolExecutionMs"> & {
 	toolCall: Pick<ToolExecutionEndEvent["toolCall"], "toolCallId" | "toolName">;
-	toolOutput: Pick<ToolExecutionEndEvent["toolOutput"], "type">;
+	toolOutput:
+		| Pick<Extract<ToolExecutionEndEvent["toolOutput"], { type: "tool-result" }>, "type" | "output">
+		| Pick<Extract<ToolExecutionEndEvent["toolOutput"], { type: "tool-error" }>, "type">;
 };
 
 /** Records one chat turn without conflating its model steps, tools, and wall time. */
@@ -131,6 +134,10 @@ export function createAiChatTurnTelemetry(input: {
 	includeContent: boolean;
 	modelInput: unknown[];
 	schedule: PostHogTelemetryScheduler;
+	summarizeToolOutput: (
+		name: string,
+		output: unknown,
+	) => Pick<WorkspaceOperationSummary, "failureCodes" | "failedCount" | "outcome"> | null;
 }) {
 	const startedAt = Date.now();
 	let firstVisibleTextAt: number | undefined;
@@ -160,7 +167,12 @@ export function createAiChatTurnTelemetry(input: {
 			steps.push(step);
 		},
 		onToolExecutionEnd(event: AiToolExecutionTelemetry) {
-			const success = event.toolOutput.type === "tool-result";
+			const summary =
+				event.toolOutput.type === "tool-result"
+					? input.summarizeToolOutput(event.toolCall.toolName, event.toolOutput.output)
+					: null;
+			const runtimeSuccess = event.toolOutput.type === "tool-result";
+			const outcome = summary?.outcome ?? (runtimeSuccess ? "success" : "error");
 			capturePostHogServerEvent({
 				distinctId: input.userId,
 				event: "ai_tool_invoked",
@@ -171,12 +183,12 @@ export function createAiChatTurnTelemetry(input: {
 					workspace_id: input.workspaceId,
 					trace_id: input.traceId,
 					tool_name: event.toolCall.toolName,
-					success,
+					success: outcome === "success",
 					duration_ms: event.toolExecutionMs,
-					failure_codes: [],
-					failure_count: success ? 0 : 1,
-					outcome: success ? "success" : "error",
-					runtime_success: success,
+					failure_codes: summary?.failureCodes ?? [],
+					failure_count: summary?.failedCount ?? (runtimeSuccess ? 0 : 1),
+					outcome,
+					runtime_success: runtimeSuccess,
 					call_id: event.callId,
 					tool_call_id: event.toolCall.toolCallId,
 				},

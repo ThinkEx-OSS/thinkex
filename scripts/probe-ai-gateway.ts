@@ -58,30 +58,39 @@ function reasoningOptions(modelId: WorkspaceAiChatModelId): Record<string, unkno
 	return providerOptions;
 }
 
-function providerOptionsForSlug(slug: string) {
-	if (slug === AI_THREAD_TITLE_GATEWAY_MODEL) {
-		const { gateway: _gateway, ...providerOptions } = getAIThreadTitleGatewayProviderOptions();
-		return providerOptions;
-	}
-
-	const model = WORKSPACE_AI_CHAT_MODELS.find(
-		(candidate) => getWorkspaceAiChatModel(candidate.id) === slug,
-	);
-	return model ? reasoningOptions(model.id) : {};
+function titleProviderOptions(): Record<string, unknown> {
+	const { gateway: _gateway, ...providerOptions } = getAIThreadTitleGatewayProviderOptions();
+	return providerOptions;
 }
 
-/** Slug -> providers that can actually serve that model family. */
-function buildProviderCandidates() {
-	return new Map(
-		allReferencedSlugs().map((slug) => [
+function providersForSlug(slug: string) {
+	return slug.startsWith("openai/")
+		? ["openai", "azure"]
+		: slug.startsWith("google/")
+			? ["google", "vertex"]
+			: ["anthropic"];
+}
+
+/** Every model leg with the provider options of the production route that owns it. */
+function buildPinnedRoutes() {
+	const chatRoutes = WORKSPACE_AI_CHAT_MODELS.flatMap((model) => {
+		const routing = getWorkspaceAiGatewayRoutingOptions(model.id);
+		return [getWorkspaceAiChatModel(model.id), ...routing.models].map((slug) => ({
+			label: `${model.id}: ${slug}`,
 			slug,
-			slug.startsWith("openai/")
-				? ["openai", "azure"]
-				: slug.startsWith("google/")
-					? ["google", "vertex"]
-					: ["anthropic"],
-		]),
-	);
+			providers: providersForSlug(slug),
+			extraProviderOptions: reasoningOptions(model.id),
+		}));
+	});
+	const titleRouting = getAIThreadTitleGatewayRoutingOptions();
+	const titleRoutes = [AI_THREAD_TITLE_GATEWAY_MODEL, ...titleRouting.models].map((slug) => ({
+		label: `thread-title: ${slug}`,
+		slug,
+		providers: providersForSlug(slug),
+		extraProviderOptions: titleProviderOptions(),
+	}));
+
+	return [...chatRoutes, ...titleRoutes];
 }
 
 /** Every slug the config references, primary or fallback. */
@@ -360,7 +369,7 @@ async function main() {
 			slug: AI_THREAD_TITLE_GATEWAY_MODEL,
 			mode: "text",
 			gatewayOptions: getAIThreadTitleGatewayRoutingOptions() as unknown as Record<string, unknown>,
-			extraProviderOptions: providerOptionsForSlug(AI_THREAD_TITLE_GATEWAY_MODEL),
+			extraProviderOptions: titleProviderOptions(),
 		});
 
 		const phaseResults = await mapWithConcurrency(jobs, args.concurrency, probe);
@@ -370,20 +379,20 @@ async function main() {
 
 	if (args.phase === "all" || args.phase === "pinned") {
 		console.log("\n=== Phase 3: each provider leg pinned (only: [provider]) ===");
-		const jobs: ProbeJob[] = [...buildProviderCandidates()].flatMap(([slug, providers]) =>
-			providers.flatMap((provider) => {
+		const jobs: ProbeJob[] = buildPinnedRoutes().flatMap((route) =>
+			route.providers.flatMap((provider) => {
 				const modes: ProbeMode[] = args.tools ? ["text", "tool"] : ["text"];
 
 				return modes.map((mode) => ({
 					gateway,
 					phase: "pinned" as const,
-					label: `${slug} @ ${provider}`,
-					slug,
+					label: `${route.label} @ ${provider}`,
+					slug: route.slug,
 					pinnedProvider: provider,
 					mode,
 					// only + no fallback models: isolate this leg, no silent rescue.
 					gatewayOptions: { only: [provider], order: [provider] },
-					extraProviderOptions: providerOptionsForSlug(slug),
+					extraProviderOptions: route.extraProviderOptions,
 				}));
 			}),
 		);
