@@ -123,7 +123,7 @@ export async function scoreAnswerQuality(args: {
 	rubric: string;
 }): Promise<ScoreResult> {
 	const result = await generateText({
-		model: getWorkspaceAiLanguageModel(JUDGE_MODEL_ID, env, "eval-judge"),
+		model: getWorkspaceAiLanguageModel(JUDGE_MODEL_ID, env),
 		providerOptions: getWorkspaceAiGatewayProviderOptions({ modelId: JUDGE_MODEL_ID }),
 		output: Output.object({ schema: QUALITY_VERDICT_SCHEMA }),
 		system:

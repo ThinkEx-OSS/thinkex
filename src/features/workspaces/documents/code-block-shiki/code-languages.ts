@@ -101,7 +101,7 @@ const codeLanguageDefinitions = [
 
 export type SupportedCodeLanguage = (typeof codeLanguageDefinitions)[number]["value"];
 
-export type CodeLanguageOption = {
+type CodeLanguageOption = {
 	label: string;
 	value: SupportedCodeLanguage;
 };

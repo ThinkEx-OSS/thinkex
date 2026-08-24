@@ -8,22 +8,6 @@ import {
 	type PostHogTelemetryScheduler,
 } from "#/integrations/posthog/scheduler";
 
-export interface PostHogAiSpanInput {
-	distinctId: string;
-	traceId: string;
-	sessionId: string;
-	spanId: string;
-	spanName: string;
-	parentId?: string;
-	inputState?: unknown;
-	outputState?: unknown;
-	latencySeconds?: number;
-	isError?: boolean;
-	error?: unknown;
-	properties?: Record<string, unknown>;
-	schedule?: PostHogTelemetryScheduler;
-}
-
 function getPostHogAiClient(): PostHog | null {
 	if (!isPostHogAiObservabilityEnabled) {
 		return null;
@@ -82,19 +66,32 @@ export function getGatewayServedRoute(providerMetadata: unknown) {
 				routing?: {
 					finalProvider?: string;
 					modelAttempts?: {
+						canonicalSlug?: string;
+						success?: boolean;
 						providerAttempts?: { credentialType?: string; success?: boolean }[];
 					}[];
 				};
 		  }
 		| undefined;
 	const routing = gateway?.routing;
+	const modelAttempts = routing?.modelAttempts ?? [];
+	const providerAttempts =
+		routing?.modelAttempts?.flatMap((attempt) => attempt.providerAttempts ?? []) ?? [];
+	const failedProviderAttemptCount = providerAttempts.filter((attempt) => !attempt.success).length;
+	const failedModelAttemptCount = modelAttempts.filter((attempt) => !attempt.success).length;
 
 	return {
 		provider: routing?.finalProvider,
-		credentialType: routing?.modelAttempts
-			?.flatMap((attempt) => attempt.providerAttempts ?? [])
-			.find((attempt) => attempt.success)?.credentialType,
+		credentialType: providerAttempts.find((attempt) => attempt.success)?.credentialType,
 		serviceTier: gateway?.serviceTier,
+		servedModel: routing?.modelAttempts?.find((attempt) => attempt.success)?.canonicalSlug,
+		modelAttemptCount: modelAttempts.length,
+		failedModelAttemptCount,
+		providerAttemptCount: providerAttempts.length,
+		failedProviderAttemptCount,
+		routingRecovered:
+			(failedModelAttemptCount > 0 || failedProviderAttemptCount > 0) &&
+			modelAttempts.some((attempt) => attempt.success),
 	};
 }
 
@@ -120,11 +117,20 @@ export function capturePostHogAiGeneration(
 	if (served.provider) {
 		captureOptions.provider = served.provider;
 	}
+	if (served.servedModel) {
+		captureOptions.model = served.servedModel.split("/").at(-1) ?? served.servedModel;
+	}
 
 	const properties: Record<string, unknown> = {
 		...captureOptions.properties,
 		...(served.credentialType ? { credential_type: served.credentialType } : {}),
 		...(served.serviceTier ? { service_tier: served.serviceTier } : {}),
+		...(served.servedModel ? { served_model: served.servedModel } : {}),
+		model_attempt_count: served.modelAttemptCount,
+		failed_model_attempt_count: served.failedModelAttemptCount,
+		provider_attempt_count: served.providerAttemptCount,
+		failed_provider_attempt_count: served.failedProviderAttemptCount,
+		routing_recovered: served.routingRecovered,
 	};
 
 	appendAiTraceProperties(properties, {
@@ -148,55 +154,5 @@ export function capturePostHogAiGeneration(
 			captureImmediate: true,
 			properties,
 		}),
-	});
-}
-
-export function capturePostHogAiSpan(input: PostHogAiSpanInput) {
-	const client = getPostHogAiClient();
-	if (!client) {
-		return;
-	}
-
-	const properties: Record<string, unknown> = {
-		...input.properties,
-	};
-
-	appendAiTraceProperties(properties, input);
-
-	if (input.inputState !== undefined) {
-		properties.$ai_input_state = input.inputState;
-	}
-
-	if (input.outputState !== undefined) {
-		properties.$ai_output_state = input.outputState;
-	}
-
-	if (input.latencySeconds !== undefined) {
-		properties.$ai_latency = input.latencySeconds;
-	}
-
-	if (input.isError) {
-		properties.$ai_is_error = true;
-		properties.$ai_error =
-			input.error instanceof Error
-				? input.error.message
-				: typeof input.error === "string"
-					? input.error
-					: JSON.stringify(input.error);
-	}
-
-	schedulePostHogCapture({
-		context: {
-			type: "ai_span",
-			spanName: input.spanName,
-		},
-		schedule: input.schedule,
-		task: client
-			.captureImmediate({
-				distinctId: input.distinctId,
-				event: "$ai_span",
-				properties,
-			})
-			.then(() => undefined),
 	});
 }

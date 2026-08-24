@@ -15,7 +15,6 @@ export {
 	getCodeLanguageLabel,
 	isMermaidCodeLanguage,
 	normalizeCodeLanguage,
-	type CodeLanguageOption,
 	type SupportedCodeLanguage,
 } from "#/features/workspaces/documents/code-block-shiki/code-languages";
 import {

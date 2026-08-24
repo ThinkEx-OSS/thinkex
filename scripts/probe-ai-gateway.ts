@@ -11,10 +11,9 @@
  * Flags: --phase=catalog|configured|pinned|load|all  --tools=on|off  --concurrency=N
  * Full results land in .context/ai-gateway-probe.json.
  *
- * Routing/transport options mirror ai-thread-runtime.ts; that module can't be
- * imported here because it pulls in the Cloudflare Worker runtime.
+ * The probe imports production configuration so it cannot silently drift.
  */
-import { writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 
 import { createGateway, generateText, stepCountIs, tool } from "ai";
 import { z } from "zod";
@@ -24,14 +23,17 @@ import {
 	getWorkspaceAiGatewayRoutingOptions,
 } from "#/features/workspaces/ai/ai-gateway-routing.ts";
 import {
+	AI_THREAD_TITLE_GATEWAY_MODEL,
+	getAIThreadTitleGatewayProviderOptions,
+	getWorkspaceAiGatewayProviderOptions,
+	getWorkspaceAiGatewayTransportOptions,
+} from "#/features/workspaces/ai/gateway.ts";
+import {
 	getWorkspaceAiChatModel,
 	WORKSPACE_AI_CHAT_MODELS,
 	type WorkspaceAiChatModelId,
 } from "#/features/workspaces/ai/models.ts";
 
-// Mirrors AI_THREAD_TITLE_GATEWAY_MODEL in ai-thread-runtime.ts.
-const TITLE_MODEL_SLUG = "google/gemini-2.5-flash-lite";
-const GOOGLE_TITLE_PROVIDERS = ["google", "vertex"];
 const REQUEST_TIMEOUT_MS = 90_000;
 
 type Args = { phase: string; tools: boolean; concurrency: number };
@@ -47,47 +49,53 @@ function parseArgs(): Args {
 	};
 }
 
-// Mirrors getWorkspaceAiGatewayTransportOptions() in ai-thread-runtime.ts.
-const transportOptions = {
-	caching: "auto" as const,
-	providerTimeouts: {
-		byok: { anthropic: 20_000, azure: 15_000, openai: 15_000, vertex: 30_000 },
-	},
-};
+const transportOptions = getWorkspaceAiGatewayTransportOptions();
 
-// Mirrors getWorkspaceAiReasoningOptions() in ai-thread-runtime.ts.
 function reasoningOptions(modelId: WorkspaceAiChatModelId): Record<string, unknown> {
-	switch (modelId) {
-		case "claude-sonnet":
-			return { bedrock: { reasoningConfig: { type: "adaptive", maxReasoningEffort: "low" } } };
-		case "gemini":
-			return {
-				google: { thinkingConfig: { thinkingLevel: "low" } },
-				vertex: { thinkingConfig: { thinkingLevel: "low" } },
-			};
-		case "gpt-terra":
-			return { openai: { reasoningEffort: "none" } };
-		default:
-			return {};
-	}
+	const { gateway: _gateway, ...providerOptions } = getWorkspaceAiGatewayProviderOptions({
+		modelId,
+	});
+	return providerOptions;
 }
 
-/** slug -> providers the config would ever route it to, derived from the routing table. */
-function buildProviderCandidates() {
-	const candidates = new Map<string, string[]>();
+function titleProviderOptions(): Record<string, unknown> {
+	const { gateway: _gateway, ...providerOptions } = getAIThreadTitleGatewayProviderOptions();
+	return providerOptions;
+}
 
-	for (const model of WORKSPACE_AI_CHAT_MODELS) {
+function providersForSlug(slug: string) {
+	return slug.startsWith("openai/")
+		? ["openai", "azure"]
+		: slug.startsWith("google/")
+			? ["google", "vertex"]
+			: ["anthropic"];
+}
+
+/** Every model leg with the provider options of the production route that owns it. */
+function buildPinnedRoutes() {
+	const chatRoutes = WORKSPACE_AI_CHAT_MODELS.flatMap((model) => {
 		const routing = getWorkspaceAiGatewayRoutingOptions(model.id);
-		candidates.set(getWorkspaceAiChatModel(model.id), routing.only ?? routing.order);
-	}
-	candidates.set(TITLE_MODEL_SLUG, GOOGLE_TITLE_PROVIDERS);
+		return [getWorkspaceAiChatModel(model.id), ...routing.models].map((slug) => ({
+			label: `${model.id}: ${slug}`,
+			slug,
+			providers: providersForSlug(slug),
+			extraProviderOptions: reasoningOptions(model.id),
+		}));
+	});
+	const titleRouting = getAIThreadTitleGatewayRoutingOptions();
+	const titleRoutes = [AI_THREAD_TITLE_GATEWAY_MODEL, ...titleRouting.models].map((slug) => ({
+		label: `thread-title: ${slug}`,
+		slug,
+		providers: providersForSlug(slug),
+		extraProviderOptions: titleProviderOptions(),
+	}));
 
-	return candidates;
+	return [...chatRoutes, ...titleRoutes];
 }
 
 /** Every slug the config references, primary or fallback. */
 function allReferencedSlugs() {
-	const slugs = new Set<string>([TITLE_MODEL_SLUG]);
+	const slugs = new Set<string>([AI_THREAD_TITLE_GATEWAY_MODEL]);
 
 	for (const model of WORKSPACE_AI_CHAT_MODELS) {
 		slugs.add(getWorkspaceAiChatModel(model.id));
@@ -357,11 +365,11 @@ async function main() {
 		jobs.push({
 			gateway,
 			phase: "configured" as const,
-			label: `thread-title -> ${TITLE_MODEL_SLUG}`,
-			slug: TITLE_MODEL_SLUG,
+			label: `thread-title -> ${AI_THREAD_TITLE_GATEWAY_MODEL}`,
+			slug: AI_THREAD_TITLE_GATEWAY_MODEL,
 			mode: "text",
 			gatewayOptions: getAIThreadTitleGatewayRoutingOptions() as unknown as Record<string, unknown>,
-			extraProviderOptions: {},
+			extraProviderOptions: titleProviderOptions(),
 		});
 
 		const phaseResults = await mapWithConcurrency(jobs, args.concurrency, probe);
@@ -371,20 +379,20 @@ async function main() {
 
 	if (args.phase === "all" || args.phase === "pinned") {
 		console.log("\n=== Phase 3: each provider leg pinned (only: [provider]) ===");
-		const jobs: ProbeJob[] = [...buildProviderCandidates()].flatMap(([slug, providers]) =>
-			providers.flatMap((provider) => {
+		const jobs: ProbeJob[] = buildPinnedRoutes().flatMap((route) =>
+			route.providers.flatMap((provider) => {
 				const modes: ProbeMode[] = args.tools ? ["text", "tool"] : ["text"];
 
 				return modes.map((mode) => ({
 					gateway,
 					phase: "pinned" as const,
-					label: `${slug} @ ${provider}`,
-					slug,
+					label: `${route.label} @ ${provider}`,
+					slug: route.slug,
 					pinnedProvider: provider,
 					mode,
 					// only + no fallback models: isolate this leg, no silent rescue.
 					gatewayOptions: { only: [provider], order: [provider] },
-					extraProviderOptions: {},
+					extraProviderOptions: route.extraProviderOptions,
 				}));
 			}),
 		);
@@ -414,6 +422,8 @@ async function main() {
 		printTable(phaseResults);
 	}
 
+	const outputDirectory = new URL("../.context/", import.meta.url);
+	await mkdir(outputDirectory, { recursive: true });
 	await writeFile(
 		new URL("../.context/ai-gateway-probe.json", import.meta.url),
 		JSON.stringify(results, null, 2),

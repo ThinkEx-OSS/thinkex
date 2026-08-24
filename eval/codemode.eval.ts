@@ -53,7 +53,7 @@ async function runOrchestrateTurn(prompt: string) {
 	const modelId = resolveWorkspaceAiChatModelId(undefined);
 
 	const result = await generateText({
-		model: getWorkspaceAiLanguageModel(modelId, env, "eval-codemode"),
+		model: getWorkspaceAiLanguageModel(modelId, env),
 		providerOptions: getWorkspaceAiGatewayProviderOptions({ modelId }),
 		system:
 			"You are the assistant inside the Study workspace of a learning app. Ground answers in tool results.",

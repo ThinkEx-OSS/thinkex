@@ -222,7 +222,7 @@ export async function runWorkspaceAgent(input: WorkspaceAgentInput): Promise<Wor
 	});
 
 	const result = await generateText({
-		model: getWorkspaceAiLanguageModel(modelId, env, "eval"),
+		model: getWorkspaceAiLanguageModel(modelId, env),
 		providerOptions: getWorkspaceAiGatewayProviderOptions({ modelId }),
 		system: workspacePrompt,
 		prompt: input.prompt,

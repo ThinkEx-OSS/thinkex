@@ -5,9 +5,6 @@
  * Nothing is minted or persisted per turn.
  */
 
-/** Hidden data part written by earlier versions; recognized only to keep it hidden. */
-export const WORKSPACE_REFERENCES_DATA_PART_TYPE = "data-workspace-references";
-
 const anyCompleteWorkspaceCitationTagPattern = /<\/?citation\b[^>]*>/gi;
 
 /**

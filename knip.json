@@ -4,11 +4,10 @@
 		"autumn.config.ts",
 		"content-collections.ts",
 		"drizzle.config.ts",
-		"src/client.tsx",
-		"src/router.tsx",
+		"eval/**/*.eval.ts",
 		"src/routes/**/*.{ts,tsx}"
 	],
-	"project": ["src/**/*.{ts,tsx}"],
+	"project": ["eval/**/*.{ts,tsx}", "src/**/*.{ts,tsx}"],
 	"ignoreFiles": ["src/components/ui/**"],
 	"ignoreIssues": {
 		"src/db/schema.ts": ["exports"],

@@ -276,12 +276,3 @@ export const workspaceToolDefinitions = [
 export function getWorkspaceToolDefinition(name: string) {
 	return workspaceToolDefinitions.find((definition) => definition.name === name) ?? null;
 }
-
-export function summarizeWorkspaceToolOutput(name: string, output: unknown) {
-	const definition = getWorkspaceToolDefinition(name);
-	if (!definition) {
-		return null;
-	}
-
-	return definition.summarizeOutput(output);
-}
