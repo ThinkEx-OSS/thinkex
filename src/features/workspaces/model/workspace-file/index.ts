@@ -17,7 +17,6 @@ export {
 } from "#/features/workspaces/model/workspace-file/policy";
 export {
 	resolveWorkspaceFileTypeFromItem,
-	type WorkspaceFileItemLike,
 	workspaceItemRequiresHeavyViewerRuntime,
 } from "#/features/workspaces/model/workspace-file/resolve";
 export {

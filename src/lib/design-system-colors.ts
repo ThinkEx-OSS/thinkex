@@ -26,11 +26,3 @@ export function getCollaborationUserColor(userId: string) {
 
 	return COLLABORATION_USER_COLORS[hash % COLLABORATION_USER_COLORS.length];
 }
-
-/** Shared status badge surface pattern */
-export const statusBadgeClassName = {
-	destructive: "border-destructive/25 bg-destructive/10 text-destructive",
-	success: "border-success/25 bg-success/10 text-success",
-	warning: "border-warning/25 bg-warning/10 text-warning",
-	info: "border-info/25 bg-info/10 text-info",
-} as const;

@@ -15,10 +15,7 @@ import type {
 } from "#/features/workspaces/state/workspace-tabs-store-types";
 import { zustandDevtoolsOptions } from "#/lib/zustand-devtools";
 
-export type {
-	WorkspaceTab,
-	WorkspaceTabSession,
-} from "#/features/workspaces/state/workspace-tabs-store-types";
+export type { WorkspaceTab } from "#/features/workspaces/state/workspace-tabs-store-types";
 
 export const useWorkspaceTabsStore = create<WorkspaceTabsState>()(
 	devtools(

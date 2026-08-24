@@ -140,11 +140,6 @@ export function getEffectiveConsent(): ConsentRecord | null {
 	);
 }
 
-/** True when analytics may run — an explicit opt-in, or the opt-out regional default. */
-export function hasAnalyticsConsent(): boolean {
-	return getEffectiveConsent()?.analytics === true;
-}
-
 /** AI content export requires an explicit stored replay choice, never a regional default. */
 export function hasExplicitSessionReplayConsent(): boolean {
 	return getStoredConsent()?.sessionReplay === true;
