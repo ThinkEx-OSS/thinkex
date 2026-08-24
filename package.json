@@ -117,7 +117,7 @@
 		"hast-util-to-string": "^3.0.1",
 		"katex": "0.18.4",
 		"linkedom": "0.18.13",
-		"lucide-react": "^1.31.0",
+		"lucide-react": "^1.33.0",
 		"mermaid": "11.16.1",
 		"motion": "^13.1.0",
 		"nanoid": "^6.0.1",
