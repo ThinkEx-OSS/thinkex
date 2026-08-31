@@ -332,6 +332,9 @@
 		},
 		"production": {
 			"name": "thinkex",
+			"limits": {
+				"cpu_ms": 60000,
+			},
 			"version_metadata": {
 				"binding": "CF_VERSION_METADATA",
 			},
