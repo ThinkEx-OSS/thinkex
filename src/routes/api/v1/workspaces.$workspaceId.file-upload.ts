@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { createDbContext } from "#/db/server";
 import { WorkspaceFileConversionError } from "#/features/workspaces/conversion/errors";
+import { importWorkspaceDocument } from "#/features/workspaces/upload/document-importers";
 import { requestWorkspaceFileExtraction } from "#/features/workspaces/extraction/request-workspace-file-extraction";
 import { checkWorkspaceFileUploadAccess } from "#/integrations/autumn/workspace-file-usage";
 import {
@@ -316,7 +317,7 @@ async function createWorkspaceDocumentFromUpload(input: {
 	file: File;
 	plan: Extract<WorkspaceUploadPlan, { kind: "document" }>;
 }) {
-	const documentContent = await input.plan.importer.importFile(input.file);
+	const documentContent = await importWorkspaceDocument(input.plan.importer, input.file);
 
 	return requireAppliedWorkspaceMutation(
 		await createWorkspaceItem(env, {
