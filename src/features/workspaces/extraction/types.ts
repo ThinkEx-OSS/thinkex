@@ -5,8 +5,6 @@ import type {
 } from "#/features/workspaces/model/workspace-file/types";
 import type { MarkdownProjectionPage } from "#/features/workspaces/extraction/page-markdown-projection";
 
-export type LlamaParseTier = "cost_effective" | "agentic" | "agentic_plus";
-
 export interface WorkspaceFileExtractionWorkflowParams {
 	workspaceId: string;
 	itemId: string;

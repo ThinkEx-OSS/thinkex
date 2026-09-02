@@ -15,7 +15,7 @@ export interface TrackWorkspaceFileUploadUsageInput {
 }
 
 /**
- * Metered per upload rather than per page. LlamaParse bills per page, but nobody
+ * Metered per upload rather than per page. Firecrawl bills per page, but nobody
  * knows a PDF's page count before uploading, and a balance that drops by an
  * unpredictable amount is the thing that makes people stop uploading.
  *

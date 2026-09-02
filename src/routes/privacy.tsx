@@ -35,7 +35,7 @@ const privacyDocument = {
 		},
 		{
 			title: "Service providers",
-			body: "We use service providers to operate ThinkEx. Depending on the feature and environment, these may include Cloudflare for hosting, storage, databases, Durable Objects, Workers AI, Browser Rendering, email delivery, and sandboxed compute; Google for sign-in; Vercel AI Gateway and AI model providers such as OpenAI, Anthropic, and Google for AI responses; LlamaParse, Firecrawl, and Cloudflare Workers AI for file, web, and research extraction; PostHog for analytics, feedback, error reporting, session replay in deployed builds, and AI observability; The Context Company for AI observability; and Autumn for AI usage tracking. These providers process data only as needed to provide their services to ThinkEx Inc.",
+			body: "We use service providers to operate ThinkEx. Depending on the feature and environment, these may include Cloudflare for hosting, storage, databases, Durable Objects, Workers AI, Browser Rendering, email delivery, and sandboxed compute; Google for sign-in; Vercel AI Gateway and AI model providers such as OpenAI, Anthropic, and Google for AI responses; Firecrawl and Cloudflare Workers AI for file, web, and research extraction; PostHog for analytics, feedback, error reporting, session replay in deployed builds, and AI observability; The Context Company for AI observability; and Autumn for AI usage tracking. These providers process data only as needed to provide their services to ThinkEx Inc.",
 		},
 		{
 			title: "Workspace content and AI",

@@ -106,8 +106,8 @@ const WORKSPACE_UPLOAD_FAMILIES = [
 		defaultFileName: "Uploaded file.pdf",
 		requiresHeavyViewerRuntime: true,
 		extractionRoute: {
-			provider: "llama_parse",
-			mode: "agentic",
+			provider: "firecrawl_pdf",
+			mode: "ocr",
 			reason: "default_pdf_upload_route",
 		},
 	},

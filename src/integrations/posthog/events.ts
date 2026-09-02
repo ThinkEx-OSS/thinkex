@@ -103,7 +103,7 @@ export interface PostHogEventPropertiesByName {
 	workspace_file_extraction_completed: {
 		actor_user_id: string | null;
 		asset_kind: string;
-		/** LlamaParse credits actually billed, which provider_mode alone cannot tell you. */
+		/** Extraction credits used, which provider_mode alone cannot tell you. */
 		credits_used: number | null;
 		duration_ms: number;
 		enhancement_duration_ms: number;

@@ -245,7 +245,7 @@ function getErrorMessage(error: unknown) {
 }
 
 function getExtractionCreditsUsed(metadata: PublishedPageExtractionResult["metadata"]) {
-	// Only LlamaParse reports credits; other providers leave the key absent.
+	// Enhanced providers report credits; local providers leave the key absent.
 	return getMetadataNumber(metadata, "creditsUsed");
 }
 

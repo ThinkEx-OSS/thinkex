@@ -22,7 +22,7 @@ export const premiumMessages = feature({
 	consumable: true,
 });
 
-// Extraction is billed per page by LlamaParse, but metered here per upload:
+// Extraction is billed per page by Firecrawl, but metered here per upload:
 // nobody knows a PDF's page count before uploading, and a balance that drops by
 // an unpredictable amount per upload is exactly the anxiety we're avoiding.
 //

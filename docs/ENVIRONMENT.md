@@ -48,7 +48,6 @@ The dev server boots and lets you sign in with just the two variables below. Eve
 | `AUTUMN_SECRET_KEY` | Autumn usage analytics for completed AI chat messages, against the Autumn **sandbox**. Set in staging and dev only | Usage tracking is skipped |
 | `AUTUMN_PROD_SECRET_KEY` | Same, against Autumn **production**. Set in production only, and takes precedence when both are present | Falls back to `AUTUMN_SECRET_KEY` |
 | `FIRECRAWL_API_KEY` | Web search + URL/PDF extraction (Firecrawl) | Those calls error when invoked |
-| `LLAMA_CLOUD_API_KEY` | Document extraction (LlamaParse) | Those calls error when invoked |
 
 ## Signing in without Google
 

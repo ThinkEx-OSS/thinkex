@@ -5,16 +5,11 @@ export const workspaceFileAssetKindSchema = z.enum(workspaceFileAssetKinds);
 
 export type WorkspaceFileAssetKind = (typeof workspaceFileAssetKinds)[number];
 
-export const workspaceFileExtractionProviders = ["gemini_image_markdown", "llama_parse"] as const;
+export const workspaceFileExtractionProviders = ["gemini_image_markdown", "firecrawl_pdf"] as const;
 
 export type WorkspaceFileExtractionProviderId = (typeof workspaceFileExtractionProviders)[number];
 
-export type WorkspaceFileExtractionMode =
-	| "fast"
-	| "default"
-	| "cost_effective"
-	| "agentic"
-	| "agentic_plus";
+export type WorkspaceFileExtractionMode = "fast" | "ocr" | "default";
 
 export interface WorkspaceFileExtractionRoute {
 	provider: WorkspaceFileExtractionProviderId;

@@ -1,4 +1,4 @@
-import { createLlamaParseExtractionProvider } from "#/features/workspaces/extraction/providers/llama-parse";
+import { createFirecrawlPdfExtractionProvider } from "#/features/workspaces/extraction/providers/firecrawl-pdf";
 import { createGeminiImageMarkdownProvider } from "#/features/workspaces/extraction/providers/gemini-image-markdown";
 import type { MarkdownExtractionProvider } from "#/features/workspaces/extraction/types";
 import type { WorkspaceFileExtractionProviderId } from "#/features/workspaces/model/workspace-file/types";
@@ -10,7 +10,7 @@ export function createMarkdownExtractionProvider(
 	switch (providerId) {
 		case "gemini_image_markdown":
 			return createGeminiImageMarkdownProvider(env);
-		case "llama_parse":
-			return createLlamaParseExtractionProvider(env);
+		case "firecrawl_pdf":
+			return createFirecrawlPdfExtractionProvider(env);
 	}
 }

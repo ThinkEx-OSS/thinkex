@@ -69,7 +69,7 @@ Remote-only features are unavailable in this profile: browser rendering, PDF exp
 
 	- **AI chat, thread titles, and compaction** — Vercel AI Gateway, billed per turn whenever `AI_GATEWAY_API_KEY` is set
 	- **`web_search` and research tools** — Firecrawl
-	- **PDF text extraction** — LlamaParse
+	- **PDF text extraction** — Firecrawl
 
 	Under `pnpm dev`, Infisical supplies those keys, so sending a chat message costs money in either profile. For a session that spends nothing at all, use `pnpm serve:dev` with a `.dev.vars` that omits those keys — the AI gateway then raises a clear error instead of billing.
 </Warning>
