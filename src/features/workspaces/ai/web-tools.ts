@@ -1,11 +1,7 @@
-import type { JSONValue, ToolSet } from "ai";
+import type { ToolSet } from "ai";
 import { z } from "zod";
 import { defineAIThreadTool } from "#/features/workspaces/ai/ai-thread-tool";
-import {
-	fetchPublicWebResource,
-	type FreshWebImage,
-	webFetchOutputSchema,
-} from "#/features/workspaces/ai/web-fetch";
+import { fetchPublicWebPage, webFetchOutputSchema } from "#/features/workspaces/ai/web-fetch";
 import {
 	publicWebSearchResultSchema,
 	searchPublicWeb,
@@ -36,13 +32,8 @@ const webSearchInputSchema = z.object({
 		),
 });
 
-const publicUrlInputSchema = z.object({
-	url: z.string().trim().min(1).describe("Public HTTP(S) webpage or image URL to fetch."),
-});
-const webFetchInputSchema = publicUrlInputSchema.extend({
-	kind: z
-		.enum(["page", "image"])
-		.describe("Use page for rendered webpage text or image to inspect the image pixels."),
+const webFetchInputSchema = z.object({
+	url: z.string().trim().min(1).describe("Public HTTP(S) webpage URL to fetch."),
 });
 const webSearchInputExamples: Array<{ input: z.infer<typeof webSearchInputSchema> }> = [
 	{
@@ -82,18 +73,13 @@ const webSearchInputExamples: Array<{ input: z.infer<typeof webSearchInputSchema
 	},
 ];
 
-const webFetchInputExamples = [
-	{ input: { kind: "page" as const, url: "https://example.com" } },
-	{ input: { kind: "image" as const, url: "https://example.com/image.png" } },
-];
+const webFetchInputExamples = [{ input: { url: "https://example.com" } }];
 
 export function createAIThreadWebTools(env: Cloudflare.Env): ToolSet {
-	const freshImages = new Map<string, FreshWebImage>();
-
 	return {
 		web_search: defineAIThreadTool({
 			description:
-				"Find relevant public webpages, news, or images for a topic or question. Image searches render a gallery; call web_fetch with an imageUrl only when you need to inspect its pixels.",
+				"Find relevant public webpages, news, or images for a topic or question. Image searches render a gallery; call view_image with an image's URL only when you need to inspect its pixels.",
 			inputSchema: webSearchInputSchema,
 			inputExamples: webSearchInputExamples,
 			outputSchema: publicWebSearchResultSchema,
@@ -109,42 +95,12 @@ export function createAIThreadWebTools(env: Cloudflare.Env): ToolSet {
 		}),
 		web_fetch: defineAIThreadTool({
 			description:
-				"Fetch a public webpage or image URL. Set kind to page for rendered Markdown or image to attach its pixels temporarily for this model step. Public PDFs are unsupported; ask the user to upload those to the workspace.",
+				"Fetch a public webpage URL as rendered Markdown. For an image's pixels use view_image. Public PDFs are unsupported; ask the user to upload those to the workspace.",
 			inputSchema: webFetchInputSchema,
 			inputExamples: webFetchInputExamples,
 			outputSchema: webFetchOutputSchema,
-			toModelOutput: ({ output, toolCallId }) => {
-				const image = freshImages.get(toolCallId);
-				freshImages.delete(toolCallId);
-				if (!image) {
-					return { type: "json" as const, value: output as JSONValue };
-				}
-
-				return {
-					type: "content" as const,
-					value: [
-						{ type: "text" as const, text: JSON.stringify(output) },
-						{
-							type: "file" as const,
-							mediaType: image.mediaType,
-							data: { type: "data" as const, data: new Uint8Array(image.bytes) },
-						},
-					],
-				};
-			},
-			execute: async ({ kind, url }, context) => {
-				const result = await fetchPublicWebResource({
-					abortSignal: context.abortSignal,
-					env,
-					kind,
-					url,
-				});
-				if (result.image) {
-					freshImages.set(context.invocationId, result.image);
-				}
-
-				return result.output;
-			},
+			execute: async ({ url }, context) =>
+				fetchPublicWebPage({ abortSignal: context.abortSignal, env, url }),
 		}),
 	};
 }

@@ -10,7 +10,9 @@ import { isRecord } from "#/lib/record";
 /**
  * Rich text for entries inside structured items: flashcard sides and quiz
  * stems, options, and explanations. Deliberately smaller than a document —
- * no headings, tables, images, widgets, task lists, or citations.
+ * no headings, tables, widgets, task lists, or citations. Images are allowed:
+ * a diagram is often the whole point of a card, and the node is one atom that
+ * renders bounded inside study layouts.
  */
 export const entryRichTextHtmlSchema = z.string().trim().min(1).max(8_000);
 
@@ -23,6 +25,7 @@ const allowedNodeTypes = new Set([
 	"listItem",
 	"codeBlock",
 	"hardBreak",
+	"image",
 	"inlineMath",
 	"blockMath",
 ]);

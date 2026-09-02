@@ -286,6 +286,7 @@ export function createCompatibleFileMetadata(input: {
 	assetKind: CreateWorkspaceFileFromUploadArgs["assetKind"];
 	contentType: string;
 	originalName: string;
+	ownerItemId?: string | null;
 	sizeBytes: number;
 	source?: CreateWorkspaceFileFromUploadArgs["source"];
 }): Record<string, JsonValue> {
@@ -293,6 +294,7 @@ export function createCompatibleFileMetadata(input: {
 		assetKind: input.assetKind,
 		mimeType: input.contentType,
 		originalName: input.originalName,
+		...(input.ownerItemId ? { ownerItemId: input.ownerItemId } : {}),
 		sizeBytes: input.sizeBytes,
 		...(input.source
 			? {

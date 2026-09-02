@@ -43,7 +43,7 @@ describe("renderWorkspaceDocumentPdfHtml", () => {
 			],
 		};
 
-		const html = await renderWorkspaceDocumentPdfHtml(document);
+		const html = await renderWorkspaceDocumentPdfHtml(document, async () => null);
 
 		expect(html).toContain("Export title");
 		expect(html).toContain("<math");
@@ -57,15 +57,18 @@ describe("renderWorkspaceDocumentPdfHtml", () => {
 	});
 
 	it("keeps broken math readable as its LaTeX source", async () => {
-		const html = await renderWorkspaceDocumentPdfHtml({
-			type: "doc",
-			content: [
-				{
-					type: "paragraph",
-					content: [{ type: "inlineMath", attrs: { latex: "\\definitelynotacommand{" } }],
-				},
-			],
-		});
+		const html = await renderWorkspaceDocumentPdfHtml(
+			{
+				type: "doc",
+				content: [
+					{
+						type: "paragraph",
+						content: [{ type: "inlineMath", attrs: { latex: "\\definitelynotacommand{" } }],
+					},
+				],
+			},
+			async () => null,
+		);
 
 		expect(html).toContain("math-fallback");
 		expect(html).toContain("$\\definitelynotacommand{$");
@@ -74,17 +77,20 @@ describe("renderWorkspaceDocumentPdfHtml", () => {
 	// A PDF cannot draw the diagram, and its source is authoring material the
 	// reader never asked for, so the block leaves nothing behind.
 	it("drops a mermaid diagram rather than printing its source", async () => {
-		const html = await renderWorkspaceDocumentPdfHtml({
-			type: "doc",
-			content: [
-				{
-					type: "codeBlock",
-					attrs: { language: "mermaid" },
-					content: [{ type: "text", text: "flowchart TD; A[Start] --> B[End]" }],
-				},
-				{ type: "paragraph", content: [{ type: "text", text: "Prose survives." }] },
-			],
-		});
+		const html = await renderWorkspaceDocumentPdfHtml(
+			{
+				type: "doc",
+				content: [
+					{
+						type: "codeBlock",
+						attrs: { language: "mermaid" },
+						content: [{ type: "text", text: "flowchart TD; A[Start] --> B[End]" }],
+					},
+					{ type: "paragraph", content: [{ type: "text", text: "Prose survives." }] },
+				],
+			},
+			async () => null,
+		);
 
 		expect(html).toContain("Prose survives.");
 		expect(html).not.toContain("flowchart");

@@ -195,6 +195,7 @@ export interface CreateWorkspaceFileFromUploadArgs {
 	};
 	contentType?: string | null;
 	assetKind: WorkspaceFileAssetKind;
+	ownerItemId?: string | null;
 	source?: {
 		conversion: WorkspaceUploadConversion;
 		fileName: string;

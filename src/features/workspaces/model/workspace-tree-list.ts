@@ -7,6 +7,7 @@ import {
 	type WorkspacePathErrorCode,
 } from "#/features/workspaces/model/workspace-paths";
 import {
+	getMetadataOwnerItemId,
 	resolveWorkspaceFileTypeFromItem,
 	type WorkspaceFileAssetKind,
 } from "#/features/workspaces/model/workspace-file";
@@ -63,13 +64,21 @@ function selectWorkspaceTreeItems(input: {
 	try {
 		const cwd = resolveWorkspaceCwd(input.path ?? "/", input.tree);
 		const boundedLimit = clampWorkspaceListLimit(input.limit);
+		// Owner-bound images live inside a document or card set; listing them as
+		// loose files would double-count content the model already sees inline.
+		const visibleChildrenByParentId = new Map(
+			Array.from(input.tree.childrenByParentId, ([parentId, children]) => [
+				parentId,
+				children.filter((item) => !getMetadataOwnerItemId(item.metadataJson)),
+			]),
+		);
 		const listing = collectWorkspaceListRows({
 			offset: input.offset ?? 0,
 			parentId: cwd.parentId,
 			basePath: cwd.path,
 			recursive: input.recursive ?? false,
 			limit: boundedLimit,
-			childrenByParentId: input.tree.childrenByParentId,
+			childrenByParentId: visibleChildrenByParentId,
 		});
 
 		return {

@@ -12,6 +12,7 @@ export async function requestWorkspaceFileExtraction(input: {
 	itemId: string;
 	actorUserId: string | null;
 	assetKind: WorkspaceFileAssetKind;
+	ownerItemId?: string | null;
 	requestId: string;
 }) {
 	let workflowId: string | null = null;
@@ -36,14 +37,17 @@ export async function requestWorkspaceFileExtraction(input: {
 		]);
 
 		// After the workflow is queued, so a failed enqueue doesn't bill the user
-		// for an extraction that never ran.
-		await trackWorkspaceFileUploadUsage({
-			assetKind: input.assetKind,
-			env,
-			itemId: input.itemId,
-			userId: input.actorUserId,
-			workspaceId: input.workspaceId,
-		});
+		// for an extraction that never ran. Owner-bound images (pasted into a
+		// document or card) are never metered.
+		if (!input.ownerItemId) {
+			await trackWorkspaceFileUploadUsage({
+				assetKind: input.assetKind,
+				env,
+				itemId: input.itemId,
+				userId: input.actorUserId,
+				workspaceId: input.workspaceId,
+			});
+		}
 	} catch (error) {
 		recordOperationalFailure({
 			distinctId: input.actorUserId ?? undefined,
