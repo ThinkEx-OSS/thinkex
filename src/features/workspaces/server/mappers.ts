@@ -11,17 +11,19 @@ import {
 import { DEFAULT_WORKSPACE_COLOR, DEFAULT_WORKSPACE_ICON } from "#/features/workspaces/defaults";
 
 type WorkspaceRow = InferSelectModel<typeof workspaces>;
-type WorkspaceSummaryRow = WorkspaceRow & {
+interface WorkspaceSummaryMembership {
+	archivedAt?: Date | null;
 	lastOpenedAt?: Date | null;
-};
+	role: WorkspaceMembershipRole;
+}
 
 function toIsoString(value: Date | null) {
 	return value ? value.toISOString() : null;
 }
 
 export function mapWorkspaceRow(
-	row: WorkspaceSummaryRow,
-	membershipRole: WorkspaceMembershipRole,
+	row: WorkspaceRow,
+	membership: WorkspaceSummaryMembership,
 ): WorkspaceSummary {
 	return {
 		id: row.id,
@@ -32,9 +34,9 @@ export function mapWorkspaceRow(
 		theme: parseWorkspaceTheme(row.theme),
 		createdAt: row.createdAt.toISOString(),
 		updatedAt: row.updatedAt.toISOString(),
-		lastOpenedAt: toIsoString(row.lastOpenedAt ?? null),
-		archivedAt: toIsoString(row.archivedAt),
-		membershipRole,
+		lastOpenedAt: toIsoString(membership.lastOpenedAt ?? null),
+		archivedForCurrentUserAt: toIsoString(membership.archivedAt ?? null),
+		membershipRole: membership.role,
 	};
 }
 

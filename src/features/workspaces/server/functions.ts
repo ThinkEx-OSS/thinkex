@@ -9,6 +9,7 @@ import {
 	deleteWorkspaceItemsInputSchema,
 	moveWorkspaceItemsInputSchema,
 	renameWorkspaceItemInputSchema,
+	setWorkspaceArchiveStatusInputSchema,
 	updateWorkspaceInputSchema,
 	updateWorkspaceItemColorInputSchema,
 } from "#/features/workspaces/contracts";
@@ -24,6 +25,7 @@ import {
 	createWorkspaceForCurrentUser,
 	deleteWorkspaceForCurrentUser,
 	recordWorkspaceOpenedForCurrentUser,
+	setWorkspaceArchiveStatusForCurrentUser,
 	updateWorkspaceForCurrentUser,
 } from "#/features/workspaces/server/mutations";
 import { getCurrentUserId } from "#/features/workspaces/server/permissions";
@@ -55,6 +57,10 @@ export const recordWorkspaceOpenedFn = createServerFn({ method: "POST" })
 export const updateWorkspaceFn = createServerFn({ method: "POST" })
 	.validator(updateWorkspaceInputSchema)
 	.handler(async ({ data }) => updateWorkspaceForCurrentUser(data));
+
+export const setWorkspaceArchiveStatusFn = createServerFn({ method: "POST" })
+	.validator(setWorkspaceArchiveStatusInputSchema)
+	.handler(async ({ data }) => setWorkspaceArchiveStatusForCurrentUser(data));
 
 export const deleteWorkspaceFn = createServerFn({ method: "POST" })
 	.validator(deleteWorkspaceInputSchema)

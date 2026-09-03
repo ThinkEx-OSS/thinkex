@@ -22,6 +22,7 @@ export async function listWorkspacesForUser(
 	const rows = await db
 		.select({
 			workspace: workspaces,
+			archivedAt: workspaceMembers.archivedAt,
 			lastOpenedAt: workspaceMembers.lastOpenedAt,
 			membershipRole: workspaceMembers.role,
 		})
@@ -34,13 +35,11 @@ export async function listWorkspacesForUser(
 		);
 
 	return rows.map((row) =>
-		mapWorkspaceRow(
-			{
-				...row.workspace,
-				lastOpenedAt: row.lastOpenedAt,
-			},
-			row.membershipRole,
-		),
+		mapWorkspaceRow(row.workspace, {
+			archivedAt: row.archivedAt,
+			lastOpenedAt: row.lastOpenedAt,
+			role: row.membershipRole,
+		}),
 	);
 }
 
@@ -80,6 +79,7 @@ async function getWorkspace(
 ): Promise<WorkspacePage["workspace"] | null> {
 	const [workspaceRow] = await db
 		.select({
+			archivedAt: workspaceMembers.archivedAt,
 			lastOpenedAt: workspaceMembers.lastOpenedAt,
 			membershipRole: workspaceMembers.role,
 			workspace: workspaces,
@@ -99,11 +99,9 @@ async function getWorkspace(
 		return null;
 	}
 
-	return mapWorkspaceRow(
-		{
-			...workspaceRow.workspace,
-			lastOpenedAt: workspaceRow.lastOpenedAt,
-		},
-		workspaceRow.membershipRole,
-	);
+	return mapWorkspaceRow(workspaceRow.workspace, {
+		archivedAt: workspaceRow.archivedAt,
+		lastOpenedAt: workspaceRow.lastOpenedAt,
+		role: workspaceRow.membershipRole,
+	});
 }

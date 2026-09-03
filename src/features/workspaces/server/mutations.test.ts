@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { and, eq } from "drizzle-orm";
+
+import { workspaceMembers } from "#/db/schema";
 
 const mocks = vi.hoisted(() => ({
+	assertCanReadWorkspace: vi.fn(),
 	capturePostHogServerEvent: vi.fn(),
 	createDbContext: vi.fn(),
 	env: {},
@@ -27,14 +31,17 @@ vi.mock("#/features/workspaces/realtime/workspace-room-notifier", () => ({
 }));
 vi.mock("#/features/workspaces/server/permissions", () => ({
 	assertCanDeleteWorkspace: vi.fn(),
-	assertCanReadWorkspace: vi.fn(),
+	assertCanReadWorkspace: mocks.assertCanReadWorkspace,
 	getCurrentUserId: mocks.getCurrentUserId,
 }));
 vi.mock("#/integrations/posthog/server", () => ({
 	capturePostHogServerEvent: mocks.capturePostHogServerEvent,
 }));
 
-import { updateWorkspaceForCurrentUser } from "#/features/workspaces/server/mutations";
+import {
+	setWorkspaceArchiveStatusForCurrentUser,
+	updateWorkspaceForCurrentUser,
+} from "#/features/workspaces/server/mutations";
 
 describe("workspace settings mutations", () => {
 	beforeEach(() => {
@@ -93,5 +100,65 @@ describe("workspace settings mutations", () => {
 			revision: 8,
 		});
 		expect(result).toMatchObject({ id: workspace.id, membershipRole: "editor" });
+	});
+
+	it("archives only the current user's workspace membership", async () => {
+		const archivedAt = new Date("2026-09-03T18:00:00.000Z");
+		const workspace = {
+			archivedAt: null,
+			color: "blue",
+			createdAt: new Date("2026-08-01T00:00:00.000Z"),
+			description: null,
+			icon: "compass",
+			id: "workspace-1",
+			name: "Research",
+			ownerId: "owner-user",
+			revision: 7,
+			theme: "default",
+			updatedAt: new Date("2026-08-11T00:00:00.000Z"),
+		} as const;
+		const membership = {
+			archivedAt,
+			lastOpenedAt: new Date("2026-08-10T00:00:00.000Z"),
+			role: "viewer",
+		};
+		const membershipWhere = vi.fn(() => ({ returning: vi.fn(async () => [membership]) }));
+		const set = vi.fn(() => ({ where: membershipWhere }));
+		const transaction = {
+			select: vi.fn(() => ({
+				from: vi.fn(() => ({
+					where: vi.fn(() => ({ limit: vi.fn(async () => [workspace]) })),
+				})),
+			})),
+			update: vi.fn(() => ({ set })),
+		};
+		const dispose = vi.fn();
+		const db = {
+			transaction: vi.fn(async (run) => await run(transaction)),
+		};
+		mocks.createDbContext.mockResolvedValue({ db, dispose });
+
+		const result = await setWorkspaceArchiveStatusForCurrentUser({
+			workspaceId: workspace.id,
+			status: "archived",
+		});
+
+		expect(mocks.assertCanReadWorkspace).toHaveBeenCalledWith(db, {
+			workspaceId: workspace.id,
+			userId: "actor-user",
+		});
+		expect(set).toHaveBeenCalledWith({ archivedAt: expect.any(Date) });
+		expect(membershipWhere).toHaveBeenCalledWith(
+			and(
+				eq(workspaceMembers.workspaceId, workspace.id),
+				eq(workspaceMembers.userId, "actor-user"),
+			),
+		);
+		expect(result).toMatchObject({
+			archivedForCurrentUserAt: archivedAt.toISOString(),
+			id: workspace.id,
+			membershipRole: "viewer",
+		});
+		expect(dispose).toHaveBeenCalledOnce();
 	});
 });

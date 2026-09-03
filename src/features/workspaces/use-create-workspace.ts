@@ -52,7 +52,7 @@ export function useCreateWorkspaceMutation() {
 				createdAt: now,
 				updatedAt: now,
 				lastOpenedAt: now,
-				archivedAt: null,
+				archivedForCurrentUserAt: null,
 				membershipRole: "owner",
 			};
 
@@ -83,7 +83,7 @@ export function useCreateWorkspaceMutation() {
 		onError: (error, _variables, context) => {
 			// Navigate away from the phantom workspace first, then tear down its
 			// caches, so the user doesn't see a flash of skeleton before the redirect.
-			void navigate({ to: "/home" });
+			void navigate({ to: "/home", search: { view: undefined } });
 			restoreWorkspaceListCache(queryClient, context?.previousWorkspaces);
 
 			if (context?.id) {

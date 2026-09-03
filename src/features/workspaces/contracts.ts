@@ -354,7 +354,7 @@ export const workspaceSummarySchema = z.object({
 	createdAt: z.string(),
 	updatedAt: z.string(),
 	lastOpenedAt: z.string().nullable(),
-	archivedAt: z.string().nullable(),
+	archivedForCurrentUserAt: z.string().nullable(),
 	membershipRole: workspaceMembershipRoleSchema,
 });
 
@@ -434,6 +434,11 @@ export const updateWorkspaceInputSchema = z.object({
 	theme: workspaceThemeSchema.nullable(),
 });
 
+export const setWorkspaceArchiveStatusInputSchema = z.object({
+	workspaceId: z.string().min(1),
+	status: z.enum(["active", "archived"]),
+});
+
 export const deleteWorkspaceInputSchema = z.object({
 	workspaceId: z.string().min(1),
 	confirmationName: z.string().trim().min(1),
@@ -467,6 +472,7 @@ export type DeleteWorkspaceItemsInput = z.infer<typeof deleteWorkspaceItemsInput
 export type UpdateWorkspaceItemColorInput = z.infer<typeof updateWorkspaceItemColorInputSchema>;
 export type CreateWorkspaceInput = z.infer<typeof createWorkspaceInputSchema>;
 export type UpdateWorkspaceInput = z.infer<typeof updateWorkspaceInputSchema>;
+export type SetWorkspaceArchiveStatusInput = z.infer<typeof setWorkspaceArchiveStatusInputSchema>;
 export type DeleteWorkspaceInput = z.infer<typeof deleteWorkspaceInputSchema>;
 export type WorkspaceMembershipRole = z.infer<typeof workspaceMembershipRoleSchema>;
 
