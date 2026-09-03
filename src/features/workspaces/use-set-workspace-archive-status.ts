@@ -16,7 +16,7 @@ export function useSetWorkspaceArchiveStatusMutation() {
 		mutationFn: (input: SetWorkspaceArchiveStatusInput) =>
 			setWorkspaceArchiveStatus({ data: input }),
 		onMutate: async () => {
-			await queryClient.cancelQueries({ queryKey: workspacesQueryKey });
+			await queryClient.cancelQueries({ queryKey: workspacesQueryKey, exact: true });
 		},
 		onSuccess: (workspace, input) => {
 			updateWorkspaceInCaches(queryClient, workspace);
