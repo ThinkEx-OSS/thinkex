@@ -66,7 +66,7 @@ describe("container file conversion", () => {
 
 function convert(container: ReturnType<typeof createContainer>) {
 	return convertFileStreamWithContainer({
-		body: stream(new Uint8Array([1, 2, 3])),
+		openBody: async () => stream(new Uint8Array([1, 2, 3])),
 		container,
 		contentType: "application/octet-stream",
 		emptyMessage: "Conversion returned no content",

@@ -30,7 +30,7 @@ export class OfficePdfConversionError extends WorkspaceFileConversionError {
 export async function convertOfficeStreamToPdf(
 	env: Cloudflare.Env,
 	input: {
-		body: ReadableStream<Uint8Array>;
+		openBody: () => Promise<ReadableStream<Uint8Array>>;
 		contentType: string;
 		fileName: string;
 		sizeBytes: number;

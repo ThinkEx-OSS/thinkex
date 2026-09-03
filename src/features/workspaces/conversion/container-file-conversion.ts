@@ -17,7 +17,9 @@ const maxRetryDelayMs = 5_000;
 
 export async function convertFileStreamWithContainer(input: {
 	container: FileConversionContainer;
-	body: ReadableStream<Uint8Array>;
+	// A factory rather than a stream: each attempt streams a fresh body straight
+	// from its source, so a retry never buffers the whole upload in memory.
+	openBody: () => Promise<ReadableStream<Uint8Array>>;
 	contentType: string;
 	emptyMessage: string;
 	error: (message: string) => Error;
@@ -32,17 +34,13 @@ export async function convertFileStreamWithContainer(input: {
 		},
 	});
 
-	// Buffer the body once so each retry can rebuild a fresh request. The upload
-	// size is already bounded before it reaches here.
-	const bytes = new Uint8Array(await new Response(input.body).arrayBuffer());
-
 	for (let attempt = 0; ; attempt++) {
 		const multipart = createStreamingMultipartFile({
-			body: createBytesStream(bytes),
+			body: await input.openBody(),
 			contentType: input.contentType,
 			fileName: input.fileName,
 			formFieldName: input.formFieldName,
-			sizeBytes: bytes.byteLength,
+			sizeBytes: input.sizeBytes,
 		});
 
 		const response = await multipart.awaitResponse(
@@ -68,15 +66,6 @@ export async function convertFileStreamWithContainer(input: {
 
 		throw input.error(await getConversionErrorMessage(response));
 	}
-}
-
-function createBytesStream(bytes: Uint8Array): ReadableStream<Uint8Array> {
-	return new ReadableStream<Uint8Array>({
-		start(controller) {
-			controller.enqueue(bytes);
-			controller.close();
-		},
-	});
 }
 
 function retryDelayMs(attempt: number, response: Response) {
