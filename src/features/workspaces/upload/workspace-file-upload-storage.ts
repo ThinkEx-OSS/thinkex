@@ -181,7 +181,7 @@ async function convertWorkspaceFileUpload(
 		return {
 			contentType: "application/pdf",
 			response: await convertOfficeStreamToPdf(input.env, {
-				body: input.uploadedObject.body,
+				openBody: createReplayableUploadBody(input),
 				contentType: input.contentType,
 				fileName: input.fileName,
 				sizeBytes: input.fileSize,
@@ -196,6 +196,27 @@ async function convertWorkspaceFileUpload(
 			input.uploadedObject.body,
 			workspaceFileUploadLimits.maxImageFileBytes,
 		),
+	};
+}
+
+// Streams the uploaded object on the first attempt, then re-reads it from R2 for any
+// retry. This keeps the conversion streaming instead of buffering the whole upload.
+function createReplayableUploadBody(input: FinalizeWorkspaceFileUploadStorageInput) {
+	let initial: ReadableStream<Uint8Array> | null = input.uploadedObject.body;
+
+	return async () => {
+		if (initial) {
+			const body = initial;
+			initial = null;
+			return body;
+		}
+
+		const object = await input.env.WORKSPACE_FILES.get(input.uploadedObjectKey);
+		if (!object) {
+			throw new Error("Uploaded workspace file could not be re-read for conversion.");
+		}
+
+		return object.body;
 	};
 }
 

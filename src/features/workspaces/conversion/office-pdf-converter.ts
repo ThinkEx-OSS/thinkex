@@ -15,7 +15,7 @@ export class OfficePdfConverter extends Container {
 	envVars = {
 		API_TIMEOUT: "120s",
 		LIBREOFFICE_AUTO_START: "true",
-		LIBREOFFICE_MAX_QUEUE_SIZE: "1",
+		LIBREOFFICE_MAX_QUEUE_SIZE: "10",
 		LIBREOFFICE_START_TIMEOUT: "60s",
 	};
 }
@@ -30,7 +30,7 @@ export class OfficePdfConversionError extends WorkspaceFileConversionError {
 export async function convertOfficeStreamToPdf(
 	env: Cloudflare.Env,
 	input: {
-		body: ReadableStream<Uint8Array>;
+		openBody: () => Promise<ReadableStream<Uint8Array>>;
 		contentType: string;
 		fileName: string;
 		sizeBytes: number;

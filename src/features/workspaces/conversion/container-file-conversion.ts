@@ -8,9 +8,18 @@ type FileConversionContainer = {
 	}): Promise<void>;
 };
 
+// A busy converter answers a queued job with 429 instead of waiting its turn. Retry
+// a few times with backoff so a transient queue-full response never fails the upload.
+const queueFullStatus = 429;
+const maxQueueFullRetries = 3;
+const baseRetryDelayMs = 250;
+const maxRetryDelayMs = 5_000;
+
 export async function convertFileStreamWithContainer(input: {
 	container: FileConversionContainer;
-	body: ReadableStream<Uint8Array>;
+	// A factory rather than a stream: each attempt streams a fresh body straight
+	// from its source, so a retry never buffers the whole upload in memory.
+	openBody: () => Promise<ReadableStream<Uint8Array>>;
 	contentType: string;
 	emptyMessage: string;
 	error: (message: string) => Error;
@@ -25,30 +34,50 @@ export async function convertFileStreamWithContainer(input: {
 		},
 	});
 
-	const multipart = createStreamingMultipartFile({
-		body: input.body,
-		contentType: input.contentType,
-		fileName: input.fileName,
-		formFieldName: input.formFieldName,
-		sizeBytes: input.sizeBytes,
-	});
+	for (let attempt = 0; ; attempt++) {
+		const multipart = createStreamingMultipartFile({
+			body: await input.openBody(),
+			contentType: input.contentType,
+			fileName: input.fileName,
+			formFieldName: input.formFieldName,
+			sizeBytes: input.sizeBytes,
+		});
 
-	const response = await multipart.awaitResponse(
-		input.container.fetch(
-			new Request(input.url, {
-				body: multipart.body,
-				duplex: "half",
-				headers: { "content-type": multipart.contentType },
-				method: "POST",
-			} as RequestInit & { duplex: "half" }),
-		),
-	);
+		const response = await multipart.awaitResponse(
+			input.container.fetch(
+				new Request(input.url, {
+					body: multipart.body,
+					duplex: "half",
+					headers: { "content-type": multipart.contentType },
+					method: "POST",
+				} as RequestInit & { duplex: "half" }),
+			),
+		);
 
-	if (!response.ok) {
+		if (response.ok) {
+			return requireSizedResponseBody(response, () => input.error(input.emptyMessage));
+		}
+
+		if (response.status === queueFullStatus && attempt < maxQueueFullRetries) {
+			await response.body?.cancel().catch(() => undefined);
+			await delay(retryDelayMs(attempt, response));
+			continue;
+		}
+
 		throw input.error(await getConversionErrorMessage(response));
 	}
+}
 
-	return requireSizedResponseBody(response, () => input.error(input.emptyMessage));
+function retryDelayMs(attempt: number, response: Response) {
+	const backoff = baseRetryDelayMs * 2 ** attempt;
+	const header = response.headers.get("retry-after");
+	const hintedSeconds = header ? Number(header) : Number.NaN;
+	const hinted = Number.isFinite(hintedSeconds) ? Math.max(0, hintedSeconds * 1000) : backoff;
+	return Math.min(hinted, maxRetryDelayMs);
+}
+
+function delay(ms: number) {
+	return new Promise<void>((resolve) => setTimeout(resolve, ms));
 }
 
 async function getConversionErrorMessage(response: Response) {
