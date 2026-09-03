@@ -1,7 +1,8 @@
 import { Link } from "@tanstack/react-router";
-import { Settings } from "lucide-react";
+import { Archive, ArchiveRestore, Settings } from "lucide-react";
 
 import { Card, CardHeader, CardTitle } from "#/components/ui/card";
+import { Tooltip, TooltipContent, TooltipTrigger } from "#/components/ui/tooltip";
 import WorkspaceSettingsDialog from "#/features/workspaces/components/WorkspaceSettingsDialog";
 import { WorkspaceToolbarIconButton } from "#/features/workspaces/components/WorkspaceToolbar";
 import { WorkspaceCardFooter } from "#/features/workspaces/components/workspace-card-footer";
@@ -9,6 +10,7 @@ import type { WorkspaceSummary } from "#/features/workspaces/contracts";
 import { getWorkspaceDisplay } from "#/features/workspaces/model/display";
 import { getWorkspaceThemeArt } from "#/features/workspaces/model/workspace-themes";
 import { getWorkspaceMemberCapabilities } from "#/features/workspaces/workspace-member-capabilities";
+import { useSetWorkspaceArchiveStatusMutation } from "#/features/workspaces/use-set-workspace-archive-status";
 import { cn } from "#/lib/utils";
 
 interface WorkspaceCardSearch {
@@ -26,6 +28,8 @@ export default function WorkspaceCard({ workspace, className, search }: Workspac
 	const { Icon, color } = getWorkspaceDisplay(workspace);
 	const themeArt = getWorkspaceThemeArt(workspace);
 	const capabilities = getWorkspaceMemberCapabilities(workspace.membershipRole);
+	const archiveMutation = useSetWorkspaceArchiveStatusMutation();
+	const isArchived = workspace.archivedForCurrentUserAt !== null;
 
 	return (
 		<Card
@@ -77,14 +81,40 @@ export default function WorkspaceCard({ workspace, className, search }: Workspac
 				</CardHeader>
 			</Link>
 
-			{capabilities.canMutateContent ? (
-				<div
-					className={cn(
-						"pointer-events-auto absolute top-2 right-2 z-10 opacity-100 transition-opacity sm:pointer-events-none sm:opacity-0",
-						"sm:group-hover/card:pointer-events-auto sm:group-hover/card:opacity-100",
-						"sm:group-focus-within/card:pointer-events-auto sm:group-focus-within/card:opacity-100",
-					)}
-				>
+			<div
+				className={cn(
+					"pointer-events-auto absolute top-2 right-2 z-10 flex gap-1 opacity-100 transition-opacity sm:pointer-events-none sm:opacity-0",
+					"sm:group-hover/card:pointer-events-auto sm:group-hover/card:opacity-100",
+					"sm:group-focus-within/card:pointer-events-auto sm:group-focus-within/card:opacity-100",
+				)}
+			>
+				<Tooltip>
+					<TooltipTrigger
+						render={
+							<WorkspaceToolbarIconButton
+								aria-label={`${isArchived ? "Restore" : "Archive"} ${workspace.name}`}
+								disabled={archiveMutation.isPending}
+								className={cn(
+									themeArt &&
+										"border-border/80 bg-card/95 backdrop-blur-md hover:border-foreground/30 hover:bg-secondary dark:border-white/15 dark:bg-card/90 dark:hover:border-white/35",
+								)}
+								onClick={(event) => {
+									event.preventDefault();
+									event.stopPropagation();
+									archiveMutation.mutate({
+										workspaceId: workspace.id,
+										status: isArchived ? "active" : "archived",
+									});
+								}}
+							>
+								{isArchived ? <ArchiveRestore /> : <Archive />}
+							</WorkspaceToolbarIconButton>
+						}
+					/>
+					<TooltipContent>{isArchived ? "Restore workspace" : "Archive workspace"}</TooltipContent>
+				</Tooltip>
+
+				{capabilities.canMutateContent ? (
 					<WorkspaceSettingsDialog
 						capabilities={capabilities}
 						workspace={workspace}
@@ -106,8 +136,8 @@ export default function WorkspaceCard({ workspace, className, search }: Workspac
 							</WorkspaceToolbarIconButton>
 						}
 					/>
-				</div>
-			) : null}
+				) : null}
+			</div>
 		</Card>
 	);
 }

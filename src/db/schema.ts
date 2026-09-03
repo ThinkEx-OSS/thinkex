@@ -485,6 +485,7 @@ export const workspaceMembers = pgTable(
 			.references(() => user.id, { onDelete: "cascade" }),
 		role: text("role", { enum: WORKSPACE_ROLES }).default("viewer").notNull(),
 		lastOpenedAt: timestamp("last_opened_at", { withTimezone: true }),
+		archivedAt: timestamp("archived_at", { withTimezone: true }),
 		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 		updatedAt: timestamp("updated_at", { withTimezone: true })
 			.defaultNow()

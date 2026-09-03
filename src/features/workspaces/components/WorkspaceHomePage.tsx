@@ -1,5 +1,6 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { Mail, Search, UsersRound, X } from "lucide-react";
+import { getRouteApi, useNavigate } from "@tanstack/react-router";
+import { Archive, Mail, Search, UsersRound, X } from "lucide-react";
 import type { Dispatch, SetStateAction } from "react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
@@ -17,6 +18,7 @@ import {
 	DropdownMenuTrigger,
 } from "#/components/ui/dropdown-menu";
 import { Input } from "#/components/ui/input";
+import { Tooltip, TooltipContent, TooltipTrigger } from "#/components/ui/tooltip";
 import CreateWorkspaceCard from "#/features/workspaces/components/CreateWorkspaceCard";
 import WorkspaceCard from "#/features/workspaces/components/WorkspaceCard";
 import { WorkspaceGrid } from "#/features/workspaces/components/WorkspaceGrid";
@@ -34,36 +36,77 @@ import { useTypeToFocusTextInput } from "#/hooks/use-type-to-focus-text-input";
 import { rankNameSearch } from "#/lib/name-search";
 
 const workspaceHomeCommunityLinkOrder = ["Discord", "Twitter / X", "GitHub"];
+type WorkspaceCollection = "active" | "archived";
+const routeApi = getRouteApi("/_protected/home");
 
 export function WorkspaceHomePage() {
 	const { data: workspaces } = useSuspenseQuery(workspacesQueryOptions());
+	const { view } = routeApi.useSearch({
+		select: (search) => ({ view: search.view }),
+	});
+	const navigate = useNavigate();
 	const createWorkspaceMutation = useCreateWorkspaceMutation();
 	const persistedStoresHydrated = useWorkspacePersistedStoresHydrated();
 	const [workspaceSearch, setWorkspaceSearch] = useState("");
-	const filteredWorkspaces = filterWorkspaces(workspaces, workspaceSearch);
+	const workspaceCollection: WorkspaceCollection = view === "archived" ? "archived" : "active";
+	const activeWorkspaces = workspaces.filter(
+		(workspace) => workspace.archivedForCurrentUserAt === null,
+	);
+	const archivedWorkspaces = workspaces.filter(
+		(workspace) => workspace.archivedForCurrentUserAt !== null,
+	);
+	const collectionWorkspaces =
+		workspaceCollection === "active" ? activeWorkspaces : archivedWorkspaces;
+	const filteredWorkspaces = filterWorkspaces(collectionWorkspaces, workspaceSearch);
 	const hasWorkspaceSearch = workspaceSearch.trim().length > 0;
 	const hasWorkspaces = workspaces.length > 0;
+	const showWorkspaceHomeEmptyState =
+		workspaceCollection === "active" && collectionWorkspaces.length === 0 && !hasWorkspaceSearch;
+	const showArchiveEmptyState =
+		workspaceCollection === "archived" && collectionWorkspaces.length === 0;
 	const handleCreateWorkspace = () => createWorkspaceMutation.mutate({ id: crypto.randomUUID() });
+	const handleWorkspaceCollectionChange = (collection: WorkspaceCollection) => {
+		setWorkspaceSearch("");
+		void navigate({
+			to: "/home",
+			search: (previous) => ({
+				...previous,
+				view: collection === "archived" ? "archived" : undefined,
+			}),
+		});
+	};
 
 	return (
 		<AppShell
 			navbarControls={
 				hasWorkspaces ? (
 					<WorkspaceHomeNavbarControls
+						archivedCount={archivedWorkspaces.length}
 						searchValue={workspaceSearch}
+						workspaceCollection={workspaceCollection}
 						onSearchChange={setWorkspaceSearch}
+						onWorkspaceCollectionChange={handleWorkspaceCollectionChange}
 					/>
 				) : undefined
 			}
 			siteControls={<WorkspaceHomeCommunityMenu />}
 		>
 			<div className="pb-8">
-				{hasWorkspaces ? (
+				{showWorkspaceHomeEmptyState ? (
+					<WorkspaceHomeEmptyState
+						onCreate={handleCreateWorkspace}
+						pending={createWorkspaceMutation.isPending}
+					/>
+				) : showArchiveEmptyState ? (
+					<EmptyArchive />
+				) : (
 					<WorkspaceGrid>
-						<CreateWorkspaceCard
-							onCreate={handleCreateWorkspace}
-							pending={createWorkspaceMutation.isPending}
-						/>
+						{workspaceCollection === "active" ? (
+							<CreateWorkspaceCard
+								onCreate={handleCreateWorkspace}
+								pending={createWorkspaceMutation.isPending}
+							/>
+						) : null}
 						{filteredWorkspaces.map((workspace) => (
 							<WorkspaceCard
 								key={workspace.id}
@@ -75,23 +118,33 @@ export function WorkspaceHomePage() {
 							<NoWorkspaceSearchResultsCard search={workspaceSearch} />
 						) : null}
 					</WorkspaceGrid>
-				) : (
-					<WorkspaceHomeEmptyState
-						onCreate={handleCreateWorkspace}
-						pending={createWorkspaceMutation.isPending}
-					/>
 				)}
 			</div>
 		</AppShell>
 	);
 }
 
+function EmptyArchive() {
+	return (
+		<div className="flex flex-col items-center justify-center space-y-1 py-24 text-center">
+			<h2 className="font-medium">No archived workspaces</h2>
+			<p className="text-sm text-muted-foreground">Archived workspaces will appear here.</p>
+		</div>
+	);
+}
+
 function WorkspaceHomeNavbarControls({
+	archivedCount,
 	searchValue,
+	workspaceCollection,
 	onSearchChange,
+	onWorkspaceCollectionChange,
 }: {
+	archivedCount: number;
 	searchValue: string;
+	workspaceCollection: WorkspaceCollection;
 	onSearchChange: Dispatch<SetStateAction<string>>;
+	onWorkspaceCollectionChange: (collection: WorkspaceCollection) => void;
 }) {
 	const searchInputRef = useRef<HTMLInputElement>(null);
 	useTypeToFocusTextInput({
@@ -101,8 +154,8 @@ function WorkspaceHomeNavbarControls({
 	});
 
 	return (
-		<div className="hidden w-full min-w-0 items-center justify-center sm:flex">
-			<div className="relative w-full min-w-0 max-w-72">
+		<div className="flex w-full min-w-0 items-center justify-center gap-2">
+			<div className="relative hidden w-full min-w-0 max-w-72 sm:block">
 				<Search
 					aria-hidden="true"
 					className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground"
@@ -129,6 +182,40 @@ function WorkspaceHomeNavbarControls({
 					</button>
 				) : null}
 			</div>
+
+			<Tooltip>
+				<TooltipTrigger
+					render={
+						<Button
+							variant="ghost"
+							size="icon-sm"
+							className={
+								workspaceCollection === "archived"
+									? "bg-background/70 text-muted-foreground shadow-xs hover:text-foreground"
+									: "text-muted-foreground hover:text-foreground"
+							}
+							aria-label={
+								workspaceCollection === "archived"
+									? "Show active workspaces"
+									: "Show archived workspaces"
+							}
+							aria-pressed={workspaceCollection === "archived"}
+							onClick={() =>
+								onWorkspaceCollectionChange(
+									workspaceCollection === "active" ? "archived" : "active",
+								)
+							}
+						/>
+					}
+				>
+					<Archive />
+				</TooltipTrigger>
+				<TooltipContent>
+					{workspaceCollection === "archived"
+						? "Show active workspaces"
+						: `Show archived workspaces (${archivedCount})`}
+				</TooltipContent>
+			</Tooltip>
 		</div>
 	);
 }

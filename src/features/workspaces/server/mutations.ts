@@ -7,6 +7,7 @@ import { purgeWorkspaceResources } from "#/features/workspaces/durable-object-li
 import type {
 	CreateWorkspaceInput,
 	DeleteWorkspaceInput,
+	SetWorkspaceArchiveStatusInput,
 	UpdateWorkspaceInput,
 	WorkspaceSummary,
 } from "#/features/workspaces/contracts";
@@ -86,13 +87,7 @@ async function insertWorkspaceForUser(
 			return insertedWorkspace;
 		});
 
-		return mapWorkspaceRow(
-			{
-				...row,
-				lastOpenedAt: openedAt,
-			},
-			"owner",
-		);
+		return mapWorkspaceRow(row, { lastOpenedAt: openedAt, role: "owner" });
 	} finally {
 		await dbContext.dispose();
 	}
@@ -116,6 +111,7 @@ export async function recordWorkspaceOpenedForCurrentUser(
 					and(eq(workspaceMembers.workspaceId, workspaceId), eq(workspaceMembers.userId, userId)),
 				)
 				.returning({
+					archivedAt: workspaceMembers.archivedAt,
 					lastOpenedAt: workspaceMembers.lastOpenedAt,
 					role: workspaceMembers.role,
 				}),
@@ -130,13 +126,7 @@ export async function recordWorkspaceOpenedForCurrentUser(
 			return null;
 		}
 
-		return mapWorkspaceRow(
-			{
-				...workspace,
-				lastOpenedAt: membership.lastOpenedAt,
-			},
-			membership.role,
-		);
+		return mapWorkspaceRow(workspace, membership);
 	} finally {
 		await dbContext.dispose();
 	}
@@ -165,6 +155,7 @@ export async function updateWorkspaceForCurrentUser(
 
 		const [membership] = await transaction
 			.select({
+				archivedAt: workspaceMembers.archivedAt,
 				lastOpenedAt: workspaceMembers.lastOpenedAt,
 				role: workspaceMembers.role,
 			})
@@ -193,13 +184,53 @@ export async function updateWorkspaceForCurrentUser(
 		revision: update.revision,
 	});
 
-	const workspace = {
-		...update.updatedWorkspace,
-		lastOpenedAt: update.membership.lastOpenedAt,
-		membershipRole: update.membership.role,
-	};
+	return mapWorkspaceRow(update.updatedWorkspace, update.membership);
+}
 
-	return mapWorkspaceRow(workspace, workspace.membershipRole);
+export async function setWorkspaceArchiveStatusForCurrentUser(
+	input: SetWorkspaceArchiveStatusInput,
+): Promise<WorkspaceSummary> {
+	const userId = await getCurrentUserId();
+	const dbContext = await createDbContext();
+
+	try {
+		await assertCanReadWorkspace(dbContext.db, { workspaceId: input.workspaceId, userId });
+
+		return await dbContext.db.transaction(async (transaction) => {
+			const [membership] = await transaction
+				.update(workspaceMembers)
+				.set({ archivedAt: input.status === "archived" ? new Date() : null })
+				.where(
+					and(
+						eq(workspaceMembers.workspaceId, input.workspaceId),
+						eq(workspaceMembers.userId, userId),
+					),
+				)
+				.returning({
+					archivedAt: workspaceMembers.archivedAt,
+					lastOpenedAt: workspaceMembers.lastOpenedAt,
+					role: workspaceMembers.role,
+				});
+
+			if (!membership) {
+				throw new Error("Workspace membership was not found.");
+			}
+
+			const [workspace] = await transaction
+				.select()
+				.from(workspaces)
+				.where(and(eq(workspaces.id, input.workspaceId), isNull(workspaces.archivedAt)))
+				.limit(1);
+
+			if (!workspace) {
+				throw new Error("Workspace was not found.");
+			}
+
+			return mapWorkspaceRow(workspace, membership);
+		});
+	} finally {
+		await dbContext.dispose();
+	}
 }
 
 export async function deleteWorkspaceForCurrentUser(input: DeleteWorkspaceInput) {
