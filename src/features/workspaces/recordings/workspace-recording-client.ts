@@ -51,7 +51,7 @@ export async function uploadRecordingSegment(segment: LocalWorkspaceRecordingSeg
 			method: "PUT",
 			headers: {
 				"content-type": segment.mimeType,
-				"x-recording-duration-ms": String(segment.durationMs),
+				"x-recording-duration-ms": String(Math.round(segment.durationMs)),
 				"x-recording-size-bytes": String(segment.blob.size),
 			},
 			body: segment.blob,
