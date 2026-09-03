@@ -15,8 +15,8 @@ const port = 8080;
 // it, which publishes a "ready" projection silently missing the tail of the document.
 // Parse one page past the supported ceiling so a document of exactly the ceiling is
 // distinguishable from a truncated longer one. Measured at roughly 0.57 MB resident
-// per page, so a full parse sits near 3 GB on the 8 GiB standard-2 instance — which
-// is why concurrent parses are also capped below.
+// per page, so two full parses consume nearly all of a 6 GiB standard-2 instance.
+// Do not raise the concurrent parse cap without increasing instance memory.
 const supportedPages = 5000;
 const maxConcurrentParses = 2;
 let activeParses = 0;

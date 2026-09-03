@@ -12,7 +12,10 @@ import {
 	getWorkspaceFileSourceObjectKey,
 } from "#/features/workspaces/files/workspace-file-object-keys";
 import { requireAppliedWorkspaceMutation } from "#/features/workspaces/persistence/workspace-persistence-types";
-import { WorkspaceFileUploadError } from "#/features/workspaces/model/workspace-file";
+import {
+	resolveWorkspaceUploadConversion,
+	WorkspaceFileUploadError,
+} from "#/features/workspaces/model/workspace-file";
 import { createWorkspaceFileFromUpload } from "#/features/workspaces/persistence/workspace-files";
 import { createWorkspaceItem } from "#/features/workspaces/persistence/workspace-items";
 import {
@@ -204,6 +207,14 @@ async function finalizeWorkspaceFileUpload(
 				itemId: claims.itemId,
 				workspaceId,
 			});
+			observation.assetKind = validation.plan.descriptor.assetKind;
+			const conversion = resolveWorkspaceUploadConversion({
+				contentType: claims.contentType,
+				fileName: claims.fileName,
+			});
+			if (conversion) {
+				observation.conversion = conversion;
+			}
 			const finalObjectKey = getWorkspaceFileSourceObjectKey(claims);
 			const upload = await finalizeWorkspaceFileUploadStorage({
 				contentType: claims.contentType,
@@ -216,8 +227,6 @@ async function finalizeWorkspaceFileUpload(
 				uploadedObject,
 				uploadedObjectKey,
 			});
-			observation.assetKind = upload.descriptor.assetKind;
-			observation.conversion = upload.source?.conversion;
 			observation.outputBytes = upload.fileSize;
 
 			command = await createWorkspaceFileFromUpload(env, {

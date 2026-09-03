@@ -15,7 +15,7 @@ export class OfficePdfConverter extends Container {
 	envVars = {
 		API_TIMEOUT: "120s",
 		LIBREOFFICE_AUTO_START: "true",
-		LIBREOFFICE_MAX_QUEUE_SIZE: "1",
+		LIBREOFFICE_MAX_QUEUE_SIZE: "3",
 		LIBREOFFICE_START_TIMEOUT: "60s",
 	};
 }
