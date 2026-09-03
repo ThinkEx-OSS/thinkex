@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { AlertCircle, LoaderCircle, Mic } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "#/components/ui/button";
 import type { WorkspaceItem } from "#/features/workspaces/contracts";
@@ -15,6 +15,7 @@ export function WorkspaceRecordingViewer({
 	workspaceId: string;
 }) {
 	const audioRef = useRef<HTMLAudioElement>(null);
+	const continuePlaybackRef = useRef(false);
 	const [activeSequence, setActiveSequence] = useState(0);
 	const recordingQuery = useQuery({
 		queryKey: ["workspace-recording", workspaceId, item.id],
@@ -29,6 +30,11 @@ export function WorkspaceRecordingViewer({
 		() => getSegmentOffsets(recording?.segments ?? []),
 		[recording?.segments],
 	);
+	useEffect(() => {
+		if (!continuePlaybackRef.current) return;
+		continuePlaybackRef.current = false;
+		void audioRef.current?.play();
+	}, [activeSequence]);
 
 	const playCue = async (sequence: number, startMs: number) => {
 		setActiveSequence(sequence);
@@ -44,8 +50,8 @@ export function WorkspaceRecordingViewer({
 		const currentIndex = segments.findIndex((segment) => segment.sequence === activeSequence);
 		const next = segments[currentIndex + 1];
 		if (!next) return;
+		continuePlaybackRef.current = true;
 		setActiveSequence(next.sequence);
-		window.setTimeout(() => void audioRef.current?.play());
 	};
 
 	if (recordingQuery.isPending) {

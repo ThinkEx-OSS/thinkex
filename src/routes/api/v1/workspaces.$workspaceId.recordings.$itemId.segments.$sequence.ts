@@ -49,14 +49,34 @@ async function handleSegment(
 		}
 		const segment = await readSegmentForPlayback({ itemId, sequence, workspaceId });
 		if (!segment) return apiError(requestId, 404, "SEGMENT_NOT_FOUND", "Audio segment not found.");
-		const object = await env.WORKSPACE_FILES.get(segment.objectKey);
+		const object = await env.WORKSPACE_FILES.get(segment.objectKey, { range: request.headers });
 		if (!object) return apiError(requestId, 404, "SEGMENT_NOT_FOUND", "Audio segment not found.");
+		const range = object.range;
+		const suffix =
+			range && "suffix" in range && typeof range.suffix === "number" ? range.suffix : null;
+		const offset =
+			suffix === null
+				? range && "offset" in range && typeof range.offset === "number"
+					? range.offset
+					: 0
+				: object.size - suffix;
+		const length =
+			suffix ??
+			(range && "length" in range && typeof range.length === "number"
+				? range.length
+				: object.size - offset);
+		const headers = new Headers({
+			"accept-ranges": "bytes",
+			"cache-control": "private, max-age=3600",
+			"content-length": String(length),
+			"content-type": segment.mimeType,
+			etag: object.httpEtag,
+		});
+		if (range)
+			headers.set("content-range", `bytes ${offset}-${offset + length - 1}/${object.size}`);
 		return new Response(object.body, {
-			headers: {
-				"cache-control": "private, max-age=3600",
-				"content-length": String(object.size),
-				"content-type": segment.mimeType,
-			},
+			headers,
+			status: range ? 206 : 200,
 		});
 	}
 

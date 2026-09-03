@@ -81,11 +81,7 @@ async function getLectureTranscriptionWorkflowId(itemId: string) {
 }
 
 async function ensureTranscriptionWorkflow(workflowId: string, itemId: string) {
-	const existing = await env.LECTURE_TRANSCRIPTION_WORKFLOW.get(workflowId);
-	const status = await existing.status();
-	if (status.status === "unknown") {
-		await env.LECTURE_TRANSCRIPTION_WORKFLOW.create({ id: workflowId, params: { itemId } });
-	}
+	await env.LECTURE_TRANSCRIPTION_WORKFLOW.createBatch([{ id: workflowId, params: { itemId } }]);
 }
 
 function recordingErrorResponse(requestId: string, error: unknown) {
