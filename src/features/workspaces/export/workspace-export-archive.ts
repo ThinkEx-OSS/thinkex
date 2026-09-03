@@ -14,7 +14,7 @@ const textEncoder = new TextEncoder();
 
 interface WorkspaceExportReaders {
 	readDocument: (item: WorkspaceItem) => TiptapDocumentJson;
-	/** Pre-rendered Markdown for structured items (flashcard sets, quizzes). */
+	/** Pre-rendered Markdown for structured items and recording transcripts. */
 	readStructuredMarkdown: (item: WorkspaceItem) => string;
 	readFile: (item: WorkspaceItem) => Promise<ReadableStream<Uint8Array>>;
 }
@@ -65,7 +65,10 @@ async function writeWorkspaceExport(
 				await addZipBytes(zip, path, textEncoder.encode(`${markdown}\n`), () => output);
 				continue;
 			}
-			if (getWorkspaceItemContentKind(item.type) === "structured") {
+			if (
+				getWorkspaceItemContentKind(item.type) === "structured" ||
+				getWorkspaceItemContentKind(item.type) === "recording"
+			) {
 				const markdown = readers.readStructuredMarkdown(item);
 				await addZipBytes(zip, path, textEncoder.encode(markdown), () => output);
 				continue;
@@ -103,7 +106,7 @@ function buildArchivePathIndex(
 
 	for (const item of items) {
 		const contentKind = getWorkspaceItemContentKind(item.type);
-		if (contentKind !== "document" && contentKind !== "structured") {
+		if (contentKind !== "document" && contentKind !== "structured" && contentKind !== "recording") {
 			continue;
 		}
 		const workspacePath = workspacePaths.get(item.id)?.slice(1);

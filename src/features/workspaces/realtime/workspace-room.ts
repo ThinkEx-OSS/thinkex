@@ -67,9 +67,14 @@ export class WorkspaceRoom extends Agent<Cloudflare.Env> {
 	async purgeDeletedItems(input: {
 		documentItemIds: string[];
 		fileItemIds: string[];
+		recordingItemIds: string[];
 		attempt?: number;
 	}): Promise<void> {
-		if (input.documentItemIds.length === 0 && input.fileItemIds.length === 0) {
+		if (
+			input.documentItemIds.length === 0 &&
+			input.fileItemIds.length === 0 &&
+			input.recordingItemIds.length === 0
+		) {
 			return;
 		}
 
@@ -112,7 +117,7 @@ export class WorkspaceRoom extends Agent<Cloudflare.Env> {
 
 	private scheduleCleanupRetry(
 		method: "purgeDeletedItems" | "purgeForDeletion",
-		input: { documentItemIds?: string[]; fileItemIds?: string[] },
+		input: { documentItemIds?: string[]; fileItemIds?: string[]; recordingItemIds?: string[] },
 		previousAttempt = 0,
 	) {
 		const attempt = previousAttempt + 1;

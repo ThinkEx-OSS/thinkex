@@ -1,6 +1,13 @@
 import { z } from "zod";
 
-export const WORKSPACE_ITEM_TYPES = ["folder", "document", "flashcard", "quiz", "file"] as const;
+export const WORKSPACE_ITEM_TYPES = [
+	"folder",
+	"document",
+	"flashcard",
+	"quiz",
+	"file",
+	"recording",
+] as const;
 export const workspaceItemTypeSchema = z.enum(WORKSPACE_ITEM_TYPES);
 export type WorkspaceItemType = z.infer<typeof workspaceItemTypeSchema>;
 
@@ -8,7 +15,7 @@ export type WorkspaceItemType = z.infer<typeof workspaceItemTypeSchema>;
  * Shared storage lifecycle only. Item-specific reading, editing, and rendering
  * must dispatch on the concrete item type.
  */
-type WorkspaceItemContentKind = "document" | "file" | "none" | "structured";
+type WorkspaceItemContentKind = "document" | "file" | "none" | "recording" | "structured";
 
 interface WorkspaceItemRegistryEntry {
 	color: "amber" | "emerald" | "rose" | "sky" | "violet";
@@ -64,6 +71,14 @@ const workspaceItemRegistry = {
 		isContainer: false,
 		label: "File",
 		menuLabel: "Upload file",
+	},
+	recording: {
+		color: "rose",
+		contentKind: "recording",
+		defaultName: "Lecture recording",
+		isContainer: false,
+		label: "Recording",
+		menuLabel: "Record lecture",
 	},
 } as const satisfies Record<WorkspaceItemType, WorkspaceItemRegistryEntry>;
 

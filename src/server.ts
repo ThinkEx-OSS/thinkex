@@ -19,6 +19,7 @@ import { fetchWithHtmlFallback } from "#/lib/http/tanstack-html-fallback";
 export {
 	CodemodeRuntime,
 	DocumentSession,
+	LectureTranscriptionWorkflow,
 	OfficePdfConverter,
 	WorkspaceFileExtractionWorkflow,
 	WorkspaceFileProcessor,

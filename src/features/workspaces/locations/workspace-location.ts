@@ -1,6 +1,8 @@
 import { customAlphabet } from "nanoid";
 import { z } from "zod";
 
+import type { WorkspaceItemType } from "#/features/workspaces/contracts";
+
 const WORKSPACE_REFERENCE_ALPHABET =
 	"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 /** Mints the short, durable, model-facing handle a workspace item keeps for life. */
@@ -103,7 +105,7 @@ export function parseWorkspaceAddress(input: unknown): WorkspaceAddress | undefi
  * an item of this type.
  */
 export function resolveWorkspaceAddressLocation(
-	item: { id: string; type: "document" | "file" | "flashcard" | "folder" | "quiz" },
+	item: { id: string; type: WorkspaceItemType },
 	address: WorkspaceAddress,
 ): WorkspaceLocation | undefined {
 	if (address.unit === undefined) {

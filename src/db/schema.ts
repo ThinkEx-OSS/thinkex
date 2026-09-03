@@ -47,6 +47,7 @@ const WORKSPACE_INVITE_STATUSES = ["pending", "accepted", "revoked", "expired"] 
 const WORKSPACE_RELATION_KINDS = ["derived_from", "references"] as const;
 const WORKSPACE_EXTRACTION_STATUSES = ["processing", "ready", "failed"] as const;
 const WORKSPACE_EXTRACTION_TIERS = ["fast", "enhanced"] as const;
+const WORKSPACE_RECORDING_STATUSES = ["recording", "processing", "ready", "failed"] as const;
 
 function sqlEnumValues(values: readonly string[]) {
 	return sql.raw(values.map((value) => `'${value.replaceAll("'", "''")}'`).join(", "));
@@ -326,8 +327,73 @@ export const workspaceItems = pgTable(
 	],
 );
 
+export const workspaceRecordings = pgTable(
+	"workspace_recordings",
+	{
+		itemId: text("item_id")
+			.primaryKey()
+			.references(() => workspaceItems.id, { onDelete: "cascade" }),
+		workspaceId: text("workspace_id")
+			.notNull()
+			.references(() => workspaces.id, { onDelete: "cascade" }),
+		ownerId: text("owner_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		mimeType: text("mime_type").notNull(),
+		status: text("status", { enum: WORKSPACE_RECORDING_STATUSES }).default("recording").notNull(),
+		expectedSegmentCount: integer("expected_segment_count"),
+		durationMs: integer("duration_ms").default(0).notNull(),
+		workflowId: text("workflow_id").unique(),
+		errorMessage: text("error_message"),
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+		updatedAt: timestamp("updated_at", { withTimezone: true })
+			.defaultNow()
+			.$onUpdate(() => /* @__PURE__ */ new Date())
+			.notNull(),
+	},
+	(table) => [
+		check(
+			"workspace_recordings_status_check",
+			sql`${table.status} in (${sqlEnumValues(WORKSPACE_RECORDING_STATUSES)})`,
+		),
+		check("workspace_recordings_duration_check", sql`${table.durationMs} >= 0`),
+		check(
+			"workspace_recordings_segment_count_check",
+			sql`${table.expectedSegmentCount} is null or ${table.expectedSegmentCount} > 0`,
+		),
+		index("workspace_recordings_workspace_status_idx").on(
+			table.workspaceId,
+			table.status,
+			table.updatedAt,
+		),
+		index("workspace_recordings_owner_idx").on(table.ownerId, table.updatedAt),
+	],
+);
+
+export const workspaceRecordingSegments = pgTable(
+	"workspace_recording_segments",
+	{
+		recordingItemId: text("recording_item_id")
+			.notNull()
+			.references(() => workspaceRecordings.itemId, { onDelete: "cascade" }),
+		sequence: integer("sequence").notNull(),
+		objectKey: text("object_key").notNull().unique(),
+		mimeType: text("mime_type").notNull(),
+		sizeBytes: integer("size_bytes").notNull(),
+		durationMs: integer("duration_ms").notNull(),
+		etag: text("etag").notNull(),
+		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+	},
+	(table) => [
+		primaryKey({ columns: [table.recordingItemId, table.sequence] }),
+		check("workspace_recording_segments_sequence_check", sql`${table.sequence} >= 0`),
+		check("workspace_recording_segments_size_check", sql`${table.sizeBytes} > 0`),
+		check("workspace_recording_segments_duration_check", sql`${table.durationMs} > 0`),
+	],
+);
+
 // `content` is the item's own storage format — Tiptap JSON for documents, a
-// JSON set for flashcards and quizzes. `searchText` is the prose projection of
+// JSON for flashcards, quizzes, and recording transcripts. `searchText` is the prose projection of
 // it, written by every content writer so search never has to match JSON keys.
 export const workspaceItemContents = pgTable(
 	"workspace_item_contents",

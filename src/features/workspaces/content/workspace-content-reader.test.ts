@@ -416,6 +416,7 @@ function createReader(input: {
 				studyState: FlashcardStudyState;
 		  }>;
 	readQuizItem?: Parameters<typeof readWorkspaceContent>[0]["readQuizItem"];
+	readRecordingItem?: Parameters<typeof readWorkspaceContent>[0]["readRecordingItem"];
 	resolveRefKey?: Parameters<typeof readWorkspaceContent>[0]["resolveRefKey"];
 	resolvePaths?: typeof persistence.resolveWorkspacePaths;
 }) {
@@ -438,6 +439,7 @@ function createReader(input: {
 			readQuizItem:
 				input.readQuizItem ??
 				(async () => ({ questions: [], studyState: { kind: "quiz", answers: {} } })),
+			readRecordingItem: input.readRecordingItem ?? (async () => ({ cues: [] })),
 			resolveRefKey: input.resolveRefKey ?? (async () => undefined),
 			requests,
 			workspaceId: "workspace-1",

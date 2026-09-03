@@ -48,6 +48,10 @@ import {
 	summarizeQuizStudyProgress,
 	type QuizStudyState,
 } from "#/features/workspaces/quizzes/quiz-study-state";
+import {
+	serializeWorkspaceRecordingTranscriptToMarkdown,
+	type WorkspaceRecordingTranscript,
+} from "#/features/workspaces/recordings/workspace-recording-transcript";
 
 // A context-sized ceiling for one whole read call, not a transport limit: once
 // a call has returned this much content, further requests in it fail fast and
@@ -74,6 +78,10 @@ type QuizItemReader = (
 	| { questions: QuizQuestion[]; studyState: QuizStudyState }
 	| Promise<{ questions: QuizQuestion[]; studyState: QuizStudyState }>;
 
+type RecordingItemReader = (
+	itemId: string,
+) => WorkspaceRecordingTranscript | null | Promise<WorkspaceRecordingTranscript | null>;
+
 interface PendingReadyResult {
 	item: WorkspaceItem;
 	read: Extract<WorkspaceContentReadResult, { status: "ready" }>;
@@ -85,6 +93,7 @@ export async function readWorkspaceContent(input: {
 	getDocumentSession: (itemId: string) => DocumentContentReader | Promise<DocumentContentReader>;
 	readFlashcardItem: FlashcardItemReader;
 	readQuizItem: QuizItemReader;
+	readRecordingItem: RecordingItemReader;
 	/** Resolves an item address's refKey to a live item and its path. */
 	resolveRefKey: (refKey: string) => Promise<{ item: WorkspaceItem; path: string } | undefined>;
 	requests: WorkspaceContentReadRequest[];
@@ -198,6 +207,7 @@ async function readWorkspaceItem(input: {
 	getDocumentSession: (itemId: string) => DocumentContentReader | Promise<DocumentContentReader>;
 	readFlashcardItem: FlashcardItemReader;
 	readQuizItem: QuizItemReader;
+	readRecordingItem: RecordingItemReader;
 	item: WorkspaceItem;
 	path: string;
 	request: WorkspaceContentReadRequest;
@@ -217,7 +227,30 @@ async function readWorkspaceItem(input: {
 			return readFlashcards(input);
 		case "quiz":
 			return readQuiz(input);
+		case "recording":
+			return readRecording(input);
 	}
+}
+
+async function readRecording(input: {
+	item: WorkspaceItem;
+	path: string;
+	readRecordingItem: RecordingItemReader;
+	request: WorkspaceContentReadRequest;
+}): Promise<WorkspaceContentReadResult> {
+	if (input.request.mode !== "start") {
+		return { code: "invalid_selection", path: input.path, status: "failed" };
+	}
+	const transcript = await input.readRecordingItem(input.item.id);
+	return {
+		content: transcript ? serializeWorkspaceRecordingTranscriptToMarkdown(transcript) : "",
+		format: "markdown",
+		itemId: input.item.id,
+		path: input.path,
+		ref: input.item.refKey,
+		status: "ready",
+		type: "recording",
+	};
 }
 
 /** Reads the exact content an address identifies: one page, block, or entry. */

@@ -47,7 +47,12 @@ export async function disconnectWorkspaceRoomMember(
 
 export async function requestWorkspaceItemCleanup(
 	env: Cloudflare.Env,
-	input: { workspaceId: string; documentItemIds: string[]; fileItemIds: string[] },
+	input: {
+		workspaceId: string;
+		documentItemIds: string[];
+		fileItemIds: string[];
+		recordingItemIds: string[];
+	},
 ): Promise<void> {
 	// Delivery retries end once the room accepts the RPC. The room separately owns
 	// durable retries for individual document-session and R2 cleanup failures.
@@ -57,6 +62,7 @@ export async function requestWorkspaceItemCleanup(
 			await room.purgeDeletedItems({
 				documentItemIds: input.documentItemIds,
 				fileItemIds: input.fileItemIds,
+				recordingItemIds: input.recordingItemIds,
 			});
 			return;
 		} catch (error) {
@@ -66,7 +72,10 @@ export async function requestWorkspaceItemCleanup(
 					event: "workspace_item_cleanup_request",
 					fields: {
 						attempt,
-						item_count: input.documentItemIds.length + input.fileItemIds.length,
+						item_count:
+							input.documentItemIds.length +
+							input.fileItemIds.length +
+							input.recordingItemIds.length,
 						workspace_id: input.workspaceId,
 					},
 				});

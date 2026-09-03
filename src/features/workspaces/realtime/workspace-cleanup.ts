@@ -1,21 +1,34 @@
 import { getDocumentSessionStubFromEnv } from "#/features/workspaces/document-session-access";
 import { getWorkspaceFileItemObjectPrefix } from "#/features/workspaces/files/workspace-file-object-keys";
+import { getWorkspaceRecordingObjectPrefix } from "#/features/workspaces/recordings/workspace-recording-object-keys";
 import type { ResourcePurgeResult } from "#/features/workspaces/resource-purge-result";
 import { recordOperationalFailure } from "#/integrations/observability/operational-events";
 import { deleteR2Prefix } from "#/lib/r2";
 
 export async function purgeDeletedWorkspaceItems(
 	env: Cloudflare.Env,
-	input: { documentItemIds: string[]; fileItemIds: string[]; workspaceId: string },
+	input: {
+		documentItemIds: string[];
+		fileItemIds: string[];
+		recordingItemIds: string[];
+		workspaceId: string;
+	},
 ): Promise<ResourcePurgeResult> {
 	const documentItemIds = Array.from(new Set(input.documentItemIds));
 	const fileItemIds = Array.from(new Set(input.fileItemIds));
+	const recordingItemIds = Array.from(new Set(input.recordingItemIds));
 	const results = await Promise.allSettled([
 		...documentItemIds.map((itemId) => purgeDocumentSession(env, input.workspaceId, itemId)),
 		...fileItemIds.map((itemId) =>
 			deleteR2Prefix(
 				env.WORKSPACE_FILES,
 				getWorkspaceFileItemObjectPrefix({ workspaceId: input.workspaceId, itemId }),
+			),
+		),
+		...recordingItemIds.map((itemId) =>
+			deleteR2Prefix(
+				env.WORKSPACE_FILES,
+				getWorkspaceRecordingObjectPrefix({ workspaceId: input.workspaceId, itemId }),
 			),
 		),
 	]);
@@ -33,6 +46,7 @@ export async function purgeWorkspaceStorage(
 		// Chat attachments live in Postgres and cascade with their threads.
 		deleteR2Prefix(env.WORKSPACE_FILES, `workspace_file_objects/${input.workspaceId}/`),
 		deleteR2Prefix(env.WORKSPACE_FILES, `workspace_file_uploads/${input.workspaceId}/`),
+		deleteR2Prefix(env.WORKSPACE_FILES, `workspace_recordings/${input.workspaceId}/`),
 	]);
 
 	return summarizeCleanup(results);

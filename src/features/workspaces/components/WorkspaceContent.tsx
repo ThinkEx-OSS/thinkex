@@ -25,6 +25,7 @@ import { WorkspaceCreateContextMenuContent } from "#/features/workspaces/compone
 import { WorkspaceFileDropOverlay } from "#/features/workspaces/components/WorkspaceFileDropOverlay";
 import { useWorkspaceFileIntake } from "#/features/workspaces/components/WorkspaceFileIntakeProvider";
 import WorkspaceFileViewer from "#/features/workspaces/components/WorkspaceFileViewer";
+import { WorkspaceRecordingViewer } from "#/features/workspaces/components/WorkspaceRecordingViewer";
 import {
 	DeleteWorkspaceItemAlert,
 	DeleteWorkspaceItemsAlert,
@@ -529,6 +530,10 @@ function WorkspaceItemView({
 
 	if (item.type === "quiz") {
 		return <QuizViewer itemPath={itemPath} item={item} viewInstanceId={viewInstanceId} />;
+	}
+
+	if (item.type === "recording") {
+		return <WorkspaceRecordingViewer item={item} workspaceId={workspaceId} />;
 	}
 
 	const { Icon: ItemIcon, iconClassName, surfaceClassName } = getWorkspaceItemDisplay(item);

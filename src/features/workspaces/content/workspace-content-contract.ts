@@ -166,6 +166,12 @@ const workspaceContentReadResultSchema = z.union([
 	}),
 	z.object({
 		...workspaceReadyResultBase,
+		content: z.string(),
+		format: z.literal("markdown"),
+		type: z.literal("recording"),
+	}),
+	z.object({
+		...workspaceReadyResultBase,
 		assetKind: workspaceFileAssetKindSchema,
 		content: z.string(),
 		emptyPages: z
