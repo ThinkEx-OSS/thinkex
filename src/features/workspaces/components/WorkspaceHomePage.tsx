@@ -61,12 +61,12 @@ export function WorkspaceHomePage() {
 	const hasWorkspaceSearch = workspaceSearch.trim().length > 0;
 	const hasWorkspaces = workspaces.length > 0;
 	const showWorkspaceHomeEmptyState =
-		!hasWorkspaces ||
-		(workspaceCollection === "active" && collectionWorkspaces.length === 0 && !hasWorkspaceSearch);
+		workspaceCollection === "active" && collectionWorkspaces.length === 0 && !hasWorkspaceSearch;
 	const showArchiveEmptyState =
-		workspaceCollection === "archived" && collectionWorkspaces.length === 0 && !hasWorkspaceSearch;
+		workspaceCollection === "archived" && collectionWorkspaces.length === 0;
 	const handleCreateWorkspace = () => createWorkspaceMutation.mutate({ id: crypto.randomUUID() });
 	const handleWorkspaceCollectionChange = (collection: WorkspaceCollection) => {
+		setWorkspaceSearch("");
 		void navigate({
 			to: "/home",
 			search: (previous) => ({

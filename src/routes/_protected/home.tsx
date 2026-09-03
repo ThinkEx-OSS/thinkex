@@ -4,8 +4,12 @@ import { WorkspaceHomePage } from "#/features/workspaces/components/WorkspaceHom
 import { WorkspaceHomePageSkeleton } from "#/features/workspaces/components/WorkspaceHomePageSkeleton";
 import { workspacesQueryOptions } from "#/features/workspaces/query-options";
 
+interface WorkspaceHomeSearch {
+	view?: "archived";
+}
+
 export const Route = createFileRoute("/_protected/home")({
-	validateSearch: (search) => ({
+	validateSearch: (search): WorkspaceHomeSearch => ({
 		view: search.view === "archived" ? ("archived" as const) : undefined,
 	}),
 	loader: async ({ context }) => {
