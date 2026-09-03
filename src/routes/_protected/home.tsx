@@ -5,6 +5,9 @@ import { WorkspaceHomePageSkeleton } from "#/features/workspaces/components/Work
 import { workspacesQueryOptions } from "#/features/workspaces/query-options";
 
 export const Route = createFileRoute("/_protected/home")({
+	validateSearch: (search) => ({
+		view: search.view === "archived" ? ("archived" as const) : undefined,
+	}),
 	loader: async ({ context }) => {
 		await context.queryClient.ensureQueryData(workspacesQueryOptions());
 	},
