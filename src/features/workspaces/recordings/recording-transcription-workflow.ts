@@ -10,23 +10,23 @@ import {
 	type WorkspaceRecordingSegmentTranscript,
 } from "#/features/workspaces/recordings/workspace-recording-timeline";
 
-/** Durable payload for one finalized lecture recording. */
-export interface LectureTranscriptionWorkflowParams {
+/** Durable payload for one finalized recording. */
+export interface RecordingTranscriptionWorkflowParams {
 	readonly itemId: string;
 }
 
 /** Transcribe independently playable recording segments and publish one workspace document. */
-export class LectureTranscriptionWorkflow extends WorkflowEntrypoint<
+export class RecordingTranscriptionWorkflow extends WorkflowEntrypoint<
 	Cloudflare.Env,
-	LectureTranscriptionWorkflowParams
+	RecordingTranscriptionWorkflowParams
 > {
 	async run(
-		event: Readonly<WorkflowEvent<LectureTranscriptionWorkflowParams>>,
+		event: Readonly<WorkflowEvent<RecordingTranscriptionWorkflowParams>>,
 		step: WorkflowStep,
 	) {
 		const itemId = event.payload.itemId;
 		if (!itemId) {
-			throw new Error("Invalid lecture transcription payload.");
+			throw new Error("Invalid recording transcription payload.");
 		}
 
 		try {

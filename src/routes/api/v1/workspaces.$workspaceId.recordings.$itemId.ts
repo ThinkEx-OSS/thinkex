@@ -57,13 +57,12 @@ async function handleFinalizeRecording(request: Request, workspaceId: string, it
 		} finally {
 			await dbContext.dispose();
 		}
-		const workflowId = await getLectureTranscriptionWorkflowId(itemId);
+		const workflowId = await getRecordingTranscriptionWorkflowId(itemId);
 		const recording = await finalizeWorkspaceRecording({
 			itemId,
 			workspaceId,
 			userId: session.user.id,
 			expectedSegmentCount: parsed.data.expectedSegmentCount,
-			workflowId,
 		});
 		await ensureTranscriptionWorkflow(workflowId, itemId);
 		return apiJson({ status: recording.status }, requestId, 202);
@@ -75,13 +74,13 @@ async function handleFinalizeRecording(request: Request, workspaceId: string, it
 	}
 }
 
-async function getLectureTranscriptionWorkflowId(itemId: string) {
-	const digest = await sha256Base64UrlText(`lecture-recording:${itemId}:transcription:v1`);
+async function getRecordingTranscriptionWorkflowId(itemId: string) {
+	const digest = await sha256Base64UrlText(`workspace-recording:${itemId}:transcription:v1`);
 	return `recording-${digest.slice(0, 48)}`;
 }
 
 async function ensureTranscriptionWorkflow(workflowId: string, itemId: string) {
-	await env.LECTURE_TRANSCRIPTION_WORKFLOW.createBatch([{ id: workflowId, params: { itemId } }]);
+	await env.RECORDING_TRANSCRIPTION_WORKFLOW.createBatch([{ id: workflowId, params: { itemId } }]);
 }
 
 function recordingErrorResponse(requestId: string, error: unknown) {

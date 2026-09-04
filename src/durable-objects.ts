@@ -8,6 +8,6 @@ export { CodemodeRuntime } from "@cloudflare/codemode";
 export { OfficePdfConverter } from "#/features/workspaces/conversion/office-pdf-converter";
 export { DocumentSession } from "#/features/workspaces/documents/document-session";
 export { WorkspaceFileExtractionWorkflow } from "#/features/workspaces/extraction/workspace-file-extraction-workflow";
-export { LectureTranscriptionWorkflow } from "#/features/workspaces/recordings/lecture-transcription-workflow";
+export { RecordingTranscriptionWorkflow } from "#/features/workspaces/recordings/recording-transcription-workflow";
 export { WorkspaceFileProcessor } from "#/features/workspaces/files/workspace-file-processor";
 export { WorkspaceRoom } from "#/features/workspaces/realtime/workspace-room";

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { buildWorkspaceRecordingTranscript } from "#/features/workspaces/recordings/workspace-recording-timeline";
 
-describe("lecture transcription timeline", () => {
+describe("recording transcription timeline", () => {
 	it("turns segment-relative timestamps into absolute clickable cues", () => {
 		expect(
 			buildWorkspaceRecordingTranscript([

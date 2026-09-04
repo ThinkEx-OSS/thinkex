@@ -17,7 +17,6 @@ import {
 	requireActiveWorkspaceItem,
 	resolveWorkspaceItemName,
 	type QueryExecutor,
-	toWorkspaceMetadata,
 	withWorkspaceTransaction,
 } from "#/features/workspaces/persistence/workspace-postgres-support";
 import { notifyWorkspaceRoom } from "#/features/workspaces/realtime/workspace-room-notifier";
@@ -63,7 +62,7 @@ export async function createWorkspaceRecording(
 		const name = await resolveWorkspaceItemName(transaction, input.workspaceId, {
 			itemId: input.itemId,
 			parentId: input.parentId,
-			requestedName: input.name.trim() || "Lecture recording",
+			requestedName: input.name.trim() || "Recording",
 			type: "recording",
 		});
 		if (name.status !== "resolved") throw new Error("Recording name was not resolved.");
@@ -77,7 +76,6 @@ export async function createWorkspaceRecording(
 			nameKey: getWorkspaceItemNameKey(name.name),
 			refKey: createWorkspaceItemRefKey(),
 			color: null,
-			metadata: { recordingDurationMs: 0, recordingStatus: "recording" },
 			sortOrder: await getNextWorkspaceSortOrder(transaction, input.workspaceId, input.parentId),
 		});
 		const emptyTranscript = stringifyWorkspaceRecordingTranscript({ cues: [] });
@@ -225,7 +223,6 @@ export async function finalizeWorkspaceRecording(input: {
 	readonly workspaceId: string;
 	readonly userId: string;
 	readonly expectedSegmentCount: number;
-	readonly workflowId: string;
 }) {
 	return await withDb(async (db) =>
 		db.transaction(async (transaction) => {
@@ -270,18 +267,12 @@ export async function finalizeWorkspaceRecording(input: {
 				.set({
 					durationMs: manifest.durationMs,
 					expectedSegmentCount: input.expectedSegmentCount,
-					workflowId: input.workflowId,
 					status: "processing",
 					errorMessage: null,
-					updatedAt: new Date(),
 				})
 				.where(eq(workspaceRecordings.itemId, input.itemId))
 				.returning();
 			if (!updated) throw new Error("Recording was not finalized.");
-			await updateRecordingItemMetadata(transaction, input.itemId, {
-				durationMs: manifest.durationMs,
-				status: "processing",
-			});
 			return updated;
 		}),
 	);
@@ -344,19 +335,8 @@ export async function publishWorkspaceRecordingTranscript(
 			.where(eq(workspaceItemContents.itemId, input.itemId));
 		await transaction
 			.update(workspaceRecordings)
-			.set({ status: "ready", errorMessage: null, updatedAt: new Date() })
+			.set({ status: "ready", errorMessage: null })
 			.where(eq(workspaceRecordings.itemId, input.itemId));
-		await transaction
-			.update(workspaceItems)
-			.set({
-				metadata: {
-					...toWorkspaceMetadata(itemRow.metadata),
-					recordingDurationMs: recording.durationMs,
-					recordingStatus: "ready",
-				},
-				updatedAt: new Date(),
-			})
-			.where(eq(workspaceItems.id, input.itemId));
 		return {
 			outcome: "applied" as const,
 			item: await requireActiveWorkspaceItem(transaction, recording.workspaceId, input.itemId),
@@ -385,12 +365,8 @@ export async function failWorkspaceRecording(env: Cloudflare.Env, itemId: string
 		if (!recording || recording.status !== "processing") return null;
 		await transaction
 			.update(workspaceRecordings)
-			.set({ status: "failed", errorMessage: message.slice(0, 500), updatedAt: new Date() })
+			.set({ status: "failed", errorMessage: message.slice(0, 500) })
 			.where(eq(workspaceRecordings.itemId, itemId));
-		await updateRecordingItemMetadata(transaction, itemId, {
-			durationMs: recording.durationMs,
-			status: "failed",
-		});
 		return {
 			item: await requireActiveWorkspaceItem(transaction, recording.workspaceId, itemId),
 			revision: await nextWorkspaceRevision(transaction, recording.workspaceId),
@@ -409,6 +385,21 @@ export async function failWorkspaceRecording(env: Cloudflare.Env, itemId: string
 /** Read only the stored transcript for AI and export callers. */
 export async function readWorkspaceRecordingTranscript(itemId: string) {
 	return await withDb((db) => readRecordingTranscriptContent(db, itemId));
+}
+
+/** Read transcription state and content for the shared workspace reader. */
+export async function readWorkspaceRecordingContent(input: {
+	readonly itemId: string;
+	readonly workspaceId: string;
+}) {
+	return await withDb(async (db) => {
+		const recording = await requireWorkspaceRecording(db, input);
+		return {
+			errorMessage: recording.errorMessage,
+			status: recording.status,
+			transcript: await readRecordingTranscriptContent(db, input.itemId),
+		};
+	});
 }
 
 async function requireWorkspaceRecording(
@@ -476,42 +467,18 @@ async function requireSegment(db: QueryExecutor, itemId: string, sequence: numbe
 	return segment;
 }
 
-async function updateRecordingItemMetadata(
-	db: QueryExecutor,
-	itemId: string,
-	input: { readonly durationMs: number; readonly status: "failed" | "processing" | "ready" },
-) {
-	const [item] = await db
-		.select()
-		.from(workspaceItems)
-		.where(eq(workspaceItems.id, itemId))
-		.limit(1);
-	if (!item) throw new Error("Recording item not found.");
-	await db
-		.update(workspaceItems)
-		.set({
-			metadata: {
-				...toWorkspaceMetadata(item.metadata),
-				recordingDurationMs: input.durationMs,
-				recordingStatus: input.status,
-			},
-			updatedAt: new Date(),
-		})
-		.where(eq(workspaceItems.id, itemId));
-}
-
 function projectWorkspaceRecording(
 	item: Awaited<ReturnType<typeof requireActiveWorkspaceItem>>,
 	transcript: WorkspaceRecordingTranscript | null,
 	segments: readonly SegmentRow[],
-	recording?: RecordingRow,
+	recording: RecordingRow,
 ) {
 	return {
 		item,
-		mimeType: recording?.mimeType ?? "",
-		status: recording?.status ?? "recording",
-		durationMs: recording?.durationMs ?? 0,
-		errorMessage: recording?.errorMessage ?? null,
+		mimeType: recording.mimeType,
+		status: recording.status,
+		durationMs: recording.durationMs,
+		errorMessage: recording.errorMessage,
 		segments: segments.map((segment) => ({
 			durationMs: segment.durationMs,
 			sequence: segment.sequence,

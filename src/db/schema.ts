@@ -343,13 +343,7 @@ export const workspaceRecordings = pgTable(
 		status: text("status", { enum: WORKSPACE_RECORDING_STATUSES }).default("recording").notNull(),
 		expectedSegmentCount: integer("expected_segment_count"),
 		durationMs: integer("duration_ms").default(0).notNull(),
-		workflowId: text("workflow_id").unique(),
 		errorMessage: text("error_message"),
-		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-		updatedAt: timestamp("updated_at", { withTimezone: true })
-			.defaultNow()
-			.$onUpdate(() => /* @__PURE__ */ new Date())
-			.notNull(),
 	},
 	(table) => [
 		check(
@@ -361,12 +355,6 @@ export const workspaceRecordings = pgTable(
 			"workspace_recordings_segment_count_check",
 			sql`${table.expectedSegmentCount} is null or ${table.expectedSegmentCount} > 0`,
 		),
-		index("workspace_recordings_workspace_status_idx").on(
-			table.workspaceId,
-			table.status,
-			table.updatedAt,
-		),
-		index("workspace_recordings_owner_idx").on(table.ownerId, table.updatedAt),
 	],
 );
 
@@ -382,7 +370,6 @@ export const workspaceRecordingSegments = pgTable(
 		sizeBytes: integer("size_bytes").notNull(),
 		durationMs: integer("duration_ms").notNull(),
 		etag: text("etag").notNull(),
-		createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 	},
 	(table) => [
 		primaryKey({ columns: [table.recordingItemId, table.sequence] }),

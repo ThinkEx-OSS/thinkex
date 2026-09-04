@@ -111,9 +111,9 @@
 			"class_name": "WorkspaceFileExtractionWorkflow",
 		},
 		{
-			"name": "lecture-transcription",
-			"binding": "LECTURE_TRANSCRIPTION_WORKFLOW",
-			"class_name": "LectureTranscriptionWorkflow",
+			"name": "recording-transcription",
+			"binding": "RECORDING_TRANSCRIPTION_WORKFLOW",
+			"class_name": "RecordingTranscriptionWorkflow",
 		},
 	],
 	"containers": [
@@ -291,9 +291,9 @@
 					"class_name": "WorkspaceFileExtractionWorkflow",
 				},
 				{
-					"name": "lecture-transcription-staging",
-					"binding": "LECTURE_TRANSCRIPTION_WORKFLOW",
-					"class_name": "LectureTranscriptionWorkflow",
+					"name": "recording-transcription-staging",
+					"binding": "RECORDING_TRANSCRIPTION_WORKFLOW",
+					"class_name": "RecordingTranscriptionWorkflow",
 				},
 			],
 			"containers": [
@@ -406,9 +406,9 @@
 					"class_name": "WorkspaceFileExtractionWorkflow",
 				},
 				{
-					"name": "lecture-transcription",
-					"binding": "LECTURE_TRANSCRIPTION_WORKFLOW",
-					"class_name": "LectureTranscriptionWorkflow",
+					"name": "recording-transcription",
+					"binding": "RECORDING_TRANSCRIPTION_WORKFLOW",
+					"class_name": "RecordingTranscriptionWorkflow",
 				},
 			],
 			"containers": [

@@ -1,5 +1,5 @@
 {
-  "id": "9dc4cde9-ace0-4f43-9bc3-6e5bbfcc6b67",
+  "id": "fbd3f7d7-d1e2-443e-b17d-dbbff45bb777",
   "prevId": "974f230b-e9ea-4cb9-9cf3-7518ca5e9fbf",
   "version": "7",
   "dialect": "postgresql",
@@ -2802,13 +2802,6 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
         }
       },
       "indexes": {},
@@ -2910,83 +2903,14 @@
           "notNull": true,
           "default": 0
         },
-        "workflow_id": {
-          "name": "workflow_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
         "error_message": {
           "name": "error_message",
           "type": "text",
           "primaryKey": false,
           "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
         }
       },
-      "indexes": {
-        "workspace_recordings_workspace_status_idx": {
-          "name": "workspace_recordings_workspace_status_idx",
-          "columns": [
-            {
-              "expression": "workspace_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "status",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "updated_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "workspace_recordings_owner_idx": {
-          "name": "workspace_recordings_owner_idx",
-          "columns": [
-            {
-              "expression": "owner_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "updated_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
+      "indexes": {},
       "foreignKeys": {
         "workspace_recordings_item_id_workspace_items_id_fk": {
           "name": "workspace_recordings_item_id_workspace_items_id_fk",
@@ -3029,15 +2953,7 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "workspace_recordings_workflow_id_unique": {
-          "name": "workspace_recordings_workflow_id_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "workflow_id"
-          ]
-        }
-      },
+      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {
         "workspace_recordings_status_check": {
