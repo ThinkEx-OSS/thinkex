@@ -147,12 +147,19 @@ export function WorkspaceShell({
 			setStudyDraft({ type: input.type, parentId: input.parentId });
 			return;
 		}
-		createWorkspaceItemMutation.mutate({
-			id: crypto.randomUUID(),
-			workspaceId: workspace.id,
-			parentId: input.parentId,
-			type: input.type,
-		});
+		createWorkspaceItemMutation.mutate(
+			{
+				id: crypto.randomUUID(),
+				workspaceId: workspace.id,
+				parentId: input.parentId,
+				type: input.type,
+			},
+			{
+				onSuccess: (command) => {
+					if (input.type === "document") openItem(command.result);
+				},
+			},
+		);
 	};
 	useEffect(() => {
 		ensureWorkspaceUiSession({
@@ -306,7 +313,11 @@ export function WorkspaceShell({
 
 	const workspaceInteractionContent = (
 		<WorkspaceFileUploadProvider workspaceId={workspace.id}>
-			<WorkspaceRecordingProvider workspaceId={workspace.id}>
+			<WorkspaceRecordingProvider
+				workspaceId={workspace.id}
+				itemsById={itemsById}
+				onOpenItem={openItem}
+			>
 				<WorkspaceFileIntakeProvider>
 					<WorkspaceDragProvider
 						items={scopedItems}

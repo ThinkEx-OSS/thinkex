@@ -1,27 +1,17 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { Mic, Square } from "lucide-react";
 import { createContext, type ReactNode, use, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
-import { Button } from "#/components/ui/button";
-import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-} from "#/components/ui/dialog";
-import { Input } from "#/components/ui/input";
 import { applyWorkspacePageDeltaToCache } from "#/features/workspaces/cache-page";
 import { useWorkspaceMutationAccess } from "#/features/workspaces/components/workspace-mutation-access";
+import type { WorkspaceItem } from "#/features/workspaces/contracts";
+import { workspaceRecordingMaxDurationMs } from "#/features/workspaces/recordings/workspace-recording";
 import {
 	createRecordingItem,
 	finalizeRecording,
 	getSupportedRecordingMimeType,
 	uploadRecordingSegment,
 } from "#/features/workspaces/recordings/workspace-recording-client";
-import { workspaceRecordingMaxDurationMs } from "#/features/workspaces/recordings/workspace-recording";
 import {
 	deleteLocalWorkspaceRecording,
 	deleteLocalWorkspaceRecordingSegment,
@@ -31,10 +21,16 @@ import {
 	saveLocalWorkspaceRecordingSegment,
 	type LocalWorkspaceRecording,
 } from "#/features/workspaces/recordings/workspace-recording-local-store";
-import { formatRecordingTimestamp } from "#/features/workspaces/recordings/workspace-recording-transcript";
 
 interface WorkspaceRecordingContextValue {
 	requestRecording: (parentId: string | null) => void;
+	captureItemId: string | null;
+	phase: "setup" | "recording" | "finishing";
+	elapsedMs: number;
+	recovery: LocalWorkspaceRecording | null;
+	startRecording: () => void;
+	stopRecording: () => void;
+	recoverRecording: (mode: "resume" | "finish") => void;
 }
 
 const WorkspaceRecordingContext = createContext<WorkspaceRecordingContextValue | null>(null);
@@ -42,16 +38,18 @@ const segmentDurationMs = 30_000;
 
 export function WorkspaceRecordingProvider({
 	children,
+	itemsById,
+	onOpenItem,
 	workspaceId,
 }: {
 	children: ReactNode;
+	itemsById: ReadonlyMap<string, WorkspaceItem>;
+	onOpenItem: (item: WorkspaceItem) => void;
 	workspaceId: string;
 }) {
 	const queryClient = useQueryClient();
 	const { capabilities } = useWorkspaceMutationAccess();
-	const [open, setOpen] = useState(false);
-	const [parentId, setParentId] = useState<string | null>(null);
-	const [name, setName] = useState("Lecture recording");
+	const [captureSession, setCaptureSession] = useState<LocalWorkspaceRecording | null>(null);
 	const [phase, setPhase] = useState<"setup" | "recording" | "finishing">("setup");
 	const [elapsedMs, setElapsedMs] = useState(0);
 	const [recovery, setRecovery] = useState<LocalWorkspaceRecording | null>(null);
@@ -61,6 +59,7 @@ export function WorkspaceRecordingProvider({
 	const stopRequestedRef = useRef(false);
 	const segmentStartedAtRef = useRef(0);
 	const timerRef = useRef<number | null>(null);
+	const creatingRef = useRef(false);
 
 	useEffect(() => {
 		if (!capabilities.canMutateContent) return;
@@ -79,24 +78,33 @@ export function WorkspaceRecordingProvider({
 		return () => window.clearInterval(interval);
 	}, [phase]);
 
-	const requestRecording = (nextParentId: string | null) => {
-		setParentId(nextParentId);
-		setName("Lecture recording");
-		setPhase("setup");
-		setOpen(true);
-	};
-
-	const startFreshRecording = async () => {
+	const requestRecording = async (parentId: string | null) => {
+		const existingItemId = captureSession?.itemId ?? recovery?.itemId;
+		if (existingItemId) {
+			const existingItem = itemsById.get(existingItemId);
+			if (existingItem) {
+				onOpenItem(existingItem);
+				return;
+			}
+			if (captureSession) {
+				toast.info("A recording is already in progress.");
+				return;
+			}
+		}
 		const mimeType = getSupportedRecordingMimeType();
 		if (!mimeType || !navigator.mediaDevices?.getUserMedia) {
 			toast.error("This browser cannot record microphone audio.");
 			return;
 		}
-		setPhase("finishing");
-		let stream: MediaStream | null = null;
+		if (creatingRef.current) return;
+		creatingRef.current = true;
 		try {
-			stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-			const created = await createRecordingItem({ workspaceId, parentId, name, mimeType });
+			const created = await createRecordingItem({
+				workspaceId,
+				parentId,
+				name: "Lecture recording",
+				mimeType,
+			});
 			applyWorkspacePageDeltaToCache(queryClient, {
 				type: "workspace.items.upserted",
 				workspaceId,
@@ -112,8 +120,30 @@ export function WorkspaceRecordingProvider({
 				segmentCount: 0,
 				workspaceId,
 			};
-			await saveLocalWorkspaceRecording(session);
-			await beginCapture(session, stream);
+			setCaptureSession(session);
+			setPhase("setup");
+			setElapsedMs(0);
+			onOpenItem(created.item);
+			await saveLocalWorkspaceRecording(session).catch((error: unknown) => {
+				toast.error(
+					error instanceof Error ? error.message : "Unable to save recording on this device.",
+				);
+			});
+		} catch (error) {
+			toast.error(error instanceof Error ? error.message : "Unable to create recording.");
+		} finally {
+			creatingRef.current = false;
+		}
+	};
+
+	const startFreshRecording = async () => {
+		if (!captureSession) return;
+		setPhase("finishing");
+		let stream: MediaStream | null = null;
+		try {
+			stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+			await saveLocalWorkspaceRecording(captureSession);
+			await beginCapture(captureSession, stream);
 		} catch (error) {
 			stream?.getTracks().forEach((track) => track.stop());
 			setPhase("setup");
@@ -126,6 +156,7 @@ export function WorkspaceRecordingProvider({
 		sessionRef.current = session;
 		streamRef.current = stream;
 		stopRequestedRef.current = false;
+		setCaptureSession(session);
 		setElapsedMs(session.durationMs);
 		setPhase("recording");
 		startSegmentRecorder();
@@ -176,6 +207,7 @@ export function WorkspaceRecordingProvider({
 		};
 		await saveLocalWorkspaceRecordingSegment(nextSession, segment);
 		sessionRef.current = nextSession;
+		setCaptureSession(nextSession);
 		setElapsedMs(nextSession.durationMs);
 		void uploadStoredSegments(nextSession).catch(() => undefined);
 		if (stopRequestedRef.current || nextSession.durationMs >= workspaceRecordingMaxDurationMs) {
@@ -201,17 +233,19 @@ export function WorkspaceRecordingProvider({
 			await finalizeRecording(session);
 			await deleteLocalWorkspaceRecording(session.itemId);
 			setRecovery(null);
-			setOpen(false);
+			await queryClient.invalidateQueries({
+				queryKey: ["workspace-recording", workspaceId, session.itemId],
+			});
 			toast.success("Recording saved. Transcription is processing.");
 		} catch (error) {
 			setRecovery(session);
 			toast.error(error instanceof Error ? error.message : "Recording is saved locally.");
-			setOpen(false);
 		} finally {
 			streamRef.current?.getTracks().forEach((track) => track.stop());
 			streamRef.current = null;
 			recorderRef.current = null;
 			sessionRef.current = null;
+			setCaptureSession(null);
 		}
 	};
 
@@ -239,15 +273,14 @@ export function WorkspaceRecordingProvider({
 	const recoverRecording = async (mode: "resume" | "finish") => {
 		if (!recovery) return;
 		setRecovery(null);
+		setCaptureSession(recovery);
+		setPhase("finishing");
 		if (mode === "resume") {
-			setOpen(true);
-			setName(recovery.name);
-			setParentId(recovery.parentId);
 			try {
 				await uploadStoredSegments(recovery);
 				await beginCapture(recovery);
 			} catch (error) {
-				setOpen(false);
+				setCaptureSession(null);
 				setRecovery(recovery);
 				toast.error(error instanceof Error ? error.message : "Unable to resume recording.");
 			}
@@ -255,6 +288,7 @@ export function WorkspaceRecordingProvider({
 		}
 		if (recovery.segmentCount < 1) {
 			toast.error("No completed audio segment was recovered.");
+			setCaptureSession(null);
 			setRecovery(recovery);
 			return;
 		}
@@ -262,71 +296,19 @@ export function WorkspaceRecordingProvider({
 	};
 
 	return (
-		<WorkspaceRecordingContext.Provider value={{ requestRecording }}>
+		<WorkspaceRecordingContext.Provider
+			value={{
+				requestRecording: (parentId) => void requestRecording(parentId),
+				captureItemId: captureSession?.itemId ?? null,
+				phase,
+				elapsedMs,
+				recovery,
+				startRecording: () => void startFreshRecording(),
+				stopRecording,
+				recoverRecording: (mode) => void recoverRecording(mode),
+			}}
+		>
 			{children}
-			<Dialog open={open} onOpenChange={(nextOpen) => phase === "setup" && setOpen(nextOpen)}>
-				<DialogContent showCloseButton={phase === "setup"}>
-					<DialogHeader>
-						<DialogTitle>
-							{phase === "setup" ? "Record a lecture" : "Recording lecture"}
-						</DialogTitle>
-						<DialogDescription>
-							{phase === "setup"
-								? "Microphone audio is saved in short durable segments. You can close the lid and recover completed segments later."
-								: phase === "recording"
-									? `${formatRecordingTimestamp(elapsedMs)} · Microphone`
-									: "Saving completed segments and starting transcription…"}
-						</DialogDescription>
-					</DialogHeader>
-					{phase === "setup" ? (
-						<Input
-							value={name}
-							maxLength={160}
-							aria-label="Recording name"
-							onChange={(event) => setName(event.target.value)}
-						/>
-					) : (
-						<div className="flex items-center justify-center py-8">
-							<div className="flex size-20 items-center justify-center rounded-full bg-rose-500/10 text-rose-600">
-								<Mic className="size-8" />
-							</div>
-						</div>
-					)}
-					<DialogFooter>
-						{phase === "setup" ? (
-							<Button disabled={!name.trim()} onClick={() => void startFreshRecording()}>
-								Start recording
-							</Button>
-						) : (
-							<Button
-								variant="destructive"
-								disabled={phase === "finishing"}
-								onClick={stopRecording}
-							>
-								<Square className="size-3 fill-current" /> Stop and transcribe
-							</Button>
-						)}
-					</DialogFooter>
-				</DialogContent>
-			</Dialog>
-			<Dialog open={Boolean(recovery)} onOpenChange={() => undefined}>
-				<DialogContent showCloseButton={false}>
-					<DialogHeader>
-						<DialogTitle>Recover {recovery?.name}</DialogTitle>
-						<DialogDescription>
-							This recording was interrupted after{" "}
-							{formatRecordingTimestamp(recovery?.durationMs ?? 0)}. Completed audio is still safe
-							on this device.
-						</DialogDescription>
-					</DialogHeader>
-					<DialogFooter>
-						<Button variant="outline" onClick={() => void recoverRecording("finish")}>
-							Finish and transcribe
-						</Button>
-						<Button onClick={() => void recoverRecording("resume")}>Resume recording</Button>
-					</DialogFooter>
-				</DialogContent>
-			</Dialog>
 		</WorkspaceRecordingContext.Provider>
 	);
 }

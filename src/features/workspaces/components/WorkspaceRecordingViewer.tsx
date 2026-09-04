@@ -1,8 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
-import { AlertCircle, LoaderCircle, Mic } from "lucide-react";
+import { AlertCircle, LoaderCircle, Mic, Square } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "#/components/ui/button";
+import { useWorkspaceRecording } from "#/features/workspaces/components/WorkspaceRecordingProvider";
 import type { WorkspaceItem } from "#/features/workspaces/contracts";
 import { getRecording } from "#/features/workspaces/recordings/workspace-recording-client";
 import { formatRecordingTimestamp } from "#/features/workspaces/recordings/workspace-recording-transcript";
@@ -14,6 +15,7 @@ export function WorkspaceRecordingViewer({
 	item: WorkspaceItem;
 	workspaceId: string;
 }) {
+	const capture = useWorkspaceRecording();
 	const audioRef = useRef<HTMLAudioElement>(null);
 	const continuePlaybackRef = useRef(false);
 	const [activeSequence, setActiveSequence] = useState(0);
@@ -35,6 +37,28 @@ export function WorkspaceRecordingViewer({
 		continuePlaybackRef.current = false;
 		void audioRef.current?.play();
 	}, [activeSequence]);
+
+	if (capture.captureItemId === item.id) {
+		return (
+			<RecordingCaptureSurface
+				item={item}
+				phase={capture.phase}
+				elapsedMs={capture.elapsedMs}
+				onStart={capture.startRecording}
+				onStop={capture.stopRecording}
+			/>
+		);
+	}
+	if (capture.recovery?.itemId === item.id) {
+		return (
+			<RecordingRecoverySurface
+				item={item}
+				durationMs={capture.recovery.durationMs}
+				segmentCount={capture.recovery.segmentCount}
+				onRecover={capture.recoverRecording}
+			/>
+		);
+	}
 
 	const playCue = async (sequence: number, startMs: number) => {
 		setActiveSequence(sequence);
@@ -72,58 +96,164 @@ export function WorkspaceRecordingViewer({
 	}
 
 	return (
+		<RecordingItemSurface item={item} durationMs={recording.durationMs}>
+			{recording.segments.length > 0 ? (
+				<audio
+					ref={audioRef}
+					controls
+					className="w-full"
+					src={`/api/v1/workspaces/${workspaceId}/recordings/${item.id}/segments/${activeSequence}`}
+					onEnded={playNextSegment}
+				/>
+			) : null}
+
+			{recording.status === "recording" ? (
+				<RecordingNotice text="Recording is still in progress or waiting to be recovered on the device that captured it." />
+			) : null}
+			{recording.status === "processing" ? (
+				<RecordingNotice text="Transcribing the saved audio. This continues even if you close the computer." />
+			) : null}
+			{recording.status === "failed" ? (
+				<RecordingNotice
+					text={recording.errorMessage ?? "Transcription failed. The audio is still available."}
+					destructive
+				/>
+			) : null}
+
+			{recording.transcript.cues.length > 0 ? (
+				<div className="space-y-1" aria-label="Transcript">
+					{recording.transcript.cues.map((cue, index) => (
+						<Button
+							key={`${cue.segmentSequence}:${cue.startMs}:${index}`}
+							variant="ghost"
+							className="h-auto w-full items-start justify-start gap-4 px-3 py-2 text-left font-normal whitespace-normal"
+							onClick={() => void playCue(cue.segmentSequence, cue.startMs)}
+						>
+							<span className="w-12 shrink-0 font-mono text-muted-foreground text-xs leading-5">
+								{formatRecordingTimestamp(cue.startMs)}
+							</span>
+							<span className="leading-5">{cue.text}</span>
+						</Button>
+					))}
+				</div>
+			) : recording.status === "ready" ? (
+				<p className="text-muted-foreground text-sm">No speech was detected in this recording.</p>
+			) : null}
+		</RecordingItemSurface>
+	);
+}
+
+function RecordingCaptureSurface({
+	item,
+	phase,
+	elapsedMs,
+	onStart,
+	onStop,
+}: {
+	item: WorkspaceItem;
+	phase: "setup" | "recording" | "finishing";
+	elapsedMs: number;
+	onStart: () => void;
+	onStop: () => void;
+}) {
+	return (
+		<RecordingItemSurface item={item} durationMs={elapsedMs}>
+			<div className="flex flex-col items-center gap-5 rounded-xl border bg-muted/30 px-6 py-10 text-center">
+				<div className="flex size-20 items-center justify-center rounded-full bg-rose-500/10 text-rose-600">
+					{phase === "finishing" ? (
+						<LoaderCircle className="size-8 animate-spin" />
+					) : (
+						<Mic className="size-8" />
+					)}
+				</div>
+				<div className="space-y-1">
+					<p className="font-medium">
+						{phase === "setup"
+							? "Default microphone"
+							: phase === "recording"
+								? formatRecordingTimestamp(elapsedMs)
+								: "Saving and starting transcription…"}
+					</p>
+					<p className="max-w-md text-muted-foreground text-sm">
+						{phase === "setup"
+							? "Your browser will ask for microphone access. Completed audio is saved in recoverable segments."
+							: phase === "recording"
+								? "You can leave this item open or work elsewhere in the workspace."
+								: "Processing continues after the upload finishes."}
+					</p>
+				</div>
+				{phase === "setup" ? (
+					<Button onClick={onStart}>Start recording</Button>
+				) : (
+					<Button variant="destructive" disabled={phase === "finishing"} onClick={onStop}>
+						<Square className="size-3 fill-current" /> Stop and transcribe
+					</Button>
+				)}
+			</div>
+		</RecordingItemSurface>
+	);
+}
+
+function RecordingRecoverySurface({
+	item,
+	durationMs,
+	segmentCount,
+	onRecover,
+}: {
+	item: WorkspaceItem;
+	durationMs: number;
+	segmentCount: number;
+	onRecover: (mode: "resume" | "finish") => void;
+}) {
+	const hasAudio = segmentCount > 0;
+	return (
+		<RecordingItemSurface item={item} durationMs={durationMs}>
+			<div className="space-y-4 rounded-xl border bg-muted/30 p-6">
+				<div className="space-y-1">
+					<h2 className="font-medium">
+						{hasAudio ? "Continue this recording" : "Start this recording"}
+					</h2>
+					<p className="text-muted-foreground text-sm">
+						{hasAudio
+							? "Completed audio is safe on this device. Resume recording or upload it now for transcription."
+							: "Your browser will ask for microphone access when recording starts."}
+					</p>
+				</div>
+				<div className="flex flex-wrap gap-2">
+					{hasAudio ? (
+						<Button variant="outline" onClick={() => onRecover("finish")}>
+							Finish and transcribe
+						</Button>
+					) : null}
+					<Button onClick={() => onRecover("resume")}>
+						{hasAudio ? "Resume recording" : "Start recording"}
+					</Button>
+				</div>
+			</div>
+		</RecordingItemSurface>
+	);
+}
+
+function RecordingItemSurface({
+	children,
+	item,
+	durationMs,
+}: {
+	children: React.ReactNode;
+	item: WorkspaceItem;
+	durationMs: number;
+}) {
+	return (
 		<section className="h-full min-h-0 overflow-y-auto bg-background">
 			<div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 py-10">
 				<header className="space-y-2">
 					<div className="flex items-center gap-2 text-muted-foreground text-sm">
 						<Mic className="size-4 text-rose-500" /> Recording ·{" "}
-						{formatRecordingTimestamp(recording.durationMs)}
+						{formatRecordingTimestamp(durationMs)}
 					</div>
 					<h1 className="text-2xl font-semibold tracking-tight">{item.name}</h1>
 				</header>
-
-				{recording.segments.length > 0 ? (
-					<audio
-						ref={audioRef}
-						controls
-						className="w-full"
-						src={`/api/v1/workspaces/${workspaceId}/recordings/${item.id}/segments/${activeSequence}`}
-						onEnded={playNextSegment}
-					/>
-				) : null}
-
-				{recording.status === "recording" ? (
-					<RecordingNotice text="Recording is still in progress or waiting to be recovered on the device that captured it." />
-				) : null}
-				{recording.status === "processing" ? (
-					<RecordingNotice text="Transcribing the saved audio. This continues even if you close the computer." />
-				) : null}
-				{recording.status === "failed" ? (
-					<RecordingNotice
-						text={recording.errorMessage ?? "Transcription failed. The audio is still available."}
-						destructive
-					/>
-				) : null}
-
-				{recording.transcript.cues.length > 0 ? (
-					<div className="space-y-1" aria-label="Transcript">
-						{recording.transcript.cues.map((cue, index) => (
-							<Button
-								key={`${cue.segmentSequence}:${cue.startMs}:${index}`}
-								variant="ghost"
-								className="h-auto w-full items-start justify-start gap-4 px-3 py-2 text-left font-normal whitespace-normal"
-								onClick={() => void playCue(cue.segmentSequence, cue.startMs)}
-							>
-								<span className="w-12 shrink-0 font-mono text-muted-foreground text-xs leading-5">
-									{formatRecordingTimestamp(cue.startMs)}
-								</span>
-								<span className="leading-5">{cue.text}</span>
-							</Button>
-						))}
-					</div>
-				) : recording.status === "ready" ? (
-					<p className="text-muted-foreground text-sm">No speech was detected in this recording.</p>
-				) : null}
+				{children}
 			</div>
 		</section>
 	);
