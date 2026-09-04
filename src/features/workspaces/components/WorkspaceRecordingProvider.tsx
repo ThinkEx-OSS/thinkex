@@ -1,7 +1,9 @@
 import { useQueryClient } from "@tanstack/react-query";
+import { Mic, Square } from "lucide-react";
 import { createContext, type ReactNode, use, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
+import { Button } from "#/components/ui/button";
 import { applyWorkspacePageDeltaToCache } from "#/features/workspaces/cache-page";
 import { useWorkspaceMutationAccess } from "#/features/workspaces/components/workspace-mutation-access";
 import type { WorkspaceItem } from "#/features/workspaces/contracts";
@@ -37,11 +39,13 @@ const WorkspaceRecordingContext = createContext<WorkspaceRecordingContextValue |
 const segmentDurationMs = 30_000;
 
 export function WorkspaceRecordingProvider({
+	activeItemId,
 	children,
 	itemsById,
 	onOpenItem,
 	workspaceId,
 }: {
+	activeItemId?: string;
 	children: ReactNode;
 	itemsById: ReadonlyMap<string, WorkspaceItem>;
 	onOpenItem: (item: WorkspaceItem) => void;
@@ -60,6 +64,7 @@ export function WorkspaceRecordingProvider({
 	const segmentStartedAtRef = useRef(0);
 	const timerRef = useRef<number | null>(null);
 	const creatingRef = useRef(false);
+	const releaseRecordingLockRef = useRef<(() => void) | null>(null);
 
 	useEffect(() => {
 		if (!capabilities.canMutateContent) return;
@@ -99,10 +104,17 @@ export function WorkspaceRecordingProvider({
 		if (creatingRef.current) return;
 		creatingRef.current = true;
 		try {
+			const createdAt = new Date();
 			const created = await createRecordingItem({
 				workspaceId,
 				parentId,
-				name: "Lecture recording",
+				name: `Recording — ${new Intl.DateTimeFormat(undefined, {
+					month: "short",
+					day: "numeric",
+					year: "numeric",
+					hour: "numeric",
+					minute: "2-digit",
+				}).format(createdAt)}`,
 				mimeType,
 			});
 			applyWorkspacePageDeltaToCache(queryClient, {
@@ -139,10 +151,16 @@ export function WorkspaceRecordingProvider({
 		setPhase("finishing");
 		let stream: MediaStream | null = null;
 		try {
+			if (!(await acquireRecordingLock())) {
+				setPhase("setup");
+				toast.info("Another recording is already running in this browser.");
+				return;
+			}
 			stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 			await saveLocalWorkspaceRecording(captureSession);
 			await beginCapture(captureSession, stream);
 		} catch (error) {
+			releaseRecordingLock();
 			stream?.getTracks().forEach((track) => track.stop());
 			setPhase("setup");
 			toast.error(error instanceof Error ? error.message : "Unable to start recording.");
@@ -150,6 +168,9 @@ export function WorkspaceRecordingProvider({
 	};
 
 	const beginCapture = async (session: LocalWorkspaceRecording, existingStream?: MediaStream) => {
+		if (!existingStream && !(await acquireRecordingLock())) {
+			throw new Error("Another recording is already running in this browser.");
+		}
 		const stream = existingStream ?? (await navigator.mediaDevices.getUserMedia({ audio: true }));
 		sessionRef.current = session;
 		streamRef.current = stream;
@@ -244,7 +265,33 @@ export function WorkspaceRecordingProvider({
 			recorderRef.current = null;
 			sessionRef.current = null;
 			setCaptureSession(null);
+			releaseRecordingLock();
 		}
+	};
+
+	const acquireRecordingLock = async () => {
+		if (releaseRecordingLockRef.current) return true;
+		let release!: () => void;
+		const hold = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		return await new Promise<boolean>((resolve) => {
+			void navigator.locks.request(
+				"thinkex-microphone-recording",
+				{ ifAvailable: true },
+				async (lock) => {
+					resolve(Boolean(lock));
+					if (!lock) return;
+					releaseRecordingLockRef.current = release;
+					await hold;
+				},
+			);
+		});
+	};
+
+	const releaseRecordingLock = () => {
+		releaseRecordingLockRef.current?.();
+		releaseRecordingLockRef.current = null;
 	};
 
 	const stopRecording = () => {
@@ -260,6 +307,7 @@ export function WorkspaceRecordingProvider({
 			if (timerRef.current !== null) window.clearTimeout(timerRef.current);
 			if (recorderRef.current?.state === "recording") recorderRef.current.stop();
 			streamRef.current?.getTracks().forEach((track) => track.stop());
+			releaseRecordingLock();
 		};
 		window.addEventListener("pagehide", stopForPageExit);
 		return () => {
@@ -307,8 +355,47 @@ export function WorkspaceRecordingProvider({
 			}}
 		>
 			{children}
+			{captureSession && phase !== "setup" && activeItemId !== captureSession.itemId ? (
+				<div className="fixed right-4 bottom-4 z-50 flex max-w-[calc(100vw-2rem)] items-center gap-3 rounded-full border bg-background px-3 py-2 shadow-lg">
+					<span className="relative flex size-8 shrink-0 items-center justify-center rounded-full bg-rose-500/10 text-rose-500">
+						{phase === "recording" ? (
+							<span className="absolute inset-0 animate-ping rounded-full bg-rose-500/20" />
+						) : null}
+						<Mic className="relative size-4" />
+					</span>
+					<button
+						type="button"
+						className="min-w-0 text-left"
+						onClick={() => {
+							const item = itemsById.get(captureSession.itemId);
+							if (item) onOpenItem(item);
+						}}
+					>
+						<span className="block truncate font-medium text-sm">
+							{itemsById.get(captureSession.itemId)?.name ?? "Recording"}
+						</span>
+						<span className="block text-muted-foreground text-xs">
+							{phase === "recording" ? formatElapsedTime(elapsedMs) : "Finishing…"}
+						</span>
+					</button>
+					<Button
+						size="icon-sm"
+						variant="destructive"
+						disabled={phase !== "recording"}
+						aria-label="Stop and transcribe recording"
+						onClick={stopRecording}
+					>
+						<Square className="size-3 fill-current" />
+					</Button>
+				</div>
+			) : null}
 		</WorkspaceRecordingContext.Provider>
 	);
+}
+
+function formatElapsedTime(durationMs: number) {
+	const seconds = Math.floor(durationMs / 1_000);
+	return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 }
 
 export function useWorkspaceRecording() {

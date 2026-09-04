@@ -1,11 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
-import { AlertCircle, LoaderCircle, Mic, Square } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { AlertCircle, LoaderCircle, Mic, Pause, Play, Square } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
 
 import { Button } from "#/components/ui/button";
 import { useWorkspaceRecording } from "#/features/workspaces/components/WorkspaceRecordingProvider";
 import type { WorkspaceItem } from "#/features/workspaces/contracts";
 import { getRecording } from "#/features/workspaces/recordings/workspace-recording-client";
+import { getWorkspaceRecordingSegmentAtTime } from "#/features/workspaces/recordings/workspace-recording-timeline";
 import { formatRecordingTimestamp } from "#/features/workspaces/recordings/workspace-recording-transcript";
 
 export function WorkspaceRecordingViewer({
@@ -19,6 +20,10 @@ export function WorkspaceRecordingViewer({
 	const audioRef = useRef<HTMLAudioElement>(null);
 	const continuePlaybackRef = useRef(false);
 	const [activeSequence, setActiveSequence] = useState(0);
+	const [isPlaying, setIsPlaying] = useState(false);
+	const [playbackMs, setPlaybackMs] = useState(0);
+	const [playbackRate, setPlaybackRate] = useState(1);
+	const pendingSeekRef = useRef<number | null>(null);
 	const recordingQuery = useQuery({
 		queryKey: ["workspace-recording", workspaceId, item.id],
 		queryFn: () => getRecording(workspaceId, item.id),
@@ -32,16 +37,9 @@ export function WorkspaceRecordingViewer({
 		() => getSegmentOffsets(recording?.segments ?? []),
 		[recording?.segments],
 	);
-	useEffect(() => {
-		if (!continuePlaybackRef.current) return;
-		continuePlaybackRef.current = false;
-		void audioRef.current?.play();
-	}, [activeSequence]);
-
 	if (capture.captureItemId === item.id) {
 		return (
 			<RecordingCaptureSurface
-				item={item}
 				phase={capture.phase}
 				elapsedMs={capture.elapsedMs}
 				onStart={capture.startRecording}
@@ -52,7 +50,6 @@ export function WorkspaceRecordingViewer({
 	if (capture.recovery?.itemId === item.id) {
 		return (
 			<RecordingRecoverySurface
-				item={item}
 				durationMs={capture.recovery.durationMs}
 				segmentCount={capture.recovery.segmentCount}
 				onRecover={capture.recoverRecording}
@@ -61,12 +58,35 @@ export function WorkspaceRecordingViewer({
 	}
 
 	const playCue = async (sequence: number, startMs: number) => {
-		setActiveSequence(sequence);
-		await new Promise<void>((resolve) => window.setTimeout(resolve));
+		seekTo(startMs, true, sequence);
+	};
+
+	const seekTo = (targetMs: number, play = isPlaying, sequence?: number) => {
+		const targetSequence =
+			sequence ?? getWorkspaceRecordingSegmentAtTime(recording?.segments ?? [], targetMs);
+		pendingSeekRef.current = targetMs;
+		continuePlaybackRef.current = play;
+		setPlaybackMs(targetMs);
+		if (targetSequence !== activeSequence) {
+			setActiveSequence(targetSequence);
+			return;
+		}
+		applyPendingSeek();
+	};
+
+	const applyPendingSeek = () => {
 		const audio = audioRef.current;
+		const targetMs = pendingSeekRef.current;
 		if (!audio) return;
-		audio.currentTime = Math.max(0, (startMs - (offsets.get(sequence) ?? 0)) / 1_000);
-		await audio.play();
+		pendingSeekRef.current = null;
+		audio.playbackRate = playbackRate;
+		if (targetMs !== null) {
+			audio.currentTime = Math.max(0, (targetMs - (offsets.get(activeSequence) ?? 0)) / 1_000);
+		}
+		if (continuePlaybackRef.current) {
+			continuePlaybackRef.current = false;
+			void audio.play();
+		}
 	};
 
 	const playNextSegment = () => {
@@ -74,6 +94,7 @@ export function WorkspaceRecordingViewer({
 		const currentIndex = segments.findIndex((segment) => segment.sequence === activeSequence);
 		const next = segments[currentIndex + 1];
 		if (!next) return;
+		pendingSeekRef.current = offsets.get(next.sequence) ?? playbackMs;
 		continuePlaybackRef.current = true;
 		setActiveSequence(next.sequence);
 	};
@@ -96,15 +117,71 @@ export function WorkspaceRecordingViewer({
 	}
 
 	return (
-		<RecordingItemSurface item={item} durationMs={recording.durationMs}>
+		<RecordingItemSurface>
 			{recording.segments.length > 0 ? (
-				<audio
-					ref={audioRef}
-					controls
-					className="w-full"
-					src={`/api/v1/workspaces/${workspaceId}/recordings/${item.id}/segments/${activeSequence}`}
-					onEnded={playNextSegment}
-				/>
+				<>
+					<audio
+						ref={audioRef}
+						preload="metadata"
+						src={`/api/v1/workspaces/${workspaceId}/recordings/${item.id}/segments/${activeSequence}`}
+						onEnded={playNextSegment}
+						onLoadedMetadata={applyPendingSeek}
+						onPause={() => setIsPlaying(false)}
+						onPlay={() => setIsPlaying(true)}
+						onTimeUpdate={(event) =>
+							setPlaybackMs(
+								(offsets.get(activeSequence) ?? 0) + event.currentTarget.currentTime * 1_000,
+							)
+						}
+					/>
+					<div className="flex items-center gap-3 rounded-xl border bg-card p-3 shadow-sm">
+						<Button
+							size="icon"
+							className="shrink-0 rounded-full"
+							aria-label={isPlaying ? "Pause recording" : "Play recording"}
+							onClick={() => {
+								const audio = audioRef.current;
+								if (!audio) return;
+								if (isPlaying) audio.pause();
+								else void audio.play();
+							}}
+						>
+							{isPlaying ? (
+								<Pause className="size-4 fill-current" />
+							) : (
+								<Play className="size-4 fill-current" />
+							)}
+						</Button>
+						<span className="w-10 shrink-0 font-mono text-muted-foreground text-xs">
+							{formatRecordingTimestamp(playbackMs)}
+						</span>
+						<input
+							type="range"
+							min={0}
+							max={Math.max(1, recording.durationMs)}
+							value={Math.min(playbackMs, recording.durationMs)}
+							aria-label="Recording position"
+							className="min-w-0 flex-1 accent-primary"
+							onChange={(event) => seekTo(Number(event.target.value))}
+						/>
+						<span className="w-10 shrink-0 text-right font-mono text-muted-foreground text-xs">
+							{formatRecordingTimestamp(recording.durationMs)}
+						</span>
+						<Button
+							variant="ghost"
+							size="sm"
+							className="w-12 shrink-0 tabular-nums"
+							aria-label={`Playback speed ${playbackRate} times`}
+							onClick={() => {
+								const nextRate = playbackRate === 2 ? 1 : playbackRate + 0.25;
+								setPlaybackRate(nextRate);
+								if (audioRef.current) audioRef.current.playbackRate = nextRate;
+							}}
+						>
+							{playbackRate}×
+						</Button>
+					</div>
+				</>
 			) : null}
 
 			{recording.status === "recording" ? (
@@ -144,20 +221,18 @@ export function WorkspaceRecordingViewer({
 }
 
 function RecordingCaptureSurface({
-	item,
 	phase,
 	elapsedMs,
 	onStart,
 	onStop,
 }: {
-	item: WorkspaceItem;
 	phase: "setup" | "recording" | "finishing";
 	elapsedMs: number;
 	onStart: () => void;
 	onStop: () => void;
 }) {
 	return (
-		<RecordingItemSurface item={item} durationMs={elapsedMs}>
+		<RecordingItemSurface>
 			<div className="flex flex-col items-center gap-5 rounded-xl border bg-muted/30 px-6 py-10 text-center">
 				<div className="flex size-20 items-center justify-center rounded-full bg-rose-500/10 text-rose-600">
 					{phase === "finishing" ? (
@@ -195,19 +270,17 @@ function RecordingCaptureSurface({
 }
 
 function RecordingRecoverySurface({
-	item,
 	durationMs,
 	segmentCount,
 	onRecover,
 }: {
-	item: WorkspaceItem;
 	durationMs: number;
 	segmentCount: number;
 	onRecover: (mode: "resume" | "finish") => void;
 }) {
 	const hasAudio = segmentCount > 0;
 	return (
-		<RecordingItemSurface item={item} durationMs={durationMs}>
+		<RecordingItemSurface>
 			<div className="space-y-4 rounded-xl border bg-muted/30 p-6">
 				<div className="space-y-1">
 					<h2 className="font-medium">
@@ -215,7 +288,7 @@ function RecordingRecoverySurface({
 					</h2>
 					<p className="text-muted-foreground text-sm">
 						{hasAudio
-							? "Completed audio is safe on this device. Resume recording or upload it now for transcription."
+							? `${formatRecordingTimestamp(durationMs)} of completed audio is safe on this device. Resume recording or upload it now for transcription.`
 							: "Your browser will ask for microphone access when recording starts."}
 					</p>
 				</div>
@@ -234,27 +307,10 @@ function RecordingRecoverySurface({
 	);
 }
 
-function RecordingItemSurface({
-	children,
-	item,
-	durationMs,
-}: {
-	children: React.ReactNode;
-	item: WorkspaceItem;
-	durationMs: number;
-}) {
+function RecordingItemSurface({ children }: { children: React.ReactNode }) {
 	return (
 		<section className="h-full min-h-0 overflow-y-auto bg-background">
-			<div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 py-10">
-				<header className="space-y-2">
-					<div className="flex items-center gap-2 text-muted-foreground text-sm">
-						<Mic className="size-4 text-rose-500" /> Recording ·{" "}
-						{formatRecordingTimestamp(durationMs)}
-					</div>
-					<h1 className="text-2xl font-semibold tracking-tight">{item.name}</h1>
-				</header>
-				{children}
-			</div>
+			<div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 py-8">{children}</div>
 		</section>
 	);
 }

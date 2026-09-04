@@ -5,6 +5,19 @@ export interface WorkspaceRecordingSegmentTranscript {
 	readonly timedLines: readonly { readonly startSeconds: number; readonly text: string }[];
 }
 
+/** Resolve an absolute recording timestamp to its stored segment. */
+export function getWorkspaceRecordingSegmentAtTime(
+	segments: readonly { readonly durationMs: number; readonly sequence: number }[],
+	targetMs: number,
+) {
+	let elapsed = 0;
+	for (const segment of segments) {
+		if (targetMs < elapsed + segment.durationMs) return segment.sequence;
+		elapsed += segment.durationMs;
+	}
+	return segments.at(-1)?.sequence ?? 0;
+}
+
 /** Convert segment-relative model timestamps into one absolute recording timeline. */
 export function buildWorkspaceRecordingTranscript(
 	segments: readonly WorkspaceRecordingSegmentTranscript[],

@@ -315,6 +315,7 @@ export function WorkspaceShell({
 		<WorkspaceFileUploadProvider workspaceId={workspace.id}>
 			<WorkspaceRecordingProvider
 				workspaceId={workspace.id}
+				activeItemId={activeItem?.id}
 				itemsById={itemsById}
 				onOpenItem={openItem}
 			>
