@@ -8,11 +8,11 @@ describe("workspace recording manifest", () => {
 			parseWorkspaceRecordingManifest({
 				expectedSegmentCount: 2,
 				segments: [
-					{ durationMs: 30_000, sequence: 0, sizeBytes: 240_000 },
-					{ durationMs: 12_000, sequence: 1, sizeBytes: 96_000 },
+					{ durationMs: 30_000, sequence: 0 },
+					{ durationMs: 12_000, sequence: 1 },
 				],
 			}),
-		).toEqual({ ok: true, durationMs: 42_000, sizeBytes: 336_000 });
+		).toEqual({ ok: true, durationMs: 42_000 });
 	});
 
 	it("rejects gaps even when the count matches", () => {
@@ -20,16 +20,17 @@ describe("workspace recording manifest", () => {
 			parseWorkspaceRecordingManifest({
 				expectedSegmentCount: 2,
 				segments: [
-					{ durationMs: 30_000, sequence: 0, sizeBytes: 240_000 },
-					{ durationMs: 30_000, sequence: 2, sizeBytes: 240_000 },
+					{ durationMs: 30_000, sequence: 0 },
+					{ durationMs: 30_000, sequence: 2 },
 				],
 			}),
-		).toMatchObject({ ok: false, code: "incomplete" });
+		).toEqual({ ok: false, message: "Some recording segments have not finished uploading yet." });
 	});
 
 	it("rejects an empty recording", () => {
-		expect(
-			parseWorkspaceRecordingManifest({ expectedSegmentCount: 0, segments: [] }),
-		).toMatchObject({ ok: false, code: "empty" });
+		expect(parseWorkspaceRecordingManifest({ expectedSegmentCount: 0, segments: [] })).toEqual({
+			ok: false,
+			message: "Record at least one segment before finishing.",
+		});
 	});
 });

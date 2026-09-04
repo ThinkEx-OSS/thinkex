@@ -254,7 +254,6 @@ export async function finalizeWorkspaceRecording(input: {
 				.select({
 					durationMs: workspaceRecordingSegments.durationMs,
 					sequence: workspaceRecordingSegments.sequence,
-					sizeBytes: workspaceRecordingSegments.sizeBytes,
 				})
 				.from(workspaceRecordingSegments)
 				.where(eq(workspaceRecordingSegments.recordingItemId, input.itemId))
@@ -513,11 +512,9 @@ function projectWorkspaceRecording(
 		status: recording?.status ?? "recording",
 		durationMs: recording?.durationMs ?? 0,
 		errorMessage: recording?.errorMessage ?? null,
-		receivedSequences: segments.map((segment) => segment.sequence),
 		segments: segments.map((segment) => ({
 			durationMs: segment.durationMs,
 			sequence: segment.sequence,
-			sizeBytes: segment.sizeBytes,
 		})),
 		transcript: transcript ?? { cues: [] },
 	};

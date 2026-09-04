@@ -1,7 +1,6 @@
 import { z } from "zod";
 
 const workspaceRecordingTranscriptCueSchema = z.object({
-	endMs: z.number().int().nonnegative(),
 	segmentSequence: z.number().int().nonnegative(),
 	startMs: z.number().int().nonnegative(),
 	text: z.string().trim().min(1),
@@ -10,9 +9,6 @@ const workspaceRecordingTranscriptCueSchema = z.object({
 const workspaceRecordingTranscriptSchema = z.object({
 	cues: z.array(workspaceRecordingTranscriptCueSchema),
 });
-
-/** One transcript passage linked to an absolute recording time. */
-export type WorkspaceRecordingTranscriptCue = z.infer<typeof workspaceRecordingTranscriptCueSchema>;
 
 /** Persisted time-aligned transcript content for a recording item. */
 export type WorkspaceRecordingTranscript = z.infer<typeof workspaceRecordingTranscriptSchema>;

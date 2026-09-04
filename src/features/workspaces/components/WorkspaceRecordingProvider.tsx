@@ -115,8 +115,6 @@ export function WorkspaceRecordingProvider({
 				durationMs: 0,
 				itemId: created.item.id,
 				mimeType,
-				name: created.item.name,
-				parentId,
 				segmentCount: 0,
 				workspaceId,
 			};

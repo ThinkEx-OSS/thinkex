@@ -11,8 +11,7 @@ export interface WorkspaceRecordingSnapshot {
 	readonly status: "recording" | "processing" | "ready" | "failed";
 	readonly durationMs: number;
 	readonly errorMessage: string | null;
-	readonly receivedSequences: readonly number[];
-	readonly segments: readonly { durationMs: number; sequence: number; sizeBytes: number }[];
+	readonly segments: readonly { durationMs: number; sequence: number }[];
 	readonly transcript: WorkspaceRecordingTranscript;
 }
 

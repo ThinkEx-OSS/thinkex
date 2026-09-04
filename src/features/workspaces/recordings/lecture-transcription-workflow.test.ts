@@ -24,9 +24,9 @@ describe("lecture transcription timeline", () => {
 			]),
 		).toEqual({
 			cues: [
-				{ endMs: 12_000, segmentSequence: 0, startMs: 0, text: "First" },
-				{ endMs: 30_000, segmentSequence: 0, startMs: 12_000, text: "Second" },
-				{ endMs: 39_000, segmentSequence: 1, startMs: 32_000, text: "Third" },
+				{ segmentSequence: 0, startMs: 0, text: "First" },
+				{ segmentSequence: 0, startMs: 12_000, text: "Second" },
+				{ segmentSequence: 1, startMs: 32_000, text: "Third" },
 			],
 		});
 	});

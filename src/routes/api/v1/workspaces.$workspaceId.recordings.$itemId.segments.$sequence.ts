@@ -47,7 +47,11 @@ async function handleSegment(
 			}
 			throw error;
 		}
-		const segment = await readSegmentForPlayback({ itemId, sequence, workspaceId });
+		const segment = await readWorkspaceRecordingSegmentForPlayback({
+			itemId,
+			sequence,
+			workspaceId,
+		});
 		if (!segment) return apiError(requestId, 404, "SEGMENT_NOT_FOUND", "Audio segment not found.");
 		const object = await env.WORKSPACE_FILES.get(segment.objectKey, { range: request.headers });
 		if (!object) return apiError(requestId, 404, "SEGMENT_NOT_FOUND", "Audio segment not found.");
@@ -167,14 +171,6 @@ async function handleSegmentPut(
 		etag: object.etag,
 	});
 	return apiJson({ sequence: segment.sequence }, requestId, 201);
-}
-
-async function readSegmentForPlayback(input: {
-	itemId: string;
-	sequence: number;
-	workspaceId: string;
-}) {
-	return readWorkspaceRecordingSegmentForPlayback(input);
 }
 
 export const Route = createFileRoute(

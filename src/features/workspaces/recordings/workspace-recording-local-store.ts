@@ -4,8 +4,6 @@ const recordingDatabaseVersion = 1;
 export interface LocalWorkspaceRecording {
 	readonly itemId: string;
 	readonly workspaceId: string;
-	readonly parentId: string | null;
-	readonly name: string;
 	readonly mimeType: string;
 	readonly segmentCount: number;
 	readonly durationMs: number;
