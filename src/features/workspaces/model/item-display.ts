@@ -70,7 +70,7 @@ const workspaceUploadAction = {
 
 const workspaceRecordingAction = {
 	kind: "recording" as const,
-	id: "record-lecture",
+	id: "record",
 	label: getWorkspaceItemTypeDisplay("recording").menuLabel,
 	Icon: getWorkspaceItemTypeDisplay("recording").icon,
 	iconClassName: workspaceColors[getWorkspaceItemTypeDisplay("recording").color].iconClassName,
@@ -81,9 +81,9 @@ export const workspaceCreateMenuActionGroups = [
 		id: "primary",
 		actions: [
 			createWorkspaceItemAction("document"),
-			workspaceRecordingAction,
 			workspaceUploadAction,
 			createWorkspaceItemAction("folder"),
+			workspaceRecordingAction,
 		],
 	},
 	{

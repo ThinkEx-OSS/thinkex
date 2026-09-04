@@ -1,8 +1,23 @@
-/** Maximum accepted duration for one lecture recording. */
+/** Maximum accepted duration for one recording. */
 export const workspaceRecordingMaxDurationMs = 3 * 60 * 60 * 1_000;
 
 /** Maximum encoded size for one independently playable recording segment. */
 export const workspaceRecordingMaxSegmentBytes = 4 * 1_024 * 1_024;
+
+/** Map microphone amplitude to the portion of waveform height used on screen. */
+export function scaleRecordingWaveformAmplitude(amplitude: number) {
+	return Math.min(1, Math.sqrt(Math.max(0, amplitude - 0.008) * 5));
+}
+
+/** Move one displayed waveform bar toward its latest microphone sample. */
+export function easeRecordingWaveformAmplitude(
+	current: number,
+	target: number,
+	elapsedMs = 1000 / 60,
+) {
+	const responseMs = target > current ? 85 : 220;
+	return current + (target - current) * (1 - Math.exp(-elapsedMs / responseMs));
+}
 
 /** Verify that a finalized recording contains exactly one contiguous segment sequence. */
 export function parseWorkspaceRecordingManifest(input: {

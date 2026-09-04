@@ -67,7 +67,7 @@ export function WorkspaceCreateMenuContent({
 		parentId,
 		onCreateItem,
 		onUploadFile: requestFileUpload,
-		onRecordLecture: requestRecording,
+		onRecord: requestRecording,
 	});
 	const menuActions = readOnly ? applyWorkspaceMenuReadOnly(actions) : actions;
 
@@ -93,10 +93,10 @@ function getWorkspaceCreateMenuActions({
 	parentId,
 	onCreateItem,
 	onUploadFile,
-	onRecordLecture,
+	onRecord,
 }: WorkspaceCreateMenuProps & {
 	onUploadFile: (parentId: string | null) => void;
-	onRecordLecture: (parentId: string | null) => void;
+	onRecord: (parentId: string | null) => void;
 }) {
 	return workspaceCreateMenuActionGroups.flatMap((group, index) => [
 		...(index > 0 ? [{ kind: "separator" as const, id: `create-${group.id}` }] : []),
@@ -108,7 +108,7 @@ function getWorkspaceCreateMenuActions({
 			...(action.kind === "item"
 				? { onSelect: () => onCreateItem({ type: action.type, parentId }) }
 				: action.kind === "recording"
-					? { onSelect: () => onRecordLecture(parentId) }
+					? { onSelect: () => onRecord(parentId) }
 					: { onSelect: () => onUploadFile(parentId) }),
 		})),
 	]);

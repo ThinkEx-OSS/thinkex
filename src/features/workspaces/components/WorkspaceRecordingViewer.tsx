@@ -1,11 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
 import { AlertCircle, LoaderCircle, Mic, Pause, Play, Square } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "#/components/ui/button";
 import { useWorkspaceRecording } from "#/features/workspaces/components/WorkspaceRecordingProvider";
 import type { WorkspaceItem } from "#/features/workspaces/contracts";
 import { getRecording } from "#/features/workspaces/recordings/workspace-recording-client";
+import {
+	easeRecordingWaveformAmplitude,
+	scaleRecordingWaveformAmplitude,
+} from "#/features/workspaces/recordings/workspace-recording";
 import { getWorkspaceRecordingSegmentAtTime } from "#/features/workspaces/recordings/workspace-recording-timeline";
 import { formatRecordingTimestamp } from "#/features/workspaces/recordings/workspace-recording-transcript";
 
@@ -40,8 +44,11 @@ export function WorkspaceRecordingViewer({
 	if (capture.captureItemId === item.id) {
 		return (
 			<RecordingCaptureSurface
+				analyser={capture.analyser}
 				phase={capture.phase}
 				elapsedMs={capture.elapsedMs}
+				onPause={capture.pauseRecording}
+				onResume={capture.resumeRecording}
 				onStart={capture.startRecording}
 				onStop={capture.stopRecording}
 			/>
@@ -56,10 +63,6 @@ export function WorkspaceRecordingViewer({
 			/>
 		);
 	}
-
-	const playCue = async (sequence: number, startMs: number) => {
-		seekTo(startMs, true, sequence);
-	};
 
 	const seekTo = (targetMs: number, play = isPlaying, sequence?: number) => {
 		const targetSequence =
@@ -134,7 +137,7 @@ export function WorkspaceRecordingViewer({
 							)
 						}
 					/>
-					<div className="flex items-center gap-3 rounded-xl border bg-card p-3 shadow-sm">
+					<div className="mx-auto flex w-full max-w-3xl items-center gap-3 py-2">
 						<Button
 							size="icon"
 							className="shrink-0 rounded-full"
@@ -184,27 +187,23 @@ export function WorkspaceRecordingViewer({
 				</>
 			) : null}
 
-			{recording.status === "recording" ? (
-				<RecordingNotice text="Recording is still in progress or waiting to be recovered on the device that captured it." />
-			) : null}
-			{recording.status === "processing" ? (
-				<RecordingNotice text="Transcribing the saved audio. This continues even if you close the computer." />
-			) : null}
+			{recording.status === "recording" ? <RecordingNotice text="Recording not finished." /> : null}
+			{recording.status === "processing" ? <RecordingNotice text="Creating transcript…" /> : null}
 			{recording.status === "failed" ? (
 				<RecordingNotice
-					text={recording.errorMessage ?? "Transcription failed. The audio is still available."}
+					text={recording.errorMessage ?? "Transcript failed. Audio is still available."}
 					destructive
 				/>
 			) : null}
 
 			{recording.transcript.cues.length > 0 ? (
-				<div className="space-y-1" aria-label="Transcript">
+				<div className="mx-auto w-full max-w-3xl space-y-1" aria-label="Transcript">
 					{recording.transcript.cues.map((cue, index) => (
 						<Button
 							key={`${cue.segmentSequence}:${cue.startMs}:${index}`}
 							variant="ghost"
 							className="h-auto w-full items-start justify-start gap-4 px-3 py-2 text-left font-normal whitespace-normal"
-							onClick={() => void playCue(cue.segmentSequence, cue.startMs)}
+							onClick={() => seekTo(cue.startMs, true, cue.segmentSequence)}
 						>
 							<span className="w-12 shrink-0 font-mono text-muted-foreground text-xs leading-5">
 								{formatRecordingTimestamp(cue.startMs)}
@@ -214,26 +213,34 @@ export function WorkspaceRecordingViewer({
 					))}
 				</div>
 			) : recording.status === "ready" ? (
-				<p className="text-muted-foreground text-sm">No speech was detected in this recording.</p>
+				<p className="mx-auto w-full max-w-3xl text-muted-foreground text-sm">
+					No speech was detected in this recording.
+				</p>
 			) : null}
 		</RecordingItemSurface>
 	);
 }
 
 function RecordingCaptureSurface({
+	analyser,
 	phase,
 	elapsedMs,
+	onPause,
+	onResume,
 	onStart,
 	onStop,
 }: {
-	phase: "setup" | "recording" | "finishing";
+	analyser: AnalyserNode | null;
+	phase: "setup" | "recording" | "paused" | "finishing";
 	elapsedMs: number;
+	onPause: () => void;
+	onResume: () => void;
 	onStart: () => void;
 	onStop: () => void;
 }) {
 	return (
 		<RecordingItemSurface>
-			<div className="flex flex-col items-center gap-5 rounded-xl border bg-muted/30 px-6 py-10 text-center">
+			<div className="flex flex-1 flex-col items-center justify-center gap-5 px-6 py-10 text-center">
 				<div className="flex size-20 items-center justify-center rounded-full bg-rose-500/10 text-rose-600">
 					{phase === "finishing" ? (
 						<LoaderCircle className="size-8 animate-spin" />
@@ -244,28 +251,124 @@ function RecordingCaptureSurface({
 				<div className="space-y-1">
 					<p className="font-medium">
 						{phase === "setup"
-							? "Default microphone"
+							? "Ready to record"
 							: phase === "recording"
 								? formatRecordingTimestamp(elapsedMs)
-								: "Saving and starting transcription…"}
-					</p>
-					<p className="max-w-md text-muted-foreground text-sm">
-						{phase === "setup"
-							? "Your browser will ask for microphone access. Completed audio is saved in recoverable segments."
-							: phase === "recording"
-								? "You can leave this item open or work elsewhere in the workspace."
-								: "Processing continues after the upload finishes."}
+								: phase === "paused"
+									? `${formatRecordingTimestamp(elapsedMs)} · Paused`
+									: "Saving…"}
 					</p>
 				</div>
+				{phase === "recording" || phase === "paused" ? (
+					<RecordingWaveform analyser={analyser} paused={phase === "paused"} />
+				) : null}
 				{phase === "setup" ? (
 					<Button onClick={onStart}>Start recording</Button>
-				) : (
-					<Button variant="destructive" disabled={phase === "finishing"} onClick={onStop}>
-						<Square className="size-3 fill-current" /> Stop and transcribe
-					</Button>
-				)}
+				) : phase === "recording" ? (
+					<div className="flex items-center gap-2">
+						<Button variant="outline" onClick={onPause}>
+							<Pause className="size-4 fill-current" /> Pause
+						</Button>
+						<Button onClick={onStop}>
+							<Square className="size-3 fill-current" /> Done
+						</Button>
+					</div>
+				) : phase === "paused" ? (
+					<div className="flex items-center gap-2">
+						<Button variant="outline" onClick={onResume}>
+							<Play className="size-4 fill-current" /> Unpause
+						</Button>
+						<Button onClick={onStop}>Done</Button>
+					</div>
+				) : null}
 			</div>
 		</RecordingItemSurface>
+	);
+}
+
+function RecordingWaveform({
+	analyser,
+	paused,
+}: {
+	analyser: AnalyserNode | null;
+	paused: boolean;
+}) {
+	const canvasRef = useRef<HTMLCanvasElement>(null);
+
+	useEffect(() => {
+		const canvas = canvasRef.current;
+		if (!analyser || !canvas) return;
+		const context = canvas.getContext("2d");
+		if (!context) return;
+		const samples = new Uint8Array(analyser.frequencyBinCount);
+		const barCount = 32;
+		const targetAmplitudes = new Float32Array(barCount);
+		const displayedAmplitudes = new Float32Array(barCount);
+		let animationFrame = 0;
+		let lastFrameAt = performance.now();
+		let lastSampleAt = 0;
+
+		const draw = (now: number) => {
+			const scale = window.devicePixelRatio || 1;
+			const width = Math.max(1, Math.round(canvas.clientWidth * scale));
+			const height = Math.max(1, Math.round(canvas.clientHeight * scale));
+			if (canvas.width !== width || canvas.height !== height) {
+				canvas.width = width;
+				canvas.height = height;
+			}
+			if (now - lastSampleAt >= 40) {
+				analyser.getByteTimeDomainData(samples);
+				let sumSquares = 0;
+				let peak = 0;
+				for (const sample of samples) {
+					const value = Math.abs(sample - 128) / 128;
+					sumSquares += value * value;
+					peak = Math.max(peak, value);
+				}
+				const rms = Math.sqrt(sumSquares / samples.length);
+				targetAmplitudes.copyWithin(0, 1);
+				targetAmplitudes[barCount - 1] = scaleRecordingWaveformAmplitude(rms * 0.75 + peak * 0.25);
+				lastSampleAt = now;
+			}
+
+			context.clearRect(0, 0, width, height);
+			context.fillStyle = getComputedStyle(canvas).color;
+			const gap = 4 * scale;
+			const barWidth = (width - gap * (barCount - 1)) / barCount;
+			const elapsedMs = Math.min(50, now - lastFrameAt);
+			for (let bar = 0; bar < barCount; bar += 1) {
+				displayedAmplitudes[bar] = easeRecordingWaveformAmplitude(
+					displayedAmplitudes[bar],
+					targetAmplitudes[bar],
+					elapsedMs,
+				);
+				const barHeight = Math.max(2 * scale, displayedAmplitudes[bar] * height * 0.8);
+				context.globalAlpha = 0.35 + 0.65 * (bar / (barCount - 1));
+				context.beginPath();
+				context.roundRect(
+					bar * (barWidth + gap),
+					(height - barHeight) / 2,
+					barWidth,
+					barHeight,
+					barWidth / 2,
+				);
+				context.fill();
+			}
+			context.globalAlpha = 1;
+			lastFrameAt = now;
+			animationFrame = requestAnimationFrame(draw);
+		};
+
+		animationFrame = requestAnimationFrame(draw);
+		return () => cancelAnimationFrame(animationFrame);
+	}, [analyser]);
+
+	return (
+		<canvas
+			ref={canvasRef}
+			className={`h-12 w-full max-w-80 text-rose-500 transition-opacity ${paused ? "opacity-45" : "opacity-100"}`}
+			aria-hidden="true"
+		/>
 	);
 }
 
@@ -281,26 +384,20 @@ function RecordingRecoverySurface({
 	const hasAudio = segmentCount > 0;
 	return (
 		<RecordingItemSurface>
-			<div className="space-y-4 rounded-xl border bg-muted/30 p-6">
+			<div className="flex flex-1 flex-col items-center justify-center gap-5 px-6 py-10 text-center">
 				<div className="space-y-1">
-					<h2 className="font-medium">
-						{hasAudio ? "Continue this recording" : "Start this recording"}
-					</h2>
-					<p className="text-muted-foreground text-sm">
-						{hasAudio
-							? `${formatRecordingTimestamp(durationMs)} of completed audio is safe on this device. Resume recording or upload it now for transcription.`
-							: "Your browser will ask for microphone access when recording starts."}
-					</p>
-				</div>
-				<div className="flex flex-wrap gap-2">
+					<h2 className="font-medium">{hasAudio ? "Recording paused" : "Ready to record"}</h2>
 					{hasAudio ? (
-						<Button variant="outline" onClick={() => onRecover("finish")}>
-							Finish and transcribe
-						</Button>
+						<p className="text-muted-foreground text-sm">
+							{formatRecordingTimestamp(durationMs)} recorded
+						</p>
 					) : null}
-					<Button onClick={() => onRecover("resume")}>
-						{hasAudio ? "Resume recording" : "Start recording"}
+				</div>
+				<div className="flex flex-wrap justify-center gap-2">
+					<Button variant={hasAudio ? "outline" : "default"} onClick={() => onRecover("resume")}>
+						{hasAudio ? "Unpause" : "Start recording"}
 					</Button>
+					{hasAudio ? <Button onClick={() => onRecover("finish")}>Done</Button> : null}
 				</div>
 			</div>
 		</RecordingItemSurface>
@@ -310,7 +407,7 @@ function RecordingRecoverySurface({
 function RecordingItemSurface({ children }: { children: React.ReactNode }) {
 	return (
 		<section className="h-full min-h-0 overflow-y-auto bg-background">
-			<div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 py-8">{children}</div>
+			<div className="flex min-h-full w-full flex-col gap-6 px-6 py-8">{children}</div>
 		</section>
 	);
 }
@@ -320,8 +417,8 @@ function RecordingNotice({ text, destructive = false }: { text: string; destruct
 		<div
 			className={
 				destructive
-					? "rounded-lg bg-destructive/10 p-4 text-destructive text-sm"
-					: "rounded-lg bg-muted p-4 text-muted-foreground text-sm"
+					? "mx-auto w-full max-w-3xl rounded-lg bg-destructive/10 p-4 text-destructive text-sm"
+					: "mx-auto w-full max-w-3xl text-muted-foreground text-sm"
 			}
 		>
 			{text}

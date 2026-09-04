@@ -18,7 +18,7 @@ export type WorkspaceItemType = z.infer<typeof workspaceItemTypeSchema>;
 type WorkspaceItemContentKind = "document" | "file" | "none" | "recording" | "structured";
 
 interface WorkspaceItemRegistryEntry {
-	color: "amber" | "emerald" | "rose" | "sky" | "violet";
+	color: "amber" | "emerald" | "red" | "rose" | "sky" | "violet";
 	contentKind: WorkspaceItemContentKind;
 	defaultName: string;
 	/**
@@ -73,12 +73,12 @@ const workspaceItemRegistry = {
 		menuLabel: "Upload file",
 	},
 	recording: {
-		color: "rose",
+		color: "red",
 		contentKind: "recording",
-		defaultName: "Lecture recording",
+		defaultName: "Recording",
 		isContainer: false,
 		label: "Recording",
-		menuLabel: "Record lecture",
+		menuLabel: "Record",
 	},
 } as const satisfies Record<WorkspaceItemType, WorkspaceItemRegistryEntry>;
 
