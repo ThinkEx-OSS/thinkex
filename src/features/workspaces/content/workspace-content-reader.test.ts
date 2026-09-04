@@ -49,9 +49,106 @@ const flashcardItem: WorkspaceItem = {
 	name: "Biology cards",
 };
 
+const recordingItem: WorkspaceItem = {
+	...documentItem,
+	id: "recording-1",
+	refKey: "refrec01",
+	type: "recording",
+	name: "Sep 4, 2026, 1:24 AM Recording",
+};
+
 const unitRefPattern = /^[A-Za-z0-9_-]+\.r_[A-Za-z0-9_-]{6}$/;
 
 describe("WorkspaceContentReader", () => {
+	it("reads a long recording through the same ordered-entry journey", async () => {
+		const read = createReader({
+			bucket: {} as R2Bucket,
+			getDocumentSession: () => createDocumentSession({ html: "<p />" }),
+			item: recordingItem,
+			readRecordingItem: async () => ({
+				errorMessage: null,
+				status: "ready",
+				transcript: {
+					cues: Array.from({ length: 12 }, (_, index) => ({
+						segmentSequence: index,
+						startMs: index * 5 * 60_000,
+						text: `${index + 1} ${"spoken words ".repeat(700)}`,
+					})),
+				},
+			}),
+		});
+
+		const [first] = await read([{ mode: "start", path: "/Recording" }]);
+		expect(first).toMatchObject({
+			location: { kind: "entries", returned: [1, 2, 3, 4, 5], total: 12 },
+			status: "ready",
+			type: "recording",
+		});
+		if (!first || first.status !== "ready" || first.type !== "recording") {
+			throw new Error("Expected a recording read.");
+		}
+		expect(first.content).toContain("**20:00** 5");
+		expect(first.content).not.toContain("**25:00** 6");
+
+		const [rest] = await read([{ mode: "entries", path: "/Recording", range: "6-12" }]);
+		expect(rest).toMatchObject({
+			location: { kind: "entries", returned: [6, 7, 8, 9, 10, 11, 12], total: 12 },
+			status: "ready",
+			type: "recording",
+		});
+		if (!rest || rest.status !== "ready" || rest.type !== "recording") {
+			throw new Error("Expected the rest of the recording.");
+		}
+		expect(rest.content).toContain("**25:00** 6");
+		expect(rest.content).toContain("**55:00** 12");
+	});
+
+	it("returns a valid empty recording read", async () => {
+		const read = createReader({
+			bucket: {} as R2Bucket,
+			getDocumentSession: () => createDocumentSession({ html: "<p />" }),
+			item: recordingItem,
+			readRecordingItem: async () => ({
+				errorMessage: null,
+				status: "ready",
+				transcript: { cues: [] },
+			}),
+		});
+
+		await expect(read([{ mode: "start", path: "/Recording" }])).resolves.toMatchObject([
+			{
+				content: "",
+				location: { kind: "entries", returned: [], total: 0 },
+				status: "ready",
+				type: "recording",
+			},
+		]);
+	});
+
+	it("does not present an unfinished recording as an empty transcript", async () => {
+		const read = createReader({
+			bucket: {} as R2Bucket,
+			getDocumentSession: () => createDocumentSession({ html: "<p />" }),
+			item: recordingItem,
+			readRecordingItem: async () => ({
+				errorMessage: null,
+				status: "processing",
+				transcript: { cues: [] },
+			}),
+		});
+
+		await expect(read([{ mode: "start", path: "/Recording" }])).resolves.toEqual([
+			{
+				itemId: "recording-1",
+				path: "/Recording",
+				phase: "processing",
+				retryAfterSeconds: 10,
+				status: "pending",
+				type: "recording",
+			},
+		]);
+	});
+
 	it("reads a complete flashcard set with revisioned unit refs", async () => {
 		const set = createFlashcardSetFromHtml([{ front: "<p>Question</p>", back: "<p>Answer</p>" }]);
 		const read = createReader({
@@ -439,7 +536,9 @@ function createReader(input: {
 			readQuizItem:
 				input.readQuizItem ??
 				(async () => ({ questions: [], studyState: { kind: "quiz", answers: {} } })),
-			readRecordingItem: input.readRecordingItem ?? (async () => ({ cues: [] })),
+			readRecordingItem:
+				input.readRecordingItem ??
+				(async () => ({ errorMessage: null, status: "ready", transcript: { cues: [] } })),
 			resolveRefKey: input.resolveRefKey ?? (async () => undefined),
 			requests,
 			workspaceId: "workspace-1",

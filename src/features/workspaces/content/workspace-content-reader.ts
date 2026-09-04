@@ -58,6 +58,7 @@ import {
 // say to read fewer units at a time.
 const maxWorkspaceReadCharacters = 200_000;
 const targetEntryChunkCharacters = 48_000;
+const recordingTranscriptSectionMs = 5 * 60_000;
 
 interface DocumentContentReader {
 	readHtmlChunk(input: DocumentHtmlChunkReadInput): Promise<DocumentHtmlChunkReadResult>;
@@ -78,9 +79,17 @@ type QuizItemReader = (
 	| { questions: QuizQuestion[]; studyState: QuizStudyState }
 	| Promise<{ questions: QuizQuestion[]; studyState: QuizStudyState }>;
 
-type RecordingItemReader = (
-	itemId: string,
-) => WorkspaceRecordingTranscript | null | Promise<WorkspaceRecordingTranscript | null>;
+type RecordingItemReader = (itemId: string) =>
+	| {
+			errorMessage: string | null;
+			status: "failed" | "processing" | "ready" | "recording";
+			transcript: WorkspaceRecordingTranscript | null;
+	  }
+	| Promise<{
+			errorMessage: string | null;
+			status: "failed" | "processing" | "ready" | "recording";
+			transcript: WorkspaceRecordingTranscript | null;
+	  }>;
 
 interface PendingReadyResult {
 	item: WorkspaceItem;
@@ -238,19 +247,75 @@ async function readRecording(input: {
 	readRecordingItem: RecordingItemReader;
 	request: WorkspaceContentReadRequest;
 }): Promise<WorkspaceContentReadResult> {
-	if (input.request.mode !== "start") {
-		return { code: "invalid_selection", path: input.path, status: "failed" };
+	const recording = await input.readRecordingItem(input.item.id);
+	if (recording.status === "recording" || recording.status === "processing") {
+		return {
+			itemId: input.item.id,
+			path: input.path,
+			phase: recording.status,
+			retryAfterSeconds: recording.status === "recording" ? 30 : 10,
+			status: "pending",
+			type: "recording",
+		};
 	}
-	const transcript = await input.readRecordingItem(input.item.id);
+	if (recording.status === "failed") {
+		return {
+			code: "transcription_failed",
+			...(recording.errorMessage ? { message: recording.errorMessage } : {}),
+			itemId: input.item.id,
+			path: input.path,
+			status: "failed",
+			type: "recording",
+		};
+	}
+
+	const sections = groupRecordingTranscript(recording.transcript?.cues ?? []);
+	const selection = selectOrderedEntries({
+		entries: sections,
+		measure: (section) => serializeWorkspaceRecordingTranscriptToMarkdown(section).length,
+		request: input.request,
+	});
+	if (!selection.ok) {
+		return {
+			code: selection.code,
+			...(selection.message ? { message: selection.message } : {}),
+			path: input.path,
+			status: "failed",
+		};
+	}
+
 	return {
-		content: transcript ? serializeWorkspaceRecordingTranscriptToMarkdown(transcript) : "",
+		content: serializeWorkspaceRecordingTranscriptToMarkdown({
+			cues: selection.selected.flatMap((section) => section.cues),
+		}),
 		format: "markdown",
 		itemId: input.item.id,
+		location: {
+			kind: "entries",
+			returned: selection.returned,
+			total: sections.length,
+		},
 		path: input.path,
 		ref: input.item.refKey,
 		status: "ready",
 		type: "recording",
 	};
+}
+
+/** Groups a transcript into stable read units without changing how it is stored. */
+function groupRecordingTranscript(cues: WorkspaceRecordingTranscript["cues"]) {
+	const sections = new Map<number, WorkspaceRecordingTranscript["cues"]>();
+	for (const cue of cues) {
+		const sectionStartMs =
+			Math.floor(cue.startMs / recordingTranscriptSectionMs) * recordingTranscriptSectionMs;
+		const section = sections.get(sectionStartMs) ?? [];
+		section.push(cue);
+		sections.set(sectionStartMs, section);
+	}
+	return Array.from(sections, ([startMs, sectionCues]) => ({
+		id: String(startMs),
+		cues: sectionCues,
+	}));
 }
 
 /** Reads the exact content an address identifies: one page, block, or entry. */

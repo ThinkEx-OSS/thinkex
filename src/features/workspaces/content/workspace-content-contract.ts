@@ -23,6 +23,7 @@ const readWorkspaceItemsFailureCodes = [
 	"projection_failed",
 	"read_budget_exceeded",
 	"ref_not_found",
+	"transcription_failed",
 	"unsupported_item_type",
 ] as const;
 
@@ -35,7 +36,7 @@ const workspacePageRangeSchema = workspaceNumberRangeSchema.describe(
 	"Up to 20 physical pages from an extracted file, like 1, 3, 5-7, or 1,4-6.",
 );
 const workspaceEntryRangeSchema = workspaceNumberRangeSchema.describe(
-	"Up to 20 entry numbers. Flashcards and quiz questions take lists like 1, 3, 5-7; document blocks take one contiguous range like 5-12.",
+	"Up to 20 entry numbers. Recording sections, flashcards, and quiz questions take lists like 1, 3, 5-7; document blocks take one contiguous range like 5-12.",
 );
 
 /**
@@ -107,8 +108,8 @@ const workspaceReadyResultBase = {
 /** Which numbered entries of an item this read returned. */
 const workspaceEntriesLocationSchema = z.object({
 	kind: z.literal("entries"),
-	returned: z.array(z.number().int().positive()).min(1),
-	total: z.number().int().positive(),
+	returned: z.array(z.number().int().positive()),
+	total: z.number().int().nonnegative(),
 });
 
 const workspaceContentReadResultSchema = z.union([
@@ -168,6 +169,7 @@ const workspaceContentReadResultSchema = z.union([
 		...workspaceReadyResultBase,
 		content: z.string(),
 		format: z.literal("markdown"),
+		location: workspaceEntriesLocationSchema,
 		type: z.literal("recording"),
 	}),
 	z.object({
@@ -210,6 +212,14 @@ const workspaceContentReadResultSchema = z.union([
 		type: z.literal("file"),
 	}),
 	z.object({
+		itemId: z.string().min(1),
+		path: workspacePathSchema,
+		phase: z.enum(["recording", "processing"]),
+		retryAfterSeconds: z.number().int().positive(),
+		status: z.literal("pending"),
+		type: z.literal("recording"),
+	}),
+	z.object({
 		...workspaceReadyResultBase,
 		content: z.string(),
 		contentRef: workspaceUnitRefSchema,
@@ -222,7 +232,8 @@ const workspaceContentReadResultSchema = z.union([
 		path: workspacePathSchema.optional(),
 		ref: z.string().optional(),
 		status: z.literal("failed"),
-		type: z.literal("file").optional(),
+		itemId: z.string().min(1).optional(),
+		type: z.enum(["file", "recording"]).optional(),
 	}),
 ]);
 
