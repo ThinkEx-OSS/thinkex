@@ -1,13 +1,13 @@
 import { z } from "zod";
 
 const workspaceRecordingTranscriptCueSchema = z.object({
-	segmentSequence: z.number().int().nonnegative(),
 	startMs: z.number().int().nonnegative(),
 	text: z.string().trim().min(1),
 });
 
 const workspaceRecordingTranscriptSchema = z.object({
 	cues: z.array(workspaceRecordingTranscriptCueSchema),
+	language: z.string().optional(),
 });
 
 /** Persisted time-aligned transcript content for a recording item. */

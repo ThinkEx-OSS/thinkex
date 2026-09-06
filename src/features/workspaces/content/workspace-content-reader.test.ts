@@ -70,7 +70,6 @@ describe("WorkspaceContentReader", () => {
 				status: "ready",
 				transcript: {
 					cues: Array.from({ length: 12 }, (_, index) => ({
-						segmentSequence: index,
 						startMs: index * 5 * 60_000,
 						text: `${index + 1} ${"spoken words ".repeat(700)}`,
 					})),

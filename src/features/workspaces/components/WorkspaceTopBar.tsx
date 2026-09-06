@@ -67,7 +67,10 @@ export default function WorkspaceTopBar({
 	const recordingItem = recording.captureItemId
 		? itemsById.get(recording.captureItemId)
 		: undefined;
-	const showRecording = recording.captureItemId && recording.phase !== "setup";
+	const showRecording =
+		recording.captureItemId &&
+		recording.phase !== "setup" &&
+		activeTab.viewItemId !== recording.captureItemId;
 
 	return (
 		<WorkspaceHeaderChrome

@@ -1,11 +1,6 @@
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 
-import {
-	workspaceItemContents,
-	workspaceItems,
-	workspaceRecordingSegments,
-	workspaceRecordings,
-} from "#/db/schema";
+import { workspaceItemContents, workspaceItems, workspaceRecordings } from "#/db/schema";
 import { withDb } from "#/db/server";
 import { getWorkspaceItemNameKey } from "#/features/workspaces/defaults";
 import { createWorkspaceItemRefKey } from "#/features/workspaces/locations/workspace-location";
@@ -20,7 +15,6 @@ import {
 	withWorkspaceTransaction,
 } from "#/features/workspaces/persistence/workspace-postgres-support";
 import { notifyWorkspaceRoom } from "#/features/workspaces/realtime/workspace-room-notifier";
-import { parseWorkspaceRecordingManifest } from "#/features/workspaces/recordings/workspace-recording";
 import {
 	parseWorkspaceRecordingTranscript,
 	stringifyWorkspaceRecordingTranscript,
@@ -29,7 +23,6 @@ import {
 import { workspaceItemContentValues } from "#/features/workspaces/search/workspace-search-text";
 
 type RecordingRow = typeof workspaceRecordings.$inferSelect;
-type SegmentRow = typeof workspaceRecordingSegments.$inferSelect;
 
 /** A known recording request failure translated by the HTTP boundary. */
 export class WorkspaceRecordingError extends Error {
@@ -86,7 +79,6 @@ export async function createWorkspaceRecording(
 		await transaction.insert(workspaceRecordings).values({
 			itemId: input.itemId,
 			workspaceId: input.workspaceId,
-			ownerId: input.ownerId,
 			mimeType: input.mimeType,
 		});
 		return {
@@ -102,206 +94,121 @@ export async function createWorkspaceRecording(
 		items: [command.item],
 	});
 	return {
-		...projectWorkspaceRecording(command.item, null, [], command.recording),
+		...projectWorkspaceRecording(command.item, null, command.recording),
 		revision: command.revision,
 	};
 }
 
-/** Read a recording, transcript, and acknowledged segments after boundary authorization. */
+/** Read playback and transcript state after boundary authorization. */
 export async function readWorkspaceRecording(input: {
 	readonly itemId: string;
 	readonly workspaceId: string;
 }) {
-	return await withDb(async (db) => {
+	return withDb(async (db) => {
 		const recording = await requireWorkspaceRecording(db, input);
-		const [item, transcript, segments] = await Promise.all([
+		const [item, transcript] = await Promise.all([
 			requireActiveWorkspaceItem(db, input.workspaceId, input.itemId),
 			readRecordingTranscriptContent(db, input.itemId),
-			db
-				.select()
-				.from(workspaceRecordingSegments)
-				.where(eq(workspaceRecordingSegments.recordingItemId, input.itemId))
-				.orderBy(asc(workspaceRecordingSegments.sequence)),
 		]);
-		return projectWorkspaceRecording(item, transcript, segments, recording);
+		return projectWorkspaceRecording(item, transcript, recording);
 	});
 }
 
-/** Read an existing segment before an idempotent upload retry. */
-export async function readWorkspaceRecordingSegment(input: {
+/** Read the single uploaded file after workspace authorization. */
+export async function readWorkspaceRecordingAudio(input: {
 	readonly itemId: string;
 	readonly workspaceId: string;
-	readonly userId: string;
-	readonly sequence: number;
 }) {
-	return await withDb(async (db) => {
-		await requireOwnedWorkspaceRecording(db, input);
-		const [segment] = await db
-			.select()
-			.from(workspaceRecordingSegments)
-			.where(
-				and(
-					eq(workspaceRecordingSegments.recordingItemId, input.itemId),
-					eq(workspaceRecordingSegments.sequence, input.sequence),
-				),
-			)
-			.limit(1);
-		return segment ?? null;
-	});
+	return withDb((db) => requireWorkspaceRecording(db, input));
 }
 
-/** Read one segment after the HTTP boundary authorizes workspace access. */
-export async function readWorkspaceRecordingSegmentForPlayback(input: {
+/** Claim a completed upload once; losing uploads can delete their own unique object. */
+export async function saveWorkspaceRecordingAudio(input: {
 	readonly itemId: string;
 	readonly workspaceId: string;
-	readonly sequence: number;
-}) {
-	return await withDb(async (db) => {
-		await requireWorkspaceRecording(db, input);
-		const [segment] = await db
-			.select()
-			.from(workspaceRecordingSegments)
-			.where(
-				and(
-					eq(workspaceRecordingSegments.recordingItemId, input.itemId),
-					eq(workspaceRecordingSegments.sequence, input.sequence),
-				),
-			)
-			.limit(1);
-		return segment ?? null;
-	});
-}
-
-/** Record one immutable R2 segment after the object write succeeds. */
-export async function recordWorkspaceRecordingSegment(input: {
-	readonly itemId: string;
-	readonly workspaceId: string;
-	readonly userId: string;
-	readonly sequence: number;
 	readonly objectKey: string;
 	readonly mimeType: string;
 	readonly sizeBytes: number;
 	readonly durationMs: number;
-	readonly etag: string;
 }) {
-	return await withDb(async (db) => {
-		const recording = await requireOwnedWorkspaceRecording(db, input);
-		if (recording.status !== "recording") {
-			throw new WorkspaceRecordingError(
-				409,
-				"INVALID_RECORDING",
-				"This recording has already been finalized.",
-			);
-		}
-		if (recording.mimeType !== input.mimeType) {
-			throw new WorkspaceRecordingError(
-				409,
-				"INVALID_RECORDING",
-				"Recording segments must use the format selected when recording started.",
-			);
-		}
-		const [segment] = await db
-			.insert(workspaceRecordingSegments)
-			.values({
-				recordingItemId: input.itemId,
-				sequence: input.sequence,
-				objectKey: input.objectKey,
-				mimeType: input.mimeType,
-				sizeBytes: input.sizeBytes,
-				durationMs: input.durationMs,
-				etag: input.etag,
-			})
-			.onConflictDoNothing()
-			.returning();
-		return segment ?? (await requireSegment(db, input.itemId, input.sequence));
-	});
-}
-
-/** Validate and transition an uploaded recording into durable processing. */
-export async function finalizeWorkspaceRecording(input: {
-	readonly itemId: string;
-	readonly workspaceId: string;
-	readonly userId: string;
-	readonly expectedSegmentCount: number;
-}) {
-	return await withDb(async (db) =>
+	return withDb(async (db) =>
 		db.transaction(async (transaction) => {
 			await transaction.execute(
 				sql`select item_id from ${workspaceRecordings} where ${workspaceRecordings.itemId} = ${input.itemId} for update`,
 			);
-			const recording = await requireOwnedWorkspaceRecording(transaction, input);
-			if (recording.status === "failed") {
-				throw new WorkspaceRecordingError(
-					409,
-					"INVALID_RECORDING",
-					"This recording failed during transcription.",
-				);
-			}
-			if (recording.status === "ready" || recording.status === "processing") {
-				if (recording.expectedSegmentCount !== input.expectedSegmentCount) {
-					throw new WorkspaceRecordingError(
-						409,
-						"INVALID_RECORDING",
-						"This recording was finalized with a different segment count.",
-					);
-				}
-				return recording;
-			}
-			const segments = await transaction
-				.select({
-					durationMs: workspaceRecordingSegments.durationMs,
-					sequence: workspaceRecordingSegments.sequence,
-				})
-				.from(workspaceRecordingSegments)
-				.where(eq(workspaceRecordingSegments.recordingItemId, input.itemId))
-				.orderBy(asc(workspaceRecordingSegments.sequence));
-			const manifest = parseWorkspaceRecordingManifest({
-				expectedSegmentCount: input.expectedSegmentCount,
-				segments,
-			});
-			if (!manifest.ok) {
-				throw new WorkspaceRecordingError(409, "RECORDING_NOT_READY", manifest.message);
-			}
-			const [updated] = await transaction
+			const recording = await requireWorkspaceRecording(transaction, input);
+			if (recording.objectKey) return recording;
+			const [saved] = await transaction
 				.update(workspaceRecordings)
 				.set({
-					durationMs: manifest.durationMs,
-					expectedSegmentCount: input.expectedSegmentCount,
-					status: "processing",
-					errorMessage: null,
+					objectKey: input.objectKey,
+					mimeType: input.mimeType,
+					sizeBytes: input.sizeBytes,
+					durationMs: input.durationMs,
 				})
 				.where(eq(workspaceRecordings.itemId, input.itemId))
 				.returning();
-			if (!updated) throw new Error("Recording was not finalized.");
+			if (!saved) throw new Error("Recording upload was not saved.");
+			return saved;
+		}),
+	);
+}
+
+/** Start or retry transcription of an immutable file; repeated requests reuse the attempt. */
+export async function startWorkspaceRecordingTranscription(input: {
+	readonly itemId: string;
+	readonly workspaceId: string;
+}) {
+	return withDb(async (db) =>
+		db.transaction(async (transaction) => {
+			await transaction.execute(
+				sql`select item_id from ${workspaceRecordings} where ${workspaceRecordings.itemId} = ${input.itemId} for update`,
+			);
+			const recording = await requireWorkspaceRecording(transaction, input);
+			if (!recording.objectKey)
+				throw new WorkspaceRecordingError(
+					409,
+					"RECORDING_NOT_READY",
+					"Upload the recording first.",
+				);
+			if (recording.status === "ready" || recording.status === "processing") return recording;
+			const [updated] = await transaction
+				.update(workspaceRecordings)
+				.set({
+					status: "processing",
+					errorMessage: null,
+					transcriptionAttempt: recording.transcriptionAttempt + 1,
+				})
+				.where(eq(workspaceRecordings.itemId, input.itemId))
+				.returning();
+			if (!updated) throw new Error("Transcription was not started.");
 			return updated;
 		}),
 	);
 }
 
-/** Read the immutable manifest used by the transcription Workflow. */
+/** Read the completed audio for a workflow attempt. */
 export async function readWorkspaceRecordingForTranscription(itemId: string) {
-	return await withDb(async (db) => {
+	return withDb(async (db) => {
 		const [recording] = await db
 			.select()
 			.from(workspaceRecordings)
 			.where(eq(workspaceRecordings.itemId, itemId))
 			.limit(1);
-		if (!recording) {
+		if (!recording)
 			throw new WorkspaceRecordingError(404, "RECORDING_NOT_FOUND", "Recording not found.");
-		}
-		const segments = await db
-			.select()
-			.from(workspaceRecordingSegments)
-			.where(eq(workspaceRecordingSegments.recordingItemId, itemId))
-			.orderBy(asc(workspaceRecordingSegments.sequence));
-		return { recording, segments };
+		return recording;
 	});
 }
 
 /** Publish time-aligned transcript cues and mark the recording ready exactly once. */
 export async function publishWorkspaceRecordingTranscript(
 	env: Cloudflare.Env,
-	input: { readonly itemId: string; readonly transcript: WorkspaceRecordingTranscript },
+	input: {
+		readonly itemId: string;
+		readonly attempt: number;
+		readonly transcript: WorkspaceRecordingTranscript;
+	},
 ) {
 	const publication = await withWorkspaceTransaction(async (transaction) => {
 		await transaction.execute(
@@ -326,7 +233,8 @@ export async function publishWorkspaceRecordingTranscript(
 			)
 			.limit(1);
 		if (!itemRow) return { outcome: "discarded" as const };
-		if (recording.status === "ready") return { outcome: "ready" as const };
+		if (recording.status !== "processing" || recording.transcriptionAttempt !== input.attempt)
+			return { outcome: "discarded" as const };
 
 		const content = stringifyWorkspaceRecordingTranscript(input.transcript);
 		await transaction
@@ -355,14 +263,27 @@ export async function publishWorkspaceRecordingTranscript(
 }
 
 /** Set a failed recording state without replacing a ready transcript. */
-export async function failWorkspaceRecording(env: Cloudflare.Env, itemId: string, message: string) {
+export async function failWorkspaceRecording(
+	env: Cloudflare.Env,
+	itemId: string,
+	attempt: number,
+	message: string,
+) {
 	const failure = await withWorkspaceTransaction(async (transaction) => {
+		await transaction.execute(
+			sql`select item_id from ${workspaceRecordings} where ${workspaceRecordings.itemId} = ${itemId} for update`,
+		);
 		const [recording] = await transaction
 			.select()
 			.from(workspaceRecordings)
 			.where(eq(workspaceRecordings.itemId, itemId))
 			.limit(1);
-		if (!recording || recording.status !== "processing") return null;
+		if (
+			!recording ||
+			recording.status !== "processing" ||
+			recording.transcriptionAttempt !== attempt
+		)
+			return null;
 		await transaction
 			.update(workspaceRecordings)
 			.set({ status: "failed", errorMessage: message.slice(0, 500) })
@@ -422,27 +343,6 @@ async function requireWorkspaceRecording(
 	return recording;
 }
 
-async function requireOwnedWorkspaceRecording(
-	db: QueryExecutor,
-	input: { readonly itemId: string; readonly workspaceId: string; readonly userId: string },
-) {
-	const [recording] = await db
-		.select()
-		.from(workspaceRecordings)
-		.where(
-			and(
-				eq(workspaceRecordings.itemId, input.itemId),
-				eq(workspaceRecordings.workspaceId, input.workspaceId),
-				eq(workspaceRecordings.ownerId, input.userId),
-			),
-		)
-		.limit(1);
-	if (!recording) {
-		throw new WorkspaceRecordingError(404, "RECORDING_NOT_FOUND", "Recording not found.");
-	}
-	return recording;
-}
-
 async function readRecordingTranscriptContent(db: QueryExecutor, itemId: string) {
 	const [content] = await db
 		.select({ content: workspaceItemContents.content })
@@ -452,25 +352,9 @@ async function readRecordingTranscriptContent(db: QueryExecutor, itemId: string)
 	return content ? parseWorkspaceRecordingTranscript(content.content) : null;
 }
 
-async function requireSegment(db: QueryExecutor, itemId: string, sequence: number) {
-	const [segment] = await db
-		.select()
-		.from(workspaceRecordingSegments)
-		.where(
-			and(
-				eq(workspaceRecordingSegments.recordingItemId, itemId),
-				eq(workspaceRecordingSegments.sequence, sequence),
-			),
-		)
-		.limit(1);
-	if (!segment) throw new Error("Recording segment was not saved.");
-	return segment;
-}
-
 function projectWorkspaceRecording(
 	item: Awaited<ReturnType<typeof requireActiveWorkspaceItem>>,
 	transcript: WorkspaceRecordingTranscript | null,
-	segments: readonly SegmentRow[],
 	recording: RecordingRow,
 ) {
 	return {
@@ -479,10 +363,7 @@ function projectWorkspaceRecording(
 		status: recording.status,
 		durationMs: recording.durationMs,
 		errorMessage: recording.errorMessage,
-		segments: segments.map((segment) => ({
-			durationMs: segment.durationMs,
-			sequence: segment.sequence,
-		})),
+		hasAudio: recording.objectKey !== null,
 		transcript: transcript ?? { cues: [] },
 	};
 }

@@ -1,52 +1,31 @@
-export interface WorkspaceRecordingSegmentTranscript {
-	readonly durationMs: number;
-	readonly sequence: number;
-	readonly text: string;
-	readonly timedLines: readonly { readonly startSeconds: number; readonly text: string }[];
-}
-
-/** Resolve an absolute recording timestamp to its stored segment. */
-export function getWorkspaceRecordingSegmentAtTime(
-	segments: readonly { readonly durationMs: number; readonly sequence: number }[],
-	targetMs: number,
-) {
-	let elapsed = 0;
-	for (const segment of segments) {
-		if (targetMs < elapsed + segment.durationMs) return segment.sequence;
-		elapsed += segment.durationMs;
-	}
-	return segments.at(-1)?.sequence ?? 0;
-}
-
-/** Convert segment-relative model timestamps into one absolute recording timeline. */
+/** Convert Whisper timestamps into cues on a single audio timeline. */
 export function buildWorkspaceRecordingTranscript(
-	segments: readonly WorkspaceRecordingSegmentTranscript[],
+	result: {
+		readonly text: string;
+		readonly transcription_info?: { readonly language?: string };
+		readonly segments?: readonly { readonly start?: number; readonly text?: string }[];
+	},
+	durationMs: number,
 ) {
-	let offsetSeconds = 0;
-	const cues: Array<{
-		segmentSequence: number;
-		startMs: number;
-		text: string;
-	}> = [];
-	for (const segment of segments) {
-		const segmentDurationSeconds = segment.durationMs / 1_000;
-		if (segment.timedLines.length > 0) {
-			for (const line of segment.timedLines) {
-				const startSeconds = Math.min(segmentDurationSeconds, Math.max(0, line.startSeconds));
-				cues.push({
-					segmentSequence: segment.sequence,
-					startMs: Math.round((offsetSeconds + startSeconds) * 1_000),
-					text: line.text,
-				});
-			}
-		} else if (segment.text) {
-			cues.push({
-				segmentSequence: segment.sequence,
-				startMs: Math.round(offsetSeconds * 1_000),
-				text: segment.text,
-			});
-		}
-		offsetSeconds += segmentDurationSeconds;
-	}
-	return { cues };
+	const cues = (result.segments ?? []).flatMap((part) => {
+		const text = part.text?.trim();
+		return text
+			? [
+					{
+						startMs: Math.min(
+							Math.max(0, durationMs - 1),
+							Math.max(0, Math.round((part.start ?? 0) * 1_000)),
+						),
+						text,
+					},
+				]
+			: [];
+	});
+	if (cues.length === 0 && result.text.trim()) cues.push({ startMs: 0, text: result.text.trim() });
+	return {
+		cues,
+		...(result.transcription_info?.language
+			? { language: result.transcription_info.language }
+			: {}),
+	};
 }

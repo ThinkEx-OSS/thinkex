@@ -1,48 +1,43 @@
+import { fixWebmDuration } from "@fix-webm-duration/fix";
 import { useQueryClient } from "@tanstack/react-query";
-import { Mic, Square } from "lucide-react";
 import { createContext, type ReactNode, use, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-
-import { Button } from "#/components/ui/button";
 import { applyWorkspacePageDeltaToCache } from "#/features/workspaces/cache-page";
 import { useWorkspaceMutationAccess } from "#/features/workspaces/components/workspace-mutation-access";
 import type { WorkspaceItem } from "#/features/workspaces/contracts";
-import { workspaceRecordingMaxDurationMs } from "#/features/workspaces/recordings/workspace-recording";
 import { formatRecordingTimestamp } from "#/features/workspaces/recordings/workspace-recording-transcript";
+import { captureWorkspaceRecording } from "#/features/workspaces/recordings/workspace-recording-capture";
 import {
 	createRecordingItem,
-	finalizeRecording,
 	getSupportedRecordingMimeType,
-	uploadRecordingSegment,
+	uploadRecording,
 } from "#/features/workspaces/recordings/workspace-recording-client";
 import {
 	deleteLocalWorkspaceRecording,
-	deleteLocalWorkspaceRecordingSegment,
 	listLocalWorkspaceRecordings,
-	listLocalWorkspaceRecordingSegments,
 	saveLocalWorkspaceRecording,
-	saveLocalWorkspaceRecordingSegment,
 	type LocalWorkspaceRecording,
 } from "#/features/workspaces/recordings/workspace-recording-local-store";
 
+type Target = Pick<LocalWorkspaceRecording, "itemId" | "workspaceId" | "mimeType">;
+type Phase = "setup" | "recording" | "paused" | "finishing";
 interface WorkspaceRecordingContextValue {
 	requestRecording: (parentId: string | null) => void;
 	analyser: AnalyserNode | null;
 	captureItemId: string | null;
-	phase: "setup" | "recording" | "paused" | "finishing";
+	phase: Phase;
 	elapsedMs: number;
-	recovery: LocalWorkspaceRecording | null;
+	pendingUpload: LocalWorkspaceRecording | null;
 	openCaptureItem: () => void;
-	startRecording: () => void;
+	startRecording: (item?: WorkspaceItem, mimeType?: string) => void;
 	pauseRecording: () => void;
 	resumeRecording: () => void;
 	stopRecording: () => void;
-	recoverRecording: (mode: "resume" | "finish") => void;
+	retryUpload: () => void;
 }
-
 const WorkspaceRecordingContext = createContext<WorkspaceRecordingContextValue | null>(null);
-const segmentDurationMs = 30_000;
 
+/** Own the microphone across item navigation; persist only completed recordings. */
 export function WorkspaceRecordingProvider({
 	activeItemId,
 	children,
@@ -58,77 +53,190 @@ export function WorkspaceRecordingProvider({
 }) {
 	const queryClient = useQueryClient();
 	const { capabilities } = useWorkspaceMutationAccess();
-	const [captureSession, setCaptureSession] = useState<LocalWorkspaceRecording | null>(null);
+	const [target, setTarget] = useState<Target | null>(null);
+	const [phase, setPhase] = useState<Phase>("setup");
 	const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
-	const [phase, setPhase] = useState<"setup" | "recording" | "paused" | "finishing">("setup");
 	const [elapsedMs, setElapsedMs] = useState(0);
-	const [recovery, setRecovery] = useState<LocalWorkspaceRecording | null>(null);
-	const sessionRef = useRef<LocalWorkspaceRecording | null>(null);
-	const streamRef = useRef<MediaStream | null>(null);
-	const recorderRef = useRef<MediaRecorder | null>(null);
-	const stopRequestedRef = useRef(false);
-	const pauseRequestedRef = useRef(false);
-	const segmentStartedAtRef = useRef(0);
-	const timerRef = useRef<number | null>(null);
-	const creatingRef = useRef(false);
-	const releaseRecordingLockRef = useRef<(() => void) | null>(null);
-	const audioContextRef = useRef<AudioContext | null>(null);
+	const [pendingUpload, setPendingUpload] = useState<LocalWorkspaceRecording | null>(null);
+	const captureRef = useRef<ReturnType<typeof captureWorkspaceRecording> | null>(null);
+	const cleanupRef = useRef<(() => void) | null>(null);
+	const busyRef = useRef(false);
+	const mountedRef = useRef(true);
 
 	useEffect(() => {
+		mountedRef.current = true;
 		if (!capabilities.canMutateContent) return;
-		void listLocalWorkspaceRecordings(workspaceId).then((recordings) => {
-			setRecovery(recordings[0] ?? null);
-		});
-	}, [capabilities.canMutateContent, workspaceId]);
+		void listLocalWorkspaceRecordings(workspaceId)
+			.then((recordings) => {
+				if (mountedRef.current) setPendingUpload(recordings[0] ?? null);
+			})
+			.catch(() => undefined);
+		return () => {
+			mountedRef.current = false;
+			captureRef.current?.cancel();
+			captureRef.current = null;
+			cleanupRef.current?.();
+			cleanupRef.current = null;
+		};
+	}, [workspaceId, capabilities.canMutateContent]);
+
+	useEffect(() => {
+		const beforeUnload = (event: BeforeUnloadEvent) => {
+			if (captureRef.current || busyRef.current || pendingUpload) event.preventDefault();
+		};
+		window.addEventListener("beforeunload", beforeUnload);
+		return () => window.removeEventListener("beforeunload", beforeUnload);
+	}, [pendingUpload]);
 
 	useEffect(() => {
 		if (phase !== "recording") return;
-		const interval = window.setInterval(() => {
-			const session = sessionRef.current;
-			if (session)
-				setElapsedMs(session.durationMs + (performance.now() - segmentStartedAtRef.current));
-		}, 500);
-		return () => window.clearInterval(interval);
+		const timer = window.setInterval(() => setElapsedMs(captureRef.current?.elapsedMs() ?? 0), 500);
+		return () => window.clearInterval(timer);
 	}, [phase]);
 
-	const requestRecording = async (parentId: string | null) => {
-		const existingItemId = captureSession?.itemId ?? recovery?.itemId;
-		if (existingItemId) {
-			const existingItem = itemsById.get(existingItemId);
-			if (existingItem) {
-				onOpenItem(existingItem);
-				return;
+	const upload = async (completed: LocalWorkspaceRecording) => {
+		if (busyRef.current) return;
+		busyRef.current = true;
+		setTarget(completed);
+		setPhase("finishing");
+		setPendingUpload(completed);
+		try {
+			// Finalize WebM metadata once capture ends so native players can seek.
+			const recording = completed.mimeType.includes("webm")
+				? {
+						...completed,
+						blob: await fixWebmDuration(completed.blob, completed.durationMs, { logger: false }),
+					}
+				: completed;
+			setPendingUpload(recording);
+			try {
+				await saveLocalWorkspaceRecording(recording);
+			} catch {
+				toast.warning("Couldn’t save on this device. Keep this tab open until upload finishes.");
 			}
-			if (captureSession) {
-				toast.info("A recording is already in progress.");
-				return;
-			}
+			await uploadRecording(recording);
+			await deleteLocalWorkspaceRecording(recording.itemId).catch(() => undefined);
+			setPendingUpload(null);
+			await queryClient.invalidateQueries({
+				queryKey: ["workspace-recording", workspaceId, recording.itemId],
+			});
+			toast.success("Recording saved. Creating transcript…");
+		} catch (error) {
+			toast.error(
+				error instanceof Error
+					? error.message
+					: "Upload failed. You can retry or download your audio.",
+			);
+		} finally {
+			busyRef.current = false;
+			setTarget(null);
+			setPhase("setup");
 		}
+	};
+
+	const startRecording = async (item?: WorkspaceItem, mimeType?: string) => {
+		const nextTarget = item && mimeType ? { itemId: item.id, workspaceId, mimeType } : target;
+		if (
+			!capabilities.canMutateContent ||
+			!nextTarget ||
+			busyRef.current ||
+			captureRef.current ||
+			pendingUpload
+		)
+			return;
+		busyRef.current = true;
+		setTarget(nextTarget);
+		setPhase("finishing");
+		try {
+			await new Promise<void>((resolve, reject) => {
+				void navigator.locks
+					.request("thinkex-microphone-recording", { ifAvailable: true }, async (lock) => {
+						if (!lock) {
+							reject(new Error("Another tab is already recording."));
+							return;
+						}
+						let release = () => {};
+						const released = new Promise<void>((resolveRelease) => {
+							release = resolveRelease;
+						});
+						let stream: MediaStream | null = null;
+						let audioContext: AudioContext | null = null;
+						const cleanup = () => {
+							stream?.getTracks().forEach((track) => track.stop());
+							void audioContext?.close().catch(() => undefined);
+							release();
+						};
+						try {
+							stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+							if (!mountedRef.current) {
+								cleanup();
+								resolve();
+								return;
+							}
+							audioContext = new AudioContext();
+							const nextAnalyser = audioContext.createAnalyser();
+							nextAnalyser.fftSize = 256;
+							audioContext.createMediaStreamSource(stream).connect(nextAnalyser);
+							const recorder = new MediaRecorder(stream, {
+								mimeType: nextTarget.mimeType,
+								audioBitsPerSecond: 64_000,
+							});
+							cleanupRef.current = cleanup;
+							captureRef.current = captureWorkspaceRecording(recorder, (audio) => {
+								captureRef.current = null;
+								cleanup();
+								cleanupRef.current = null;
+								setAnalyser(null);
+								if (!audio.blob.size) {
+									setPhase("setup");
+									toast.error("No audio was recorded. Try again.");
+									return;
+								}
+								void upload({ ...nextTarget, ...audio, uploadId: crypto.randomUUID() });
+							});
+							recorder.addEventListener("error", () =>
+								toast.error("Recording was interrupted. Saving the captured audio."),
+							);
+							setAnalyser(nextAnalyser);
+							setElapsedMs(0);
+							setPhase("recording");
+							resolve();
+							await released;
+						} catch (error) {
+							cleanup();
+							reject(error);
+						}
+					})
+					.catch(reject);
+			});
+		} catch (error) {
+			setPhase("setup");
+			toast.error(error instanceof Error ? error.message : "Couldn’t start recording.");
+		} finally {
+			busyRef.current = false;
+		}
+	};
+
+	const requestRecording = async (parentId: string | null) => {
+		const existingId = target?.itemId ?? pendingUpload?.itemId;
+		if (existingId) {
+			const item = itemsById.get(existingId);
+			if (item) onOpenItem(item);
+			return;
+		}
+		if (busyRef.current) return;
 		const mimeType = getSupportedRecordingMimeType();
 		if (!mimeType || !navigator.mediaDevices?.getUserMedia) {
 			toast.error("Recording isn’t supported here.");
 			return;
 		}
-		if (creatingRef.current) return;
-		creatingRef.current = true;
+		busyRef.current = true;
 		try {
-			const createdAt = new Date();
-			const recordingDate = new Intl.DateTimeFormat(undefined, {
-				month: "short",
-				day: "numeric",
-				year: "numeric",
-			}).format(createdAt);
-			const recordingTime = new Intl.DateTimeFormat(undefined, {
-				hour: "numeric",
-				minute: "2-digit",
-			})
-				.format(createdAt)
-				.replace(":", ".");
 			const created = await createRecordingItem({
 				workspaceId,
 				parentId,
-				name: `${recordingDate} at ${recordingTime} Recording`,
 				mimeType,
+				name: `${new Date().toLocaleString(undefined, { year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).replaceAll(":", ".")} Recording`,
 			});
 			applyWorkspacePageDeltaToCache(queryClient, {
 				type: "workspace.items.upserted",
@@ -136,264 +244,15 @@ export function WorkspaceRecordingProvider({
 				revision: created.revision,
 				items: [created.item],
 			});
-			const session: LocalWorkspaceRecording = {
-				durationMs: 0,
-				itemId: created.item.id,
-				mimeType,
-				segmentCount: 0,
-				workspaceId,
-			};
-			setCaptureSession(session);
+			setTarget({ itemId: created.item.id, workspaceId, mimeType });
 			setPhase("setup");
 			setElapsedMs(0);
 			onOpenItem(created.item);
-			await saveLocalWorkspaceRecording(session).catch((error: unknown) => {
-				toast.error(error instanceof Error ? error.message : "Couldn’t save recording.");
-			});
 		} catch (error) {
-			toast.error(error instanceof Error ? error.message : "Unable to create recording.");
+			toast.error(error instanceof Error ? error.message : "Couldn’t create recording.");
 		} finally {
-			creatingRef.current = false;
+			busyRef.current = false;
 		}
-	};
-
-	const startFreshRecording = async () => {
-		if (!captureSession) return;
-		setPhase("finishing");
-		let stream: MediaStream | null = null;
-		try {
-			if (!(await acquireRecordingLock())) {
-				setPhase("setup");
-				toast.info("Another recording is already running.");
-				return;
-			}
-			stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-			await saveLocalWorkspaceRecording(captureSession);
-			await beginCapture(captureSession, stream);
-		} catch (error) {
-			releaseRecordingLock();
-			stream?.getTracks().forEach((track) => track.stop());
-			setPhase("setup");
-			toast.error(error instanceof Error ? error.message : "Unable to start recording.");
-		}
-	};
-
-	const beginCapture = async (session: LocalWorkspaceRecording, existingStream?: MediaStream) => {
-		if (!existingStream && !(await acquireRecordingLock())) {
-			throw new Error("Another recording is already running.");
-		}
-		const stream = existingStream ?? (await navigator.mediaDevices.getUserMedia({ audio: true }));
-		const audioContext = new AudioContext();
-		const nextAnalyser = audioContext.createAnalyser();
-		nextAnalyser.fftSize = 256;
-		audioContext.createMediaStreamSource(stream).connect(nextAnalyser);
-		audioContextRef.current = audioContext;
-		setAnalyser(nextAnalyser);
-		sessionRef.current = session;
-		streamRef.current = stream;
-		stopRequestedRef.current = false;
-		pauseRequestedRef.current = false;
-		setCaptureSession(session);
-		setElapsedMs(session.durationMs);
-		setPhase("recording");
-		startSegmentRecorder();
-	};
-
-	const startSegmentRecorder = () => {
-		const session = sessionRef.current;
-		const stream = streamRef.current;
-		if (!session || !stream || stopRequestedRef.current) return;
-		const recorder = new MediaRecorder(stream, {
-			audioBitsPerSecond: 64_000,
-			mimeType: session.mimeType,
-		});
-		const chunks: Blob[] = [];
-		recorder.onstart = (event) => {
-			segmentStartedAtRef.current = event.timeStamp;
-		};
-		recorder.ondataavailable = (event) => {
-			if (event.data.size > 0) chunks.push(event.data);
-		};
-		recorder.onstop = (event) => {
-			void persistCompletedSegment(chunks, event.timeStamp - segmentStartedAtRef.current);
-		};
-		recorderRef.current = recorder;
-		recorder.start();
-		timerRef.current = window.setTimeout(() => recorder.stop(), segmentDurationMs);
-	};
-
-	const persistCompletedSegment = async (chunks: Blob[], measuredDurationMs: number) => {
-		const session = sessionRef.current;
-		if (!session || chunks.length === 0) {
-			if (!stopRequestedRef.current) startSegmentRecorder();
-			return;
-		}
-		const durationMs = Math.max(1, Math.min(segmentDurationMs, measuredDurationMs));
-		const nextSession: LocalWorkspaceRecording = {
-			...session,
-			durationMs: session.durationMs + durationMs,
-			segmentCount: session.segmentCount + 1,
-		};
-		const segment = {
-			blob: new Blob(chunks, { type: session.mimeType }),
-			durationMs,
-			itemId: session.itemId,
-			mimeType: session.mimeType,
-			sequence: session.segmentCount,
-			workspaceId: session.workspaceId,
-		};
-		await saveLocalWorkspaceRecordingSegment(nextSession, segment);
-		sessionRef.current = nextSession;
-		setCaptureSession(nextSession);
-		setElapsedMs(nextSession.durationMs);
-		void uploadStoredSegments(nextSession).catch(() => undefined);
-		if (pauseRequestedRef.current) {
-			pauseRequestedRef.current = false;
-			stopRequestedRef.current = false;
-			stopCaptureResources();
-			setPhase("paused");
-		} else if (
-			stopRequestedRef.current ||
-			nextSession.durationMs >= workspaceRecordingMaxDurationMs
-		) {
-			stopRequestedRef.current = true;
-			await finishSession(nextSession);
-		} else {
-			startSegmentRecorder();
-		}
-	};
-
-	const uploadStoredSegments = async (session: LocalWorkspaceRecording) => {
-		const segments = await listLocalWorkspaceRecordingSegments(session.itemId);
-		for (const segment of segments) {
-			await uploadRecordingSegment(segment);
-			await deleteLocalWorkspaceRecordingSegment(segment.itemId, segment.sequence);
-		}
-	};
-
-	const finishSession = async (session: LocalWorkspaceRecording) => {
-		setPhase("finishing");
-		try {
-			await uploadStoredSegments(session);
-			await finalizeRecording(session);
-			await deleteLocalWorkspaceRecording(session.itemId);
-			setRecovery(null);
-			await queryClient.invalidateQueries({
-				queryKey: ["workspace-recording", workspaceId, session.itemId],
-			});
-			toast.success("Recording saved. Creating transcript…");
-		} catch (error) {
-			setRecovery(session);
-			toast.error(error instanceof Error ? error.message : "Recording is saved locally.");
-		} finally {
-			stopCaptureResources();
-			sessionRef.current = null;
-			setCaptureSession(null);
-		}
-	};
-
-	const acquireRecordingLock = async () => {
-		if (releaseRecordingLockRef.current) return true;
-		let release!: () => void;
-		const hold = new Promise<void>((resolve) => {
-			release = resolve;
-		});
-		return await new Promise<boolean>((resolve) => {
-			void navigator.locks.request(
-				"thinkex-microphone-recording",
-				{ ifAvailable: true },
-				async (lock) => {
-					resolve(Boolean(lock));
-					if (!lock) return;
-					releaseRecordingLockRef.current = release;
-					await hold;
-				},
-			);
-		});
-	};
-
-	const releaseRecordingLock = () => {
-		releaseRecordingLockRef.current?.();
-		releaseRecordingLockRef.current = null;
-	};
-
-	const stopRecording = () => {
-		if (phase === "paused" && captureSession) {
-			void finishSession(captureSession);
-			return;
-		}
-		pauseRequestedRef.current = false;
-		stopRequestedRef.current = true;
-		if (timerRef.current !== null) window.clearTimeout(timerRef.current);
-		const recorder = recorderRef.current;
-		if (recorder?.state === "recording") recorder.stop();
-	};
-
-	const pauseRecording = () => {
-		pauseRequestedRef.current = true;
-		stopRequestedRef.current = true;
-		if (timerRef.current !== null) window.clearTimeout(timerRef.current);
-		if (recorderRef.current?.state === "recording") recorderRef.current.stop();
-	};
-
-	const resumeRecording = async () => {
-		if (!captureSession) return;
-		setPhase("finishing");
-		try {
-			await beginCapture(captureSession);
-		} catch (error) {
-			setPhase("paused");
-			toast.error(error instanceof Error ? error.message : "Unable to continue recording.");
-		}
-	};
-
-	const stopCaptureResources = () => {
-		streamRef.current?.getTracks().forEach((track) => track.stop());
-		void audioContextRef.current?.close();
-		audioContextRef.current = null;
-		setAnalyser(null);
-		streamRef.current = null;
-		recorderRef.current = null;
-		releaseRecordingLock();
-	};
-
-	useEffect(() => {
-		const stopForPageExit = () => {
-			stopRequestedRef.current = true;
-			if (timerRef.current !== null) window.clearTimeout(timerRef.current);
-			if (recorderRef.current?.state === "recording") recorderRef.current.stop();
-			stopCaptureResources();
-		};
-		window.addEventListener("pagehide", stopForPageExit);
-		return () => {
-			window.removeEventListener("pagehide", stopForPageExit);
-			stopForPageExit();
-		};
-	}, []);
-
-	const recoverRecording = async (mode: "resume" | "finish") => {
-		if (!recovery) return;
-		setRecovery(null);
-		setCaptureSession(recovery);
-		setPhase("finishing");
-		if (mode === "resume") {
-			try {
-				await uploadStoredSegments(recovery);
-				await beginCapture(recovery);
-			} catch (error) {
-				setCaptureSession(null);
-				setRecovery(recovery);
-				toast.error(error instanceof Error ? error.message : "Unable to resume recording.");
-			}
-			return;
-		}
-		if (recovery.segmentCount < 1) {
-			toast.error("Nothing was recorded.");
-			setCaptureSession(null);
-			setRecovery(recovery);
-			return;
-		}
-		await finishSession(recovery);
 	};
 
 	return (
@@ -401,65 +260,56 @@ export function WorkspaceRecordingProvider({
 			value={{
 				requestRecording: (parentId) => void requestRecording(parentId),
 				analyser,
-				captureItemId: captureSession?.itemId ?? null,
+				captureItemId: target?.itemId ?? null,
 				phase,
 				elapsedMs,
-				recovery,
+				pendingUpload,
 				openCaptureItem: () => {
-					if (!captureSession) return;
-					const item = itemsById.get(captureSession.itemId);
+					const item = target ? itemsById.get(target.itemId) : null;
 					if (item) onOpenItem(item);
 				},
-				startRecording: () => void startFreshRecording(),
-				pauseRecording,
-				resumeRecording: () => void resumeRecording(),
-				stopRecording,
-				recoverRecording: (mode) => void recoverRecording(mode),
+				startRecording: (item, mimeType) => void startRecording(item, mimeType),
+				pauseRecording: () => {
+					captureRef.current?.pause();
+					setElapsedMs(captureRef.current?.elapsedMs() ?? 0);
+					setPhase("paused");
+				},
+				resumeRecording: () => {
+					captureRef.current?.resume();
+					setPhase("recording");
+				},
+				stopRecording: () => {
+					setPhase("finishing");
+					captureRef.current?.finish();
+				},
+				retryUpload: () => {
+					if (pendingUpload) void upload(pendingUpload);
+				},
 			}}
 		>
 			{children}
-			{captureSession && phase !== "setup" && activeItemId !== captureSession.itemId ? (
-				<div className="fixed right-4 bottom-4 z-50 flex max-w-[calc(100vw-2rem)] items-center gap-3 rounded-full border bg-background px-3 py-2 shadow-lg sm:hidden">
-					<span className="relative flex size-8 shrink-0 items-center justify-center rounded-full bg-rose-500/10 text-rose-500">
-						{phase === "recording" ? (
-							<span className="absolute inset-0 animate-ping rounded-full bg-rose-500/20" />
-						) : null}
-						<Mic className="relative size-4" />
-					</span>
-					<button
-						type="button"
-						className="min-w-0 text-left"
-						onClick={() => {
-							const item = itemsById.get(captureSession.itemId);
-							if (item) onOpenItem(item);
-						}}
-					>
-						<span className="block truncate font-medium text-sm">
-							{itemsById.get(captureSession.itemId)?.name ?? "Recording"}
-						</span>
-						<span className="block text-muted-foreground text-xs">
-							{phase === "recording"
-								? formatRecordingTimestamp(elapsedMs)
-								: phase === "paused"
-									? "Paused"
-									: "Finishing…"}
-						</span>
-					</button>
-					<Button
-						size="icon-sm"
-						variant="destructive"
-						disabled={phase === "finishing"}
-						aria-label="Finish recording"
-						onClick={stopRecording}
-					>
-						<Square className="size-3 fill-current" />
-					</Button>
-				</div>
+			{target && phase !== "setup" && activeItemId !== target.itemId ? (
+				<button
+					type="button"
+					className="fixed right-4 bottom-4 z-50 rounded-full border bg-background px-4 py-3 text-sm shadow-lg sm:hidden"
+					onClick={() => {
+						const item = itemsById.get(target.itemId);
+						if (item) onOpenItem(item);
+					}}
+				>
+					{phase === "recording"
+						? formatRecordingTimestamp(elapsedMs)
+						: phase === "paused"
+							? "Paused"
+							: "Saving…"}{" "}
+					· Open recording
+				</button>
 			) : null}
 		</WorkspaceRecordingContext.Provider>
 	);
 }
 
+/** Access the workspace's active recording controls. */
 export function useWorkspaceRecording() {
 	const context = use(WorkspaceRecordingContext);
 	if (!context)

@@ -1,5 +1,5 @@
 {
-  "id": "fbd3f7d7-d1e2-443e-b17d-dbbff45bb777",
+  "id": "946829bb-67b8-4a0f-bd90-758d15fc9b0d",
   "prevId": "974f230b-e9ea-4cb9-9cf3-7518ca5e9fbf",
   "version": "7",
   "dialect": "postgresql",
@@ -2757,104 +2757,6 @@
       },
       "isRLSEnabled": false
     },
-    "public.workspace_recording_segments": {
-      "name": "workspace_recording_segments",
-      "schema": "",
-      "columns": {
-        "recording_item_id": {
-          "name": "recording_item_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "sequence": {
-          "name": "sequence",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "object_key": {
-          "name": "object_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "mime_type": {
-          "name": "mime_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "size_bytes": {
-          "name": "size_bytes",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "duration_ms": {
-          "name": "duration_ms",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "etag": {
-          "name": "etag",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "workspace_recording_segments_recording_item_id_workspace_recordings_item_id_fk": {
-          "name": "workspace_recording_segments_recording_item_id_workspace_recordings_item_id_fk",
-          "tableFrom": "workspace_recording_segments",
-          "tableTo": "workspace_recordings",
-          "columnsFrom": [
-            "recording_item_id"
-          ],
-          "columnsTo": [
-            "item_id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "workspace_recording_segments_recording_item_id_sequence_pk": {
-          "name": "workspace_recording_segments_recording_item_id_sequence_pk",
-          "columns": [
-            "recording_item_id",
-            "sequence"
-          ]
-        }
-      },
-      "uniqueConstraints": {
-        "workspace_recording_segments_object_key_unique": {
-          "name": "workspace_recording_segments_object_key_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "object_key"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {
-        "workspace_recording_segments_sequence_check": {
-          "name": "workspace_recording_segments_sequence_check",
-          "value": "\"workspace_recording_segments\".\"sequence\" >= 0"
-        },
-        "workspace_recording_segments_size_check": {
-          "name": "workspace_recording_segments_size_check",
-          "value": "\"workspace_recording_segments\".\"size_bytes\" > 0"
-        },
-        "workspace_recording_segments_duration_check": {
-          "name": "workspace_recording_segments_duration_check",
-          "value": "\"workspace_recording_segments\".\"duration_ms\" > 0"
-        }
-      },
-      "isRLSEnabled": false
-    },
     "public.workspace_recordings": {
       "name": "workspace_recordings",
       "schema": "",
@@ -2867,12 +2769,6 @@
         },
         "workspace_id": {
           "name": "workspace_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "owner_id": {
-          "name": "owner_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
@@ -2890,14 +2786,27 @@
           "notNull": true,
           "default": "'recording'"
         },
-        "expected_segment_count": {
-          "name": "expected_segment_count",
+        "object_key": {
+          "name": "object_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "size_bytes": {
+          "name": "size_bytes",
           "type": "integer",
           "primaryKey": false,
           "notNull": false
         },
         "duration_ms": {
           "name": "duration_ms",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "transcription_attempt": {
+          "name": "transcription_attempt",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
@@ -2937,19 +2846,6 @@
           ],
           "onDelete": "cascade",
           "onUpdate": "no action"
-        },
-        "workspace_recordings_owner_id_user_id_fk": {
-          "name": "workspace_recordings_owner_id_user_id_fk",
-          "tableFrom": "workspace_recordings",
-          "tableTo": "user",
-          "columnsFrom": [
-            "owner_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -2963,10 +2859,6 @@
         "workspace_recordings_duration_check": {
           "name": "workspace_recordings_duration_check",
           "value": "\"workspace_recordings\".\"duration_ms\" >= 0"
-        },
-        "workspace_recordings_segment_count_check": {
-          "name": "workspace_recordings_segment_count_check",
-          "value": "\"workspace_recordings\".\"expected_segment_count\" is null or \"workspace_recordings\".\"expected_segment_count\" > 0"
         }
       },
       "isRLSEnabled": false

@@ -336,13 +336,12 @@ export const workspaceRecordings = pgTable(
 		workspaceId: text("workspace_id")
 			.notNull()
 			.references(() => workspaces.id, { onDelete: "cascade" }),
-		ownerId: text("owner_id")
-			.notNull()
-			.references(() => user.id, { onDelete: "cascade" }),
 		mimeType: text("mime_type").notNull(),
 		status: text("status", { enum: WORKSPACE_RECORDING_STATUSES }).default("recording").notNull(),
-		expectedSegmentCount: integer("expected_segment_count"),
+		objectKey: text("object_key"),
+		sizeBytes: integer("size_bytes"),
 		durationMs: integer("duration_ms").default(0).notNull(),
+		transcriptionAttempt: integer("transcription_attempt").default(0).notNull(),
 		errorMessage: text("error_message"),
 	},
 	(table) => [
@@ -351,37 +350,10 @@ export const workspaceRecordings = pgTable(
 			sql`${table.status} in (${sqlEnumValues(WORKSPACE_RECORDING_STATUSES)})`,
 		),
 		check("workspace_recordings_duration_check", sql`${table.durationMs} >= 0`),
-		check(
-			"workspace_recordings_segment_count_check",
-			sql`${table.expectedSegmentCount} is null or ${table.expectedSegmentCount} > 0`,
-		),
 	],
 );
 
-export const workspaceRecordingSegments = pgTable(
-	"workspace_recording_segments",
-	{
-		recordingItemId: text("recording_item_id")
-			.notNull()
-			.references(() => workspaceRecordings.itemId, { onDelete: "cascade" }),
-		sequence: integer("sequence").notNull(),
-		objectKey: text("object_key").notNull().unique(),
-		mimeType: text("mime_type").notNull(),
-		sizeBytes: integer("size_bytes").notNull(),
-		durationMs: integer("duration_ms").notNull(),
-		etag: text("etag").notNull(),
-	},
-	(table) => [
-		primaryKey({ columns: [table.recordingItemId, table.sequence] }),
-		check("workspace_recording_segments_sequence_check", sql`${table.sequence} >= 0`),
-		check("workspace_recording_segments_size_check", sql`${table.sizeBytes} > 0`),
-		check("workspace_recording_segments_duration_check", sql`${table.durationMs} > 0`),
-	],
-);
-
-// `content` is the item's own storage format — Tiptap JSON for documents, a
-// JSON for flashcards, quizzes, and recording transcripts. `searchText` is the prose projection of
-// it, written by every content writer so search never has to match JSON keys.
+// Content uses each item's storage format; searchText is its plain-text projection.
 export const workspaceItemContents = pgTable(
 	"workspace_item_contents",
 	{

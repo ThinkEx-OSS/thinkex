@@ -1,10 +1,9 @@
 import { env } from "cloudflare:workers";
 import { createFileRoute } from "@tanstack/react-router";
-import { z } from "zod";
 
 import { createDbContext } from "#/db/server";
 import {
-	finalizeWorkspaceRecording,
+	startWorkspaceRecordingTranscription,
 	readWorkspaceRecording,
 	WorkspaceRecordingError,
 } from "#/features/workspaces/recordings/workspace-recording-persistence";
@@ -13,13 +12,8 @@ import {
 	assertCanReadWorkspace,
 	WorkspaceForbiddenError,
 } from "#/features/workspaces/server/permissions";
-import { sha256Base64UrlText } from "#/lib/binary";
 import { apiError, apiJson, getRequestId } from "#/lib/api/http";
 import { getSessionFromRequest } from "#/lib/auth-queries.server";
-
-const finalizeRecordingSchema = z.object({
-	expectedSegmentCount: z.number().int().positive().max(1_000),
-});
 
 async function handleGetRecording(request: Request, workspaceId: string, itemId: string) {
 	const requestId = getRequestId(request);
@@ -45,11 +39,6 @@ async function handleFinalizeRecording(request: Request, workspaceId: string, it
 	const requestId = getRequestId(request);
 	const session = await getSessionFromRequest(request);
 	if (!session) return apiError(requestId, 401, "UNAUTHORIZED", "You must be signed in.");
-	const value: unknown = await request.json().catch(() => null);
-	const parsed = finalizeRecordingSchema.safeParse(value);
-	if (!parsed.success) {
-		return apiError(requestId, 400, "INVALID_RECORDING", "Recording finalization is invalid.");
-	}
 	try {
 		const dbContext = await createDbContext();
 		try {
@@ -57,14 +46,18 @@ async function handleFinalizeRecording(request: Request, workspaceId: string, it
 		} finally {
 			await dbContext.dispose();
 		}
-		const workflowId = await getRecordingTranscriptionWorkflowId(itemId);
-		const recording = await finalizeWorkspaceRecording({
+		const recording = await startWorkspaceRecordingTranscription({
 			itemId,
 			workspaceId,
-			userId: session.user.id,
-			expectedSegmentCount: parsed.data.expectedSegmentCount,
 		});
-		await ensureTranscriptionWorkflow(workflowId, itemId);
+		if (recording.status !== "ready") {
+			await env.RECORDING_TRANSCRIPTION_WORKFLOW.createBatch([
+				{
+					id: `recording-${itemId}-${recording.transcriptionAttempt}`,
+					params: { itemId, attempt: recording.transcriptionAttempt },
+				},
+			]);
+		}
 		return apiJson({ status: recording.status }, requestId, 202);
 	} catch (error) {
 		if (error instanceof WorkspaceForbiddenError) {
@@ -72,15 +65,6 @@ async function handleFinalizeRecording(request: Request, workspaceId: string, it
 		}
 		return recordingErrorResponse(requestId, error);
 	}
-}
-
-async function getRecordingTranscriptionWorkflowId(itemId: string) {
-	const digest = await sha256Base64UrlText(`workspace-recording:${itemId}:transcription:v1`);
-	return `recording-${digest.slice(0, 48)}`;
-}
-
-async function ensureTranscriptionWorkflow(workflowId: string, itemId: string) {
-	await env.RECORDING_TRANSCRIPTION_WORKFLOW.createBatch([{ id: workflowId, params: { itemId } }]);
 }
 
 function recordingErrorResponse(requestId: string, error: unknown) {

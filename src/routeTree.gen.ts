@@ -40,8 +40,8 @@ import { Route as ApiV1WorkspacesWorkspaceIdAiThreadsThreadIdAttachmentsRouteImp
 import { Route as ApiV1WorkspacesWorkspaceIdDocumentsItemIdPdfRouteImport } from './routes/api/v1/workspaces.$workspaceId.documents.$itemId.pdf'
 import { Route as ApiV1WorkspacesWorkspaceIdFilesItemIdContentRouteImport } from './routes/api/v1/workspaces.$workspaceId.files.$itemId.content'
 import { Route as ApiV1WorkspacesWorkspaceIdFilesItemIdPreviewRouteImport } from './routes/api/v1/workspaces.$workspaceId.files.$itemId.preview'
+import { Route as ApiV1WorkspacesWorkspaceIdRecordingsItemIdAudioRouteImport } from './routes/api/v1/workspaces.$workspaceId.recordings.$itemId.audio'
 import { Route as ApiV1WorkspacesWorkspaceIdAiThreadsThreadIdAttachmentsAttachmentIdRouteImport } from './routes/api/v1/workspaces.$workspaceId.ai-threads.$threadId.attachments.$attachmentId'
-import { Route as ApiV1WorkspacesWorkspaceIdRecordingsItemIdSegmentsSequenceRouteImport } from './routes/api/v1/workspaces.$workspaceId.recordings.$itemId.segments.$sequence'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -207,6 +207,12 @@ const ApiV1WorkspacesWorkspaceIdFilesItemIdPreviewRoute =
     path: '/$workspaceId/files/$itemId/preview',
     getParentRoute: () => ApiV1WorkspacesRoute,
   } as any)
+const ApiV1WorkspacesWorkspaceIdRecordingsItemIdAudioRoute =
+  ApiV1WorkspacesWorkspaceIdRecordingsItemIdAudioRouteImport.update({
+    id: '/audio',
+    path: '/audio',
+    getParentRoute: () => ApiV1WorkspacesWorkspaceIdRecordingsItemIdRoute,
+  } as any)
 const ApiV1WorkspacesWorkspaceIdAiThreadsThreadIdAttachmentsAttachmentIdRoute =
   ApiV1WorkspacesWorkspaceIdAiThreadsThreadIdAttachmentsAttachmentIdRouteImport.update(
     {
@@ -216,12 +222,6 @@ const ApiV1WorkspacesWorkspaceIdAiThreadsThreadIdAttachmentsAttachmentIdRoute =
         ApiV1WorkspacesWorkspaceIdAiThreadsThreadIdAttachmentsRoute,
     } as any,
   )
-const ApiV1WorkspacesWorkspaceIdRecordingsItemIdSegmentsSequenceRoute =
-  ApiV1WorkspacesWorkspaceIdRecordingsItemIdSegmentsSequenceRouteImport.update({
-    id: '/segments/$sequence',
-    path: '/segments/$sequence',
-    getParentRoute: () => ApiV1WorkspacesWorkspaceIdRecordingsItemIdRoute,
-  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -254,8 +254,8 @@ export interface FileRoutesByFullPath {
   '/api/v1/workspaces/$workspaceId/documents/$itemId/pdf': typeof ApiV1WorkspacesWorkspaceIdDocumentsItemIdPdfRoute
   '/api/v1/workspaces/$workspaceId/files/$itemId/content': typeof ApiV1WorkspacesWorkspaceIdFilesItemIdContentRoute
   '/api/v1/workspaces/$workspaceId/files/$itemId/preview': typeof ApiV1WorkspacesWorkspaceIdFilesItemIdPreviewRoute
+  '/api/v1/workspaces/$workspaceId/recordings/$itemId/audio': typeof ApiV1WorkspacesWorkspaceIdRecordingsItemIdAudioRoute
   '/api/v1/workspaces/$workspaceId/ai-threads/$threadId/attachments/$attachmentId': typeof ApiV1WorkspacesWorkspaceIdAiThreadsThreadIdAttachmentsAttachmentIdRoute
-  '/api/v1/workspaces/$workspaceId/recordings/$itemId/segments/$sequence': typeof ApiV1WorkspacesWorkspaceIdRecordingsItemIdSegmentsSequenceRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -287,8 +287,8 @@ export interface FileRoutesByTo {
   '/api/v1/workspaces/$workspaceId/documents/$itemId/pdf': typeof ApiV1WorkspacesWorkspaceIdDocumentsItemIdPdfRoute
   '/api/v1/workspaces/$workspaceId/files/$itemId/content': typeof ApiV1WorkspacesWorkspaceIdFilesItemIdContentRoute
   '/api/v1/workspaces/$workspaceId/files/$itemId/preview': typeof ApiV1WorkspacesWorkspaceIdFilesItemIdPreviewRoute
+  '/api/v1/workspaces/$workspaceId/recordings/$itemId/audio': typeof ApiV1WorkspacesWorkspaceIdRecordingsItemIdAudioRoute
   '/api/v1/workspaces/$workspaceId/ai-threads/$threadId/attachments/$attachmentId': typeof ApiV1WorkspacesWorkspaceIdAiThreadsThreadIdAttachmentsAttachmentIdRoute
-  '/api/v1/workspaces/$workspaceId/recordings/$itemId/segments/$sequence': typeof ApiV1WorkspacesWorkspaceIdRecordingsItemIdSegmentsSequenceRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -323,8 +323,8 @@ export interface FileRoutesById {
   '/api/v1/workspaces/$workspaceId/documents/$itemId/pdf': typeof ApiV1WorkspacesWorkspaceIdDocumentsItemIdPdfRoute
   '/api/v1/workspaces/$workspaceId/files/$itemId/content': typeof ApiV1WorkspacesWorkspaceIdFilesItemIdContentRoute
   '/api/v1/workspaces/$workspaceId/files/$itemId/preview': typeof ApiV1WorkspacesWorkspaceIdFilesItemIdPreviewRoute
+  '/api/v1/workspaces/$workspaceId/recordings/$itemId/audio': typeof ApiV1WorkspacesWorkspaceIdRecordingsItemIdAudioRoute
   '/api/v1/workspaces/$workspaceId/ai-threads/$threadId/attachments/$attachmentId': typeof ApiV1WorkspacesWorkspaceIdAiThreadsThreadIdAttachmentsAttachmentIdRoute
-  '/api/v1/workspaces/$workspaceId/recordings/$itemId/segments/$sequence': typeof ApiV1WorkspacesWorkspaceIdRecordingsItemIdSegmentsSequenceRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -359,8 +359,8 @@ export interface FileRouteTypes {
     | '/api/v1/workspaces/$workspaceId/documents/$itemId/pdf'
     | '/api/v1/workspaces/$workspaceId/files/$itemId/content'
     | '/api/v1/workspaces/$workspaceId/files/$itemId/preview'
+    | '/api/v1/workspaces/$workspaceId/recordings/$itemId/audio'
     | '/api/v1/workspaces/$workspaceId/ai-threads/$threadId/attachments/$attachmentId'
-    | '/api/v1/workspaces/$workspaceId/recordings/$itemId/segments/$sequence'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -392,8 +392,8 @@ export interface FileRouteTypes {
     | '/api/v1/workspaces/$workspaceId/documents/$itemId/pdf'
     | '/api/v1/workspaces/$workspaceId/files/$itemId/content'
     | '/api/v1/workspaces/$workspaceId/files/$itemId/preview'
+    | '/api/v1/workspaces/$workspaceId/recordings/$itemId/audio'
     | '/api/v1/workspaces/$workspaceId/ai-threads/$threadId/attachments/$attachmentId'
-    | '/api/v1/workspaces/$workspaceId/recordings/$itemId/segments/$sequence'
   id:
     | '__root__'
     | '/'
@@ -427,8 +427,8 @@ export interface FileRouteTypes {
     | '/api/v1/workspaces/$workspaceId/documents/$itemId/pdf'
     | '/api/v1/workspaces/$workspaceId/files/$itemId/content'
     | '/api/v1/workspaces/$workspaceId/files/$itemId/preview'
+    | '/api/v1/workspaces/$workspaceId/recordings/$itemId/audio'
     | '/api/v1/workspaces/$workspaceId/ai-threads/$threadId/attachments/$attachmentId'
-    | '/api/v1/workspaces/$workspaceId/recordings/$itemId/segments/$sequence'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -670,19 +670,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiV1WorkspacesWorkspaceIdFilesItemIdPreviewRouteImport
       parentRoute: typeof ApiV1WorkspacesRoute
     }
+    '/api/v1/workspaces/$workspaceId/recordings/$itemId/audio': {
+      id: '/api/v1/workspaces/$workspaceId/recordings/$itemId/audio'
+      path: '/audio'
+      fullPath: '/api/v1/workspaces/$workspaceId/recordings/$itemId/audio'
+      preLoaderRoute: typeof ApiV1WorkspacesWorkspaceIdRecordingsItemIdAudioRouteImport
+      parentRoute: typeof ApiV1WorkspacesWorkspaceIdRecordingsItemIdRoute
+    }
     '/api/v1/workspaces/$workspaceId/ai-threads/$threadId/attachments/$attachmentId': {
       id: '/api/v1/workspaces/$workspaceId/ai-threads/$threadId/attachments/$attachmentId'
       path: '/$attachmentId'
       fullPath: '/api/v1/workspaces/$workspaceId/ai-threads/$threadId/attachments/$attachmentId'
       preLoaderRoute: typeof ApiV1WorkspacesWorkspaceIdAiThreadsThreadIdAttachmentsAttachmentIdRouteImport
       parentRoute: typeof ApiV1WorkspacesWorkspaceIdAiThreadsThreadIdAttachmentsRoute
-    }
-    '/api/v1/workspaces/$workspaceId/recordings/$itemId/segments/$sequence': {
-      id: '/api/v1/workspaces/$workspaceId/recordings/$itemId/segments/$sequence'
-      path: '/segments/$sequence'
-      fullPath: '/api/v1/workspaces/$workspaceId/recordings/$itemId/segments/$sequence'
-      preLoaderRoute: typeof ApiV1WorkspacesWorkspaceIdRecordingsItemIdSegmentsSequenceRouteImport
-      parentRoute: typeof ApiV1WorkspacesWorkspaceIdRecordingsItemIdRoute
     }
   }
 }
@@ -718,13 +718,13 @@ const BlogRouteChildren: BlogRouteChildren = {
 const BlogRouteWithChildren = BlogRoute._addFileChildren(BlogRouteChildren)
 
 interface ApiV1WorkspacesWorkspaceIdRecordingsItemIdRouteChildren {
-  ApiV1WorkspacesWorkspaceIdRecordingsItemIdSegmentsSequenceRoute: typeof ApiV1WorkspacesWorkspaceIdRecordingsItemIdSegmentsSequenceRoute
+  ApiV1WorkspacesWorkspaceIdRecordingsItemIdAudioRoute: typeof ApiV1WorkspacesWorkspaceIdRecordingsItemIdAudioRoute
 }
 
 const ApiV1WorkspacesWorkspaceIdRecordingsItemIdRouteChildren: ApiV1WorkspacesWorkspaceIdRecordingsItemIdRouteChildren =
   {
-    ApiV1WorkspacesWorkspaceIdRecordingsItemIdSegmentsSequenceRoute:
-      ApiV1WorkspacesWorkspaceIdRecordingsItemIdSegmentsSequenceRoute,
+    ApiV1WorkspacesWorkspaceIdRecordingsItemIdAudioRoute:
+      ApiV1WorkspacesWorkspaceIdRecordingsItemIdAudioRoute,
   }
 
 const ApiV1WorkspacesWorkspaceIdRecordingsItemIdRouteWithChildren =

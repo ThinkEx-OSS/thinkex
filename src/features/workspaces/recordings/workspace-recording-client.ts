@@ -1,9 +1,6 @@
 import type { WorkspaceItem } from "#/features/workspaces/contracts";
 import type { WorkspaceRecordingTranscript } from "#/features/workspaces/recordings/workspace-recording-transcript";
-import type {
-	LocalWorkspaceRecording,
-	LocalWorkspaceRecordingSegment,
-} from "#/features/workspaces/recordings/workspace-recording-local-store";
+import type { LocalWorkspaceRecording } from "#/features/workspaces/recordings/workspace-recording-local-store";
 
 export interface WorkspaceRecordingSnapshot {
 	readonly item: WorkspaceItem;
@@ -11,11 +8,11 @@ export interface WorkspaceRecordingSnapshot {
 	readonly status: "recording" | "processing" | "ready" | "failed";
 	readonly durationMs: number;
 	readonly errorMessage: string | null;
-	readonly segments: readonly { durationMs: number; sequence: number }[];
+	readonly hasAudio: boolean;
 	readonly transcript: WorkspaceRecordingTranscript;
 }
 
-/** Pick the first independently playable MediaRecorder format this browser supports. */
+/** Pick the first MediaRecorder format this browser supports. */
 export function getSupportedRecordingMimeType() {
 	if (typeof MediaRecorder === "undefined") return null;
 	return (
@@ -42,32 +39,27 @@ export async function createRecordingItem(input: {
 	);
 }
 
-/** Upload one locally durable segment; retries are safe by sequence number. */
-export async function uploadRecordingSegment(segment: LocalWorkspaceRecordingSegment) {
-	await requestRecordingJson(
-		`/api/v1/workspaces/${segment.workspaceId}/recordings/${segment.itemId}/segments/${segment.sequence}`,
-		{
-			method: "PUT",
-			headers: {
-				"content-type": segment.mimeType,
-				"x-recording-duration-ms": String(Math.round(segment.durationMs)),
-				"x-recording-size-bytes": String(segment.blob.size),
-			},
-			body: segment.blob,
+/** Upload one completed file, then ensure its transcription is running. */
+export async function uploadRecording(recording: LocalWorkspaceRecording) {
+	const url = `/api/v1/workspaces/${recording.workspaceId}/recordings/${recording.itemId}`;
+	await requestRecordingJson(`${url}/audio`, {
+		method: "PUT",
+		headers: {
+			"content-type": recording.mimeType,
+			"x-recording-upload-id": recording.uploadId,
+			"x-recording-duration-ms": String(Math.round(recording.durationMs)),
+			"x-recording-size-bytes": String(recording.blob.size),
 		},
-	);
+		body: recording.blob,
+	});
+	await retryRecordingTranscription(recording.workspaceId, recording.itemId);
 }
 
-/** Lock the contiguous segment set and enqueue durable transcription. */
-export async function finalizeRecording(recording: LocalWorkspaceRecording) {
-	await requestRecordingJson(
-		`/api/v1/workspaces/${recording.workspaceId}/recordings/${recording.itemId}`,
-		{
-			method: "POST",
-			headers: { "content-type": "application/json" },
-			body: JSON.stringify({ expectedSegmentCount: recording.segmentCount }),
-		},
-	);
+/** Retry transcription without uploading the audio again. */
+export async function retryRecordingTranscription(workspaceId: string, itemId: string) {
+	await requestRecordingJson(`/api/v1/workspaces/${workspaceId}/recordings/${itemId}`, {
+		method: "POST",
+	});
 }
 
 /** Read playback, upload, and transcript state for a recording item. */

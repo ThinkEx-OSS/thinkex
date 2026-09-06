@@ -1,18 +1,22 @@
 import { useQuery } from "@tanstack/react-query";
 import { AlertCircle, LoaderCircle, Mic, Pause, Play, Square } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
-
+import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import { Button } from "#/components/ui/button";
+import { useWorkspaceMutationAccess } from "#/features/workspaces/components/workspace-mutation-access";
 import { useWorkspaceRecording } from "#/features/workspaces/components/WorkspaceRecordingProvider";
 import type { WorkspaceItem } from "#/features/workspaces/contracts";
-import { getRecording } from "#/features/workspaces/recordings/workspace-recording-client";
+import {
+	getRecording,
+	retryRecordingTranscription,
+} from "#/features/workspaces/recordings/workspace-recording-client";
 import {
 	easeRecordingWaveformAmplitude,
 	scaleRecordingWaveformAmplitude,
 } from "#/features/workspaces/recordings/workspace-recording";
-import { getWorkspaceRecordingSegmentAtTime } from "#/features/workspaces/recordings/workspace-recording-timeline";
 import { formatRecordingTimestamp } from "#/features/workspaces/recordings/workspace-recording-transcript";
 
+/** Record, retry a completed upload, or play a single audio file and its transcript. */
 export function WorkspaceRecordingViewer({
 	item,
 	workspaceId,
@@ -21,27 +25,16 @@ export function WorkspaceRecordingViewer({
 	workspaceId: string;
 }) {
 	const capture = useWorkspaceRecording();
+	const { capabilities } = useWorkspaceMutationAccess();
 	const audioRef = useRef<HTMLAudioElement>(null);
-	const continuePlaybackRef = useRef(false);
-	const [activeSequence, setActiveSequence] = useState(0);
-	const [isPlaying, setIsPlaying] = useState(false);
-	const [playbackMs, setPlaybackMs] = useState(0);
-	const [playbackRate, setPlaybackRate] = useState(1);
-	const pendingSeekRef = useRef<number | null>(null);
+	const [retrying, setRetrying] = useState(false);
 	const recordingQuery = useQuery({
 		queryKey: ["workspace-recording", workspaceId, item.id],
 		queryFn: () => getRecording(workspaceId, item.id),
-		refetchInterval: (query) => {
-			const status = query.state.data?.status;
-			return status === "recording" || status === "processing" ? 3_000 : false;
-		},
+		refetchInterval: (query) => (query.state.data?.status === "processing" ? 3_000 : false),
 	});
 	const recording = recordingQuery.data;
-	const offsets = useMemo(
-		() => getSegmentOffsets(recording?.segments ?? []),
-		[recording?.segments],
-	);
-	if (capture.captureItemId === item.id) {
+	if (capture.captureItemId === item.id)
 		return (
 			<RecordingCaptureSurface
 				analyser={capture.analyser}
@@ -49,174 +42,140 @@ export function WorkspaceRecordingViewer({
 				elapsedMs={capture.elapsedMs}
 				onPause={capture.pauseRecording}
 				onResume={capture.resumeRecording}
-				onStart={capture.startRecording}
+				onStart={() => capture.startRecording()}
 				onStop={capture.stopRecording}
 			/>
 		);
-	}
-	if (capture.recovery?.itemId === item.id) {
+	if (capture.pendingUpload?.itemId === item.id)
 		return (
-			<RecordingRecoverySurface
-				durationMs={capture.recovery.durationMs}
-				segmentCount={capture.recovery.segmentCount}
-				onRecover={capture.recoverRecording}
+			<CompletedRecordingUpload
+				blob={capture.pendingUpload.blob}
+				name={item.name}
+				onRetry={capture.retryUpload}
 			/>
 		);
-	}
-
-	const seekTo = (targetMs: number, play = isPlaying, sequence?: number) => {
-		const targetSequence =
-			sequence ?? getWorkspaceRecordingSegmentAtTime(recording?.segments ?? [], targetMs);
-		pendingSeekRef.current = targetMs;
-		continuePlaybackRef.current = play;
-		setPlaybackMs(targetMs);
-		if (targetSequence !== activeSequence) {
-			setActiveSequence(targetSequence);
-			return;
-		}
-		applyPendingSeek();
-	};
-
-	const applyPendingSeek = () => {
-		const audio = audioRef.current;
-		const targetMs = pendingSeekRef.current;
-		if (!audio) return;
-		pendingSeekRef.current = null;
-		audio.playbackRate = playbackRate;
-		if (targetMs !== null) {
-			audio.currentTime = Math.max(0, (targetMs - (offsets.get(activeSequence) ?? 0)) / 1_000);
-		}
-		if (continuePlaybackRef.current) {
-			continuePlaybackRef.current = false;
-			void audio.play();
-		}
-	};
-
-	const playNextSegment = () => {
-		const segments = recording?.segments ?? [];
-		const currentIndex = segments.findIndex((segment) => segment.sequence === activeSequence);
-		const next = segments[currentIndex + 1];
-		if (!next) return;
-		pendingSeekRef.current = offsets.get(next.sequence) ?? playbackMs;
-		continuePlaybackRef.current = true;
-		setActiveSequence(next.sequence);
-	};
-
-	if (recordingQuery.isPending) {
+	if (recordingQuery.isPending)
 		return (
 			<RecordingState
-				icon={<LoaderCircle className="size-6 animate-spin" />}
+				icon={<LoaderCircle className="size-5 animate-spin" />}
 				text="Loading recording…"
 			/>
 		);
-	}
-	if (recordingQuery.isError || !recording) {
+	if (!recording)
 		return (
-			<RecordingState
-				icon={<AlertCircle className="size-6" />}
-				text="Unable to load this recording."
+			<RecordingState icon={<AlertCircle className="size-5" />} text="Couldn’t load recording." />
+		);
+	if (!recording.hasAudio && !capabilities.canMutateContent)
+		return (
+			<RecordingItemSurface>
+				<RecordingNotice text="No audio has been recorded yet." />
+			</RecordingItemSurface>
+		);
+	if (!recording.hasAudio)
+		return (
+			<RecordingCaptureSurface
+				analyser={null}
+				phase="setup"
+				elapsedMs={0}
+				onPause={capture.pauseRecording}
+				onResume={capture.resumeRecording}
+				onStart={() => capture.startRecording(item, recording.mimeType)}
+				onStop={capture.stopRecording}
 			/>
 		);
-	}
-
 	return (
 		<RecordingItemSurface>
-			{recording.segments.length > 0 ? (
-				<>
-					<audio
-						ref={audioRef}
-						preload="metadata"
-						src={`/api/v1/workspaces/${workspaceId}/recordings/${item.id}/segments/${activeSequence}`}
-						onEnded={playNextSegment}
-						onLoadedMetadata={applyPendingSeek}
-						onPause={() => setIsPlaying(false)}
-						onPlay={() => setIsPlaying(true)}
-						onTimeUpdate={(event) =>
-							setPlaybackMs(
-								(offsets.get(activeSequence) ?? 0) + event.currentTarget.currentTime * 1_000,
-							)
-						}
-					/>
-					<div className="mx-auto flex w-full max-w-3xl items-center gap-3 py-2">
-						<Button
-							size="icon"
-							className="shrink-0 rounded-full"
-							aria-label={isPlaying ? "Pause recording" : "Play recording"}
-							onClick={() => {
-								const audio = audioRef.current;
-								if (!audio) return;
-								if (isPlaying) audio.pause();
-								else void audio.play();
-							}}
-						>
-							{isPlaying ? (
-								<Pause className="size-4 fill-current" />
-							) : (
-								<Play className="size-4 fill-current" />
-							)}
-						</Button>
-						<span className="w-10 shrink-0 font-mono text-muted-foreground text-xs">
-							{formatRecordingTimestamp(playbackMs)}
-						</span>
-						<input
-							type="range"
-							min={0}
-							max={Math.max(1, recording.durationMs)}
-							value={Math.min(playbackMs, recording.durationMs)}
-							aria-label="Recording position"
-							className="min-w-0 flex-1 accent-primary"
-							onChange={(event) => seekTo(Number(event.target.value))}
-						/>
-						<span className="w-10 shrink-0 text-right font-mono text-muted-foreground text-xs">
-							{formatRecordingTimestamp(recording.durationMs)}
-						</span>
-						<Button
-							variant="ghost"
-							size="sm"
-							className="w-12 shrink-0 tabular-nums"
-							aria-label={`Playback speed ${playbackRate} times`}
-							onClick={() => {
-								const nextRate = playbackRate === 2 ? 1 : playbackRate + 0.25;
-								setPlaybackRate(nextRate);
-								if (audioRef.current) audioRef.current.playbackRate = nextRate;
-							}}
-						>
-							{playbackRate}×
-						</Button>
-					</div>
-				</>
-			) : null}
-
-			{recording.status === "recording" ? <RecordingNotice text="Recording not finished." /> : null}
+			<audio
+				ref={audioRef}
+				controls
+				preload="metadata"
+				className="mx-auto w-full max-w-3xl"
+				src={`/api/v1/workspaces/${workspaceId}/recordings/${item.id}/audio`}
+			/>
 			{recording.status === "processing" ? <RecordingNotice text="Creating transcript…" /> : null}
-			{recording.status === "failed" ? (
-				<RecordingNotice
-					text={recording.errorMessage ?? "Transcript failed. Audio is still available."}
-					destructive
-				/>
-			) : null}
-
-			{recording.transcript.cues.length > 0 ? (
-				<div className="mx-auto w-full max-w-3xl space-y-1" aria-label="Transcript">
-					{recording.transcript.cues.map((cue, index) => (
-						<Button
-							key={`${cue.segmentSequence}:${cue.startMs}:${index}`}
-							variant="ghost"
-							className="h-auto w-full items-start justify-start gap-4 px-3 py-2 text-left font-normal whitespace-normal"
-							onClick={() => seekTo(cue.startMs, true, cue.segmentSequence)}
-						>
-							<span className="w-12 shrink-0 font-mono text-muted-foreground text-xs leading-5">
-								{formatRecordingTimestamp(cue.startMs)}
-							</span>
-							<span className="leading-5">{cue.text}</span>
-						</Button>
-					))}
+			{capabilities.canMutateContent &&
+			(recording.status === "failed" || recording.status === "recording") ? (
+				<div className="mx-auto w-full max-w-3xl space-y-3">
+					<RecordingNotice
+						destructive
+						text={recording.errorMessage ?? "Audio saved. Start transcription when ready."}
+					/>
+					<Button
+						disabled={retrying}
+						onClick={() => {
+							setRetrying(true);
+							void retryRecordingTranscription(workspaceId, item.id)
+								.then(() => recordingQuery.refetch())
+								.catch((error: unknown) =>
+									toast.error(
+										error instanceof Error ? error.message : "Couldn’t retry transcription.",
+									),
+								)
+								.finally(() => setRetrying(false));
+						}}
+					>
+						Retry transcription
+					</Button>
 				</div>
-			) : recording.status === "ready" ? (
-				<p className="mx-auto w-full max-w-3xl text-muted-foreground text-sm">
-					No speech was detected in this recording.
-				</p>
 			) : null}
+			<div className="mx-auto w-full max-w-3xl space-y-1" aria-label="Transcript">
+				{recording.transcript.cues.map((cue, index) => (
+					<Button
+						key={index}
+						variant="ghost"
+						className="h-auto w-full items-start justify-start gap-4 px-3 py-2 text-left font-normal whitespace-normal"
+						onClick={() => {
+							const audio = audioRef.current;
+							if (!audio) return;
+							audio.currentTime = cue.startMs / 1_000;
+							void audio.play().catch(() => toast.error("Couldn’t play recording."));
+						}}
+					>
+						<span className="w-12 shrink-0 font-mono text-muted-foreground text-xs leading-5">
+							{formatRecordingTimestamp(cue.startMs)}
+						</span>
+						<span className="leading-5">{cue.text}</span>
+					</Button>
+				))}
+				{recording.status === "ready" && recording.transcript.cues.length === 0 ? (
+					<p className="text-muted-foreground text-sm">No speech was detected.</p>
+				) : null}
+			</div>
+		</RecordingItemSurface>
+	);
+}
+
+function CompletedRecordingUpload({
+	blob,
+	name,
+	onRetry,
+}: {
+	blob: Blob;
+	name: string;
+	onRetry: () => void;
+}) {
+	const audioRef = useRef<HTMLAudioElement>(null);
+	const downloadRef = useRef<HTMLAnchorElement>(null);
+	useEffect(() => {
+		const next = URL.createObjectURL(blob);
+		if (audioRef.current) audioRef.current.src = next;
+		if (downloadRef.current) downloadRef.current.href = next;
+		return () => URL.revokeObjectURL(next);
+	}, [blob]);
+	return (
+		<RecordingItemSurface>
+			<RecordingNotice text="Recording finished. Retry the upload or download your audio." />
+			<audio ref={audioRef} controls className="mx-auto w-full max-w-3xl" />
+			<div className="mx-auto flex gap-3">
+				<Button onClick={onRetry}>Retry upload</Button>
+				<a
+					className="inline-flex items-center text-sm underline"
+					ref={downloadRef}
+					download={`${name}.${blob.type.includes("mp4") ? "m4a" : blob.type.includes("ogg") ? "ogg" : "webm"}`}
+				>
+					Download audio
+				</a>
+			</div>
 		</RecordingItemSurface>
 	);
 }
@@ -263,7 +222,13 @@ function RecordingCaptureSurface({
 					<RecordingWaveform analyser={analyser} paused={phase === "paused"} />
 				) : null}
 				{phase === "setup" ? (
-					<Button onClick={onStart}>Start recording</Button>
+					<div className="space-y-3">
+						<p className="max-w-sm text-muted-foreground text-sm">
+							Audio is saved after Done. Keep this workspace open while recording. Recording stops
+							automatically after 3 hours.
+						</p>
+						<Button onClick={onStart}>Start recording</Button>
+					</div>
 				) : phase === "recording" ? (
 					<div className="flex items-center gap-2">
 						<Button variant="outline" onClick={onPause}>
@@ -372,38 +337,6 @@ function RecordingWaveform({
 	);
 }
 
-function RecordingRecoverySurface({
-	durationMs,
-	segmentCount,
-	onRecover,
-}: {
-	durationMs: number;
-	segmentCount: number;
-	onRecover: (mode: "resume" | "finish") => void;
-}) {
-	const hasAudio = segmentCount > 0;
-	return (
-		<RecordingItemSurface>
-			<div className="flex flex-1 flex-col items-center justify-center gap-5 px-6 py-10 text-center">
-				<div className="space-y-1">
-					<h2 className="font-medium">{hasAudio ? "Recording paused" : "Ready to record"}</h2>
-					{hasAudio ? (
-						<p className="text-muted-foreground text-sm">
-							{formatRecordingTimestamp(durationMs)} recorded
-						</p>
-					) : null}
-				</div>
-				<div className="flex flex-wrap justify-center gap-2">
-					<Button variant={hasAudio ? "outline" : "default"} onClick={() => onRecover("resume")}>
-						{hasAudio ? "Unpause" : "Start recording"}
-					</Button>
-					{hasAudio ? <Button onClick={() => onRecover("finish")}>Done</Button> : null}
-				</div>
-			</div>
-		</RecordingItemSurface>
-	);
-}
-
 function RecordingItemSurface({ children }: { children: React.ReactNode }) {
 	return (
 		<section className="h-full min-h-0 overflow-y-auto bg-background">
@@ -435,14 +368,4 @@ function RecordingState({ icon, text }: { icon: React.ReactNode; text: string })
 			</div>
 		</div>
 	);
-}
-
-function getSegmentOffsets(segments: readonly { durationMs: number; sequence: number }[]) {
-	let elapsed = 0;
-	const offsets = new Map<number, number>();
-	for (const segment of segments) {
-		offsets.set(segment.sequence, elapsed);
-		elapsed += segment.durationMs;
-	}
-	return offsets;
 }
