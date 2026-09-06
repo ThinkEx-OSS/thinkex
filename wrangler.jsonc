@@ -110,6 +110,11 @@
 			"binding": "WORKSPACE_FILE_EXTRACTION_WORKFLOW",
 			"class_name": "WorkspaceFileExtractionWorkflow",
 		},
+		{
+			"name": "recording-transcription",
+			"binding": "RECORDING_TRANSCRIPTION_WORKFLOW",
+			"class_name": "RecordingTranscriptionWorkflow",
+		},
 	],
 	"containers": [
 		{
@@ -285,6 +290,11 @@
 					"binding": "WORKSPACE_FILE_EXTRACTION_WORKFLOW",
 					"class_name": "WorkspaceFileExtractionWorkflow",
 				},
+				{
+					"name": "recording-transcription-staging",
+					"binding": "RECORDING_TRANSCRIPTION_WORKFLOW",
+					"class_name": "RecordingTranscriptionWorkflow",
+				},
 			],
 			"containers": [
 				{
@@ -394,6 +404,11 @@
 					"name": "workspace-file-extraction",
 					"binding": "WORKSPACE_FILE_EXTRACTION_WORKFLOW",
 					"class_name": "WorkspaceFileExtractionWorkflow",
+				},
+				{
+					"name": "recording-transcription",
+					"binding": "RECORDING_TRANSCRIPTION_WORKFLOW",
+					"class_name": "RecordingTranscriptionWorkflow",
 				},
 			],
 			"containers": [

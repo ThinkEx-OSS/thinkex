@@ -5,6 +5,7 @@ import {
 } from "#/features/workspaces/documents/document-preview-text";
 import { parseFlashcardSetContent } from "#/features/workspaces/flashcards/flashcard-content";
 import { parseQuizSetContent } from "#/features/workspaces/quizzes/quiz-content";
+import { getWorkspaceRecordingTranscriptText } from "#/features/workspaces/recordings/workspace-recording-transcript";
 
 /**
  * The prose projection stored in `workspace_item_contents.search_text`.
@@ -32,6 +33,8 @@ export function buildWorkspaceItemSearchText(type: WorkspaceItemType, content: s
 					extractTiptapPlainText(question.explanation),
 				]),
 			);
+		case "recording":
+			return getWorkspaceRecordingTranscriptText(content);
 		case "file":
 		case "folder":
 			return "";

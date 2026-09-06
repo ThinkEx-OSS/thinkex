@@ -9,6 +9,7 @@ import { recordWorkspaceFileReadOutcomes } from "#/features/workspaces/content/w
 import { getDocumentSessionFromEnv } from "#/features/workspaces/document-session-access";
 import { readFlashcardViewer } from "#/features/workspaces/flashcards/flashcard-study-persistence";
 import { readQuizViewer } from "#/features/workspaces/quizzes/quiz-study-persistence";
+import { readWorkspaceRecordingContent } from "#/features/workspaces/recordings/workspace-recording-persistence";
 import { getWorkspaceItemRefKeyIndex } from "#/features/workspaces/persistence/workspace-items";
 import type { WorkspaceAccessContext } from "#/features/workspaces/operations/workspace-access-context";
 import { authorizeWorkspaceOperation } from "#/features/workspaces/operations/workspace-operation-context";
@@ -46,6 +47,8 @@ export async function readWorkspaceItemsOperation(
 				userId: accessContext.actor.userId,
 				workspaceId: accessContext.workspaceId,
 			}),
+		readRecordingItem: (itemId) =>
+			readWorkspaceRecordingContent({ itemId, workspaceId: accessContext.workspaceId }),
 		resolveRefKey: async (refKey) => {
 			refKeyIndex ??= getWorkspaceItemRefKeyIndex({ workspaceId: accessContext.workspaceId });
 			return (await refKeyIndex).get(refKey);

@@ -47,6 +47,7 @@ const WORKSPACE_INVITE_STATUSES = ["pending", "accepted", "revoked", "expired"] 
 const WORKSPACE_RELATION_KINDS = ["derived_from", "references"] as const;
 const WORKSPACE_EXTRACTION_STATUSES = ["processing", "ready", "failed"] as const;
 const WORKSPACE_EXTRACTION_TIERS = ["fast", "enhanced"] as const;
+const WORKSPACE_RECORDING_STATUSES = ["recording", "processing", "ready", "failed"] as const;
 
 function sqlEnumValues(values: readonly string[]) {
 	return sql.raw(values.map((value) => `'${value.replaceAll("'", "''")}'`).join(", "));
@@ -326,9 +327,33 @@ export const workspaceItems = pgTable(
 	],
 );
 
-// `content` is the item's own storage format — Tiptap JSON for documents, a
-// JSON set for flashcards and quizzes. `searchText` is the prose projection of
-// it, written by every content writer so search never has to match JSON keys.
+export const workspaceRecordings = pgTable(
+	"workspace_recordings",
+	{
+		itemId: text("item_id")
+			.primaryKey()
+			.references(() => workspaceItems.id, { onDelete: "cascade" }),
+		workspaceId: text("workspace_id")
+			.notNull()
+			.references(() => workspaces.id, { onDelete: "cascade" }),
+		mimeType: text("mime_type").notNull(),
+		status: text("status", { enum: WORKSPACE_RECORDING_STATUSES }).default("recording").notNull(),
+		objectKey: text("object_key"),
+		sizeBytes: integer("size_bytes"),
+		durationMs: integer("duration_ms").default(0).notNull(),
+		transcriptionAttempt: integer("transcription_attempt").default(0).notNull(),
+		errorMessage: text("error_message"),
+	},
+	(table) => [
+		check(
+			"workspace_recordings_status_check",
+			sql`${table.status} in (${sqlEnumValues(WORKSPACE_RECORDING_STATUSES)})`,
+		),
+		check("workspace_recordings_duration_check", sql`${table.durationMs} >= 0`),
+	],
+);
+
+// Content uses each item's storage format; searchText is its plain-text projection.
 export const workspaceItemContents = pgTable(
 	"workspace_item_contents",
 	{

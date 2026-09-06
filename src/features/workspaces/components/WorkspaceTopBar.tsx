@@ -1,4 +1,4 @@
-import { Ellipsis, MessageSquare } from "lucide-react";
+import { Ellipsis, MessageSquare, Square } from "lucide-react";
 import type { ReactNode } from "react";
 
 import UserProfileDropdown from "#/components/UserProfileDropdown";
@@ -6,6 +6,7 @@ import { Kbd } from "#/components/ui/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "#/components/ui/tooltip";
 import WorkspaceHeaderChrome from "#/features/workspaces/components/WorkspaceHeaderChrome";
 import { WorkspacePresence } from "#/features/workspaces/components/WorkspacePresence";
+import { useWorkspaceRecording } from "#/features/workspaces/components/WorkspaceRecordingProvider";
 import WorkspaceRootActionsMenu from "#/features/workspaces/components/WorkspaceRootActionsMenu";
 import WorkspaceTabBar from "#/features/workspaces/components/WorkspaceTabBar";
 import {
@@ -16,6 +17,7 @@ import {
 import type { WorkspaceItem, WorkspaceSummary } from "#/features/workspaces/contracts";
 import type { WorkspacePresenceUser } from "#/features/workspaces/realtime/messages";
 import type { WorkspaceTab } from "#/features/workspaces/state/workspace-tabs-store";
+import { formatRecordingTimestamp } from "#/features/workspaces/recordings/workspace-recording-transcript";
 import {
 	useWorkspaceAiChatSurfaceMode,
 	useWorkspaceUiStore,
@@ -61,11 +63,46 @@ export default function WorkspaceTopBar({
 	const chatSurfaceMode = useWorkspaceAiChatSurfaceMode(workspace.id);
 	const setChatSurfaceMode = useWorkspaceUiStore((state) => state.setChatSurfaceMode);
 	const aiChatHotkey = formatAppHotkey(getAppHotkey("workspace.aiChat.toggle").hotkey);
+	const recording = useWorkspaceRecording();
+	const recordingItem = recording.captureItemId
+		? itemsById.get(recording.captureItemId)
+		: undefined;
+	const showRecording =
+		recording.captureItemId &&
+		recording.phase !== "setup" &&
+		activeTab.viewItemId !== recording.captureItemId;
 
 	return (
 		<WorkspaceHeaderChrome
 			actions={
 				<>
+					{showRecording ? (
+						<div className="flex items-center gap-0.5">
+							<button
+								type="button"
+								className="flex h-7 min-w-0 items-center gap-1.5 rounded-md px-1.5 text-muted-foreground text-xs hover:bg-muted hover:text-foreground"
+								aria-label={`Open ${recordingItem?.name ?? "recording"}`}
+								onClick={recording.openCaptureItem}
+							>
+								<span className="size-1.5 rounded-full bg-rose-500" />
+								<span className="font-medium tabular-nums">
+									{recording.phase === "recording"
+										? formatRecordingTimestamp(recording.elapsedMs)
+										: recording.phase === "paused"
+											? "Paused"
+											: "Finishing…"}
+								</span>
+							</button>
+							<WorkspaceToolbarIconButton
+								className="size-7 text-muted-foreground hover:text-rose-600"
+								disabled={recording.phase === "finishing"}
+								aria-label="Finish recording"
+								onClick={recording.stopRecording}
+							>
+								<Square className="size-2.5 fill-current" />
+							</WorkspaceToolbarIconButton>
+						</div>
+					) : null}
 					<WorkspacePresence status={presence.status} users={presence.users} />
 					{/* ponytail: Share/more keep the Search/New token; a little more space before the avatar so it reads as account, not a third toolbar icon. */}
 					<div className="flex items-center gap-1.5">
