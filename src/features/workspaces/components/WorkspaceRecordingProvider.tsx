@@ -64,7 +64,6 @@ export function WorkspaceRecordingProvider({
 		hasUnsavedAudio,
 	} = useCompletedRecordings(workspaceId, capabilities.canMutateContent);
 	const captureRef = useRef<ReturnType<typeof captureWorkspaceRecording> | null>(null);
-	const cleanupRef = useRef<(() => void) | null>(null);
 	const busyRef = useRef(false);
 	const mountedRef = useRef(true);
 
@@ -73,26 +72,17 @@ export function WorkspaceRecordingProvider({
 		if (!capabilities.canMutateContent) return;
 		return () => {
 			mountedRef.current = false;
-			void captureRef.current?.finish();
+			captureRef.current?.finish();
 			captureRef.current = null;
-			cleanupRef.current?.();
-			cleanupRef.current = null;
 		};
 	}, [workspaceId, capabilities.canMutateContent]);
 
 	useBlocker({
 		enableBeforeUnload: () => !!captureRef.current || busyRef.current || hasUnsavedAudio(),
-		shouldBlockFn: async ({ next }) => {
+		shouldBlockFn: ({ next }) => {
 			if ("workspaceId" in next.params && next.params.workspaceId === workspaceId) return false;
-			if (busyRef.current) {
-				toast.error("Wait for recording setup to finish before leaving.");
-				return true;
-			}
-			await captureRef.current?.finish();
-			if (!hasUnsavedAudio()) return false;
-			toast.error(
-				"Audio isn’t saved yet. Retry the upload, or download it and remove the local copy before leaving.",
-			);
+			if (!captureRef.current && !busyRef.current && !hasUnsavedAudio()) return false;
+			toast.error("Finish recording and save your audio before leaving this workspace.");
 			return true;
 		},
 	});
@@ -124,21 +114,11 @@ export function WorkspaceRecordingProvider({
 					if (!lock) {
 						throw new Error("Another tab is already recording.");
 					}
-					let release = () => {};
-					const released = new Promise<void>((resolveRelease) => {
-						release = resolveRelease;
-					});
 					let stream: MediaStream | null = null;
 					let audioContext: AudioContext | null = null;
-					const cleanup = () => {
-						stream?.getTracks().forEach((track) => track.stop());
-						void audioContext?.close().catch(() => undefined);
-						release();
-					};
 					try {
 						stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 						if (!mountedRef.current) {
-							cleanup();
 							return;
 						}
 						audioContext = new AudioContext();
@@ -149,21 +129,8 @@ export function WorkspaceRecordingProvider({
 							mimeType: nextTarget.mimeType,
 							audioBitsPerSecond: 64_000,
 						});
-						cleanupRef.current = cleanup;
-						captureRef.current = captureWorkspaceRecording(recorder, (audio) => {
-							captureRef.current = null;
-							cleanup();
-							cleanupRef.current = null;
-							setAnalyser(null);
-							if (!audio.blob.size) {
-								setPhase("setup");
-								toast.error("No audio was recorded. Try again.");
-								return;
-							}
-							setTarget(null);
-							setPhase("setup");
-							return retainCompleted({ ...nextTarget, ...audio, uploadId: crypto.randomUUID() });
-						});
+						const capture = captureWorkspaceRecording(recorder);
+						captureRef.current = capture;
 						recorder.addEventListener("error", () =>
 							toast.error("Recording was interrupted. Saving the captured audio."),
 						);
@@ -171,10 +138,20 @@ export function WorkspaceRecordingProvider({
 						setElapsedMs(0);
 						setPhase("recording");
 						busyRef.current = false;
-						await released;
-					} catch (error) {
-						cleanup();
-						throw error;
+						const audio = await capture.completed;
+						setPhase("finishing");
+						if (audio.blob.size) {
+							await retainCompleted({ ...nextTarget, ...audio, uploadId: crypto.randomUUID() });
+							setTarget(null);
+						} else {
+							toast.error("No audio was recorded. Try again.");
+						}
+					} finally {
+						stream?.getTracks().forEach((track) => track.stop());
+						void audioContext?.close().catch(() => undefined);
+						captureRef.current = null;
+						setAnalyser(null);
+						setPhase("setup");
 					}
 				},
 			);
@@ -194,7 +171,7 @@ export function WorkspaceRecordingProvider({
 				onOpenItem(item);
 				return;
 			}
-			void captureRef.current?.finish();
+			captureRef.current?.finish();
 			if (captureRef.current) return;
 			setTarget(null);
 		}
@@ -254,7 +231,7 @@ export function WorkspaceRecordingProvider({
 				},
 				stopRecording: () => {
 					setPhase("finishing");
-					void captureRef.current?.finish();
+					captureRef.current?.finish();
 				},
 				retryUpload: (recording) => void upload(recording),
 				discardUpload: (recording) => void discard(recording),

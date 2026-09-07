@@ -7,11 +7,7 @@ type Recorder = EventTarget &
 	Pick<MediaRecorder, "start" | "stop" | "pause" | "resume" | "state" | "mimeType">;
 
 /** Capture one continuous file. Timeslices collect bytes in memory without restarting or saving. */
-export function captureWorkspaceRecording(
-	recorder: Recorder,
-	onComplete: (audio: { blob: Blob; durationMs: number }) => void | Promise<void>,
-	now = () => performance.now(),
-) {
+export function captureWorkspaceRecording(recorder: Recorder, now = () => performance.now()) {
 	const chunks: Blob[] = [];
 	let accumulatedMs = 0;
 	let startedAt: number | null = null;
@@ -28,36 +24,35 @@ export function captureWorkspaceRecording(
 			freezeClock();
 			recorder.stop();
 		}
-		return completed;
 	};
 	const startClock = () => {
 		startedAt = now();
-		timer = setTimeout(
-			() => void finish(),
-			Math.max(0, workspaceRecordingMaxDurationMs - accumulatedMs),
-		);
+		timer = setTimeout(finish, Math.max(0, workspaceRecordingMaxDurationMs - accumulatedMs));
 	};
 	recorder.addEventListener("dataavailable", (event) => {
 		if ("data" in event && event.data instanceof Blob && event.data.size) {
 			chunks.push(event.data);
 			sizeBytes += event.data.size;
-			if (sizeBytes >= workspaceRecordingStopBytes) void finish();
+			if (sizeBytes >= workspaceRecordingStopBytes) finish();
 		}
 	});
-	const completed = new Promise<void>((resolve, reject) => {
-		recorder.addEventListener("stop", () => {
-			freezeClock();
-			Promise.resolve(
-				onComplete({
+	const completed = new Promise<{ blob: Blob; durationMs: number }>((resolve) => {
+		recorder.addEventListener(
+			"stop",
+			() => {
+				freezeClock();
+				resolve({
 					blob: new Blob(chunks, { type: recorder.mimeType }),
 					durationMs: Math.max(1, Math.round(accumulatedMs)),
-				}),
-			).then(resolve, reject);
-		});
+				});
+			},
+			{ once: true },
+		);
 	});
 	recorder.start(1_000);
 	startClock();
 	return {
+		completed,
 		elapsedMs,
 		finish,
 		pause: () => {

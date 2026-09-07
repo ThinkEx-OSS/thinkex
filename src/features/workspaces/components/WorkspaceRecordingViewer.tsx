@@ -197,8 +197,8 @@ function RecordingCaptureSurface({
 				{phase === "setup" ? (
 					<div className="space-y-3">
 						<p className="max-w-sm text-muted-foreground text-sm">
-							Audio is saved after Done or when you leave this workspace. Keep this tab open.
-							Recording stops automatically after 3 hours.
+							Finish with Done before leaving this workspace. Keep this tab open until audio is
+							saved. Recording stops automatically after 3 hours.
 						</p>
 						<Button onClick={onStart}>Start recording</Button>
 					</div>
