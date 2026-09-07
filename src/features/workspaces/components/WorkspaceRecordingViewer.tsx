@@ -1,3 +1,4 @@
+import { CompletedRecordingUpload } from "#/features/workspaces/components/CompletedRecordingUpload";
 import { useQuery } from "@tanstack/react-query";
 import { AlertCircle, LoaderCircle, Mic, Pause, Play, Square } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -46,12 +47,14 @@ export function WorkspaceRecordingViewer({
 				onStop={capture.stopRecording}
 			/>
 		);
-	if (capture.pendingUpload?.itemId === item.id)
+	const pending = capture.pendingUploads.find(({ recording }) => recording.itemId === item.id);
+	if (pending)
 		return (
 			<CompletedRecordingUpload
-				blob={capture.pendingUpload.blob}
+				blob={pending.recording.blob}
+				busy={pending.status !== "failed"}
 				name={item.name}
-				onRetry={capture.retryUpload}
+				onRetry={() => capture.retryUpload(pending.recording)}
 			/>
 		);
 	if (recordingQuery.isPending)
@@ -92,30 +95,34 @@ export function WorkspaceRecordingViewer({
 				className="mx-auto w-full max-w-3xl"
 				src={`/api/v1/workspaces/${workspaceId}/recordings/${item.id}/audio`}
 			/>
-			{recording.status === "processing" ? <RecordingNotice text="Creating transcript…" /> : null}
-			{capabilities.canMutateContent &&
-			(recording.status === "failed" || recording.status === "recording") ? (
+			{recording.status !== "ready" ? (
 				<div className="mx-auto w-full max-w-3xl space-y-3">
 					<RecordingNotice
-						destructive
-						text={recording.errorMessage ?? "Audio saved. Start transcription when ready."}
+						destructive={recording.status === "failed"}
+						text={
+							recording.status === "processing"
+								? "Creating transcript…"
+								: (recording.errorMessage ?? "Audio saved. Start transcription when ready.")
+						}
 					/>
-					<Button
-						disabled={retrying}
-						onClick={() => {
-							setRetrying(true);
-							void retryRecordingTranscription(workspaceId, item.id)
-								.then(() => recordingQuery.refetch())
-								.catch((error: unknown) =>
-									toast.error(
-										error instanceof Error ? error.message : "Couldn’t retry transcription.",
-									),
-								)
-								.finally(() => setRetrying(false));
-						}}
-					>
-						Retry transcription
-					</Button>
+					{capabilities.canMutateContent ? (
+						<Button
+							disabled={retrying}
+							onClick={() => {
+								setRetrying(true);
+								void retryRecordingTranscription(workspaceId, item.id)
+									.then(() => recordingQuery.refetch())
+									.catch((error: unknown) =>
+										toast.error(
+											error instanceof Error ? error.message : "Couldn’t retry transcription.",
+										),
+									)
+									.finally(() => setRetrying(false));
+							}}
+						>
+							Retry transcription
+						</Button>
+					) : null}
 				</div>
 			) : null}
 			<div className="mx-auto w-full max-w-3xl space-y-1" aria-label="Transcript">
@@ -140,41 +147,6 @@ export function WorkspaceRecordingViewer({
 				{recording.status === "ready" && recording.transcript.cues.length === 0 ? (
 					<p className="text-muted-foreground text-sm">No speech was detected.</p>
 				) : null}
-			</div>
-		</RecordingItemSurface>
-	);
-}
-
-function CompletedRecordingUpload({
-	blob,
-	name,
-	onRetry,
-}: {
-	blob: Blob;
-	name: string;
-	onRetry: () => void;
-}) {
-	const audioRef = useRef<HTMLAudioElement>(null);
-	const downloadRef = useRef<HTMLAnchorElement>(null);
-	useEffect(() => {
-		const next = URL.createObjectURL(blob);
-		if (audioRef.current) audioRef.current.src = next;
-		if (downloadRef.current) downloadRef.current.href = next;
-		return () => URL.revokeObjectURL(next);
-	}, [blob]);
-	return (
-		<RecordingItemSurface>
-			<RecordingNotice text="Recording finished. Retry the upload or download your audio." />
-			<audio ref={audioRef} controls className="mx-auto w-full max-w-3xl" />
-			<div className="mx-auto flex gap-3">
-				<Button onClick={onRetry}>Retry upload</Button>
-				<a
-					className="inline-flex items-center text-sm underline"
-					ref={downloadRef}
-					download={`${name}.${blob.type.includes("mp4") ? "m4a" : blob.type.includes("ogg") ? "ogg" : "webm"}`}
-				>
-					Download audio
-				</a>
 			</div>
 		</RecordingItemSurface>
 	);
@@ -224,26 +196,24 @@ function RecordingCaptureSurface({
 				{phase === "setup" ? (
 					<div className="space-y-3">
 						<p className="max-w-sm text-muted-foreground text-sm">
-							Audio is saved after Done. Keep this workspace open while recording. Recording stops
-							automatically after 3 hours.
+							Audio is saved after Done or when you leave this workspace. Keep this tab open.
+							Recording stops automatically after 3 hours.
 						</p>
 						<Button onClick={onStart}>Start recording</Button>
 					</div>
-				) : phase === "recording" ? (
+				) : phase === "recording" || phase === "paused" ? (
 					<div className="flex items-center gap-2">
-						<Button variant="outline" onClick={onPause}>
-							<Pause className="size-4 fill-current" /> Pause
+						<Button variant="outline" onClick={phase === "paused" ? onResume : onPause}>
+							{phase === "paused" ? (
+								<Play className="size-4 fill-current" />
+							) : (
+								<Pause className="size-4 fill-current" />
+							)}
+							{phase === "paused" ? "Unpause" : "Pause"}
 						</Button>
 						<Button onClick={onStop}>
 							<Square className="size-3 fill-current" /> Done
 						</Button>
-					</div>
-				) : phase === "paused" ? (
-					<div className="flex items-center gap-2">
-						<Button variant="outline" onClick={onResume}>
-							<Play className="size-4 fill-current" /> Unpause
-						</Button>
-						<Button onClick={onStop}>Done</Button>
 					</div>
 				) : null}
 			</div>

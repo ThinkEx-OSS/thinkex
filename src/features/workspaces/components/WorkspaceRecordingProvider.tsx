@@ -1,4 +1,7 @@
-import { fixWebmDuration } from "@fix-webm-duration/fix";
+import {
+	CompletedRecordingUpload,
+	useCompletedRecordings,
+} from "#/features/workspaces/components/CompletedRecordingUpload";
 import { useQueryClient } from "@tanstack/react-query";
 import { createContext, type ReactNode, use, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -10,14 +13,8 @@ import { captureWorkspaceRecording } from "#/features/workspaces/recordings/work
 import {
 	createRecordingItem,
 	getSupportedRecordingMimeType,
-	uploadRecording,
 } from "#/features/workspaces/recordings/workspace-recording-client";
-import {
-	deleteLocalWorkspaceRecording,
-	listLocalWorkspaceRecordings,
-	saveLocalWorkspaceRecording,
-	type LocalWorkspaceRecording,
-} from "#/features/workspaces/recordings/workspace-recording-local-store";
+import type { LocalWorkspaceRecording } from "#/features/workspaces/recordings/workspace-recording-local-store";
 
 type Target = Pick<LocalWorkspaceRecording, "itemId" | "workspaceId" | "mimeType">;
 type Phase = "setup" | "recording" | "paused" | "finishing";
@@ -27,13 +24,13 @@ interface WorkspaceRecordingContextValue {
 	captureItemId: string | null;
 	phase: Phase;
 	elapsedMs: number;
-	pendingUpload: LocalWorkspaceRecording | null;
+	pendingUploads: ReturnType<typeof useCompletedRecordings>["pendingUploads"];
 	openCaptureItem: () => void;
 	startRecording: (item?: WorkspaceItem, mimeType?: string) => void;
 	pauseRecording: () => void;
 	resumeRecording: () => void;
 	stopRecording: () => void;
-	retryUpload: () => void;
+	retryUpload: (recording: LocalWorkspaceRecording) => void;
 }
 const WorkspaceRecordingContext = createContext<WorkspaceRecordingContextValue | null>(null);
 
@@ -57,23 +54,22 @@ export function WorkspaceRecordingProvider({
 	const [phase, setPhase] = useState<Phase>("setup");
 	const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
 	const [elapsedMs, setElapsedMs] = useState(0);
-	const [pendingUpload, setPendingUpload] = useState<LocalWorkspaceRecording | null>(null);
+	const {
+		pendingUploads,
+		completeRecording: retainCompleted,
+		upload,
+	} = useCompletedRecordings(workspaceId, capabilities.canMutateContent);
 	const captureRef = useRef<ReturnType<typeof captureWorkspaceRecording> | null>(null);
 	const cleanupRef = useRef<(() => void) | null>(null);
 	const busyRef = useRef(false);
 	const mountedRef = useRef(true);
 
 	useEffect(() => {
-		mountedRef.current = true;
+		mountedRef.current = capabilities.canMutateContent;
 		if (!capabilities.canMutateContent) return;
-		void listLocalWorkspaceRecordings(workspaceId)
-			.then((recordings) => {
-				if (mountedRef.current) setPendingUpload(recordings[0] ?? null);
-			})
-			.catch(() => undefined);
 		return () => {
 			mountedRef.current = false;
-			captureRef.current?.cancel();
+			captureRef.current?.finish();
 			captureRef.current = null;
 			cleanupRef.current?.();
 			cleanupRef.current = null;
@@ -82,57 +78,17 @@ export function WorkspaceRecordingProvider({
 
 	useEffect(() => {
 		const beforeUnload = (event: BeforeUnloadEvent) => {
-			if (captureRef.current || busyRef.current || pendingUpload) event.preventDefault();
+			if (captureRef.current || busyRef.current || pendingUploads.length) event.preventDefault();
 		};
 		window.addEventListener("beforeunload", beforeUnload);
 		return () => window.removeEventListener("beforeunload", beforeUnload);
-	}, [pendingUpload]);
+	}, [pendingUploads]);
 
 	useEffect(() => {
 		if (phase !== "recording") return;
 		const timer = window.setInterval(() => setElapsedMs(captureRef.current?.elapsedMs() ?? 0), 500);
 		return () => window.clearInterval(timer);
 	}, [phase]);
-
-	const upload = async (completed: LocalWorkspaceRecording) => {
-		if (busyRef.current) return;
-		busyRef.current = true;
-		setTarget(completed);
-		setPhase("finishing");
-		setPendingUpload(completed);
-		try {
-			// Finalize WebM metadata once capture ends so native players can seek.
-			const recording = completed.mimeType.includes("webm")
-				? {
-						...completed,
-						blob: await fixWebmDuration(completed.blob, completed.durationMs, { logger: false }),
-					}
-				: completed;
-			setPendingUpload(recording);
-			try {
-				await saveLocalWorkspaceRecording(recording);
-			} catch {
-				toast.warning("Couldn’t save on this device. Keep this tab open until upload finishes.");
-			}
-			await uploadRecording(recording);
-			await deleteLocalWorkspaceRecording(recording.itemId).catch(() => undefined);
-			setPendingUpload(null);
-			await queryClient.invalidateQueries({
-				queryKey: ["workspace-recording", workspaceId, recording.itemId],
-			});
-			toast.success("Recording saved. Creating transcript…");
-		} catch (error) {
-			toast.error(
-				error instanceof Error
-					? error.message
-					: "Upload failed. You can retry or download your audio.",
-			);
-		} finally {
-			busyRef.current = false;
-			setTarget(null);
-			setPhase("setup");
-		}
-	};
 
 	const startRecording = async (item?: WorkspaceItem, mimeType?: string) => {
 		const nextTarget = item && mimeType ? { itemId: item.id, workspaceId, mimeType } : target;
@@ -141,74 +97,74 @@ export function WorkspaceRecordingProvider({
 			!nextTarget ||
 			busyRef.current ||
 			captureRef.current ||
-			pendingUpload
+			pendingUploads.some((pending) => pending.recording.itemId === nextTarget.itemId)
 		)
 			return;
 		busyRef.current = true;
 		setTarget(nextTarget);
 		setPhase("finishing");
 		try {
-			await new Promise<void>((resolve, reject) => {
-				void navigator.locks
-					.request("thinkex-microphone-recording", { ifAvailable: true }, async (lock) => {
-						if (!lock) {
-							reject(new Error("Another tab is already recording."));
+			await navigator.locks.request(
+				"thinkex-microphone-recording",
+				{ ifAvailable: true },
+				async (lock) => {
+					if (!lock) {
+						throw new Error("Another tab is already recording.");
+					}
+					let release = () => {};
+					const released = new Promise<void>((resolveRelease) => {
+						release = resolveRelease;
+					});
+					let stream: MediaStream | null = null;
+					let audioContext: AudioContext | null = null;
+					const cleanup = () => {
+						stream?.getTracks().forEach((track) => track.stop());
+						void audioContext?.close().catch(() => undefined);
+						release();
+					};
+					try {
+						stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+						if (!mountedRef.current) {
+							cleanup();
 							return;
 						}
-						let release = () => {};
-						const released = new Promise<void>((resolveRelease) => {
-							release = resolveRelease;
+						audioContext = new AudioContext();
+						const nextAnalyser = audioContext.createAnalyser();
+						nextAnalyser.fftSize = 256;
+						audioContext.createMediaStreamSource(stream).connect(nextAnalyser);
+						const recorder = new MediaRecorder(stream, {
+							mimeType: nextTarget.mimeType,
+							audioBitsPerSecond: 64_000,
 						});
-						let stream: MediaStream | null = null;
-						let audioContext: AudioContext | null = null;
-						const cleanup = () => {
-							stream?.getTracks().forEach((track) => track.stop());
-							void audioContext?.close().catch(() => undefined);
-							release();
-						};
-						try {
-							stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-							if (!mountedRef.current) {
-								cleanup();
-								resolve();
+						cleanupRef.current = cleanup;
+						captureRef.current = captureWorkspaceRecording(recorder, (audio) => {
+							captureRef.current = null;
+							cleanup();
+							cleanupRef.current = null;
+							setAnalyser(null);
+							if (!audio.blob.size) {
+								setPhase("setup");
+								toast.error("No audio was recorded. Try again.");
 								return;
 							}
-							audioContext = new AudioContext();
-							const nextAnalyser = audioContext.createAnalyser();
-							nextAnalyser.fftSize = 256;
-							audioContext.createMediaStreamSource(stream).connect(nextAnalyser);
-							const recorder = new MediaRecorder(stream, {
-								mimeType: nextTarget.mimeType,
-								audioBitsPerSecond: 64_000,
-							});
-							cleanupRef.current = cleanup;
-							captureRef.current = captureWorkspaceRecording(recorder, (audio) => {
-								captureRef.current = null;
-								cleanup();
-								cleanupRef.current = null;
-								setAnalyser(null);
-								if (!audio.blob.size) {
-									setPhase("setup");
-									toast.error("No audio was recorded. Try again.");
-									return;
-								}
-								void upload({ ...nextTarget, ...audio, uploadId: crypto.randomUUID() });
-							});
-							recorder.addEventListener("error", () =>
-								toast.error("Recording was interrupted. Saving the captured audio."),
-							);
-							setAnalyser(nextAnalyser);
-							setElapsedMs(0);
-							setPhase("recording");
-							resolve();
-							await released;
-						} catch (error) {
-							cleanup();
-							reject(error);
-						}
-					})
-					.catch(reject);
-			});
+							setTarget(null);
+							setPhase("setup");
+							void retainCompleted({ ...nextTarget, ...audio, uploadId: crypto.randomUUID() });
+						});
+						recorder.addEventListener("error", () =>
+							toast.error("Recording was interrupted. Saving the captured audio."),
+						);
+						setAnalyser(nextAnalyser);
+						setElapsedMs(0);
+						setPhase("recording");
+						busyRef.current = false;
+						await released;
+					} catch (error) {
+						cleanup();
+						throw error;
+					}
+				},
+			);
 		} catch (error) {
 			setPhase("setup");
 			toast.error(error instanceof Error ? error.message : "Couldn’t start recording.");
@@ -218,11 +174,16 @@ export function WorkspaceRecordingProvider({
 	};
 
 	const requestRecording = async (parentId: string | null) => {
-		const existingId = target?.itemId ?? pendingUpload?.itemId;
+		const existingId = target?.itemId;
 		if (existingId) {
 			const item = itemsById.get(existingId);
-			if (item) onOpenItem(item);
-			return;
+			if (item) {
+				onOpenItem(item);
+				return;
+			}
+			captureRef.current?.finish();
+			if (captureRef.current) return;
+			setTarget(null);
 		}
 		if (busyRef.current) return;
 		const mimeType = getSupportedRecordingMimeType();
@@ -263,7 +224,7 @@ export function WorkspaceRecordingProvider({
 				captureItemId: target?.itemId ?? null,
 				phase,
 				elapsedMs,
-				pendingUpload,
+				pendingUploads,
 				openCaptureItem: () => {
 					const item = target ? itemsById.get(target.itemId) : null;
 					if (item) onOpenItem(item);
@@ -282,12 +243,24 @@ export function WorkspaceRecordingProvider({
 					setPhase("finishing");
 					captureRef.current?.finish();
 				},
-				retryUpload: () => {
-					if (pendingUpload) void upload(pendingUpload);
-				},
+				retryUpload: (recording) => void upload(recording),
 			}}
 		>
 			{children}
+			<div className="fixed bottom-4 right-4 z-50 max-h-96 max-w-sm overflow-auto space-y-2">
+				{pendingUploads
+					.filter(({ recording }) => !itemsById.has(recording.itemId))
+					.map(({ recording, status }) => (
+						<div key={recording.itemId} className="rounded-lg border bg-background shadow-lg">
+							<CompletedRecordingUpload
+								blob={recording.blob}
+								name="Recovered recording"
+								busy={status !== "failed"}
+								onRetry={() => void upload(recording)}
+							/>
+						</div>
+					))}
+			</div>
 			{target && phase !== "setup" && activeItemId !== target.itemId ? (
 				<button
 					type="button"

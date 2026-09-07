@@ -24,12 +24,16 @@ export async function saveLocalWorkspaceRecording(recording: LocalWorkspaceRecor
 export async function listLocalWorkspaceRecordings(workspaceId: string) {
 	const database = await openDatabase();
 	try {
-		const request = database.transaction("recordings").objectStore("recordings").getAll();
+		const request = database
+			.transaction("recordings")
+			.objectStore("recordings")
+			.index("workspaceId")
+			.getAll(workspaceId);
 		const recordings = await new Promise<LocalWorkspaceRecording[]>((resolve, reject) => {
 			request.onsuccess = () => resolve(request.result);
 			request.onerror = () => reject(request.error);
 		});
-		return recordings.filter((recording) => recording.workspaceId === workspaceId);
+		return recordings;
 	} finally {
 		database.close();
 	}
@@ -49,9 +53,13 @@ export async function deleteLocalWorkspaceRecording(itemId: string) {
 
 function openDatabase() {
 	return new Promise<IDBDatabase>((resolve, reject) => {
-		const request = indexedDB.open("thinkex-completed-recordings", 1);
-		request.onupgradeneeded = () =>
-			request.result.createObjectStore("recordings", { keyPath: "itemId" });
+		const request = indexedDB.open("thinkex-completed-recordings", 2);
+		request.onupgradeneeded = () => {
+			const store = request.result.objectStoreNames.contains("recordings")
+				? request.transaction?.objectStore("recordings")
+				: request.result.createObjectStore("recordings", { keyPath: "itemId" });
+			store?.createIndex("workspaceId", "workspaceId");
+		};
 		request.onsuccess = () => resolve(request.result);
 		request.onerror = () => reject(request.error);
 	});

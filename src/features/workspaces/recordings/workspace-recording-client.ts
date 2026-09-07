@@ -39,7 +39,7 @@ export async function createRecordingItem(input: {
 	);
 }
 
-/** Upload one completed file, then ensure its transcription is running. */
+/** Upload one completed file. Transcription has its own retry path. */
 export async function uploadRecording(recording: LocalWorkspaceRecording) {
 	const url = `/api/v1/workspaces/${recording.workspaceId}/recordings/${recording.itemId}`;
 	await requestRecordingJson(`${url}/audio`, {
@@ -52,7 +52,6 @@ export async function uploadRecording(recording: LocalWorkspaceRecording) {
 		},
 		body: recording.blob,
 	});
-	await retryRecordingTranscription(recording.workspaceId, recording.itemId);
 }
 
 /** Retry transcription without uploading the audio again. */

@@ -46,6 +46,7 @@ describe("continuous recording", () => {
 		capture.resume();
 		time += 10_000;
 		capture.finish();
+		capture.finish(); // Navigation cleanup before the final data/stop events.
 		expect(completed).toEqual([]);
 		recorder.data("last");
 		recorder.complete();
@@ -53,7 +54,7 @@ describe("continuous recording", () => {
 		expect(completed[0]?.durationMs).toBe(55_000);
 		expect(await completed[0]?.blob.text()).toBe("firstlast");
 	});
-	it("uses only remaining active time after pause and cancels without saving on exit", () => {
+	it("saves all bytes when the active-time limit stops capture, even if cleanup also finishes", () => {
 		vi.useFakeTimers();
 		const recorder = new Recorder();
 		let time = 10_000;
@@ -68,11 +69,26 @@ describe("continuous recording", () => {
 		capture.resume();
 		vi.advanceTimersByTime(1);
 		expect(recorder.state).toBe("inactive");
-		capture.cancel();
+		capture.finish();
 		recorder.data("last");
 		recorder.complete();
-		expect(completed).toEqual([]);
+		expect(completed[0]?.size).toBe(4);
 	});
+	it("stops at the size limit without discarding the final container bytes", async () => {
+		vi.useFakeTimers();
+		const recorder = new Recorder();
+		const completed: Blob[] = [];
+		captureWorkspaceRecording(recorder, (audio) => completed.push(audio.blob));
+		const megabyte = new Blob([new Uint8Array(1024 * 1024)]);
+		const data = new Blob(Array.from({ length: 96 }, () => megabyte));
+		recorder.dispatchEvent(Object.assign(new Event("dataavailable"), { data }));
+		expect(recorder.state).toBe("inactive");
+		recorder.data("tail");
+		recorder.complete();
+		expect(completed[0]?.size).toBe(data.size + 4);
+		expect(await completed[0]?.slice(-4).text()).toBe("tail");
+	});
+
 	it("completes an empty recording instead of leaving Done pending", () => {
 		vi.useFakeTimers();
 		const recorder = new Recorder();

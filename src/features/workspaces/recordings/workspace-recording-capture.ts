@@ -1,4 +1,7 @@
-import { workspaceRecordingMaxDurationMs } from "#/features/workspaces/recordings/workspace-recording";
+import {
+	workspaceRecordingMaxBytes,
+	workspaceRecordingMaxDurationMs,
+} from "#/features/workspaces/recordings/workspace-recording";
 
 type Recorder = EventTarget &
 	Pick<MediaRecorder, "start" | "stop" | "pause" | "resume" | "state" | "mimeType">;
@@ -12,7 +15,7 @@ export function captureWorkspaceRecording(
 	const chunks: Blob[] = [];
 	let accumulatedMs = 0;
 	let startedAt: number | null = null;
-	let cancelled = false;
+	let sizeBytes = 0;
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	const elapsedMs = () => accumulatedMs + (startedAt === null ? 0 : now() - startedAt);
 	const freezeClock = () => {
@@ -30,15 +33,18 @@ export function captureWorkspaceRecording(
 		timer = setTimeout(finish, Math.max(0, workspaceRecordingMaxDurationMs - accumulatedMs));
 	};
 	recorder.addEventListener("dataavailable", (event) => {
-		if ("data" in event && event.data instanceof Blob && event.data.size) chunks.push(event.data);
+		if ("data" in event && event.data instanceof Blob && event.data.size) {
+			chunks.push(event.data);
+			sizeBytes += event.data.size;
+			if (sizeBytes >= workspaceRecordingMaxBytes) finish();
+		}
 	});
 	recorder.addEventListener("stop", () => {
 		freezeClock();
-		if (!cancelled)
-			onComplete({
-				blob: new Blob(chunks, { type: recorder.mimeType }),
-				durationMs: Math.max(1, Math.round(accumulatedMs)),
-			});
+		onComplete({
+			blob: new Blob(chunks, { type: recorder.mimeType }),
+			durationMs: Math.max(1, Math.round(accumulatedMs)),
+		});
 	});
 	recorder.start(1_000);
 	startClock();
@@ -56,11 +62,6 @@ export function captureWorkspaceRecording(
 				recorder.resume();
 				startClock();
 			}
-		},
-		cancel: () => {
-			cancelled = true;
-			finish();
-			clearTimeout(timer);
 		},
 	};
 }
