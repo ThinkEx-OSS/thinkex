@@ -2,6 +2,7 @@ import {
 	CompletedRecordingUpload,
 	useCompletedRecordings,
 } from "#/features/workspaces/components/CompletedRecordingUpload";
+import { useBlocker } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { createContext, type ReactNode, use, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -31,6 +32,7 @@ interface WorkspaceRecordingContextValue {
 	resumeRecording: () => void;
 	stopRecording: () => void;
 	retryUpload: (recording: LocalWorkspaceRecording) => void;
+	discardUpload: (recording: LocalWorkspaceRecording) => void;
 }
 const WorkspaceRecordingContext = createContext<WorkspaceRecordingContextValue | null>(null);
 
@@ -58,6 +60,8 @@ export function WorkspaceRecordingProvider({
 		pendingUploads,
 		completeRecording: retainCompleted,
 		upload,
+		discard,
+		hasUnsavedAudio,
 	} = useCompletedRecordings(workspaceId, capabilities.canMutateContent);
 	const captureRef = useRef<ReturnType<typeof captureWorkspaceRecording> | null>(null);
 	const cleanupRef = useRef<(() => void) | null>(null);
@@ -69,20 +73,29 @@ export function WorkspaceRecordingProvider({
 		if (!capabilities.canMutateContent) return;
 		return () => {
 			mountedRef.current = false;
-			captureRef.current?.finish();
+			void captureRef.current?.finish();
 			captureRef.current = null;
 			cleanupRef.current?.();
 			cleanupRef.current = null;
 		};
 	}, [workspaceId, capabilities.canMutateContent]);
 
-	useEffect(() => {
-		const beforeUnload = (event: BeforeUnloadEvent) => {
-			if (captureRef.current || busyRef.current || pendingUploads.length) event.preventDefault();
-		};
-		window.addEventListener("beforeunload", beforeUnload);
-		return () => window.removeEventListener("beforeunload", beforeUnload);
-	}, [pendingUploads]);
+	useBlocker({
+		enableBeforeUnload: () => !!captureRef.current || busyRef.current || hasUnsavedAudio(),
+		shouldBlockFn: async ({ next }) => {
+			if ("workspaceId" in next.params && next.params.workspaceId === workspaceId) return false;
+			if (busyRef.current) {
+				toast.error("Wait for recording setup to finish before leaving.");
+				return true;
+			}
+			await captureRef.current?.finish();
+			if (!hasUnsavedAudio()) return false;
+			toast.error(
+				"Audio isn’t saved yet. Retry the upload, or download it and remove the local copy before leaving.",
+			);
+			return true;
+		},
+	});
 
 	useEffect(() => {
 		if (phase !== "recording") return;
@@ -149,7 +162,7 @@ export function WorkspaceRecordingProvider({
 							}
 							setTarget(null);
 							setPhase("setup");
-							void retainCompleted({ ...nextTarget, ...audio, uploadId: crypto.randomUUID() });
+							return retainCompleted({ ...nextTarget, ...audio, uploadId: crypto.randomUUID() });
 						});
 						recorder.addEventListener("error", () =>
 							toast.error("Recording was interrupted. Saving the captured audio."),
@@ -181,7 +194,7 @@ export function WorkspaceRecordingProvider({
 				onOpenItem(item);
 				return;
 			}
-			captureRef.current?.finish();
+			void captureRef.current?.finish();
 			if (captureRef.current) return;
 			setTarget(null);
 		}
@@ -241,13 +254,14 @@ export function WorkspaceRecordingProvider({
 				},
 				stopRecording: () => {
 					setPhase("finishing");
-					captureRef.current?.finish();
+					void captureRef.current?.finish();
 				},
 				retryUpload: (recording) => void upload(recording),
+				discardUpload: (recording) => void discard(recording),
 			}}
 		>
 			{children}
-			<div className="fixed bottom-4 right-4 z-50 max-h-96 max-w-sm overflow-auto space-y-2">
+			<div className="fixed bottom-20 sm:bottom-4 right-4 z-50 max-h-96 max-w-sm overflow-auto space-y-2">
 				{pendingUploads
 					.filter(({ recording }) => !itemsById.has(recording.itemId))
 					.map(({ recording, status }) => (
@@ -257,6 +271,7 @@ export function WorkspaceRecordingProvider({
 								name="Recovered recording"
 								busy={status !== "failed"}
 								onRetry={() => void upload(recording)}
+								onDiscard={() => void discard(recording)}
 							/>
 						</div>
 					))}

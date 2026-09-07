@@ -35,7 +35,9 @@ describe("continuous recording", () => {
 		const completed: { blob: Blob; durationMs: number }[] = [];
 		const capture = captureWorkspaceRecording(
 			recorder,
-			(audio) => completed.push(audio),
+			(audio) => {
+				completed.push(audio);
+			},
 			() => time,
 		);
 		recorder.data("first");
@@ -45,8 +47,8 @@ describe("continuous recording", () => {
 		time += 60_000;
 		capture.resume();
 		time += 10_000;
-		capture.finish();
-		capture.finish(); // Navigation cleanup before the final data/stop events.
+		void capture.finish();
+		void capture.finish(); // Navigation cleanup before the final data/stop events.
 		expect(completed).toEqual([]);
 		recorder.data("last");
 		recorder.complete();
@@ -61,7 +63,9 @@ describe("continuous recording", () => {
 		const completed: Blob[] = [];
 		const capture = captureWorkspaceRecording(
 			recorder,
-			(audio) => completed.push(audio.blob),
+			(audio) => {
+				completed.push(audio.blob);
+			},
 			() => time,
 		);
 		time += 3 * 60 * 60 * 1_000 - 1;
@@ -69,7 +73,7 @@ describe("continuous recording", () => {
 		capture.resume();
 		vi.advanceTimersByTime(1);
 		expect(recorder.state).toBe("inactive");
-		capture.finish();
+		void capture.finish();
 		recorder.data("last");
 		recorder.complete();
 		expect(completed[0]?.size).toBe(4);
@@ -78,9 +82,11 @@ describe("continuous recording", () => {
 		vi.useFakeTimers();
 		const recorder = new Recorder();
 		const completed: Blob[] = [];
-		captureWorkspaceRecording(recorder, (audio) => completed.push(audio.blob));
+		captureWorkspaceRecording(recorder, (audio) => {
+			completed.push(audio.blob);
+		});
 		const megabyte = new Blob([new Uint8Array(1024 * 1024)]);
-		const data = new Blob(Array.from({ length: 96 }, () => megabyte));
+		const data = new Blob(Array.from({ length: 88 }, () => megabyte));
 		recorder.dispatchEvent(Object.assign(new Event("dataavailable"), { data }));
 		expect(recorder.state).toBe("inactive");
 		recorder.data("tail");
@@ -89,12 +95,35 @@ describe("continuous recording", () => {
 		expect(await completed[0]?.slice(-4).text()).toBe("tail");
 	});
 
+	it("waits for completed audio persistence before allowing navigation", async () => {
+		vi.useFakeTimers();
+		const recorder = new Recorder();
+		let saved = () => {};
+		const persistence = new Promise<void>((resolve) => {
+			saved = resolve;
+		});
+		const capture = captureWorkspaceRecording(recorder, () => persistence);
+		let finished = false;
+		const completion = capture.finish().then(() => {
+			finished = true;
+		});
+		recorder.data("audio");
+		recorder.complete();
+		await Promise.resolve();
+		expect(finished).toBe(false);
+		saved();
+		await completion;
+		expect(finished).toBe(true);
+	});
+
 	it("completes an empty recording instead of leaving Done pending", () => {
 		vi.useFakeTimers();
 		const recorder = new Recorder();
 		const completed: Blob[] = [];
-		const capture = captureWorkspaceRecording(recorder, (audio) => completed.push(audio.blob));
-		capture.finish();
+		const capture = captureWorkspaceRecording(recorder, (audio) => {
+			completed.push(audio.blob);
+		});
+		void capture.finish();
 		recorder.complete();
 		expect(completed[0]?.size).toBe(0);
 	});

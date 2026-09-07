@@ -55,6 +55,7 @@ export function WorkspaceRecordingViewer({
 				busy={pending.status !== "failed"}
 				name={item.name}
 				onRetry={() => capture.retryUpload(pending.recording)}
+				onDiscard={() => capture.discardUpload(pending.recording)}
 			/>
 		);
 	if (recordingQuery.isPending)

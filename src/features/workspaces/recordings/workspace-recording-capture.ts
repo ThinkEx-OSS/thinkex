@@ -1,5 +1,5 @@
 import {
-	workspaceRecordingMaxBytes,
+	workspaceRecordingStopBytes,
 	workspaceRecordingMaxDurationMs,
 } from "#/features/workspaces/recordings/workspace-recording";
 
@@ -9,7 +9,7 @@ type Recorder = EventTarget &
 /** Capture one continuous file. Timeslices collect bytes in memory without restarting or saving. */
 export function captureWorkspaceRecording(
 	recorder: Recorder,
-	onComplete: (audio: { blob: Blob; durationMs: number }) => void,
+	onComplete: (audio: { blob: Blob; durationMs: number }) => void | Promise<void>,
 	now = () => performance.now(),
 ) {
 	const chunks: Blob[] = [];
@@ -24,26 +24,35 @@ export function captureWorkspaceRecording(
 		clearTimeout(timer);
 	};
 	const finish = () => {
-		if (recorder.state === "inactive") return;
-		freezeClock();
-		recorder.stop();
+		if (recorder.state !== "inactive") {
+			freezeClock();
+			recorder.stop();
+		}
+		return completed;
 	};
 	const startClock = () => {
 		startedAt = now();
-		timer = setTimeout(finish, Math.max(0, workspaceRecordingMaxDurationMs - accumulatedMs));
+		timer = setTimeout(
+			() => void finish(),
+			Math.max(0, workspaceRecordingMaxDurationMs - accumulatedMs),
+		);
 	};
 	recorder.addEventListener("dataavailable", (event) => {
 		if ("data" in event && event.data instanceof Blob && event.data.size) {
 			chunks.push(event.data);
 			sizeBytes += event.data.size;
-			if (sizeBytes >= workspaceRecordingMaxBytes) finish();
+			if (sizeBytes >= workspaceRecordingStopBytes) void finish();
 		}
 	});
-	recorder.addEventListener("stop", () => {
-		freezeClock();
-		onComplete({
-			blob: new Blob(chunks, { type: recorder.mimeType }),
-			durationMs: Math.max(1, Math.round(accumulatedMs)),
+	const completed = new Promise<void>((resolve, reject) => {
+		recorder.addEventListener("stop", () => {
+			freezeClock();
+			Promise.resolve(
+				onComplete({
+					blob: new Blob(chunks, { type: recorder.mimeType }),
+					durationMs: Math.max(1, Math.round(accumulatedMs)),
+				}),
+			).then(resolve, reject);
 		});
 	});
 	recorder.start(1_000);
