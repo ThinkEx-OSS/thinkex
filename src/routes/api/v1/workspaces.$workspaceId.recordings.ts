@@ -1,4 +1,4 @@
-import { workspaceRecordingCaptureEnabled } from "#/features/workspaces/recordings/workspace-recording";
+import { canCaptureWorkspaceRecording } from "#/features/workspaces/recordings/workspace-recording";
 import { env } from "cloudflare:workers";
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
@@ -20,15 +20,15 @@ const createRecordingSchema = z.object({
 
 async function handleCreateRecording(request: Request, workspaceId: string) {
 	const requestId = getRequestId(request);
-	if (!workspaceRecordingCaptureEnabled)
+	const session = await getSessionFromRequest(request);
+	if (!session) return apiError(requestId, 401, "UNAUTHORIZED", "You must be signed in.");
+	if (!canCaptureWorkspaceRecording(session.user.id))
 		return apiError(
 			requestId,
 			503,
 			"RECORDING_DISABLED",
 			"New recording is temporarily unavailable.",
 		);
-	const session = await getSessionFromRequest(request);
-	if (!session) return apiError(requestId, 401, "UNAUTHORIZED", "You must be signed in.");
 	const value: unknown = await request.json().catch(() => null);
 	const parsed = createRecordingSchema.safeParse(value);
 	if (!parsed.success) {

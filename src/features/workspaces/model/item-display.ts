@@ -1,4 +1,3 @@
-import { workspaceRecordingCaptureEnabled } from "#/features/workspaces/recordings/workspace-recording";
 import { FilePen, Folder, Layers3, ListChecks, Mic, Paperclip, Upload } from "lucide-react";
 
 import {
@@ -84,7 +83,7 @@ export const workspaceCreateMenuActionGroups = [
 			createWorkspaceItemAction("document"),
 			workspaceUploadAction,
 			createWorkspaceItemAction("folder"),
-			...(workspaceRecordingCaptureEnabled ? [workspaceRecordingAction] : []),
+			workspaceRecordingAction,
 		],
 	},
 	{

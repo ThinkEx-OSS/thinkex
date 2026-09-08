@@ -1,10 +1,11 @@
-import { workspaceRecordingCaptureEnabled } from "#/features/workspaces/recordings/workspace-recording";
+import { getAuthSessionQueryOptions } from "#/lib/session-query";
+import { canCaptureWorkspaceRecording } from "#/features/workspaces/recordings/workspace-recording";
 import {
 	CompletedRecordingUpload,
 	useCompletedRecordings,
 } from "#/features/workspaces/components/CompletedRecordingUpload";
 import { useBlocker } from "@tanstack/react-router";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createContext, type ReactNode, use, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { applyWorkspacePageDeltaToCache } from "#/features/workspaces/cache-page";
@@ -21,6 +22,7 @@ import type { LocalWorkspaceRecording } from "#/features/workspaces/recordings/w
 type Target = Pick<LocalWorkspaceRecording, "itemId" | "workspaceId" | "mimeType">;
 type Phase = "setup" | "recording" | "paused" | "finishing";
 interface WorkspaceRecordingContextValue {
+	canCapture: boolean;
 	requestRecording: (parentId: string | null) => void;
 	analyser: AnalyserNode | null;
 	captureItemId: string | null;
@@ -52,6 +54,8 @@ export function WorkspaceRecordingProvider({
 	workspaceId: string;
 }) {
 	const queryClient = useQueryClient();
+	const { data: authSession } = useQuery(getAuthSessionQueryOptions());
+	const canCapture = canCaptureWorkspaceRecording(authSession?.user.id);
 	const { capabilities } = useWorkspaceMutationAccess();
 	const [target, setTarget] = useState<Target | null>(null);
 	const [phase, setPhase] = useState<Phase>("setup");
@@ -95,7 +99,7 @@ export function WorkspaceRecordingProvider({
 	}, [phase]);
 
 	const startRecording = async (item?: WorkspaceItem, mimeType?: string) => {
-		if (!workspaceRecordingCaptureEnabled) return;
+		if (!canCapture) return;
 		const nextTarget = item && mimeType ? { itemId: item.id, workspaceId, mimeType } : target;
 		if (
 			!capabilities.canMutateContent ||
@@ -166,7 +170,7 @@ export function WorkspaceRecordingProvider({
 	};
 
 	const requestRecording = async (parentId: string | null) => {
-		if (!workspaceRecordingCaptureEnabled) return;
+		if (!canCapture) return;
 		const existingId = target?.itemId;
 		if (existingId) {
 			const item = itemsById.get(existingId);
@@ -212,6 +216,7 @@ export function WorkspaceRecordingProvider({
 	return (
 		<WorkspaceRecordingContext.Provider
 			value={{
+				canCapture,
 				requestRecording: (parentId) => void requestRecording(parentId),
 				analyser,
 				captureItemId: target?.itemId ?? null,

@@ -1,4 +1,3 @@
-import { workspaceRecordingCaptureEnabled } from "#/features/workspaces/recordings/workspace-recording";
 import { CompletedRecordingUpload } from "#/features/workspaces/components/CompletedRecordingUpload";
 import { useQuery } from "@tanstack/react-query";
 import { AlertCircle, LoaderCircle, Mic, Pause, Play, Square } from "lucide-react";
@@ -70,7 +69,7 @@ export function WorkspaceRecordingViewer({
 		return (
 			<RecordingState icon={<AlertCircle className="size-5" />} text="Couldn’t load recording." />
 		);
-	if (!recording.hasAudio && (!workspaceRecordingCaptureEnabled || !capabilities.canMutateContent))
+	if (!recording.hasAudio && (!capture.canCapture || !capabilities.canMutateContent))
 		return (
 			<RecordingItemSurface>
 				<RecordingNotice text="No audio has been saved. New recording is temporarily unavailable." />

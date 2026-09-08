@@ -62,14 +62,15 @@ export function WorkspaceCreateMenuContent({
 	const { capabilities } = useWorkspaceMutationAccess();
 	const readOnly = !capabilities.canMutateContent;
 	const { requestFileUpload } = useWorkspaceFileIntake();
-	const { requestRecording } = useWorkspaceRecording();
+	const { requestRecording, canCapture } = useWorkspaceRecording();
 	const actions = getWorkspaceCreateMenuActions({
 		parentId,
 		onCreateItem,
 		onUploadFile: requestFileUpload,
 		onRecord: requestRecording,
 	});
-	const menuActions = readOnly ? applyWorkspaceMenuReadOnly(actions) : actions;
+	const availableActions = actions.filter((action) => action.id !== "record" || canCapture);
+	const menuActions = readOnly ? applyWorkspaceMenuReadOnly(availableActions) : availableActions;
 
 	return (
 		<>

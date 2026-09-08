@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+	canCaptureWorkspaceRecording,
 	easeRecordingWaveformAmplitude,
 	scaleRecordingWaveformAmplitude,
 } from "#/features/workspaces/recordings/workspace-recording";
@@ -18,5 +19,13 @@ describe("workspace recording waveform", () => {
 		expect(falling).toBeGreaterThan(0);
 		expect(falling).toBeLessThan(1);
 		expect(rising).toBeGreaterThan(1 - falling);
+	});
+});
+
+describe("recording private trial", () => {
+	it("allows only the designated account", () => {
+		expect(canCaptureWorkspaceRecording("ooTflUkWpCSkxoaJMD1P8plVDWmhiA1w")).toBe(true);
+		expect(canCaptureWorkspaceRecording("another-user")).toBe(false);
+		expect(canCaptureWorkspaceRecording(undefined)).toBe(false);
 	});
 });
