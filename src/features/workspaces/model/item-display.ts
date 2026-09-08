@@ -1,4 +1,4 @@
-import { FilePen, Folder, Layers3, ListChecks, Paperclip, Upload } from "lucide-react";
+import { FilePen, FileWarning, Folder, Layers3, ListChecks, Paperclip, Upload } from "lucide-react";
 
 import {
 	type WorkspaceItem,
@@ -16,6 +16,7 @@ const workspaceItemIcons = {
 	flashcard: Layers3,
 	folder: Folder,
 	quiz: ListChecks,
+	unknown: FileWarning,
 } satisfies Record<WorkspaceItemType, typeof FilePen>;
 
 /**

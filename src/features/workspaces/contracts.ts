@@ -4,6 +4,9 @@ import {
 	getWorkspaceItemContentKind,
 	getWorkspaceItemRegistryEntry,
 	isWorkspaceItemContainer,
+	toWorkspaceItemDisplayType,
+	WORKSPACE_ITEM_PLACEHOLDER_TYPE,
+	workspaceItemStoredTypeSchema,
 	workspaceItemTypeSchema,
 	type WorkspaceItemType,
 } from "#/features/workspaces/workspace-item-registry";
@@ -14,6 +17,9 @@ export {
 	getWorkspaceItemContentKind,
 	getWorkspaceItemRegistryEntry,
 	isWorkspaceItemContainer,
+	toWorkspaceItemDisplayType,
+	WORKSPACE_ITEM_PLACEHOLDER_TYPE,
+	workspaceItemStoredTypeSchema,
 	workspaceItemTypeSchema,
 };
 export type { WorkspaceItemType };

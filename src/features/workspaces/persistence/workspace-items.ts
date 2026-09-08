@@ -6,6 +6,7 @@ import { createWorkspaceItemRefKey } from "#/features/workspaces/locations/works
 import {
 	type WorkspaceItem,
 	getWorkspaceItemContentKind,
+	workspaceItemStoredTypeSchema,
 	workspaceItemTypeSchema,
 	workspaceRelationKindSchema,
 } from "#/features/workspaces/contracts";
@@ -203,7 +204,7 @@ export async function createWorkspaceItem(
 	env: Cloudflare.Env,
 	input: WorkspaceScoped<CreateWorkspaceItemArgs>,
 ): Promise<WorkspaceMutationOutcome<WorkspaceItem>> {
-	const type = workspaceItemTypeSchema.parse(input.type);
+	const type = workspaceItemStoredTypeSchema.parse(input.type);
 	if (getWorkspaceItemContentKind(type) === "file") {
 		throw new Error("Binary workspace files must be created through the upload flow.");
 	}
@@ -480,7 +481,11 @@ export async function deleteWorkspaceItems(
 		const documentItemIds: string[] = [];
 		const fileItemIds: string[] = [];
 		for (const row of deletingRows) {
-			const contentKind = getWorkspaceItemContentKind(workspaceItemTypeSchema.parse(row.type));
+			// Tolerant parse so a leftover row of an unknown kind (e.g. one a
+			// reverted feature left behind) does not fail the whole subtree delete.
+			const parsedType = workspaceItemStoredTypeSchema.safeParse(row.type);
+			if (!parsedType.success) continue;
+			const contentKind = getWorkspaceItemContentKind(parsedType.data);
 			if (contentKind === "document") {
 				documentItemIds.push(row.id);
 			} else if (contentKind === "file") {
