@@ -33,7 +33,7 @@ export function recordWorkspaceFileReadOutcomes(input: {
 }
 
 function getFileReadProperties(result: WorkspaceContentReadResult) {
-	if (result.status === "pending" && result.type === "file") {
+	if (result.status === "pending") {
 		return {
 			elapsed_seconds: result.elapsedSeconds,
 			phase: result.phase,

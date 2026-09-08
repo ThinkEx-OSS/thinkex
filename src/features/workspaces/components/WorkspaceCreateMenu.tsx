@@ -18,7 +18,6 @@ import {
 	type WorkspaceMenuRenderer,
 } from "#/features/workspaces/components/workspace-menu-actions";
 import { useWorkspaceMutationAccess } from "#/features/workspaces/components/workspace-mutation-access";
-import { useWorkspaceRecording } from "#/features/workspaces/components/WorkspaceRecordingProvider";
 import {
 	WorkspaceViewerMenuNotice,
 	WorkspaceViewerRoleBadge,
@@ -62,12 +61,10 @@ export function WorkspaceCreateMenuContent({
 	const { capabilities } = useWorkspaceMutationAccess();
 	const readOnly = !capabilities.canMutateContent;
 	const { requestFileUpload } = useWorkspaceFileIntake();
-	const { requestRecording } = useWorkspaceRecording();
 	const actions = getWorkspaceCreateMenuActions({
 		parentId,
 		onCreateItem,
 		onUploadFile: requestFileUpload,
-		onRecord: requestRecording,
 	});
 	const menuActions = readOnly ? applyWorkspaceMenuReadOnly(actions) : actions;
 
@@ -93,10 +90,8 @@ function getWorkspaceCreateMenuActions({
 	parentId,
 	onCreateItem,
 	onUploadFile,
-	onRecord,
 }: WorkspaceCreateMenuProps & {
 	onUploadFile: (parentId: string | null) => void;
-	onRecord: (parentId: string | null) => void;
 }) {
 	return workspaceCreateMenuActionGroups.flatMap((group, index) => [
 		...(index > 0 ? [{ kind: "separator" as const, id: `create-${group.id}` }] : []),
@@ -107,9 +102,7 @@ function getWorkspaceCreateMenuActions({
 			leading: <action.Icon className={`size-4 ${action.iconClassName}`} />,
 			...(action.kind === "item"
 				? { onSelect: () => onCreateItem({ type: action.type, parentId }) }
-				: action.kind === "recording"
-					? { onSelect: () => onRecord(parentId) }
-					: { onSelect: () => onUploadFile(parentId) }),
+				: { onSelect: () => onUploadFile(parentId) }),
 		})),
 	]);
 }

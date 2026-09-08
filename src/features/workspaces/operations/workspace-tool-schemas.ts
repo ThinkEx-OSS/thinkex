@@ -313,9 +313,6 @@ export const workspaceReadItemsInputExamples = createInputExamples<
 		requests: [{ mode: "start", path: "/Demo Folder/Demo Quiz" }],
 	},
 	{
-		requests: [{ mode: "start", path: "/Demo Folder/Sep 4, 2026 at 1.24 AM Recording" }],
-	},
-	{
 		requests: [
 			{
 				mode: "pages",

@@ -17,7 +17,6 @@ const env = {} as Cloudflare.Env;
 const input = {
 	documentItemIds: ["document-1"],
 	fileItemIds: ["file-1"],
-	recordingItemIds: ["recording-1"],
 	workspaceId: "workspace-1",
 };
 
