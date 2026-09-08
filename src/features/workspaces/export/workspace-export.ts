@@ -18,6 +18,8 @@ import { readWorkspaceFileSource } from "#/features/workspaces/persistence/works
 import { WorkspaceForbiddenError } from "#/features/workspaces/server/permissions";
 import { getWorkspacePageForUser } from "#/features/workspaces/server/queries";
 import { getMetadataNumber } from "#/features/workspaces/model/workspace-file";
+import { readWorkspaceRecordingTranscript } from "#/features/workspaces/recordings/workspace-recording-persistence";
+import { serializeWorkspaceRecordingTranscriptToMarkdown } from "#/features/workspaces/recordings/workspace-recording-transcript";
 
 const textEncoder = new TextEncoder();
 
@@ -163,6 +165,15 @@ async function prepareWorkspaceExport(input: { workspaceId: string; userId: stri
 							item,
 							await readQuizSet({ itemId: item.id, workspaceId: input.workspaceId }),
 						);
+			estimatedBytes += textEncoder.encode(markdown).byteLength;
+			structuredMarkdown.set(item.id, markdown);
+			continue;
+		}
+		if (getWorkspaceItemContentKind(item.type) === "recording") {
+			const transcript = await readWorkspaceRecordingTranscript(item.id);
+			const markdown = transcript
+				? `# ${item.name}\n\n${serializeWorkspaceRecordingTranscriptToMarkdown(transcript)}\n`
+				: `# ${item.name}\n`;
 			estimatedBytes += textEncoder.encode(markdown).byteLength;
 			structuredMarkdown.set(item.id, markdown);
 		}

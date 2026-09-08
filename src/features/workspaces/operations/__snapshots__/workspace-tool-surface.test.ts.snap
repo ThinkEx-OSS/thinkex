@@ -1036,7 +1036,7 @@ exports[`workspace tool surface > workspace_read_items input schema is stable 1`
                 "type": "string",
               },
               "range": {
-                "description": "Up to 20 entry numbers. Flashcards and quiz questions take lists like 1, 3, 5-7; document blocks take one contiguous range like 5-12.",
+                "description": "Up to 20 entry numbers. Recording sections, flashcards, and quiz questions take lists like 1, 3, 5-7; document blocks take one contiguous range like 5-12.",
                 "minLength": 1,
                 "pattern": "^\\d+(?:\\s*-\\s*\\d+)?(?:\\s*,\\s*\\d+(?:\\s*-\\s*\\d+)?)*$",
                 "type": "string",
