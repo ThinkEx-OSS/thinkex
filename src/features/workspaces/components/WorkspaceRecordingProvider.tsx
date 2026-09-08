@@ -1,11 +1,9 @@
-import { getAuthSessionQueryOptions } from "#/lib/session-query";
-import { canCaptureWorkspaceRecording } from "#/features/workspaces/recordings/workspace-recording";
 import {
 	CompletedRecordingUpload,
 	useCompletedRecordings,
 } from "#/features/workspaces/components/CompletedRecordingUpload";
 import { useBlocker } from "@tanstack/react-router";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { createContext, type ReactNode, use, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { applyWorkspacePageDeltaToCache } from "#/features/workspaces/cache-page";
@@ -54,9 +52,8 @@ export function WorkspaceRecordingProvider({
 	workspaceId: string;
 }) {
 	const queryClient = useQueryClient();
-	const { data: authSession } = useQuery(getAuthSessionQueryOptions());
-	const canCapture = canCaptureWorkspaceRecording(authSession?.user.id);
 	const { capabilities } = useWorkspaceMutationAccess();
+	const canCapture = capabilities.canMutateContent;
 	const [target, setTarget] = useState<Target | null>(null);
 	const [phase, setPhase] = useState<Phase>("setup");
 	const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);

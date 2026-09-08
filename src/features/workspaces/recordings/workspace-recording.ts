@@ -1,8 +1,3 @@
-/** Private production trial; only the designated tester can start new recordings. */
-export function canCaptureWorkspaceRecording(userId: string | undefined) {
-	return userId === "ooTflUkWpCSkxoaJMD1P8plVDWmhiA1w";
-}
-
 /** Automatically stop after this much active capture; browser timers may fire late. */
 export const workspaceRecordingMaxDurationMs = 3 * 60 * 60 * 1_000;
 
