@@ -212,6 +212,7 @@ async function readWorkspaceItem(input: {
 		case "file":
 			return readFile(input);
 		case "folder":
+		case "unknown":
 			return { code: "unsupported_item_type", path: input.path, status: "failed" };
 		case "flashcard":
 			return readFlashcards(input);

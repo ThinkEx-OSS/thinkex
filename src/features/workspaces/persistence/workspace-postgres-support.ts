@@ -12,6 +12,7 @@ import {
 	type WorkspaceItem,
 	type WorkspaceItemType,
 	isWorkspaceItemContainer,
+	toWorkspaceItemDisplayType,
 	workspaceItemTypeSchema,
 } from "#/features/workspaces/contracts";
 import {
@@ -235,7 +236,10 @@ export async function requireWorkspaceFileAsset(db: QueryExecutor, itemId: strin
 }
 
 export function mapWorkspaceItem(row: ItemRow): WorkspaceItem {
-	const type = workspaceItemTypeSchema.parse(row.type);
+	// A row whose kind this build no longer knows (e.g. one a reverted feature
+	// left behind) degrades to a read-only placeholder rather than throwing and
+	// taking the whole workspace tree read down with it.
+	const type = toWorkspaceItemDisplayType(row.type);
 	return {
 		id: row.id,
 		workspaceId: row.workspaceId,

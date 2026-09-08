@@ -34,6 +34,7 @@ export function buildWorkspaceItemSearchText(type: WorkspaceItemType, content: s
 			);
 		case "file":
 		case "folder":
+		case "unknown":
 			return "";
 	}
 }
