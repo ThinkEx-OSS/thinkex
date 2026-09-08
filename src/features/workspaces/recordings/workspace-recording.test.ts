@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
 	canCaptureWorkspaceRecording,
+	computeRecordingWaveformBarWidth,
 	easeRecordingWaveformAmplitude,
 	scaleRecordingWaveformAmplitude,
 } from "#/features/workspaces/recordings/workspace-recording";
@@ -19,6 +20,19 @@ describe("workspace recording waveform", () => {
 		expect(falling).toBeGreaterThan(0);
 		expect(falling).toBeLessThan(1);
 		expect(rising).toBeGreaterThan(1 - falling);
+	});
+
+	it("gives each bar a positive width when the canvas is wide enough", () => {
+		expect(computeRecordingWaveformBarWidth(320, 32, 8)).toBeGreaterThan(0);
+	});
+
+	it("never returns a negative bar width on a collapsed canvas", () => {
+		expect(computeRecordingWaveformBarWidth(0, 32, 8)).toBe(0);
+		expect(computeRecordingWaveformBarWidth(1, 32, 8)).toBe(0);
+	});
+
+	it("returns zero width when the gaps alone fill the canvas", () => {
+		expect(computeRecordingWaveformBarWidth(8 * 31, 32, 8)).toBe(0);
 	});
 });
 

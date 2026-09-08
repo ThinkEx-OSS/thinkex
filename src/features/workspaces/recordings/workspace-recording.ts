@@ -17,6 +17,16 @@ export function scaleRecordingWaveformAmplitude(amplitude: number) {
 	return Math.min(1, Math.sqrt(Math.max(0, amplitude - 0.008) * 5));
 }
 
+/** Pixel width of one waveform bar; zero when the canvas is too narrow for the gaps. */
+export function computeRecordingWaveformBarWidth(
+	canvasWidth: number,
+	barCount: number,
+	gap: number,
+) {
+	const gapsWidth = gap * (barCount - 1);
+	return Math.max(0, (canvasWidth - gapsWidth) / barCount);
+}
+
 /** Move one displayed waveform bar toward its latest microphone sample. */
 export function easeRecordingWaveformAmplitude(
 	current: number,

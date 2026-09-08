@@ -12,6 +12,7 @@ import {
 	retryRecordingTranscription,
 } from "#/features/workspaces/recordings/workspace-recording-client";
 import {
+	computeRecordingWaveformBarWidth,
 	easeRecordingWaveformAmplitude,
 	scaleRecordingWaveformAmplitude,
 } from "#/features/workspaces/recordings/workspace-recording";
@@ -252,6 +253,13 @@ function RecordingWaveform({
 				canvas.width = width;
 				canvas.height = height;
 			}
+			const gap = 4 * scale;
+			const barWidth = computeRecordingWaveformBarWidth(width, barCount, gap);
+			if (barWidth <= 0) {
+				lastFrameAt = now;
+				animationFrame = requestAnimationFrame(draw);
+				return;
+			}
 			if (now - lastSampleAt >= 40) {
 				analyser.getByteTimeDomainData(samples);
 				let sumSquares = 0;
@@ -269,8 +277,6 @@ function RecordingWaveform({
 
 			context.clearRect(0, 0, width, height);
 			context.fillStyle = getComputedStyle(canvas).color;
-			const gap = 4 * scale;
-			const barWidth = (width - gap * (barCount - 1)) / barCount;
 			const elapsedMs = Math.min(50, now - lastFrameAt);
 			for (let bar = 0; bar < barCount; bar += 1) {
 				displayedAmplitudes[bar] = easeRecordingWaveformAmplitude(
