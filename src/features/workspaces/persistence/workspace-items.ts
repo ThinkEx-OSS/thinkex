@@ -479,15 +479,18 @@ export async function deleteWorkspaceItems(
 		// item type, so a new type backed by an existing store is collected here for free.
 		const documentItemIds: string[] = [];
 		const fileItemIds: string[] = [];
+		const recordingItemIds: string[] = [];
 		for (const row of deletingRows) {
 			const contentKind = getWorkspaceItemContentKind(workspaceItemTypeSchema.parse(row.type));
 			if (contentKind === "document") {
 				documentItemIds.push(row.id);
 			} else if (contentKind === "file") {
 				fileItemIds.push(row.id);
+			} else if (contentKind === "recording") {
+				recordingItemIds.push(row.id);
 			}
 		}
-		return { result, documentItemIds, fileItemIds, revision };
+		return { result, documentItemIds, fileItemIds, recordingItemIds, revision };
 	});
 	await Promise.all([
 		command.result.deletedItemIds.length > 0
@@ -498,11 +501,14 @@ export async function deleteWorkspaceItems(
 					itemIds: command.result.deletedItemIds,
 				})
 			: undefined,
-		command.documentItemIds.length > 0 || command.fileItemIds.length > 0
+		command.documentItemIds.length > 0 ||
+		command.fileItemIds.length > 0 ||
+		command.recordingItemIds.length > 0
 			? requestWorkspaceItemCleanup(env, {
 					workspaceId: input.workspaceId,
 					documentItemIds: command.documentItemIds,
 					fileItemIds: command.fileItemIds,
+					recordingItemIds: command.recordingItemIds,
 				})
 			: undefined,
 	]);

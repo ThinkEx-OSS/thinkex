@@ -1,4 +1,4 @@
-import { FilePen, Folder, Layers3, ListChecks, Paperclip, Upload } from "lucide-react";
+import { FilePen, Folder, Layers3, ListChecks, Mic, Paperclip, Upload } from "lucide-react";
 
 import {
 	type WorkspaceItem,
@@ -16,6 +16,7 @@ const workspaceItemIcons = {
 	flashcard: Layers3,
 	folder: Folder,
 	quiz: ListChecks,
+	recording: Mic,
 } satisfies Record<WorkspaceItemType, typeof FilePen>;
 
 /**
@@ -67,6 +68,14 @@ const workspaceUploadAction = {
 	iconClassName: workspaceColors[getWorkspaceItemTypeDisplay("file").color].iconClassName,
 };
 
+const workspaceRecordingAction = {
+	kind: "recording" as const,
+	id: "record",
+	label: getWorkspaceItemTypeDisplay("recording").menuLabel,
+	Icon: getWorkspaceItemTypeDisplay("recording").icon,
+	iconClassName: workspaceColors[getWorkspaceItemTypeDisplay("recording").color].iconClassName,
+};
+
 export const workspaceCreateMenuActionGroups = [
 	{
 		id: "primary",
@@ -74,6 +83,7 @@ export const workspaceCreateMenuActionGroups = [
 			createWorkspaceItemAction("document"),
 			workspaceUploadAction,
 			createWorkspaceItemAction("folder"),
+			workspaceRecordingAction,
 		],
 	},
 	{

@@ -13,6 +13,7 @@ import { hasActiveWorkspaceCapture } from "#/features/workspaces/components/Work
 import WorkspaceDragProvider from "#/features/workspaces/components/WorkspaceDragProvider";
 import { WorkspaceFileIntakeProvider } from "#/features/workspaces/components/WorkspaceFileIntakeProvider";
 import { WorkspaceFileUploadProvider } from "#/features/workspaces/components/WorkspaceFileUploadProvider";
+import { WorkspaceRecordingProvider } from "#/features/workspaces/components/WorkspaceRecordingProvider";
 import { WorkspaceItemToolbarProvider } from "#/features/workspaces/components/WorkspaceItemToolbarSlot";
 import { useWorkspaceFindStore } from "#/features/workspaces/find/workspace-find-store";
 import WorkspaceMobileLayout from "#/features/workspaces/components/WorkspaceMobileLayout";
@@ -305,18 +306,26 @@ export function WorkspaceShell({
 
 	const workspaceInteractionContent = (
 		<WorkspaceFileUploadProvider workspaceId={workspace.id}>
-			<WorkspaceFileIntakeProvider>
-				<WorkspaceDragProvider
-					items={scopedItems}
-					workspaceId={workspace.id}
-					onMoveItems={moveWorkspaceItemsMutation.mutate}
-					onWorkspaceDragCommand={dispatchWorkspaceDragCommand}
-				>
-					<WorkspaceViewCapabilitiesProvider capabilities={viewCapabilities}>
-						<WorkspaceItemToolbarProvider>{presentationContent}</WorkspaceItemToolbarProvider>
-					</WorkspaceViewCapabilitiesProvider>
-				</WorkspaceDragProvider>
-			</WorkspaceFileIntakeProvider>
+			<WorkspaceRecordingProvider
+				key={workspace.id}
+				workspaceId={workspace.id}
+				activeItemId={activeItem?.id}
+				itemsById={itemsById}
+				onOpenItem={openItem}
+			>
+				<WorkspaceFileIntakeProvider>
+					<WorkspaceDragProvider
+						items={scopedItems}
+						workspaceId={workspace.id}
+						onMoveItems={moveWorkspaceItemsMutation.mutate}
+						onWorkspaceDragCommand={dispatchWorkspaceDragCommand}
+					>
+						<WorkspaceViewCapabilitiesProvider capabilities={viewCapabilities}>
+							<WorkspaceItemToolbarProvider>{presentationContent}</WorkspaceItemToolbarProvider>
+						</WorkspaceViewCapabilitiesProvider>
+					</WorkspaceDragProvider>
+				</WorkspaceFileIntakeProvider>
+			</WorkspaceRecordingProvider>
 		</WorkspaceFileUploadProvider>
 	);
 	const studyParent = studyDraft?.parentId ? itemsById.get(studyDraft.parentId) : undefined;

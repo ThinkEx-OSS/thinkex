@@ -69,6 +69,7 @@
 		"@embedpdf/plugin-tiling": "^2.15.0",
 		"@embedpdf/plugin-viewport": "^2.15.0",
 		"@embedpdf/plugin-zoom": "^2.15.0",
+		"@fix-webm-duration/fix": "1.0.1",
 		"@fontsource-variable/geist": "5.3.0",
 		"@modelcontextprotocol/sdk": "1.29.0",
 		"@posthog/ai": "^8.7.1",

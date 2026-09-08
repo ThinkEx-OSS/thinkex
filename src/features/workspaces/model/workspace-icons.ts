@@ -326,12 +326,7 @@ export const workspaceIconOptions = [
 		"photo",
 		"field work",
 	]),
-	icon("video", "Video", Video, "humanities", [
-		"film",
-		"lecture recording",
-		"media",
-		"presentation",
-	]),
+	icon("video", "Video", Video, "humanities", ["film", "recording", "media", "presentation"]),
 	icon("theater", "Theater", Theater, "humanities", ["drama", "performance", "acting", "arts"]),
 	icon("scale", "Law", Scale, "humanities", ["justice", "policy", "ethics", "government"]),
 	icon("gavel", "Legal", Gavel, "humanities", ["law", "court", "judge", "regulation"]),
