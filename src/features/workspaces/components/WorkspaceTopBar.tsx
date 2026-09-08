@@ -1,4 +1,4 @@
-import { Ellipsis, MessageSquare, Square } from "lucide-react";
+import { Ellipsis, MessageSquare } from "lucide-react";
 import type { ReactNode } from "react";
 
 import UserProfileDropdown from "#/components/UserProfileDropdown";
@@ -77,31 +77,26 @@ export default function WorkspaceTopBar({
 			actions={
 				<>
 					{showRecording ? (
-						<div className="flex items-center gap-0.5">
-							<button
-								type="button"
-								className="flex h-7 min-w-0 items-center gap-1.5 rounded-md px-1.5 text-muted-foreground text-xs hover:bg-muted hover:text-foreground"
-								aria-label={`Open ${recordingItem?.name ?? "recording"}`}
-								onClick={recording.openCaptureItem}
-							>
-								<span className="size-1.5 rounded-full bg-rose-500" />
-								<span className="font-medium tabular-nums">
-									{recording.phase === "recording"
-										? formatRecordingTimestamp(recording.elapsedMs)
-										: recording.phase === "paused"
-											? "Paused"
+						<button
+							type="button"
+							className="flex h-7 min-w-0 items-center gap-2 rounded-full bg-muted/60 px-2.5 text-muted-foreground text-xs transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+							aria-label={`Open ${recordingItem?.name ?? "recording"}`}
+							onClick={recording.openCaptureItem}
+						>
+							<span
+								aria-hidden="true"
+								className={`size-1.5 rounded-full ${recording.phase === "recording" ? "bg-rose-500 motion-safe:animate-pulse" : "bg-muted-foreground"}`}
+							/>
+							<span className="font-medium tabular-nums">
+								{recording.phase === "recording"
+									? formatRecordingTimestamp(recording.elapsedMs)
+									: recording.phase === "paused"
+										? "Paused"
+										: recording.phase === "starting"
+											? "Starting…"
 											: "Finishing…"}
-								</span>
-							</button>
-							<WorkspaceToolbarIconButton
-								className="size-7 text-muted-foreground hover:text-rose-600"
-								disabled={recording.phase === "finishing"}
-								aria-label="Finish recording"
-								onClick={recording.stopRecording}
-							>
-								<Square className="size-2.5 fill-current" />
-							</WorkspaceToolbarIconButton>
-						</div>
+							</span>
+						</button>
 					) : null}
 					<WorkspacePresence status={presence.status} users={presence.users} />
 					{/* ponytail: Share/more keep the Search/New token; a little more space before the avatar so it reads as account, not a third toolbar icon. */}
