@@ -38,21 +38,17 @@ export function CompletedRecordingUpload({
 	}, [blob]);
 	const oversized = blob.size > workspaceRecordingMaxBytes;
 	return (
-		<div className="space-y-4 p-4">
-			<p>
+		<div className="flex min-h-full w-full flex-col gap-6 px-6 py-8">
+			<audio ref={audioRef} controls className="mx-auto w-full max-w-3xl" />
+			<p className="mx-auto w-full max-w-3xl text-muted-foreground text-sm" role="status">
 				{busy
 					? "Saving recording…"
 					: oversized
 						? "Audio exceeds 96 MiB. Download it to keep your recording."
 						: "Retry the upload or download your audio."}
 			</p>
-			<audio ref={audioRef} controls className="mx-auto w-full max-w-3xl" />
-			<div className="mx-auto flex gap-3">
-				{!oversized && (
-					<Button disabled={busy} onClick={onRetry}>
-						Retry upload
-					</Button>
-				)}
+			<div className={busy ? "hidden" : "mx-auto flex w-full max-w-3xl gap-3"}>
+				{!oversized && <Button onClick={onRetry}>Retry upload</Button>}
 				<a
 					className="inline-flex items-center text-sm underline"
 					ref={downloadRef}
@@ -62,7 +58,6 @@ export function CompletedRecordingUpload({
 				</a>
 				<Button
 					variant="ghost"
-					disabled={busy}
 					onClick={() => {
 						if (
 							window.confirm(
@@ -136,9 +131,6 @@ export function useCompletedRecordings(workspaceId: string, enabled: boolean) {
 		unsaved.current.delete(recording.itemId);
 		// Once audio is on the server, transcription failure must never cause another upload.
 		await deleteLocalWorkspaceRecording(recording.itemId).catch(() => undefined);
-		setPendingUploads((current) =>
-			current.filter((pending) => pending.recording.itemId !== recording.itemId),
-		);
 		try {
 			await retryRecordingTranscription(recording.workspaceId, recording.itemId);
 		} catch {
@@ -147,6 +139,9 @@ export function useCompletedRecordings(workspaceId: string, enabled: boolean) {
 		await queryClient.invalidateQueries({
 			queryKey: ["workspace-recording", recording.workspaceId, recording.itemId],
 		});
+		setPendingUploads((current) =>
+			current.filter((pending) => pending.recording.itemId !== recording.itemId),
+		);
 	};
 
 	const completeRecording = async (completed: LocalWorkspaceRecording) => {

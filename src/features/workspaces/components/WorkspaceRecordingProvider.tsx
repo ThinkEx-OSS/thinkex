@@ -20,7 +20,7 @@ import {
 import type { LocalWorkspaceRecording } from "#/features/workspaces/recordings/workspace-recording-local-store";
 
 type Target = Pick<LocalWorkspaceRecording, "itemId" | "workspaceId" | "mimeType">;
-type Phase = "setup" | "recording" | "paused" | "finishing";
+type Phase = "setup" | "starting" | "recording" | "paused" | "finishing";
 interface WorkspaceRecordingContextValue {
 	canCapture: boolean;
 	requestRecording: (parentId: string | null) => void;
@@ -111,7 +111,7 @@ export function WorkspaceRecordingProvider({
 			return;
 		busyRef.current = true;
 		setTarget(nextTarget);
-		setPhase("finishing");
+		setPhase("starting");
 		try {
 			await navigator.locks.request(
 				"thinkex-microphone-recording",
@@ -274,7 +274,9 @@ export function WorkspaceRecordingProvider({
 						? formatRecordingTimestamp(elapsedMs)
 						: phase === "paused"
 							? "Paused"
-							: "Saving…"}{" "}
+							: phase === "starting"
+								? "Starting…"
+								: "Saving…"}{" "}
 					· Open recording
 				</button>
 			) : null}

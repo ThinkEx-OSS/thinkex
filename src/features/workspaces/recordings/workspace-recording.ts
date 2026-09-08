@@ -16,13 +16,3 @@ export const workspaceRecordingStopBytes = workspaceRecordingMaxBytes - 8 * 1_02
 export function scaleRecordingWaveformAmplitude(amplitude: number) {
 	return Math.min(1, Math.sqrt(Math.max(0, amplitude - 0.008) * 5));
 }
-
-/** Move one displayed waveform bar toward its latest microphone sample. */
-export function easeRecordingWaveformAmplitude(
-	current: number,
-	target: number,
-	elapsedMs = 1000 / 60,
-) {
-	const responseMs = target > current ? 85 : 220;
-	return current + (target - current) * (1 - Math.exp(-elapsedMs / responseMs));
-}

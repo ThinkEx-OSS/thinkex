@@ -11,10 +11,7 @@ import {
 	getRecording,
 	retryRecordingTranscription,
 } from "#/features/workspaces/recordings/workspace-recording-client";
-import {
-	easeRecordingWaveformAmplitude,
-	scaleRecordingWaveformAmplitude,
-} from "#/features/workspaces/recordings/workspace-recording";
+import { scaleRecordingWaveformAmplitude } from "#/features/workspaces/recordings/workspace-recording";
 import { formatRecordingTimestamp } from "#/features/workspaces/recordings/workspace-recording-transcript";
 
 /** Record, retry a completed upload, or play a single audio file and its transcript. */
@@ -35,6 +32,17 @@ export function WorkspaceRecordingViewer({
 		refetchInterval: (query) => (query.state.data?.status === "processing" ? 3_000 : false),
 	});
 	const recording = recordingQuery.data;
+	const pending = capture.pendingUploads.find(({ recording }) => recording.itemId === item.id);
+	if (pending)
+		return (
+			<CompletedRecordingUpload
+				blob={pending.recording.blob}
+				busy={pending.status !== "failed"}
+				name={item.name}
+				onRetry={() => capture.retryUpload(pending.recording)}
+				onDiscard={() => capture.discardUpload(pending.recording)}
+			/>
+		);
 	if (capture.captureItemId === item.id)
 		return (
 			<RecordingCaptureSurface
@@ -45,17 +53,6 @@ export function WorkspaceRecordingViewer({
 				onResume={capture.resumeRecording}
 				onStart={() => capture.startRecording()}
 				onStop={capture.stopRecording}
-			/>
-		);
-	const pending = capture.pendingUploads.find(({ recording }) => recording.itemId === item.id);
-	if (pending)
-		return (
-			<CompletedRecordingUpload
-				blob={pending.recording.blob}
-				busy={pending.status !== "failed"}
-				name={item.name}
-				onRetry={() => capture.retryUpload(pending.recording)}
-				onDiscard={() => capture.discardUpload(pending.recording)}
 			/>
 		);
 	if (recordingQuery.isPending)
@@ -106,7 +103,7 @@ export function WorkspaceRecordingViewer({
 								: (recording.errorMessage ?? "Audio saved. Start transcription when ready.")
 						}
 					/>
-					{capabilities.canMutateContent ? (
+					{capabilities.canMutateContent && recording.status !== "processing" ? (
 						<Button
 							disabled={retrying}
 							onClick={() => {
@@ -163,7 +160,7 @@ function RecordingCaptureSurface({
 	onStop,
 }: {
 	analyser: AnalyserNode | null;
-	phase: "setup" | "recording" | "paused" | "finishing";
+	phase: ReturnType<typeof useWorkspaceRecording>["phase"];
 	elapsedMs: number;
 	onPause: () => void;
 	onResume: () => void;
@@ -174,7 +171,7 @@ function RecordingCaptureSurface({
 		<RecordingItemSurface>
 			<div className="flex flex-1 flex-col items-center justify-center gap-5 px-6 py-10 text-center">
 				<div className="flex size-20 items-center justify-center rounded-full bg-rose-500/10 text-rose-600">
-					{phase === "finishing" ? (
+					{phase === "finishing" || phase === "starting" ? (
 						<LoaderCircle className="size-8 animate-spin" />
 					) : (
 						<Mic className="size-8" />
@@ -188,7 +185,9 @@ function RecordingCaptureSurface({
 								? formatRecordingTimestamp(elapsedMs)
 								: phase === "paused"
 									? `${formatRecordingTimestamp(elapsedMs)} · Paused`
-									: "Saving…"}
+									: phase === "starting"
+										? "Starting microphone…"
+										: "Saving…"}
 					</p>
 				</div>
 				{phase === "recording" || phase === "paused" ? (
@@ -229,82 +228,48 @@ function RecordingWaveform({
 	analyser: AnalyserNode | null;
 	paused: boolean;
 }) {
-	const canvasRef = useRef<HTMLCanvasElement>(null);
-
+	const barsRef = useRef<HTMLDivElement>(null);
 	useEffect(() => {
-		const canvas = canvasRef.current;
-		if (!analyser || !canvas) return;
-		const context = canvas.getContext("2d");
-		if (!context) return;
+		const bars = barsRef.current;
+		if (!analyser || !bars || paused) return;
 		const samples = new Uint8Array(analyser.frequencyBinCount);
-		const barCount = 32;
-		const targetAmplitudes = new Float32Array(barCount);
-		const displayedAmplitudes = new Float32Array(barCount);
-		let animationFrame = 0;
-		let lastFrameAt = performance.now();
-		let lastSampleAt = 0;
-
-		const draw = (now: number) => {
-			const scale = window.devicePixelRatio || 1;
-			const width = Math.max(1, Math.round(canvas.clientWidth * scale));
-			const height = Math.max(1, Math.round(canvas.clientHeight * scale));
-			if (canvas.width !== width || canvas.height !== height) {
-				canvas.width = width;
-				canvas.height = height;
+		const amplitudes = new Float32Array(32);
+		const timer = window.setInterval(() => {
+			if (!bars.clientWidth) return;
+			analyser.getByteTimeDomainData(samples);
+			let sumSquares = 0;
+			let peak = 0;
+			for (const sample of samples) {
+				const value = Math.abs(sample - 128) / 128;
+				sumSquares += value * value;
+				peak = Math.max(peak, value);
 			}
-			if (now - lastSampleAt >= 40) {
-				analyser.getByteTimeDomainData(samples);
-				let sumSquares = 0;
-				let peak = 0;
-				for (const sample of samples) {
-					const value = Math.abs(sample - 128) / 128;
-					sumSquares += value * value;
-					peak = Math.max(peak, value);
-				}
-				const rms = Math.sqrt(sumSquares / samples.length);
-				targetAmplitudes.copyWithin(0, 1);
-				targetAmplitudes[barCount - 1] = scaleRecordingWaveformAmplitude(rms * 0.75 + peak * 0.25);
-				lastSampleAt = now;
-			}
-
-			context.clearRect(0, 0, width, height);
-			context.fillStyle = getComputedStyle(canvas).color;
-			const gap = 4 * scale;
-			const barWidth = (width - gap * (barCount - 1)) / barCount;
-			const elapsedMs = Math.min(50, now - lastFrameAt);
-			for (let bar = 0; bar < barCount; bar += 1) {
-				displayedAmplitudes[bar] = easeRecordingWaveformAmplitude(
-					displayedAmplitudes[bar],
-					targetAmplitudes[bar],
-					elapsedMs,
-				);
-				const barHeight = Math.max(2 * scale, displayedAmplitudes[bar] * height * 0.8);
-				context.globalAlpha = 0.35 + 0.65 * (bar / (barCount - 1));
-				context.beginPath();
-				context.roundRect(
-					bar * (barWidth + gap),
-					(height - barHeight) / 2,
-					barWidth,
-					barHeight,
-					barWidth / 2,
-				);
-				context.fill();
-			}
-			context.globalAlpha = 1;
-			lastFrameAt = now;
-			animationFrame = requestAnimationFrame(draw);
-		};
-
-		animationFrame = requestAnimationFrame(draw);
-		return () => cancelAnimationFrame(animationFrame);
-	}, [analyser]);
+			amplitudes.copyWithin(0, 1);
+			amplitudes[31] = scaleRecordingWaveformAmplitude(
+				Math.sqrt(sumSquares / samples.length) * 0.75 + peak * 0.25,
+			);
+			Array.from(bars.children).forEach((bar, index) => {
+				if (bar instanceof HTMLElement)
+					bar.style.height = `${Math.max(4, amplitudes[index] * 80)}%`;
+			});
+		}, 40);
+		return () => window.clearInterval(timer);
+	}, [analyser, paused]);
 
 	return (
-		<canvas
-			ref={canvasRef}
-			className={`h-12 w-full max-w-80 text-rose-500 transition-opacity ${paused ? "opacity-45" : "opacity-100"}`}
+		<div
+			ref={barsRef}
+			className={`flex h-12 w-full max-w-80 items-center gap-1 text-rose-500 transition-opacity ${paused ? "opacity-45" : "opacity-100"}`}
 			aria-hidden="true"
-		/>
+		>
+			{Array.from({ length: 32 }, (_, index) => (
+				<span
+					key={index}
+					className="min-w-0 flex-1 rounded-full bg-current motion-safe:transition-[height] motion-safe:duration-100"
+					style={{ height: "4%", opacity: 0.35 + 0.65 * (index / 31) }}
+				/>
+			))}
+		</div>
 	);
 }
 
