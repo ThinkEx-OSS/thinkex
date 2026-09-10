@@ -13,7 +13,10 @@ import {
 import type { SerializedAiChatThreadTranscript } from "#/features/workspaces/ai/chat/functions";
 import { deriveAiChatPresentation } from "#/features/workspaces/components/ai-chat/ai-chat-display-state";
 import { isAiChatUsageLimitResponse } from "#/features/workspaces/components/ai-chat/ai-chat-error-state";
-import { serverTranscriptAdvanced } from "#/features/workspaces/components/ai-chat/ai-chat-transcript-recovery";
+import {
+	serverTranscriptAdvanced,
+	transcriptsEqual,
+} from "#/features/workspaces/components/ai-chat/ai-chat-transcript-recovery";
 import {
 	parseCodemodeActivityEvent,
 	type AiChatLiveCodemodeActivity,
@@ -175,6 +178,14 @@ export function useWorkspaceAiChat({
 		// Once Postgres says the turn is settled, its complete snapshot wins. IDs
 		// and lengths are insufficient: the SDK's local row can share an id with
 		// the durable row while lacking its interrupted/error metadata.
+		//
+		// Compare before setting. The SDK copies the array on every set, so an
+		// unconditional set here changes `messages` identity, re-fires this effect
+		// (which lists `messages`), and the two feed each other until React throws
+		// error #185.
+		if (transcriptsEqual(messages, transcriptData)) {
+			return;
+		}
 		setMessages(transcriptData);
 		if (recoveredAfterError) {
 			clearError();

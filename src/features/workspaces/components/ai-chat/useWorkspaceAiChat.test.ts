@@ -1,7 +1,24 @@
 import { describe, expect, it } from "vitest";
 
 import type { AiChatMessage } from "#/features/workspaces/components/ai-chat/types";
-import { serverTranscriptAdvanced } from "#/features/workspaces/components/ai-chat/ai-chat-transcript-recovery";
+import {
+	serverTranscriptAdvanced,
+	transcriptsEqual,
+} from "#/features/workspaces/components/ai-chat/ai-chat-transcript-recovery";
+
+describe("transcript equality", () => {
+	it("treats a fresh copy of the same transcript as equal", () => {
+		const messages = [userMessage("user-1", "hello"), assistantMessage("reply-1", "hi")];
+		// The settle effect stops here: it never re-copies an unchanged snapshot.
+		expect(transcriptsEqual(messages, [...messages])).toBe(true);
+	});
+
+	it("sees durable metadata missing from the local row as a difference", () => {
+		const local = assistantMessage("reply-1", "partial");
+		const stored = { ...local, metadata: { turnStatus: "interrupted" } };
+		expect(transcriptsEqual([local], [stored])).toBe(false);
+	});
+});
 
 describe("server transcript recovery", () => {
 	it("keeps an unpersisted user tail after a refused request", () => {
