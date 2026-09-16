@@ -7,6 +7,7 @@ import {
 	type TiptapDocumentJson,
 } from "#/features/workspaces/documents/tiptap-document";
 import { getTiptapDocumentSchema } from "#/features/workspaces/documents/tiptap-schema";
+import { stripControlCharacters } from "#/features/workspaces/documents/text-sanitization";
 
 export const WORKSPACE_DOCUMENT_PREVIEW_TEXT_METADATA_KEY = "previewText";
 export const WORKSPACE_DOCUMENT_PREVIEW_MAX_LINES = 11;
@@ -91,7 +92,9 @@ function getMathLatex(value: unknown) {
 }
 
 function normalizeDocumentPreviewText(text: string) {
-	return text
+	// Both the preview excerpt (jsonb metadata) and the search text projection
+	// flow through here, so strip control characters that Postgres refuses.
+	return stripControlCharacters(text)
 		.replace(/\r\n/g, "\n")
 		.split("\n")
 		.map((line) => line.replace(/[\t ]+/g, " ").trim())
