@@ -160,6 +160,31 @@ export interface PostHogEventPropertiesByName {
 	upgrade_checkout_started: {
 		reason: string | null;
 	};
+	/**
+	 * A document widget rendered its sandbox frame for the first time. The
+	 * library flags are the only demand signal for graphing: without them an
+	 * interactive plot is invisible inside generic document edits. `uses_uplot`
+	 * or `uses_mathjs` marks a graph widget apart from an ordinary one.
+	 */
+	widget_rendered: {
+		uses_katex: boolean;
+		uses_mathjs: boolean;
+		uses_uplot: boolean;
+		html_length: number;
+	};
+	/**
+	 * A widget frame reported a runtime error the sandbox forwarded over
+	 * postMessage. Counted once per render so a widget that fails on every click
+	 * does not flood the metric. `preserved_frame` separates a crash after a
+	 * working render from one that broke the first paint.
+	 */
+	widget_render_failed: {
+		uses_katex: boolean;
+		uses_mathjs: boolean;
+		uses_uplot: boolean;
+		html_length: number;
+		preserved_frame: boolean;
+	};
 	workspace_file_intake_completed: {
 		asset_kind: string | null;
 		conversion: string | null;
@@ -182,7 +207,9 @@ export type PostHogClientEventName =
 	| "workspace_export_too_large"
 	| "auth_started"
 	| "upgrade_prompt_clicked"
-	| "upgrade_checkout_started";
+	| "upgrade_checkout_started"
+	| "widget_rendered"
+	| "widget_render_failed";
 export type PostHogServerEventName = Exclude<PostHogEventName, PostHogClientEventName>;
 
 export function buildWorkspaceCreatedEventProperties(
