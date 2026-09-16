@@ -37,8 +37,9 @@ Bundled references are included below; consult them when they apply:
 
 - For a new widget or a ground-up rebuild, follow `references/starter.md` before writing source.
 - For any `<canvas>` drawing, follow `references/canvas.md` before writing source.
+- For a function graph, follow `references/graphing.md` before writing source.
 
-Use the document tool's HTML math markup. The runtime renders matching math elements when they are added or changed. KaTeX is the only bundled library; create other diagrams and charts with inline SVG or canvas.
+Use the document tool's HTML math markup. The runtime renders matching math elements when they are added or changed. Three libraries are bundled: KaTeX for math markup, `math` (mathjs) to parse and evaluate expressions, and `uPlot` to plot function graphs with axes and a grid. Reference a library only when the widget needs it. Create other diagrams and charts with inline SVG or canvas.
 
 ## Edit
 
