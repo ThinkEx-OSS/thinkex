@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 
 import { user } from "#/db/schema";
-import { createDbContext } from "#/db/server";
+import { withDb } from "#/db/server";
 import { getOrCreateAutumnCustomer, trackAutumnBalance } from "#/integrations/autumn/rest";
 import { resolveAutumnSecretKey } from "#/integrations/autumn/secret-key";
 import { recordOperationalFailure } from "#/integrations/observability/operational-events";
@@ -23,50 +23,63 @@ const DEFAULT_AUTUMN_CUSTOMER_FIELDS = {
 	},
 } as const satisfies AutumnCustomerFields;
 
-export async function getAutumnCustomerFields(userId: string): Promise<AutumnCustomerFields> {
-	let dbContext: Awaited<ReturnType<typeof createDbContext>> | undefined;
+// One retry: the read is a single indexed lookup and the failure seen here is a
+// transient Postgres internal error, so a fresh connection usually succeeds.
+const MAX_READ_ATTEMPTS = 2;
 
-	try {
-		dbContext = await createDbContext();
+/**
+ * Null means the read failed and the caller must skip the Autumn write: a
+ * get_or_create with empty identity fields overwrites the stored name, email, and
+ * account type. Defaults are returned only when the user genuinely has no row.
+ */
+export async function getAutumnCustomerFields(
+	userId: string,
+): Promise<AutumnCustomerFields | null> {
+	let lastError: unknown;
 
-		const [row] = await dbContext.db
-			.select({
-				createdAt: user.createdAt,
-				email: user.email,
-				emailVerified: user.emailVerified,
-				isAnonymous: user.isAnonymous,
-				name: user.name,
-			})
-			.from(user)
-			.where(eq(user.id, userId))
-			.limit(1);
+	for (let attempt = 0; attempt < MAX_READ_ATTEMPTS; attempt += 1) {
+		try {
+			return await withDb(async (db) => {
+				const [row] = await db
+					.select({
+						createdAt: user.createdAt,
+						email: user.email,
+						emailVerified: user.emailVerified,
+						isAnonymous: user.isAnonymous,
+						name: user.name,
+					})
+					.from(user)
+					.where(eq(user.id, userId))
+					.limit(1);
 
-		if (!row) {
-			return DEFAULT_AUTUMN_CUSTOMER_FIELDS;
+				if (!row) {
+					return DEFAULT_AUTUMN_CUSTOMER_FIELDS;
+				}
+
+				const isAnonymous = Boolean(row.isAnonymous);
+
+				return {
+					...(isAnonymous ? {} : getNamedCustomerFields(row)),
+					metadata: {
+						...DEFAULT_AUTUMN_CUSTOMER_FIELDS.metadata,
+						account_type: isAnonymous ? "anonymous" : "registered",
+						email_verified: row.emailVerified,
+						user_created_at: row.createdAt.toISOString(),
+					},
+				};
+			});
+		} catch (error) {
+			lastError = error;
 		}
-
-		const isAnonymous = Boolean(row.isAnonymous);
-
-		return {
-			...(isAnonymous ? {} : getNamedCustomerFields(row)),
-			metadata: {
-				...DEFAULT_AUTUMN_CUSTOMER_FIELDS.metadata,
-				account_type: isAnonymous ? "anonymous" : "registered",
-				email_verified: row.emailVerified,
-				user_created_at: row.createdAt.toISOString(),
-			},
-		};
-	} catch (error) {
-		recordOperationalFailure({
-			distinctId: userId,
-			error,
-			event: "autumn_customer_fields",
-		});
-
-		return DEFAULT_AUTUMN_CUSTOMER_FIELDS;
-	} finally {
-		await dbContext?.dispose();
 	}
+
+	recordOperationalFailure({
+		distinctId: userId,
+		error: lastError,
+		event: "autumn_customer_fields",
+	});
+
+	return null;
 }
 
 function getNamedCustomerFields(row: { email: string; name: string }) {
@@ -103,7 +116,12 @@ export async function trackAutumnUsage(input: TrackAutumnUsageInput) {
 	try {
 		const customerFields = await getAutumnCustomerFields(input.userId);
 
-		await getOrCreateAutumnCustomer({ customerId: input.userId, secretKey, ...customerFields });
+		// Null means the read failed (see getAutumnCustomerFields). Skip the
+		// identity write, but still track usage: the customer already exists for
+		// anyone metered here, and the meter carries no identity to corrupt.
+		if (customerFields) {
+			await getOrCreateAutumnCustomer({ customerId: input.userId, secretKey, ...customerFields });
+		}
 
 		await trackAutumnBalance({
 			customerId: input.userId,
