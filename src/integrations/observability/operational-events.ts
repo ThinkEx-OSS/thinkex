@@ -6,7 +6,10 @@ import {
 	type TelemetryRequestDetails,
 } from "#/integrations/posthog/server-context";
 import type { PostHogTelemetryScheduler } from "#/integrations/posthog/scheduler";
-import { buildOperationalErrorFields } from "#/integrations/observability/operational-error";
+import {
+	buildOperationalErrorFields,
+	normalizeCapturedError,
+} from "#/integrations/observability/operational-error";
 
 type OperationalEventValue = boolean | null | number | string | readonly string[] | undefined;
 type OperationalEventFields = Record<string, OperationalEventValue>;
@@ -49,11 +52,12 @@ export function logOperationalEvent(input: OperationalEventInput) {
 }
 
 export function recordOperationalFailure(input: OperationalFailureInput) {
+	const error = normalizeCapturedError(input.error);
 	const requestContext =
 		input.requestContext ??
 		(input.request ? getTelemetryRequestContext(input.request) : getTelemetryRuntimeContext());
 	logOperationalEvent({
-		error: input.error,
+		error,
 		event: input.event,
 		fields: input.fields,
 		outcome: "error",
@@ -62,7 +66,7 @@ export function recordOperationalFailure(input: OperationalFailureInput) {
 
 	capturePostHogServerException({
 		distinctId: input.distinctId,
-		error: input.error,
+		error,
 		properties: {
 			operation: input.event,
 			...input.fields,
