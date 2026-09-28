@@ -1,4 +1,5 @@
 import { WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from "cloudflare:workers";
+import { recordWorkspaceRecordingTranscriptionOutcome } from "#/features/workspaces/recordings/workspace-recording-observability";
 import {
 	failWorkspaceRecording,
 	publishWorkspaceRecordingTranscript,
@@ -22,6 +23,7 @@ export class RecordingTranscriptionWorkflow extends WorkflowEntrypoint<
 		step: WorkflowStep,
 	) {
 		const { itemId, attempt } = event.payload;
+		const startedAt = Date.now();
 		try {
 			const recording = await step.do("read recording", () =>
 				readWorkspaceRecordingForTranscription(itemId),
@@ -46,9 +48,22 @@ export class RecordingTranscriptionWorkflow extends WorkflowEntrypoint<
 					return buildWorkspaceRecordingTranscript(result, recording.durationMs);
 				},
 			);
-			await step.do("publish transcript", () =>
+			const published = await step.do("publish transcript", () =>
 				publishWorkspaceRecordingTranscript(this.env, { itemId, attempt, transcript }),
 			);
+			if (published === "applied") {
+				await step.do("record transcription success", async () => {
+					recordWorkspaceRecordingTranscriptionOutcome({
+						attempt,
+						durationMs: Date.now() - startedAt,
+						instanceId: event.instanceId,
+						itemId,
+						schedule: (task) => this.ctx.waitUntil(task),
+						workspaceId: recording.workspaceId,
+					});
+					return { recorded: true };
+				});
+			}
 		} catch (error) {
 			await step.do("mark transcription failed", () =>
 				failWorkspaceRecording(
@@ -58,6 +73,18 @@ export class RecordingTranscriptionWorkflow extends WorkflowEntrypoint<
 					error instanceof Error ? error.message : String(error),
 				),
 			);
+			await step.do("record transcription failure", async () => {
+				recordWorkspaceRecordingTranscriptionOutcome({
+					attempt,
+					durationMs: Date.now() - startedAt,
+					error,
+					instanceId: event.instanceId,
+					itemId,
+					schedule: (task) => this.ctx.waitUntil(task),
+					workspaceId: null,
+				});
+				return { recorded: true };
+			});
 		}
 	}
 }
