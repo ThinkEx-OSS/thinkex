@@ -4,7 +4,6 @@ const networkErrorMessages = new Set([
 	"Failed to fetch",
 	"NetworkError when attempting to fetch resource.",
 	"Load failed",
-	"Network request failed",
 ]);
 
 export function isNetworkError(error: unknown) {
