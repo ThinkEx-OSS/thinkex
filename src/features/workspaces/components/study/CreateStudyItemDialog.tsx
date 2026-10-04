@@ -32,7 +32,7 @@ const studyItemDialogConfigs = {
 		title: "Create a quiz",
 		countLabel: "Number of questions",
 		prompt: (count: number, locationPhrase: string, topic: string) =>
-			`Create a quiz with exactly ${count} multiple-choice questions ${locationPhrase}. Cover: ${topic}`,
+			`Create a quiz with exactly ${count} multiple-choice questions ${locationPhrase}. Cover: ${topic}. Use the relevant workspace source material. Prefer application and reasoning questions, with three plausible distractors based on common misconceptions. Keep all options comparable in length, specificity, and wording so the correct answer does not stand out. Check that exactly one option is correct and explain why each distractor is wrong.`,
 	},
 } as const satisfies Record<StudyItemDialogType, unknown>;
 

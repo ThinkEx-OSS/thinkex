@@ -22,19 +22,21 @@ import { workspaceUnitRefInputSchema } from "#/features/workspaces/locations/wor
 const editTextSchema = z.string().max(8_000);
 
 const authoredQuestionFields = {
-	question: entryRichTextHtmlSchema.describe("HTML question stem."),
+	question: entryRichTextHtmlSchema.describe(
+		"HTML question stem testing one learning objective. Prefer applying, comparing, or reasoning about the source material over verbatim recall. Include enough context for exactly one defensible answer; do not reveal the answer through wording or quote it from the source.",
+	),
 	correctAnswer: entryRichTextHtmlSchema.describe(
-		"HTML for the single correct option. Never mark it in the stem; its final position is shuffled server-side.",
+		"HTML for the single correct option. Match the distractors in length, specificity, grammar, and formatting so it does not stand out. Never mark it in the stem; its final position is shuffled server-side.",
 	),
 	distractors: z
 		.array(entryRichTextHtmlSchema)
 		.min(QUIZ_QUESTION_MIN_DISTRACTORS)
 		.max(QUIZ_QUESTION_MAX_DISTRACTORS)
 		.describe(
-			"HTML for each incorrect option: strictly wrong, plausible, and grounded in a specific misconception. Use 3 for a standard question, 1 for true/false.",
+			"HTML for each incorrect option: plausible to a learner who has a specific misconception, but unambiguously wrong in the stated context. Use nearby concepts, reversed relationships, or realistic calculation errors; avoid absurd or unrelated fillers, overlapping answers, all/none of the above, and giveaways such as absolute words used only in wrong options. Match the correct answer in length, specificity, grammar, and formatting. Use 3 for a standard question, 1 for true/false.",
 		),
 	explanation: entryRichTextHtmlSchema.describe(
-		"Short HTML explanation of why the correct answer is right, touching on why the others are not.",
+		"Short HTML explanation of why the correct answer is right and the specific misconception behind each distractor. Check every option against the source material and revise any ambiguous or obviously implausible option before submitting. Refer to option content, not letters or positions, because options are shuffled.",
 	),
 };
 
