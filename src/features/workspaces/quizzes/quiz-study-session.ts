@@ -1,6 +1,7 @@
 import type { QuizQuestion } from "#/features/workspaces/quizzes/quiz-content";
 import {
 	getQuizAnswer,
+	isQuizAnswerCorrect,
 	type QuizStudyProgress,
 	type QuizStudyState,
 } from "#/features/workspaces/quizzes/quiz-study-state";
@@ -21,7 +22,7 @@ export function createQuizStudyQueue(
 	const questionIds: string[] = [];
 	for (const question of input.questions) {
 		const answer = getQuizAnswer(question, input.studyState);
-		const missed = answer !== undefined && answer.selectedOptionId !== question.correctOptionId;
+		const missed = answer !== undefined && !isQuizAnswerCorrect(question, answer);
 		if (input.mode === "all" || missed) {
 			questionIds.push(question.id);
 		}

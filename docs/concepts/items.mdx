@@ -18,7 +18,9 @@ Every piece of workspace content is a workspace item. Items can be opened in tab
     A container for organizing related items. Folders are part of the workspace item tree and can be opened like any other workspace location.
   </Accordion>
   <Accordion title="Quiz">
-    A multiple-choice study set with saved answer history, immediate feedback, and explanations. Quiz creation asks the AI to emphasize application and reasoning, use plausible distractors based on misconceptions, and keep options comparable in wording and length. Correct answers are shuffled into a stable display order when questions are created.
+    A study set with multiple-choice or short-answer questions, saved answer history, feedback, and explanations. Quiz creation asks the AI to emphasize application and reasoning, use plausible distractors based on misconceptions, and keep options comparable in wording and length. Correct multiple-choice answers are shuffled into a stable display order when questions are created.
+
+    Choose Short answer when creating a quiz to write responses and receive AI feedback against a model answer and grading criteria. Each successful grading request uses an AI message from your plan. Answers lock after grading; reset quiz progress for a fresh attempt. If grading fails, the response stays in the current tab so it can be retried. Editing a short-answer question invalidates its previous grade.
   </Accordion>
 </AccordionGroup>
 

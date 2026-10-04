@@ -22,6 +22,7 @@ import { workspaceUnitRefInputSchema } from "#/features/workspaces/locations/wor
 const editTextSchema = z.string().max(8_000);
 
 const authoredQuestionFields = {
+	kind: z.literal("multiple_choice").optional(),
 	question: entryRichTextHtmlSchema.describe(
 		"HTML question stem testing one learning objective. Prefer applying, comparing, or reasoning about the source material over verbatim recall. Include enough context for exactly one defensible answer; do not reveal the answer through wording or quote it from the source.",
 	),
@@ -40,10 +41,37 @@ const authoredQuestionFields = {
 	),
 };
 
+const shortAnswerFields = {
+	kind: z.literal("short_answer"),
+	question: authoredQuestionFields.question,
+	modelAnswer: entryRichTextHtmlSchema.describe(
+		"HTML model answer covering all required concepts. Accept equivalent wording when grading.",
+	),
+	gradingCriteria: z
+		.string()
+		.trim()
+		.min(1)
+		.max(4_000)
+		.describe(
+			"Plain-text rubric listing the essential concepts and acceptable alternatives. State what makes an answer correct, including any required units or reasoning. Do not require verbatim wording.",
+		),
+	explanation: entryRichTextHtmlSchema.describe(
+		"HTML explanation of the reasoning behind the model answer.",
+	),
+};
+
 /** One authored question, as the create tool accepts it. */
-export const quizQuestionInputSchema = z.object(authoredQuestionFields);
+export const quizQuestionInputSchema = z.union([
+	z.object(authoredQuestionFields),
+	z.object(shortAnswerFields),
+]);
 
 export const quizEditSchema = z.union([
+	z.strictObject({
+		op: z.enum(["insert_before", "insert_after", "replace"]),
+		ref: workspaceUnitRefInputSchema,
+		...shortAnswerFields,
+	}),
 	z.strictObject({
 		op: z.enum(["insert_before", "insert_after"]),
 		ref: workspaceUnitRefInputSchema,
@@ -68,8 +96,10 @@ export const quizEditSchema = z.union([
 		op: z.literal("replace_text"),
 		ref: workspaceUnitRefInputSchema,
 		field: z
-			.enum(["question", "options", "explanation"])
-			.describe("Where to look: the stem, all options together, or the explanation."),
+			.enum(["question", "options", "explanation", "modelAnswer"])
+			.describe(
+				"Where to look: the stem, all multiple-choice options together, the short-answer model answer, or the explanation.",
+			),
 		find: editTextSchema
 			.min(1)
 			.describe("Exact HTML text from the selected field. It must appear exactly once."),
@@ -123,6 +153,13 @@ function createQuestionFromEdit(edit: QuizEdit): QuizQuestion {
 }
 
 function reviseQuestion(question: QuizQuestion, edit: QuizEdit): QuizQuestion {
+	const revised = reviseQuestionContent(question, edit);
+	return revised.kind === "short_answer"
+		? { ...revised, gradingRevision: crypto.randomUUID() }
+		: revised;
+}
+
+function reviseQuestionContent(question: QuizQuestion, edit: QuizEdit): QuizQuestion {
 	if (edit.op === "update") {
 		return {
 			...question,
@@ -147,6 +184,8 @@ function replaceQuestionText(
 	edit: Extract<QuizEdit, { op: "replace_text" }>,
 ): QuizQuestion {
 	if (edit.field === "options") {
+		if (question.kind !== "multiple_choice")
+			throw new Error("A short-answer question has no options.");
 		// The find must be unique across every option so an in-place fix cannot
 		// silently touch the wrong one — and it never reshuffles.
 		const candidates: Array<{ index: number; text: string }> = [];
@@ -180,9 +219,16 @@ function replaceQuestionText(
 		};
 		return { ...question, options };
 	}
+	if (edit.field === "modelAnswer" && question.kind !== "short_answer") {
+		throw new Error("A multiple-choice question has no model answer.");
+	}
 
 	const replaced = replaceUniqueText(
-		serializeTiptapDocumentToHtml(question[edit.field]),
+		serializeTiptapDocumentToHtml(
+			edit.field === "modelAnswer" && question.kind === "short_answer"
+				? question.modelAnswer
+				: question[edit.field as "question" | "explanation"],
+		),
 		edit.find,
 		edit.replace,
 	);
