@@ -93,7 +93,7 @@ describe("getGatewayServedRoute", () => {
 				routing: {
 					finalProvider: "openai",
 					modelAttempts: [
-						{ canonicalSlug: "anthropic/claude-sonnet-5", success: false, providerAttempts: [] },
+						{ canonicalSlug: "anthropic/claude-sonnet-5.5", success: false, providerAttempts: [] },
 						{
 							canonicalSlug: "openai/gpt-5.6-terra",
 							success: true,

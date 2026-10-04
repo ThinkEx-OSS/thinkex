@@ -27,7 +27,7 @@ export interface AiChatGenerationTelemetry {
 	threadId: string;
 	/** The turn's stream id — one trace groups the turn and its utility calls. */
 	traceId: string;
-	/** The gateway model string, e.g. "anthropic/claude-sonnet-5". */
+	/** The gateway model string, e.g. "anthropic/claude-sonnet-5.5". */
 	gatewayModel: string;
 	/** The app-level model id the user picked, for the requested_model property. */
 	requestedModel?: string;

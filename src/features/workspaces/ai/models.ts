@@ -52,8 +52,8 @@ export const WORKSPACE_AI_CHAT_MODELS = [
 	},
 	{
 		id: "claude-sonnet",
-		name: "Claude Sonnet 5",
-		gatewayModel: "anthropic/claude-sonnet-5",
+		name: "Claude Sonnet 5.5",
+		gatewayModel: "anthropic/claude-sonnet-5.5",
 		provider: "anthropic",
 		tagline: "Thoughtful and polished",
 		description:

@@ -8,10 +8,10 @@ type GatewayRoutingOptions = {
 
 const GOOGLE_GATEWAY_PROVIDER_ORDER = ["google", "vertex"];
 // The native Anthropic route is the only one we want. Vertex has no Anthropic
-// quota in our GCP project (429 in ~200ms) and Bedrock has no Sonnet 5 access
-// (403), so both only ever landed on Vercel's own credits. Cross-model fallback
-// below covers a genuine Anthropic outage; add a provider back here if its
-// account-side access is ever granted.
+// quota in our GCP project (429 in ~200ms) and Bedrock has no current Sonnet
+// access (403), so both only ever landed on Vercel's own credits. Cross-model
+// fallback below covers a genuine Anthropic outage; add a provider back here if
+// its account-side access is ever granted.
 const CLAUDE_GATEWAY_PROVIDER_ORDER = ["anthropic"];
 // `only` is the gateway's sole exclusion primitive, and it is a hard filter over
 // the whole request — the fallback models below are unreachable unless their
@@ -43,7 +43,7 @@ const workspaceAiGatewayRouting: Record<WorkspaceAiChatModelId, GatewayRoutingOp
 	},
 	"gpt-terra": {
 		order: ["openai", "azure"],
-		models: ["anthropic/claude-sonnet-5", "google/gemini-3.1-pro-preview"],
+		models: ["anthropic/claude-sonnet-5.5", "google/gemini-3.1-pro-preview"],
 	},
 	"gpt-luna": {
 		order: ["openai", "azure"],
@@ -51,7 +51,7 @@ const workspaceAiGatewayRouting: Record<WorkspaceAiChatModelId, GatewayRoutingOp
 	},
 	"gemini-pro": {
 		order: GOOGLE_GATEWAY_PROVIDER_ORDER,
-		models: ["openai/gpt-5.6-terra", "anthropic/claude-sonnet-5"],
+		models: ["openai/gpt-5.6-terra", "anthropic/claude-sonnet-5.5"],
 	},
 	gemini: {
 		order: GOOGLE_GATEWAY_PROVIDER_ORDER,
