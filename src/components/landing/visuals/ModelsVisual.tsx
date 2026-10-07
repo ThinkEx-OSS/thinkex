@@ -20,7 +20,7 @@ const MODEL_GROUPS = WORKSPACE_AI_CHAT_PROVIDERS.map((provider) => ({
 })).filter((group) => group.models.length > 0);
 
 export function ModelsVisual() {
-	const [selectedModelId, setSelectedModelId] = useState<WorkspaceAiChatModelId>("gpt-terra");
+	const [selectedModelId, setSelectedModelId] = useState<WorkspaceAiChatModelId>("gpt-sol");
 	// Derived from the registry rather than restated, so a new provider or model
 	// shows up here without an edit. Hoisted out of render: it is constant.
 	const detailModel = getWorkspaceAiChatModelById(selectedModelId);

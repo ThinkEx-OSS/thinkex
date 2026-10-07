@@ -13,7 +13,7 @@ import type {
 	MarkdownExtractionResult,
 } from "#/features/workspaces/extraction/types";
 
-const IMAGE_EXTRACTION_GATEWAY_MODEL = "google/gemini-2.5-flash";
+const IMAGE_EXTRACTION_GATEWAY_MODEL = "google/gemini-3.8-flash";
 const jpegMediaType = "image/jpeg";
 
 // Transcription, not interpretation: the markdown feeds search and chat context,
@@ -50,14 +50,12 @@ export function createGeminiImageMarkdownProvider(env: Env): MarkdownExtractionP
 							`model:${IMAGE_EXTRACTION_GATEWAY_MODEL}`,
 						],
 					},
-					// The 2.5-series rejects `thinkingLevel` outright, which 400s every
-					// Google leg; budget is its knob. Reading what is on the page needs
-					// no reasoning, and the fallbacks bill for it if it is left on.
+					// Minimize reasoning for transcription and its fallback models.
 					google: {
-						thinkingConfig: { thinkingBudget: 0 },
+						thinkingConfig: { thinkingLevel: "low" },
 					},
 					vertex: {
-						thinkingConfig: { thinkingBudget: 0 },
+						thinkingConfig: { thinkingLevel: "low" },
 					},
 					openai: {
 						reasoningEffort: "none",

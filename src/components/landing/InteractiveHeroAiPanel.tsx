@@ -10,7 +10,7 @@ import type { WorkspaceItem } from "#/features/workspaces/contracts";
 import { getWorkspaceItemDisplay } from "#/features/workspaces/model/item-display";
 import { cn } from "#/lib/utils";
 
-const MODELS = ["Auto", "GPT-5", "Claude Sonnet", "Gemini Pro"] as const;
+const MODELS = ["Auto", "GPT-6.1 Sol", "Claude Sonnet", "Gemini Pro"] as const;
 
 /** Lightweight AI chat simulation for the public workspace preview. */
 export function InteractiveHeroAiPanel({
