@@ -20,6 +20,8 @@
 // currency inspection is more careful than theirs so `$6$` / `$5.99$`
 // numeric inline math is preserved.
 
+import { mathLikeInlineBody } from "#/lib/math-like-text";
+
 // Inline bracket math: \(x\) or \\(x\\) (JSON-double-escaped from tool outputs).
 // Single-line only — remark-math treats inline math the same way.
 const BRACKET_INLINE = /\\{1,2}\(([^\n]+?)\\{1,2}\)/g;
@@ -56,44 +58,6 @@ function stowCodeRuns(text: string): { stripped: string; preserved: string[] } {
 
 function restoreCodeRuns(text: string, preserved: string[]): string {
 	return text.replace(RESTORE, (_, i: string) => preserved[Number(i)] ?? "");
-}
-
-/**
- * True when the body between two adjacent `$` marks looks like a real math
- * expression the model intended. Used to decide whether a currency-signature
- * `$` should be escaped or left as a math opener.
- *
- * | Body                                | Verdict | Reason                        |
- * | ----------------------------------- | ------- | ----------------------------- |
- * | `6`, `5.99`, `1,299`                | math    | bare numeric literal          |
- * | `x^2 + 5x`, `n = 3`                 | math    | algebra with short variables  |
- * | `\frac{a}{b}`, `\sum_{i=1}^n`       | math    | LaTeX macro present           |
- * | `5 total`, `today, or `, `5 and 6`  | prose   | 3+ letter English word        |
- * | `45 + `, `= 60`, `1,299–`           | prose   | dangling operator (cut off)   |
- * | `**bold**`, blank lines, >200 chars | prose   | markdown structural / too long |
- */
-function mathLikeInlineBody(body: string): boolean {
-	const t = body.trim();
-	if (!t) return false;
-	if (t.length > 200) return false;
-	// Structural markdown characters bleeding through mean the `$…$` pair
-	// wrapped around formatted prose, not math.
-	if (/\*\*|__|~~|\n\n/.test(t)) return false;
-	// LaTeX command — definitely math.
-	if (/\\[a-zA-Z]/.test(t)) return true;
-	// Dangling operator at start or end signals cut-off currency arithmetic
-	// ("45 + " came from `$45 + $3.60`, not a complete math expression).
-	if (/[+\-−–×÷=/*→←]\s*$/.test(t)) return false;
-	if (/^\s*[+\-−–×÷=/*→←]/.test(t)) return false;
-	// Currency codes should not count as prose words for this test.
-	const withoutCcy = t.replace(/\b(?:USD|EUR|GBP|JPY|CAD|AUD|CHF|CNY|INR|k|M|B)\b/gi, "");
-	// A word of 3+ letters is prose ("today", "and", "total") — not math.
-	if (/[a-zA-Z]{3,}/.test(withoutCcy)) return false;
-	// Pure numeric with math operators.
-	if (/^[\s\d.,+\-*/=×÷^_(){}[\]<>|:;'"\\]+$/.test(t)) return true;
-	// Numeric with 1-2 letter algebraic variables.
-	if (/^[\sa-zA-Z\d.,+\-*/=×÷^_(){}[\]<>|:;'"\\]+$/.test(t)) return true;
-	return false;
 }
 
 // Rewrite the alternative delimiter dialects some models emit into the

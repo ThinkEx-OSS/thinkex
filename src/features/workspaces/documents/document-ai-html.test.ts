@@ -40,6 +40,46 @@ describe("document AI HTML", () => {
 		expect(html).not.toContain("<sub>");
 	});
 
+	it("rescues dollar-delimited math the model writes as prose", async () => {
+		// Math renders only as a math node, never as `$…$`. The model reaches for
+		// dollars by habit, so repair them instead of storing literal text.
+		const html = await serializeTiptapDocumentToAiHtml(
+			ensureTiptapDocumentBlockIds(
+				parseDocumentAiHtml(
+					"<p>The energy is $E = mc^2$ where $c$ is the speed of light.</p><p>$$\\int_0^1 x^2 dx$$</p>",
+				),
+			).document,
+		);
+
+		expect(html).toContain('data-type="inline-math"');
+		expect(html).toContain('data-latex="E = mc^2"');
+		expect(html).toContain('data-latex="c"');
+		expect(html).toContain('data-type="block-math"');
+		expect(html).toContain('data-latex="\\int_0^1 x^2 dx"');
+		expect(html).not.toContain("$");
+	});
+
+	it("leaves plain money and prose dollar signs alone", async () => {
+		const html = await serializeTiptapDocumentToAiHtml(
+			ensureTiptapDocumentBlockIds(parseDocumentAiHtml("<p>Lunch was $5 and dinner was $10.</p>"))
+				.document,
+		);
+
+		expect(html).not.toContain("inline-math");
+		expect(html).toContain("$5 and dinner was $10");
+	});
+
+	it("keeps dollar math inside code and widgets literal", () => {
+		const document = parseDocumentAiHtml(
+			'<p>Write <code>$x = 1$</code> in LaTeX.</p><div data-type="widget" title="Demo">const label = "$x$";</div>',
+		);
+
+		const json = JSON.stringify(document);
+		expect(json).not.toContain("inlineMath");
+		expect(json).toContain("$x = 1$");
+		expect(json).toContain("$x$");
+	});
+
 	it("ignores refs supplied in model-authored HTML", async () => {
 		const html = await serializeTiptapDocumentToAiHtml(
 			ensureTiptapDocumentBlockIds(parseDocumentAiHtml('<p data-ref="b_modelchosen1">Hello</p>'))
