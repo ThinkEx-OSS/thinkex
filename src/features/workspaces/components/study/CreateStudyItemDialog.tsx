@@ -32,7 +32,7 @@ const studyItemDialogConfigs = {
 		title: "Create a quiz",
 		countLabel: "Number of questions",
 		prompt: (count: number, locationPhrase: string, topic: string) =>
-			`Create a quiz with exactly ${count} multiple-choice questions ${locationPhrase}. Cover: ${topic}`,
+			`Create a quiz with exactly ${count} multiple-choice questions ${locationPhrase}. Cover: ${topic}. Use the relevant workspace source material. Prefer application and reasoning questions, with three plausible distractors based on common misconceptions. Keep all options comparable in length, specificity, and wording so the correct answer does not stand out. Check that exactly one option is correct and explain why each distractor is wrong.`,
 	},
 } as const satisfies Record<StudyItemDialogType, unknown>;
 
@@ -52,6 +52,7 @@ export function CreateStudyItemDialog({
 }) {
 	const topicId = useId();
 	const countId = useId();
+	const formatId = useId();
 	const config = studyItemDialogConfigs[type];
 
 	return (
@@ -64,11 +65,14 @@ export function CreateStudyItemDialog({
 							const rawTopic = formData.get("topic");
 							const topic = typeof rawTopic === "string" ? rawTopic.trim() : "";
 							const count = Number(formData.get("count"));
+							const format = formData.get("format");
 							if (!topic || ![5, 10, 15, 20].includes(count)) return;
 							if (
 								!sendComposerPrompt(
 									workspaceId,
-									config.prompt(count, describeStudyItemLocation(parentPath), topic),
+									type === "quiz" && format === "short_answer"
+										? `Create a quiz with exactly ${count} short-answer questions ${describeStudyItemLocation(parentPath)}. Cover: ${topic}. Use relevant workspace sources. Set each question kind to short_answer, include a modelAnswer and explicit gradingCriteria listing essential concepts and acceptable alternatives, and an explanation. Prefer application and reasoning questions. Students will write responses and receive AI grading with feedback.`
+										: config.prompt(count, describeStudyItemLocation(parentPath), topic),
 								)
 							)
 								return;
@@ -83,6 +87,20 @@ export function CreateStudyItemDialog({
 							<DialogDescription>AI will create it in your current chat.</DialogDescription>
 						</DialogHeader>
 						<FieldGroup>
+							{type === "quiz" ? (
+								<Field orientation="horizontal" className="items-center justify-between">
+									<FieldLabel htmlFor={formatId}>Question type</FieldLabel>
+									<NativeSelect
+										id={formatId}
+										name="format"
+										defaultValue="multiple_choice"
+										size="sm"
+									>
+										<NativeSelectOption value="multiple_choice">Multiple choice</NativeSelectOption>
+										<NativeSelectOption value="short_answer">Short answer</NativeSelectOption>
+									</NativeSelect>
+								</Field>
+							) : null}
 							<Field>
 								<FieldLabel htmlFor={topicId}>What should it cover?</FieldLabel>
 								<Textarea

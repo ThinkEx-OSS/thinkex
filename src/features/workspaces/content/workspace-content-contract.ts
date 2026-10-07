@@ -146,22 +146,36 @@ const workspaceContentReadResultSchema = z.union([
 		location: workspaceEntriesLocationSchema,
 		progress: quizStudyProgressSchema,
 		questions: z.array(
-			z.object({
-				ref: workspaceUnitRefSchema,
-				question: z.string(),
-				options: z
-					.array(z.object({ text: z.string(), correct: z.boolean() }))
-					.min(2)
-					.describe("Options in the order users see them; exactly one is correct."),
-				explanation: z.string(),
-				answer: z
-					.object({
-						selected: z.number().int().positive().describe("1-based option position."),
-						correct: z.boolean(),
-					})
-					.optional()
-					.describe("The reading user's locked-in answer, when they have one."),
-			}),
+			z.union([
+				z.object({
+					ref: workspaceUnitRefSchema,
+					question: z.string(),
+					options: z
+						.array(z.object({ text: z.string(), correct: z.boolean() }))
+						.min(2)
+						.describe("Options in the order users see them; exactly one is correct."),
+					explanation: z.string(),
+					answer: z
+						.object({
+							selected: z.number().int().positive().describe("1-based option position."),
+							correct: z.boolean(),
+						})
+						.optional()
+						.describe("The reading user's locked-in answer, when they have one."),
+				}),
+				z.object({
+					ref: workspaceUnitRefSchema,
+					kind: z.literal("short_answer"),
+					question: z.string(),
+					modelAnswer: z.string(),
+					gradingCriteria: z.string(),
+					options: z.array(z.object({ text: z.string(), correct: z.boolean() })).length(0),
+					explanation: z.string(),
+					answer: z
+						.object({ textResponse: z.string(), correct: z.boolean(), feedback: z.string() })
+						.optional(),
+				}),
+			]),
 		),
 		type: z.literal("quiz"),
 	}),

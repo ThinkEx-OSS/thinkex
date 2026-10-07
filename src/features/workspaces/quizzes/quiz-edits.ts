@@ -22,26 +22,56 @@ import { workspaceUnitRefInputSchema } from "#/features/workspaces/locations/wor
 const editTextSchema = z.string().max(8_000);
 
 const authoredQuestionFields = {
-	question: entryRichTextHtmlSchema.describe("HTML question stem."),
+	kind: z.literal("multiple_choice").optional(),
+	question: entryRichTextHtmlSchema.describe(
+		"HTML question stem testing one learning objective. Prefer applying, comparing, or reasoning about the source material over verbatim recall. Include enough context for exactly one defensible answer; do not reveal the answer through wording or quote it from the source.",
+	),
 	correctAnswer: entryRichTextHtmlSchema.describe(
-		"HTML for the single correct option. Never mark it in the stem; its final position is shuffled server-side.",
+		"HTML for the single correct option. Match the distractors in length, specificity, grammar, and formatting so it does not stand out. Never mark it in the stem; its final position is shuffled server-side.",
 	),
 	distractors: z
 		.array(entryRichTextHtmlSchema)
 		.min(QUIZ_QUESTION_MIN_DISTRACTORS)
 		.max(QUIZ_QUESTION_MAX_DISTRACTORS)
 		.describe(
-			"HTML for each incorrect option: strictly wrong, plausible, and grounded in a specific misconception. Use 3 for a standard question, 1 for true/false.",
+			"HTML for each incorrect option: plausible to a learner who has a specific misconception, but unambiguously wrong in the stated context. Use nearby concepts, reversed relationships, or realistic calculation errors; avoid absurd or unrelated fillers, overlapping answers, all/none of the above, and giveaways such as absolute words used only in wrong options. Match the correct answer in length, specificity, grammar, and formatting. Use 3 for a standard question, 1 for true/false.",
 		),
 	explanation: entryRichTextHtmlSchema.describe(
-		"Short HTML explanation of why the correct answer is right, touching on why the others are not.",
+		"Short HTML explanation of why the correct answer is right and the specific misconception behind each distractor. Check every option against the source material and revise any ambiguous or obviously implausible option before submitting. Refer to option content, not letters or positions, because options are shuffled.",
+	),
+};
+
+const shortAnswerFields = {
+	kind: z.literal("short_answer"),
+	question: authoredQuestionFields.question,
+	modelAnswer: entryRichTextHtmlSchema.describe(
+		"HTML model answer covering all required concepts. Accept equivalent wording when grading.",
+	),
+	gradingCriteria: z
+		.string()
+		.trim()
+		.min(1)
+		.max(4_000)
+		.describe(
+			"Plain-text rubric listing the essential concepts and acceptable alternatives. State what makes an answer correct, including any required units or reasoning. Do not require verbatim wording.",
+		),
+	explanation: entryRichTextHtmlSchema.describe(
+		"HTML explanation of the reasoning behind the model answer.",
 	),
 };
 
 /** One authored question, as the create tool accepts it. */
-export const quizQuestionInputSchema = z.object(authoredQuestionFields);
+export const quizQuestionInputSchema = z.union([
+	z.object(authoredQuestionFields),
+	z.object(shortAnswerFields),
+]);
 
 export const quizEditSchema = z.union([
+	z.strictObject({
+		op: z.enum(["insert_before", "insert_after", "replace"]),
+		ref: workspaceUnitRefInputSchema,
+		...shortAnswerFields,
+	}),
 	z.strictObject({
 		op: z.enum(["insert_before", "insert_after"]),
 		ref: workspaceUnitRefInputSchema,
@@ -66,8 +96,10 @@ export const quizEditSchema = z.union([
 		op: z.literal("replace_text"),
 		ref: workspaceUnitRefInputSchema,
 		field: z
-			.enum(["question", "options", "explanation"])
-			.describe("Where to look: the stem, all options together, or the explanation."),
+			.enum(["question", "options", "explanation", "modelAnswer"])
+			.describe(
+				"Where to look: the stem, all multiple-choice options together, the short-answer model answer, or the explanation.",
+			),
 		find: editTextSchema
 			.min(1)
 			.describe("Exact HTML text from the selected field. It must appear exactly once."),
@@ -121,6 +153,13 @@ function createQuestionFromEdit(edit: QuizEdit): QuizQuestion {
 }
 
 function reviseQuestion(question: QuizQuestion, edit: QuizEdit): QuizQuestion {
+	const revised = reviseQuestionContent(question, edit);
+	return revised.kind === "short_answer"
+		? { ...revised, gradingRevision: crypto.randomUUID() }
+		: revised;
+}
+
+function reviseQuestionContent(question: QuizQuestion, edit: QuizEdit): QuizQuestion {
 	if (edit.op === "update") {
 		return {
 			...question,
@@ -145,6 +184,8 @@ function replaceQuestionText(
 	edit: Extract<QuizEdit, { op: "replace_text" }>,
 ): QuizQuestion {
 	if (edit.field === "options") {
+		if (question.kind !== "multiple_choice")
+			throw new Error("A short-answer question has no options.");
 		// The find must be unique across every option so an in-place fix cannot
 		// silently touch the wrong one — and it never reshuffles.
 		const candidates: Array<{ index: number; text: string }> = [];
@@ -178,9 +219,16 @@ function replaceQuestionText(
 		};
 		return { ...question, options };
 	}
+	if (edit.field === "modelAnswer" && question.kind !== "short_answer") {
+		throw new Error("A multiple-choice question has no model answer.");
+	}
 
 	const replaced = replaceUniqueText(
-		serializeTiptapDocumentToHtml(question[edit.field]),
+		serializeTiptapDocumentToHtml(
+			edit.field === "modelAnswer" && question.kind === "short_answer"
+				? question.modelAnswer
+				: question[edit.field as "question" | "explanation"],
+		),
 		edit.find,
 		edit.replace,
 	);
