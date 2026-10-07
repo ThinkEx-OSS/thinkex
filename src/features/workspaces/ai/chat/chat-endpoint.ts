@@ -54,6 +54,7 @@ import {
 	checkWorkspaceAiMessageAccess,
 	trackWorkspaceAiMessageUsage,
 } from "#/integrations/autumn/workspace-ai-usage";
+import { recordOperationalFailure } from "#/integrations/observability/operational-events";
 
 const MAX_AGENT_STEPS = 16;
 // Summaries need capable long-context reading but not the session's model.
@@ -388,7 +389,18 @@ export async function handleAiChatTurn(input: {
 								// Stream already closed — persistence below still lands.
 							}
 							await setThreadTitle({ threadId, title: normalized });
-						})().catch((error) => console.error("[ai-chat] title delivery failed:", error)),
+						})().catch((error) =>
+							recordOperationalFailure({
+								distinctId: userId,
+								error,
+								event: "pg_ai_chat_title",
+								fields: {
+									thread_id: threadId,
+									workspace_id: threadContext.workspaceId,
+								},
+								schedule: (task) => ctx.waitUntil(task),
+							}),
+						),
 					);
 				}
 
