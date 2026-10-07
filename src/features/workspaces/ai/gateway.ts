@@ -17,7 +17,7 @@ import {
 // has no framework dependencies; the comments carry over because the tuning
 // rationale is unchanged.
 
-export const AI_THREAD_TITLE_GATEWAY_MODEL = "google/gemini-2.5-flash-lite";
+export const AI_THREAD_TITLE_GATEWAY_MODEL = "google/gemini-3.5-flash-lite";
 
 type WorkspaceAiProviderOptions = NonNullable<
 	Parameters<typeof generateText>[0]["providerOptions"]
@@ -52,7 +52,7 @@ export function getWorkspaceAiGatewayTransportOptions() {
 		// Buy the fast lane where it exists. The gateway only forwards a tier to
 		// OpenAI, Google AI Studio, and Vertex, so this is a no-op on the Claude
 		// primaries and moves the models we actually default to (`auto`/luna, the
-		// Gemini pair, the nano/flash-lite title legs). It is a hint, never a
+		// Gemini pair, the luna/flash-lite title legs). It is a hint, never a
 		// promise: an unsupported model ignores it, and a provider that is out of
 		// priority capacity silently downgrades to standard and bills standard.
 		serviceTier: "priority" as const,
@@ -109,9 +109,9 @@ export function getAIThreadTitleGatewayProviderOptions(): WorkspaceAiProviderOpt
 				`model:${AI_THREAD_TITLE_GATEWAY_MODEL}`,
 			],
 		},
-		// The 2.5-series title model rejects `thinkingLevel`; budget is its knob.
-		google: { thinkingConfig: { thinkingBudget: 0 } },
-		vertex: { thinkingConfig: { thinkingBudget: 0 } },
+		// Keep title generation at the lowest supported thinking level.
+		google: { thinkingConfig: { thinkingLevel: "minimal" } },
+		vertex: { thinkingConfig: { thinkingLevel: "minimal" } },
 		openai: { reasoningEffort: "none" },
 	};
 }
@@ -129,10 +129,11 @@ function getWorkspaceAiReasoningOptions(
 					thinkingConfig: { thinkingLevel: "low" },
 				},
 			};
-		case "gpt-terra":
+		case "gpt-sol":
 			return {
 				openai: {
-					reasoningEffort: "none",
+					// Sol 6.1 requires reasoning; low is its minimum supported effort.
+					reasoningEffort: "low",
 				},
 			};
 		default:

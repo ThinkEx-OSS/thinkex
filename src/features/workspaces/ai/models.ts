@@ -25,7 +25,8 @@ export type WorkspaceAiChatModelBillingTier = "standard" | "premium";
 // across input, cached input, and output rather than output alone — output
 // price by itself understates the models we send the most tokens to.
 //
-// Measured 1.0x / 2.5x / 4.7x / 9.5x / 10x, rounded to a clean ladder so these
+// Standard-rate estimates: Luna 1x, Flash 7.5x, Haiku 10x, Sol 18.9x,
+// Sonnet 20x, and Pro 21.2x, rounded to whole multipliers so these
 // double as credit weights if usage is ever metered. Re-derive from the gateway
 // catalog when the lineup changes; a stale multiplier misprices the plan.
 //
@@ -38,7 +39,7 @@ export const WORKSPACE_AI_CHAT_MODELS = [
 		name: "Auto",
 		// Keep this a stable product choice while the server owns its availability
 		// policy and fallback chain.
-		gatewayModel: "openai/gpt-5.6-luna",
+		gatewayModel: "openai/gpt-6-luna",
 		provider: "auto",
 		tagline: "Fast and capable by default",
 		description:
@@ -48,12 +49,12 @@ export const WORKSPACE_AI_CHAT_MODELS = [
 		speed: 3,
 		cost: 1,
 		billingTier: "standard",
-		contextWindow: 1_000_000,
+		contextWindow: 1_050_000,
 	},
 	{
 		id: "claude-sonnet",
-		name: "Claude Sonnet 5",
-		gatewayModel: "anthropic/claude-sonnet-5",
+		name: "Claude Sonnet 5.5",
+		gatewayModel: "anthropic/claude-sonnet-5.5",
 		provider: "anthropic",
 		tagline: "Thoughtful and polished",
 		description:
@@ -61,7 +62,7 @@ export const WORKSPACE_AI_CHAT_MODELS = [
 		bestFor: "Writing, analysis & coding",
 		intelligence: 4,
 		speed: 3,
-		cost: 10,
+		cost: 20,
 		billingTier: "premium",
 		contextWindow: 1_000_000,
 	},
@@ -75,14 +76,14 @@ export const WORKSPACE_AI_CHAT_MODELS = [
 		bestFor: "Quick help & short drafts",
 		intelligence: 2,
 		speed: 4,
-		cost: 5,
+		cost: 10,
 		billingTier: "standard",
 		contextWindow: 200_000,
 	},
 	{
-		id: "gpt-terra",
-		name: "GPT-5.6 Terra",
-		gatewayModel: "openai/gpt-5.6-terra",
+		id: "gpt-sol",
+		name: "GPT-6.1 Sol",
+		gatewayModel: "openai/gpt-6.1-sol",
 		provider: "openai",
 		tagline: "Strong on harder tasks",
 		description:
@@ -90,14 +91,14 @@ export const WORKSPACE_AI_CHAT_MODELS = [
 		bestFor: "Planning, research & knowledge work",
 		intelligence: 4,
 		speed: 3,
-		cost: 10,
+		cost: 19,
 		billingTier: "premium",
-		contextWindow: 1_000_000,
+		contextWindow: 1_050_000,
 	},
 	{
 		id: "gpt-luna",
-		name: "GPT-5.6 Luna",
-		gatewayModel: "openai/gpt-5.6-luna",
+		name: "GPT-6 Luna",
+		gatewayModel: "openai/gpt-6-luna",
 		provider: "openai",
 		tagline: "Quick and capable",
 		description: "A faster GPT for quick help, everyday questions, and practical tasks.",
@@ -106,7 +107,7 @@ export const WORKSPACE_AI_CHAT_MODELS = [
 		speed: 4,
 		cost: 1,
 		billingTier: "standard",
-		contextWindow: 1_000_000,
+		contextWindow: 1_050_000,
 	},
 	{
 		id: "gemini-pro",
@@ -119,14 +120,14 @@ export const WORKSPACE_AI_CHAT_MODELS = [
 		bestFor: "Long docs, research & hard problems",
 		intelligence: 4,
 		speed: 2,
-		cost: 10,
+		cost: 21,
 		billingTier: "premium",
 		contextWindow: 1_000_000,
 	},
 	{
 		id: "gemini",
-		name: "Gemini 3 Flash",
-		gatewayModel: "google/gemini-3-flash",
+		name: "Gemini 3.8 Flash",
+		gatewayModel: "google/gemini-3.8-flash",
 		provider: "google",
 		tagline: "Fast and wide-ranging",
 		description:
@@ -134,7 +135,7 @@ export const WORKSPACE_AI_CHAT_MODELS = [
 		bestFor: "Fast answers & big context",
 		intelligence: 3,
 		speed: 4,
-		cost: 3,
+		cost: 8,
 		billingTier: "standard",
 		contextWindow: 1_000_000,
 	},

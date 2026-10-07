@@ -23,7 +23,7 @@ describe("resolveWorkspaceAiMessageAccess", () => {
 	});
 
 	it("falls back to auto when premium is spent but standard remains", () => {
-		for (const chosenModelId of ["claude-sonnet", "gpt-terra", "gemini-pro"] as const) {
+		for (const chosenModelId of ["claude-sonnet", "gpt-sol", "gemini-pro"] as const) {
 			expect(
 				resolveWorkspaceAiMessageAccess({
 					chosenModelId,
@@ -99,7 +99,7 @@ describe("resolveWorkspaceAiMessageAccess", () => {
 // quietly becoming the priciest model in the tier it lands on.
 describe("fallback pricing", () => {
 	it("lands on the cheapest model in the tier it falls back to", () => {
-		for (const chosenModelId of ["claude-sonnet", "gpt-terra", "gemini-pro"] as const) {
+		for (const chosenModelId of ["claude-sonnet", "gpt-sol", "gemini-pro"] as const) {
 			const access = resolveWorkspaceAiMessageAccess({
 				chosenModelId,
 				chosenTierAllowed: false,
