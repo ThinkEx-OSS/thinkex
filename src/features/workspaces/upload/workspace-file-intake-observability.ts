@@ -62,7 +62,9 @@ export async function observeWorkspaceFileIntake(input: {
 
 		recordOperationalOutcome({
 			distinctId: observation.userId,
-			error: observation.error,
+			// Only forward genuine failures to exception capture. A rejection is a
+			// client-caused 4xx that the route handled as designed.
+			error: outcome === "error" ? observation.error : undefined,
 			event: "workspace_file_intake",
 			fields: { ...fields, user_id: observation.userId },
 			outcome,
@@ -87,6 +89,12 @@ function getFileIntakeOutcome(
 ): "error" | "rejected" | "success" {
 	if (response?.ok) {
 		return "success";
+	}
+
+	// A client-caused rejection carries a 4xx status. It counts in the intake
+	// event but is not a server failure, so keep it separate from "error".
+	if (response && response.status >= 400 && response.status < 500) {
+		return "rejected";
 	}
 
 	return error === undefined ? "rejected" : "error";
