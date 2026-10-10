@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { defineAIThreadTool } from "#/features/workspaces/ai/ai-thread-tool";
 import widgetAuthoringCanvas from "#/features/workspaces/ai/skills/widget-authoring/references/canvas.md?raw";
+import widgetAuthoringGraphing from "#/features/workspaces/ai/skills/widget-authoring/references/graphing.md?raw";
 import widgetAuthoringStarter from "#/features/workspaces/ai/skills/widget-authoring/references/starter.md?raw";
 import widgetAuthoringSkill from "#/features/workspaces/ai/skills/widget-authoring/SKILL.md?raw";
 
@@ -19,6 +20,7 @@ import widgetAuthoringSkill from "#/features/workspaces/ai/skills/widget-authori
 const BUNDLED_SKILLS = {
 	"widget-authoring": parseSkillMarkdown(widgetAuthoringSkill, {
 		"references/canvas.md": widgetAuthoringCanvas,
+		"references/graphing.md": widgetAuthoringGraphing,
 		"references/starter.md": widgetAuthoringStarter,
 	}),
 } as const;

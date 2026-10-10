@@ -9,6 +9,8 @@ import {
 	CodeBlockTitle,
 } from "#/components/code-block/code-block-chrome";
 import { WorkspaceWidgetSandbox } from "#/features/workspaces/components/widget/WorkspaceWidgetSandbox";
+import { detectWidgetLibraries } from "#/features/workspaces/components/widget/workspace-widget-sandbox-document";
+import { capturePostHogClientEvent } from "#/integrations/posthog/provider";
 
 const DocumentWidgetActionContext = createContext<((error: string) => void) | null>(null);
 
@@ -48,6 +50,16 @@ export function DocumentWidgetView({ node, selected }: NodeViewProps) {
 		? (error: string) => onAskAiToFix(title ? `the "${title}" widget: ${error}` : error)
 		: undefined;
 
+	// Which bundled libraries this widget uses, so a graph is countable apart
+	// from an ordinary widget and render success and errors have a baseline.
+	const libraries = detectWidgetLibraries(html);
+	const analyticsProperties = {
+		uses_katex: libraries.katex,
+		uses_mathjs: libraries.mathjs,
+		uses_uplot: libraries.uplot,
+		html_length: html.length,
+	};
+
 	return (
 		<NodeViewWrapper
 			className="workspace-document-widget"
@@ -73,6 +85,13 @@ export function DocumentWidgetView({ node, selected }: NodeViewProps) {
 				label={title || undefined}
 				className="workspace-document-widget-frame"
 				onAskAiToFix={askAiToFix}
+				onFirstRender={() => capturePostHogClientEvent("widget_rendered", analyticsProperties)}
+				onRuntimeError={(preservedFrame) =>
+					capturePostHogClientEvent("widget_render_failed", {
+						...analyticsProperties,
+						preserved_frame: preservedFrame,
+					})
+				}
 			/>
 			{/* A widget's source is its text content, so ProseMirror needs somewhere
 			    to render it. Without this element Tiptap appends one itself and the
