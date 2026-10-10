@@ -153,6 +153,7 @@ describe("createAiChatTurnTelemetry", () => {
 				has_visible_text: false,
 				is_final_step: false,
 				turn_status: "complete",
+				content_captured: false,
 				tool_names: ["workspace_search"],
 			},
 		});
@@ -166,6 +167,7 @@ describe("createAiChatTurnTelemetry", () => {
 				has_visible_text: true,
 				is_final_step: true,
 				turn_status: "complete",
+				content_captured: true,
 			},
 		});
 		expect(mocks.captureEvent).toHaveBeenCalledWith(
@@ -188,6 +190,53 @@ describe("createAiChatTurnTelemetry", () => {
 				}),
 			}),
 		);
+	});
+
+	it("strips content and marks content_captured false when consent is off", () => {
+		const observer = createAiChatTurnTelemetry({
+			userId: "user-1",
+			workspaceId: "workspace-1",
+			threadId: "thread-1",
+			traceId: "stream-1",
+			modelId: "auto",
+			gatewayModel: "openai/gpt-requested",
+			continuation: false,
+			includeContent: false,
+			modelInput: [{ role: "user", content: "hello" }],
+			schedule: () => {},
+			summarizeToolOutput: () => null,
+		});
+
+		observer.onChunk({ type: "text-delta", text: "Final" });
+		observer.onStepEnd({
+			callId: "step-0",
+			stepNumber: 0,
+			text: "Final answer",
+			finishReason: "stop",
+			usage: {
+				inputTokens: 12,
+				inputTokenDetails: { noCacheTokens: 12, cacheReadTokens: 0, cacheWriteTokens: 0 },
+				outputTokens: 3,
+				outputTokenDetails: { textTokens: 3, reasoningTokens: 0 },
+				totalTokens: 15,
+			},
+			response: { modelId: "requested-model-id" },
+			performance: { responseTimeMs: 10, stepTimeMs: 10, timeToFirstOutputMs: 4 },
+			toolCalls: [],
+		});
+		observer.finish("complete");
+
+		expect(mocks.captureGeneration).toHaveBeenCalledTimes(1);
+		expect(mocks.captureGeneration.mock.calls[0]?.[0]).toMatchObject({
+			input: null,
+			output: null,
+			properties: {
+				has_visible_text: true,
+				is_final_step: true,
+				turn_status: "complete",
+				content_captured: false,
+			},
+		});
 	});
 
 	it("records a resolved workspace failure as a semantic failure", () => {
