@@ -32,7 +32,7 @@ const studyItemDialogConfigs = {
 		title: "Create a quiz",
 		countLabel: "Number of questions",
 		prompt: (count: number, locationPhrase: string, topic: string) =>
-			`Create a quiz with exactly ${count} multiple-choice questions ${locationPhrase}. Cover: ${topic}. Use the relevant workspace source material. Prefer application and reasoning questions, with three plausible distractors based on common misconceptions. Keep all options comparable in length, specificity, and wording so the correct answer does not stand out. Check that exactly one option is correct and explain why each distractor is wrong.`,
+			`Create a quiz with exactly ${count} multiple-choice questions ${locationPhrase}. Cover: ${topic}. Use relevant workspace source material when available; otherwise create the quiz from the requested topic.`,
 	},
 } as const satisfies Record<StudyItemDialogType, unknown>;
 
@@ -71,7 +71,7 @@ export function CreateStudyItemDialog({
 								!sendComposerPrompt(
 									workspaceId,
 									type === "quiz" && format === "short_answer"
-										? `Create a quiz with exactly ${count} short-answer questions ${describeStudyItemLocation(parentPath)}. Cover: ${topic}. Use relevant workspace sources. Set each question kind to short_answer, include a modelAnswer and explicit gradingCriteria listing essential concepts and acceptable alternatives, and an explanation. Prefer application and reasoning questions. Students will write responses and receive AI grading with feedback.`
+										? `Create a quiz with exactly ${count} short-answer questions ${describeStudyItemLocation(parentPath)}. Cover: ${topic}. Use relevant workspace source material when available; otherwise create the quiz from the requested topic.`
 										: config.prompt(count, describeStudyItemLocation(parentPath), topic),
 								)
 							)
