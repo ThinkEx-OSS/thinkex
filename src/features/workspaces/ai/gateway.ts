@@ -23,19 +23,30 @@ type WorkspaceAiProviderOptions = NonNullable<
 	Parameters<typeof generateText>[0]["providerOptions"]
 >;
 
+/** Which job, conversation and user a model call belongs to, as Rudimint records it. */
+export type RudimintCapture = {
+	task: string;
+	session?: string;
+	user?: string;
+	metadata?: Record<string, string | undefined>;
+};
+
 export function getWorkspaceAiLanguageModel(
 	modelId: ReturnType<typeof resolveWorkspaceAiChatModelId>,
 	env: Cloudflare.Env,
+	capture?: RudimintCapture,
 ): LanguageModel {
-	return getWorkspaceAiLanguageModelForGatewayModel(getWorkspaceAiChatModel(modelId), env);
+	return getWorkspaceAiLanguageModelForGatewayModel(getWorkspaceAiChatModel(modelId), env, capture);
 }
 
 export function getWorkspaceAiLanguageModelForGatewayModel(
 	gatewayModel: string,
 	env: Cloudflare.Env,
+	capture?: RudimintCapture,
 ): LanguageModel {
 	const gateway = createGateway({
 		apiKey: getVercelAiGatewayApiKey(env),
+		...getRudimintGatewaySettings(env, capture),
 	});
 
 	return wrapLanguageModel({
@@ -141,6 +152,28 @@ function getWorkspaceAiReasoningOptions(
 	}
 }
 
+// Rudimint forwards each call to Vercel AI Gateway unchanged and keeps a copy for
+// evaluation and training. Without RUDIMINT_KEY, calls go to Vercel directly.
+const RUDIMINT_GATEWAY_URL = "https://api.rudimint.com/vercel/v4/ai";
+
+function getRudimintGatewaySettings(env: Cloudflare.Env, capture?: RudimintCapture) {
+	const key = (env as { RUDIMINT_KEY?: string }).RUDIMINT_KEY ?? process.env.RUDIMINT_KEY;
+
+	if (!key) {
+		return {};
+	}
+
+	const headers: Record<string, string> = { "x-rudimint-key": key };
+	if (capture) {
+		headers["x-rudimint-task"] = capture.task;
+		if (capture.session) headers["x-rudimint-session"] = capture.session;
+		if (capture.user) headers["x-rudimint-user"] = capture.user;
+		if (capture.metadata) headers["x-rudimint-metadata"] = JSON.stringify(capture.metadata);
+	}
+
+	return { baseURL: RUDIMINT_GATEWAY_URL, headers };
+}
+
 function getVercelAiGatewayApiKey(env: Cloudflare.Env) {
 	const apiKey =
 		(env as { AI_GATEWAY_API_KEY?: string }).AI_GATEWAY_API_KEY ?? process.env.AI_GATEWAY_API_KEY;
@@ -152,7 +185,11 @@ function getVercelAiGatewayApiKey(env: Cloudflare.Env) {
 	return apiKey;
 }
 
-export async function generateAIThreadTitle(input: { env: Cloudflare.Env; messages: UIMessage[] }) {
+export async function generateAIThreadTitle(input: {
+	env: Cloudflare.Env;
+	messages: UIMessage[];
+	capture?: RudimintCapture;
+}) {
 	const firstUserMessage = getFirstUserMessageText(input.messages);
 
 	if (!firstUserMessage) {
@@ -160,7 +197,11 @@ export async function generateAIThreadTitle(input: { env: Cloudflare.Env; messag
 	}
 
 	const result = await generateText({
-		model: getWorkspaceAiLanguageModelForGatewayModel(AI_THREAD_TITLE_GATEWAY_MODEL, input.env),
+		model: getWorkspaceAiLanguageModelForGatewayModel(
+			AI_THREAD_TITLE_GATEWAY_MODEL,
+			input.env,
+			input.capture,
+		),
 		providerOptions: getAIThreadTitleGatewayProviderOptions(),
 		instructions:
 			"Produce a concise chat title for the user message. Two to six words. No quotes, no trailing punctuation.",

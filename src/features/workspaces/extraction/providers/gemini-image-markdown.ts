@@ -38,7 +38,10 @@ export function createGeminiImageMarkdownProvider(env: Env): MarkdownExtractionP
 				WORKSPACE_AI_CHAT_ATTACHMENT_POLICY.maxNormalizedFileSize,
 			);
 			const result = await generateText({
-				model: getWorkspaceAiLanguageModelForGatewayModel(IMAGE_EXTRACTION_GATEWAY_MODEL, env),
+				model: getWorkspaceAiLanguageModelForGatewayModel(IMAGE_EXTRACTION_GATEWAY_MODEL, env, {
+					task: "image-to-markdown",
+					metadata: { workspaceId: input.workspaceId, itemId: input.itemId },
+				}),
 				providerOptions: {
 					gateway: {
 						...getWorkspaceAiGatewayTransportOptions(),
