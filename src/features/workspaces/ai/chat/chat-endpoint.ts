@@ -198,7 +198,7 @@ export async function handleAiChatTurn(input: {
 			task,
 			session: threadId,
 			user: userId,
-			metadata: { workspaceId: body.workspaceId, traceId: turn.streamId, modelId },
+			metadata: { workspaceId: body.workspaceId, traceId: turn.streamId },
 		});
 		const systemPrompt = buildAiChatSystemPrompt({
 			promptScope,
