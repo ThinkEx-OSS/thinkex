@@ -22,6 +22,7 @@ function createWorkspaceThreadTool(input: WorkspaceThreadToolConfig) {
 	return defineAIThreadTool({
 		description: definition.description,
 		inputSchema: definition.inputSchema,
+		modelInputSchema: definition.modelInputSchema,
 		inputExamples: definition.inputExamples,
 		outputSchema: definition.outputSchema,
 		...(resultAdapter

@@ -1,5 +1,5 @@
 import { env } from "cloudflare:test";
-import type { ToolExecutionOptions } from "ai";
+import { asSchema, type ToolExecutionOptions } from "ai";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
@@ -26,7 +26,7 @@ function createDoubleNumberTool() {
 }
 
 describe("orchestrate tool description", () => {
-	it("renders concrete types from the original schemas and omits excluded tools", () => {
+	it("renders concrete types and advertises provider-compatible tool roots", async () => {
 		const tools = createAiChatTools({
 			env,
 			threadContext: {
@@ -37,6 +37,13 @@ describe("orchestrate tool description", () => {
 			},
 			canMutate: true,
 		});
+		for (const [name, tool] of Object.entries(tools)) {
+			const schema = await asSchema(tool.inputSchema).jsonSchema;
+			expect(schema.type, name).toBe("object");
+			for (const key of ["oneOf", "anyOf", "allOf"]) {
+				expect(schema, name).not.toHaveProperty(key);
+			}
+		}
 		const orchestrate = tools.orchestrate;
 		if (!orchestrate || typeof orchestrate.description !== "string") {
 			throw new Error("Expected an orchestrate tool with a description");

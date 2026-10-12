@@ -18,6 +18,7 @@ import {
 	workspaceDeleteItemsOutputSchema,
 	workspaceEditItemInputExamples,
 	workspaceEditItemInputSchema,
+	workspaceEditItemModelInputSchema,
 	workspaceEditItemOutputSchema,
 	workspaceLinkItemsInputExamples,
 	workspaceLinkItemsInputSchema,
@@ -81,6 +82,7 @@ type WorkspaceToolDefinition<
 	) => Promise<z.output<TOutputSchema>>;
 	inputExamples: Array<{ input: z.input<TInputSchema> }>;
 	inputSchema: TInputSchema;
+	modelInputSchema?: z.ZodType;
 	name: TName;
 	outputSchema: TOutputSchema;
 	summarizeResult: (result: z.output<TOutputSchema>) => WorkspaceOperationSummary;
@@ -247,6 +249,7 @@ export const workspaceToolDefinitions = [
 		description:
 			"Edit one document, flashcard set, or quiz by absolute path. Read it first, then copy each target's exact unit ref (like b_x7Kp2Qa9x8Lm.r_4f2a1b) from that read; the .r_ revision is how a stale edit fails loudly instead of hitting the wrong content. Flashcard and quiz edits apply immediately; document edits retain their review flow. Use workspace_link_items for item-level relationships.",
 		inputSchema: workspaceEditItemInputSchema,
+		modelInputSchema: workspaceEditItemModelInputSchema,
 		inputExamples: workspaceEditItemInputExamples,
 		outputSchema: workspaceEditItemOutputSchema,
 		summarizeResult: summarizeWorkspaceAppliedResult,

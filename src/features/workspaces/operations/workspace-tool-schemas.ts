@@ -186,6 +186,19 @@ export const workspaceEditItemInputSchema = z.discriminatedUnion("type", [
 		.describe("Quiz edits."),
 ]);
 
+// Providers require an object root; execution still validates the type/edit pairing above.
+export const workspaceEditItemModelInputSchema = z.object({
+	type: z.enum(["document", "flashcard", "quiz"]),
+	path: z.string().min(1).describe("Absolute path of the ThinkEx item to edit."),
+	edits: z
+		.union([
+			workspaceEditItemInputSchema.options[0].shape.edits,
+			workspaceEditItemInputSchema.options[1].shape.edits,
+			workspaceEditItemInputSchema.options[2].shape.edits,
+		])
+		.describe("Ordered edits matching the item's type. Use exact refs from workspace_read_items."),
+});
+
 export const workspaceLinkItemsInputSchema = z.object({
 	items: z
 		.array(

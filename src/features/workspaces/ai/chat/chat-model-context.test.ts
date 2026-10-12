@@ -128,3 +128,38 @@ describe("convertPersistedMessagesToModelMessages", () => {
 		expect(serialized).not.toContain("msg_expired_reference");
 	});
 });
+
+it("replays existing workspace edit arguments without a wrapper or migration", async () => {
+	const input = {
+		type: "document",
+		path: "/Notes",
+		edits: [{ op: "delete", ref: "b_x7Kp2Qa9x8Lm.r_4f2a1b" }],
+	};
+	const converted = await convertPersistedMessagesToModelMessages([
+		{
+			id: "old-edit",
+			role: "assistant",
+			parts: [
+				{
+					type: "tool-workspace_edit_item",
+					toolCallId: "old-call",
+					state: "output-available",
+					input,
+					output: { success: true },
+				},
+			],
+		},
+		{ id: "next", role: "user", parts: [{ type: "text", text: "Continue editing." }] },
+	]);
+	expect(converted[0]).toMatchObject({
+		role: "assistant",
+		content: [
+			{
+				type: "tool-call",
+				toolName: "workspace_edit_item",
+				input,
+			},
+		],
+	});
+	expect(converted[1]).toMatchObject({ role: "tool", content: [{ toolCallId: "old-call" }] });
+});

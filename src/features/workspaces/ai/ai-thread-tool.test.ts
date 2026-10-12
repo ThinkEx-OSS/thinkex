@@ -8,6 +8,12 @@ import {
 	type AIThreadToolExecutionContext,
 } from "#/features/workspaces/ai/ai-thread-tool";
 
+import {
+	workspaceEditItemInputSchema,
+	workspaceEditItemModelInputSchema,
+	workspaceEditItemInputExamples,
+} from "#/features/workspaces/operations/workspace-tool-schemas";
+
 const directOptions = {
 	abortSignal: new AbortController().signal,
 	context: {},
@@ -94,4 +100,37 @@ describe("AI thread tool", () => {
 		expect(JSON.stringify(modelSchema)).not.toContain('"maxItems"');
 		await expect(execute({ values: ["one", "two"] }, directOptions)).rejects.toThrow();
 	});
+});
+
+it("keeps edit arguments unchanged while enforcing the original union at execution", async () => {
+	const aiTool = defineAIThreadTool({
+		inputSchema: workspaceEditItemInputSchema,
+		modelInputSchema: workspaceEditItemModelInputSchema,
+		outputSchema: workspaceEditItemInputSchema,
+		execute: async (input) => input,
+	});
+	const execute = aiTool.execute!;
+	const modelSchema = await asSchema(aiTool.inputSchema).jsonSchema;
+	expect(modelSchema.type).toBe("object");
+	for (const key of ["oneOf", "anyOf", "allOf"]) expect(modelSchema).not.toHaveProperty(key);
+	for (const { input } of workspaceEditItemInputExamples) {
+		await expect(execute(input, directOptions)).resolves.toEqual(input);
+	}
+	const wrongType = {
+		type: "document",
+		path: "/Notes",
+		edits: [{ op: "replace", ref: "c_9xKp2Qab.r_4f2a1b", front: "<p>Q</p>", back: "<p>A</p>" }],
+	};
+	expect(workspaceEditItemModelInputSchema.safeParse(wrongType).success).toBe(true);
+	await expect(execute(wrongType, directOptions)).rejects.toThrow();
+	await expect(
+		execute(
+			{
+				type: "document",
+				path: "/Notes",
+				edits: Array.from({ length: 41 }, () => ({ op: "delete", ref: "b_x7Kp2Qa9x8Lm.r_4f2a1b" })),
+			},
+			directOptions,
+		),
+	).rejects.toThrow();
 });
