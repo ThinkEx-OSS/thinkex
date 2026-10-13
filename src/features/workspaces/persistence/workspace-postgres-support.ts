@@ -33,6 +33,13 @@ export type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
 export type QueryExecutor = Database | Transaction;
 export type ItemRow = typeof workspaceItems.$inferSelect;
 
+export class WorkspaceItemNotFoundError extends Error {
+	constructor() {
+		super("Workspace item not found.");
+		this.name = "WorkspaceItemNotFoundError";
+	}
+}
+
 export async function withWorkspaceTransaction<T>(run: (transaction: Transaction) => Promise<T>) {
 	return await withDb((db) => db.transaction(run));
 }
@@ -114,7 +121,7 @@ export async function requireActiveWorkspaceItemRow(
 	itemId: string,
 ) {
 	const row = await getActiveWorkspaceItemRow(db, workspaceId, itemId);
-	if (!row) throw new Error("Workspace item not found.");
+	if (!row) throw new WorkspaceItemNotFoundError();
 	return row;
 }
 
