@@ -13,6 +13,7 @@ import {
 	tiptapDocumentAiRefAttribute,
 } from "#/features/workspaces/documents/tiptap-schema";
 import { sha256Base64UrlText } from "#/lib/binary";
+import { mathLikeInlineBody } from "#/lib/math-like-text";
 
 const TEXT_NODE = 3;
 const documentBlockIdPattern = /^b_[A-Za-z0-9_-]{12}$/;
@@ -210,19 +211,21 @@ function serializeTiptapFragmentToAiHtml(fragment: Fragment) {
 }
 
 /**
- * Rescues the two tags ProseMirror parses lossily.
+ * Rescues the tags and math dialects ProseMirror parses lossily.
  *
  * Everything else outside the schema is already handled by the parser: unknown
  * wrappers are skipped with their children kept, and `<script>`/`<style>` text
- * never reaches the document. These two lose meaning instead:
+ * never reaches the document. These lose meaning instead:
  *  - `<h5>`/`<h6>` fall all the way to a paragraph, so the heading disappears;
  *    the schema stops at 4, so 4 is where they belong.
  *  - `<sub>`/`<sup>` flatten to bare text (`CH<sub>4</sub>` becomes `CH4`), so
  *    they become inline math instead. `{}_{4}` is the KaTeX form for a
  *    subscript with no base, which is what the tag means on its own.
+ *  - `$…$`/`$$…$$` in prose stay literal text, because math renders only as a
+ *    math node, never delimiters. They become inline and block math instead.
  *
- * Models write both by habit — evals showed `CH<sub>4</sub>` surviving an
- * explicit instruction not to use it.
+ * Models write all of these by habit — evals showed `CH<sub>4</sub>` and dollar
+ * math surviving an explicit instruction not to use them.
  */
 function rewriteLossyElements(htmlDocument: Document) {
 	for (const element of htmlDocument.body.querySelectorAll("h5, h6")) {
@@ -248,6 +251,157 @@ function rewriteLossyElements(htmlDocument: Document) {
 		);
 		element.replaceWith(math);
 	}
+
+	rewriteDollarMath(htmlDocument);
+}
+
+interface DollarMathSegment {
+	type: "text" | "inline" | "block";
+	value: string;
+}
+
+/**
+ * Converts `$…$` and `$$…$$` prose into math nodes, the form the document
+ * schema renders. Chat repairs the same dialect (`normalize-llm-markdown.ts`);
+ * documents never got the equivalent, so the model's inline math stayed literal.
+ *
+ * Code, widget source, and math nodes keep their raw text — a LaTeX example in a
+ * code block must not turn into an equation. Money stays plain: an inline pair
+ * only converts when its body reads as math (`mathLikeInlineBody`), so `$5 and
+ * $10` is left alone. A `$$…$$` pair is display math with no money reading, so a
+ * non-empty body is enough.
+ */
+function rewriteDollarMath(htmlDocument: Document) {
+	const textNodes: globalThis.Node[] = [];
+	collectDollarMathTextNodes(htmlDocument.body, textNodes);
+
+	for (const textNode of textNodes) {
+		const segments = splitDollarMath(textNode.textContent ?? "");
+		if (!segments) {
+			continue;
+		}
+
+		const parent = textNode.parentNode;
+		if (!parent) {
+			continue;
+		}
+
+		for (const segment of segments) {
+			parent.insertBefore(createDollarMathNode(htmlDocument, segment), textNode);
+		}
+		parent.removeChild(textNode);
+	}
+}
+
+function collectDollarMathTextNodes(root: globalThis.Node, out: globalThis.Node[]) {
+	for (const child of Array.from(root.childNodes)) {
+		if (child.nodeType === TEXT_NODE) {
+			if (child.textContent?.includes("$")) {
+				out.push(child);
+			}
+			continue;
+		}
+		if (isDollarMathSkippedElement(child)) {
+			continue;
+		}
+		collectDollarMathTextNodes(child, out);
+	}
+}
+
+function isDollarMathSkippedElement(node: globalThis.Node) {
+	const element = node as Element;
+	if (typeof element.getAttribute !== "function") {
+		return false;
+	}
+	const tag = element.tagName?.toLowerCase();
+	if (tag === "code" || tag === "pre") {
+		return true;
+	}
+	const dataType = element.getAttribute("data-type");
+	return dataType === "widget" || dataType === "inline-math" || dataType === "block-math";
+}
+
+function createDollarMathNode(htmlDocument: Document, segment: DollarMathSegment): globalThis.Node {
+	if (segment.type === "text") {
+		return htmlDocument.createTextNode(segment.value) as unknown as globalThis.Node;
+	}
+	const element = htmlDocument.createElement(segment.type === "block" ? "div" : "span");
+	element.setAttribute("data-type", segment.type === "block" ? "block-math" : "inline-math");
+	element.setAttribute("data-latex", segment.value);
+	return element as unknown as globalThis.Node;
+}
+
+/**
+ * Splits a text run into plain-text and math segments. Returns null when nothing
+ * converts, so the caller leaves the original text node untouched.
+ */
+function splitDollarMath(text: string): DollarMathSegment[] | null {
+	const segments: DollarMathSegment[] = [];
+	let buffer = "";
+	let index = 0;
+
+	const flushBuffer = () => {
+		if (buffer) {
+			segments.push({ type: "text", value: buffer });
+			buffer = "";
+		}
+	};
+
+	while (index < text.length) {
+		if (text[index] !== "$") {
+			buffer += text[index];
+			index += 1;
+			continue;
+		}
+
+		if (text[index + 1] === "$") {
+			const close = text.indexOf("$$", index + 2);
+			const body = close === -1 ? "" : text.slice(index + 2, close).trim();
+			if (body) {
+				flushBuffer();
+				segments.push({ type: "block", value: body });
+				index = close + 2;
+				continue;
+			}
+			buffer += "$$";
+			index += 2;
+			continue;
+		}
+
+		const close = findInlineMathClose(text, index + 1);
+		if (close !== -1) {
+			const body = text.slice(index + 1, close);
+			if (mathLikeInlineBody(body)) {
+				flushBuffer();
+				segments.push({ type: "inline", value: body.trim() });
+				index = close + 1;
+				continue;
+			}
+		}
+		buffer += "$";
+		index += 1;
+	}
+
+	// Only math segments break the flow; if none were produced the buffer holds
+	// the whole text, so leave the original text node untouched.
+	if (segments.length === 0) {
+		return null;
+	}
+	flushBuffer();
+	return segments;
+}
+
+/** Index of the closing `$` for an inline pair, or -1. Stops at a line break. */
+function findInlineMathClose(text: string, start: number) {
+	for (let index = start; index < text.length; index += 1) {
+		if (text[index] === "\n") {
+			return -1;
+		}
+		if (text[index] === "$") {
+			return index === start ? -1 : index;
+		}
+	}
+	return -1;
 }
 
 function validateDocumentAiHtml(root: HTMLElement) {
