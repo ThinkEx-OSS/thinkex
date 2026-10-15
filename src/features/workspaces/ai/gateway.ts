@@ -130,26 +130,34 @@ export function getAIThreadTitleGatewayProviderOptions(): WorkspaceAiProviderOpt
 function getWorkspaceAiReasoningOptions(
 	modelId: ReturnType<typeof resolveWorkspaceAiChatModelId>,
 ): WorkspaceAiProviderOptions {
-	switch (modelId) {
-		case "gemini":
-			return {
-				google: {
-					thinkingConfig: { thinkingLevel: "low" },
-				},
-				vertex: {
-					thinkingConfig: { thinkingLevel: "low" },
-				},
-			};
-		case "gpt-sol":
-			return {
-				openai: {
-					// Sol 6.1 requires reasoning; low is its minimum supported effort.
-					reasoningEffort: "low",
-				},
-			};
-		default:
-			return {};
-	}
+	const routeModels = [
+		getWorkspaceAiChatModel(modelId),
+		...getWorkspaceAiGatewayRoutingOptions(modelId).models,
+	];
+
+	return {
+		openai: {
+			reasoningSummary: "detailed",
+			// Sol 6.1 requires reasoning; preserve its existing minimum effort.
+			...(modelId === "gpt-sol" ? { reasoningEffort: "low" } : {}),
+		},
+		google: {
+			thinkingConfig: {
+				includeThoughts: true,
+				...(modelId === "gemini" ? { thinkingLevel: "low" } : {}),
+			},
+		},
+		vertex: {
+			thinkingConfig: {
+				includeThoughts: true,
+				...(modelId === "gemini" ? { thinkingLevel: "low" } : {}),
+			},
+		},
+		// Include Sonnet fallbacks, but never send adaptive thinking to Haiku.
+		...(routeModels.includes("anthropic/claude-sonnet-5.5")
+			? { anthropic: { thinking: { type: "adaptive", display: "summarized" } } }
+			: {}),
+	};
 }
 
 // Rudimint forwards each call to Vercel AI Gateway unchanged and keeps a copy for
