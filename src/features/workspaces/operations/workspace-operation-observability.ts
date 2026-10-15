@@ -1,4 +1,6 @@
+import { isTransientDurableObjectError } from "#/features/workspaces/durable-object-errors";
 import type { WorkspaceAccessContext } from "#/features/workspaces/operations/workspace-access-context";
+import { buildOperationalErrorFields } from "#/integrations/observability/operational-error";
 import { recordOperationalOutcome } from "#/integrations/observability/operational-events";
 
 export type WorkspaceOperationOutcome = "error" | "partial" | "success";
@@ -31,19 +33,25 @@ export async function observeWorkspaceOperation<T>(
 		recordWorkspaceOperation(input, summary, Date.now() - startedAt);
 		return result;
 	} catch (error) {
-		recordOperationalOutcome({
-			distinctId: input.context.actor.userId,
-			error,
-			event: "workspace_operation",
-			fields: {
-				duration_ms: Date.now() - startedAt,
-				mutating: input.mutating,
-				operation: input.operation,
-				operation_id: input.context.operationId,
-				user_id: input.context.actor.userId,
-				workspace_id: input.context.workspaceId,
-			},
-		});
+		const fields = {
+			duration_ms: Date.now() - startedAt,
+			mutating: input.mutating,
+			operation: input.operation,
+			operation_id: input.context.operationId,
+			user_id: input.context.actor.userId,
+			workspace_id: input.context.workspaceId,
+		};
+		// A platform fault the caller can retry is not a code defect to capture.
+		recordOperationalOutcome(
+			isTransientDurableObjectError(error)
+				? {
+						distinctId: input.context.actor.userId,
+						event: "workspace_operation",
+						fields: { ...fields, ...buildOperationalErrorFields(error) },
+						outcome: "rejected",
+					}
+				: { distinctId: input.context.actor.userId, error, event: "workspace_operation", fields },
+		);
 		throw error;
 	}
 }

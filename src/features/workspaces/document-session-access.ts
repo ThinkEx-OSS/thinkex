@@ -1,12 +1,53 @@
 import { getServerByName } from "partyserver";
 
 import { getDocumentSessionRoomName } from "#/features/workspaces/agent-routes";
+import { isTransientDurableObjectError } from "#/features/workspaces/durable-object-errors";
+import { recordOperationalOutcome } from "#/integrations/observability/operational-events";
 
-export function getDocumentSessionFromEnv(
+const maxSessionOpenAttempts = 3;
+const sessionOpenRetryDelayMs = 100;
+
+export async function getDocumentSessionFromEnv(
 	env: Cloudflare.Env,
 	input: { itemId: string; workspaceId: string },
 ) {
-	return getServerByName(env.DocumentSession, getDocumentSessionRoomName(input));
+	const name = getDocumentSessionRoomName(input);
+	// partyserver retries only `retryable` errors; a storage reset needs this wider check.
+	for (let attempt = 1; ; attempt += 1) {
+		try {
+			const session = await getServerByName(env.DocumentSession, name, { routingRetry: false });
+			if (attempt > 1) {
+				recordSessionOpenRetry(input, attempt, true);
+			}
+			return session;
+		} catch (error) {
+			if (!isTransientDurableObjectError(error)) {
+				throw error;
+			}
+			if (attempt === maxSessionOpenAttempts) {
+				recordSessionOpenRetry(input, attempt, false);
+				throw error;
+			}
+			await new Promise((resolve) => setTimeout(resolve, sessionOpenRetryDelayMs * attempt));
+		}
+	}
+}
+
+function recordSessionOpenRetry(
+	input: { itemId: string; workspaceId: string },
+	attempts: number,
+	recovered: boolean,
+) {
+	recordOperationalOutcome({
+		event: "document_session_open_retry",
+		fields: {
+			attempts,
+			item_id: input.itemId,
+			recovered,
+			workspace_id: input.workspaceId,
+		},
+		outcome: recovered ? "success" : "rejected",
+	});
 }
 
 export function getDocumentSessionStubFromEnv(
