@@ -7,10 +7,9 @@ import { recordOperationalOutcome } from "#/integrations/observability/operation
 const maxSessionOpenAttempts = 3;
 const sessionOpenRetryDelayMs = 100;
 
-export async function getDocumentSessionFromEnv(
-	env: Cloudflare.Env,
-	input: { itemId: string; workspaceId: string },
-) {
+type DocumentSessionInput = { itemId: string; workspaceId: string };
+
+export async function getDocumentSessionFromEnv(env: Cloudflare.Env, input: DocumentSessionInput) {
 	const name = getDocumentSessionRoomName(input);
 	// partyserver retries only `retryable` errors; a storage reset needs this wider check.
 	for (let attempt = 1; ; attempt += 1) {
@@ -33,11 +32,7 @@ export async function getDocumentSessionFromEnv(
 	}
 }
 
-function recordSessionOpenRetry(
-	input: { itemId: string; workspaceId: string },
-	attempts: number,
-	recovered: boolean,
-) {
+function recordSessionOpenRetry(input: DocumentSessionInput, attempts: number, recovered: boolean) {
 	recordOperationalOutcome({
 		event: "document_session_open_retry",
 		fields: {
@@ -50,10 +45,7 @@ function recordSessionOpenRetry(
 	});
 }
 
-export function getDocumentSessionStubFromEnv(
-	env: Cloudflare.Env,
-	input: { itemId: string; workspaceId: string },
-) {
+export function getDocumentSessionStubFromEnv(env: Cloudflare.Env, input: DocumentSessionInput) {
 	// Lifecycle control must not initialize Yjs. In particular, deletion could
 	// otherwise hydrate from a workspace item after that item has been removed.
 	return env.DocumentSession.getByName(getDocumentSessionRoomName(input));

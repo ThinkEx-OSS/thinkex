@@ -42,16 +42,13 @@ export async function observeWorkspaceOperation<T>(
 			workspace_id: input.context.workspaceId,
 		};
 		// A platform fault the caller can retry is not a code defect to capture.
-		recordOperationalOutcome(
-			isTransientDurableObjectError(error)
-				? {
-						distinctId: input.context.actor.userId,
-						event: "workspace_operation",
-						fields: { ...fields, ...buildOperationalErrorFields(error) },
-						outcome: "rejected",
-					}
-				: { distinctId: input.context.actor.userId, error, event: "workspace_operation", fields },
-		);
+		recordOperationalOutcome({
+			distinctId: input.context.actor.userId,
+			event: "workspace_operation",
+			...(isTransientDurableObjectError(error)
+				? { fields: { ...fields, ...buildOperationalErrorFields(error) }, outcome: "rejected" }
+				: { error, fields }),
+		});
 		throw error;
 	}
 }
