@@ -30,6 +30,46 @@ export function buildOperationalErrorFields(error: unknown): OperationalErrorFie
 	};
 }
 
+/**
+ * A drizzle `DrizzleQueryError` builds its message from the SQL statement and the
+ * bound parameters. Those parameters carry request data — a user id among them —
+ * so every caller produces a distinct message and error tracking splinters a
+ * single fault into one issue per parameter value. Rebuild it from the statement
+ * alone, keep the driver error as the cause so the real reason survives, and keep
+ * the original frames so the origin still resolves. Other errors pass through.
+ */
+export function normalizeCapturedError(error: unknown): unknown {
+	if (!isErrorRecord(error)) {
+		return error;
+	}
+
+	const statement = getString(error.query);
+
+	if (!statement || !Array.isArray(error.params)) {
+		return error;
+	}
+
+	const normalized = new Error(statement, { cause: error.cause });
+	normalized.name = "DrizzleQueryError";
+	normalized.stack = buildStatementStack(statement, getString(error.stack));
+
+	return normalized;
+}
+
+function buildStatementStack(statement: string, originalStack: string | undefined) {
+	const header = `DrizzleQueryError: ${statement}`;
+
+	if (!originalStack) {
+		return header;
+	}
+
+	// Drop the original message header (it holds the parameters) but keep the
+	// stack frames beneath it.
+	const framesIndex = originalStack.search(/\n\s+at /);
+
+	return framesIndex === -1 ? header : `${header}${originalStack.slice(framesIndex)}`;
+}
+
 function getErrorMessage(error: unknown) {
 	if (error instanceof Error) {
 		return error.message;

@@ -54,6 +54,14 @@ export const getWorkspaceBillingStateFn = createServerFn({ method: "GET" }).hand
 		}
 
 		const customerFields = await getAutumnCustomerFields(userId);
+
+		// Null means the read failed (see getAutumnCustomerFields). Skip
+		// get_or_create so its empty fields never overwrite the stored identity;
+		// this load goes without fresh balances rather than degrading the record.
+		if (!customerFields) {
+			return null;
+		}
+
 		const customer = await getOrCreateAutumnCustomer({
 			customerId: userId,
 			secretKey,
