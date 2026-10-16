@@ -1,5 +1,10 @@
 import type { AiChatMessage } from "#/features/workspaces/components/ai-chat/types";
 
+/** Whether a store snapshot already matches the local transcript exactly. */
+export function transcriptsEqual(local: AiChatMessage[], stored: AiChatMessage[]) {
+	return JSON.stringify(local) === JSON.stringify(stored);
+}
+
 /** Whether a settled store snapshot proves an uncertain transport kept running. */
 export function serverTranscriptAdvanced(local: AiChatMessage[], stored: AiChatMessage[]) {
 	const localTail = local.at(-1);
