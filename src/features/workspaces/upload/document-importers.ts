@@ -1,5 +1,6 @@
 import Papa from "papaparse";
 
+import { WorkspaceFileConversionError } from "#/features/workspaces/conversion/errors";
 import type { JsonValue } from "#/features/workspaces/contracts";
 import {
 	resolveCodeLanguageFromFileName,
@@ -70,6 +71,26 @@ export const workspaceDocumentImportFormats: readonly WorkspaceDocumentImportFor
 		importFile: importPlainTextFile,
 	},
 ];
+
+// The importer is chosen from the reported file name and MIME type, so a misrouted or
+// damaged file reaches it and throws a raw error. Translate that into a conversion error
+// so the upload route returns a readable 422 and records the underlying cause, instead of
+// an opaque 500 that drops the cause.
+export async function importWorkspaceDocument(
+	format: WorkspaceDocumentImportFormat,
+	file: File,
+): Promise<WorkspaceDocumentCreateContent> {
+	try {
+		return await format.importFile(file);
+	} catch (error) {
+		throw new WorkspaceFileConversionError(
+			`Workspace document import failed for format "${format.id}".`,
+			"This file could not be imported. It may be damaged or in a format we can't read.",
+			"conversion_failed",
+			{ cause: error },
+		);
+	}
+}
 
 function createDelimitedTableImporter(input: {
 	id: "csv" | "tsv";

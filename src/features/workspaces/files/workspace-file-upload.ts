@@ -252,6 +252,7 @@ class WorkspaceFileUploadRequestError extends Error {
 		readonly code: string,
 	) {
 		super(message);
+		this.name = "WorkspaceFileUploadRequestError";
 	}
 }
 
