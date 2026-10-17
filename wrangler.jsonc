@@ -102,7 +102,6 @@
 			"R2_ACCESS_KEY_ID",
 			"R2_SECRET_ACCESS_KEY",
 			"WORKSPACE_UPLOAD_TOKEN_SECRET",
-			"RUDIMINT_KEY",
 		],
 	},
 	"workflows": [
@@ -255,7 +254,6 @@
 					"R2_ACCESS_KEY_ID",
 					"R2_SECRET_ACCESS_KEY",
 					"WORKSPACE_UPLOAD_TOKEN_SECRET",
-					"RUDIMINT_KEY",
 				],
 			},
 			"ai": {
@@ -371,7 +369,6 @@
 					"R2_ACCESS_KEY_ID",
 					"R2_SECRET_ACCESS_KEY",
 					"WORKSPACE_UPLOAD_TOKEN_SECRET",
-					"RUDIMINT_KEY",
 				],
 			},
 			"ai": {

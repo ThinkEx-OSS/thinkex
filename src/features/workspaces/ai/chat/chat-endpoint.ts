@@ -193,13 +193,6 @@ export async function handleAiChatTurn(input: {
 			promptScope,
 			userId,
 		};
-		// One Rudimint session per thread; each model call in a turn shares the turn's trace id.
-		const capture = (task: string) => ({
-			task,
-			session: threadId,
-			user: userId,
-			metadata: { workspaceId: body.workspaceId, traceId: turn.streamId },
-		});
 		const systemPrompt = buildAiChatSystemPrompt({
 			promptScope,
 			timeZone: body.timeZone,
@@ -234,11 +227,7 @@ export async function handleAiChatTurn(input: {
 
 				try {
 					result = await generateText({
-						model: getWorkspaceAiLanguageModel(
-							AI_CHAT_COMPACTION_MODEL_ID,
-							env,
-							capture("chat-compaction"),
-						),
+						model: getWorkspaceAiLanguageModel(AI_CHAT_COMPACTION_MODEL_ID, env),
 						providerOptions: getWorkspaceAiGatewayProviderOptions({
 							modelId: AI_CHAT_COMPACTION_MODEL_ID,
 							tags: ["task:chat-compaction"],
@@ -360,11 +349,7 @@ export async function handleAiChatTurn(input: {
 							let generated;
 
 							try {
-								generated = await generateAIThreadTitle({
-									env,
-									messages: [userMessage],
-									capture: capture("chat-title"),
-								});
+								generated = await generateAIThreadTitle({ env, messages: [userMessage] });
 							} catch (error) {
 								// The model call failing must still produce an event — a dead
 								// title model would otherwise be invisible in the analytics.
@@ -411,7 +396,7 @@ export async function handleAiChatTurn(input: {
 					await hydrateAttachmentParts(context.messages, { userId, threadId }),
 				);
 				const result = streamText({
-					model: getWorkspaceAiLanguageModel(modelId, env, capture("chat")),
+					model: getWorkspaceAiLanguageModel(modelId, env),
 					providerOptions: getWorkspaceAiGatewayProviderOptions({
 						modelId,
 						thread: threadContext,

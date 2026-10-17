@@ -35,11 +35,11 @@ const privacyDocument = {
 		},
 		{
 			title: "Service providers",
-			body: "We use service providers to operate ThinkEx. Depending on the feature and environment, these may include Cloudflare for hosting, storage, databases, Durable Objects, Workers AI, Browser Rendering, email delivery, and sandboxed compute; Google for sign-in; Vercel AI Gateway and AI model providers such as OpenAI, Anthropic, and Google for AI responses; Firecrawl and Cloudflare Workers AI for file, web, and research extraction; PostHog for analytics, feedback, error reporting, session replay in deployed builds, and AI observability; The Context Company for AI observability; Rudimint, which records AI requests and responses so we can evaluate and improve the models behind ThinkEx; and Autumn for AI usage tracking. These providers process data only as needed to provide their services to ThinkEx Inc.",
+			body: "We use service providers to operate ThinkEx. Depending on the feature and environment, these may include Cloudflare for hosting, storage, databases, Durable Objects, Workers AI, Browser Rendering, email delivery, and sandboxed compute; Google for sign-in; Vercel AI Gateway and AI model providers such as OpenAI, Anthropic, and Google for AI responses; Firecrawl and Cloudflare Workers AI for file, web, and research extraction; PostHog for analytics, feedback, error reporting, session replay in deployed builds, and AI observability; The Context Company for AI observability; and Autumn for AI usage tracking. These providers process data only as needed to provide their services to ThinkEx Inc.",
 		},
 		{
 			title: "Workspace content and AI",
-			body: "Your workspace content remains yours. When you use AI features, ThinkEx may send your prompt, selected workspace context, extracted text, file-derived content, and tool outputs to the configured AI or extraction providers so they can return a result. AI requests and responses also pass through Rudimint, which keeps a copy so we can evaluate and improve the models ThinkEx uses. Do not use ThinkEx for highly sensitive information unless you are comfortable with this processing.",
+			body: "Your workspace content remains yours. When you use AI features, ThinkEx may send your prompt, selected workspace context, extracted text, file-derived content, and tool outputs to the configured AI or extraction providers so they can return a result. Do not use ThinkEx for highly sensitive information unless you are comfortable with this processing.",
 		},
 		{
 			title: "Cookies and local storage",
