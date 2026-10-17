@@ -14,6 +14,8 @@ import type { WorkspacePathResolution } from "#/features/workspaces/persistence/
 import { readWorkspaceContent } from "#/features/workspaces/content/workspace-content-reader";
 import { createFlashcardSetFromHtml } from "#/features/workspaces/flashcards/flashcard-content";
 import type { FlashcardStudyState } from "#/features/workspaces/flashcards/flashcard-study-state";
+import { createQuizSetFromInputs } from "#/features/workspaces/quizzes/quiz-content";
+import { workspaceReadItemsOutputSchema } from "#/features/workspaces/content/workspace-content-contract";
 
 const persistence = vi.hoisted(() => ({
 	getWorkspaceItemPaths: vi.fn(),
@@ -60,6 +62,58 @@ const recordingItem: WorkspaceItem = {
 const unitRefPattern = /^[A-Za-z0-9_-]+\.r_[A-Za-z0-9_-]{6}$/;
 
 describe("WorkspaceContentReader", () => {
+	it("reads short-answer model answers and the current user's AI feedback", async () => {
+		const set = createQuizSetFromInputs([
+			{
+				kind: "short_answer",
+				question: "<p>Explain how ATP supplies energy.</p>",
+				modelAnswer: "<p>Hydrolysis is coupled to cellular work.</p>",
+				gradingCriteria: "Mention hydrolysis and coupling to cellular work.",
+				explanation: "<p>Coupling drives reactions that require energy.</p>",
+			},
+		]);
+		const question = set.questions[0]!;
+		const read = createReader({
+			bucket: {} as R2Bucket,
+			getDocumentSession: () => createDocumentSession({ html: "<p />" }),
+			item: { ...documentItem, type: "quiz", name: "Biology quiz" },
+			readQuizItem: async () => ({
+				questions: set.questions,
+				studyState: {
+					kind: "quiz",
+					answers: {
+						[question.id]: {
+							textResponse: "Hydrolysis drives cellular work.",
+							correct: true,
+							feedback: "Both essential concepts are present.",
+							questionRevision: question.gradingRevision,
+							answeredAt: "2026-10-04T00:00:00.000Z",
+						},
+					},
+				},
+			}),
+		});
+		const results = await read([{ mode: "start", path: "/Biology quiz" }]);
+		expect(results[0]).toMatchObject({
+			status: "ready",
+			type: "quiz",
+			progress: { correctCount: 1 },
+			questions: [
+				{
+					kind: "short_answer",
+					options: [],
+					modelAnswer: "<p>Hydrolysis is coupled to cellular work.</p>",
+					answer: {
+						textResponse: "Hydrolysis drives cellular work.",
+						correct: true,
+						feedback: "Both essential concepts are present.",
+					},
+				},
+			],
+		});
+		expect(workspaceReadItemsOutputSchema.safeParse({ results }).success).toBe(true);
+	});
+
 	it("reads a long recording through the same ordered-entry journey", async () => {
 		const read = createReader({
 			bucket: {} as R2Bucket,

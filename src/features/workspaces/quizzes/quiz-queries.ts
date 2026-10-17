@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import {
 	getQuizViewerFn,
 	recordQuizAnswerFn,
+	recordQuizShortAnswerFn,
 	resetQuizStudyProgressFn,
 } from "#/features/workspaces/quizzes/quiz-functions";
 import {
@@ -107,4 +108,30 @@ export function useRecordQuizAnswer(input: {
 
 function quizViewerItemQueryKey(input: { itemId: string; workspaceId: string }) {
 	return ["workspace-quizzes", input.workspaceId, input.itemId] as const;
+}
+
+export function useRecordQuizShortAnswer(input: {
+	itemId: string;
+	updatedAt: string;
+	workspaceId: string;
+}) {
+	const queryClient = useQueryClient();
+	const itemQueryKey = quizViewerItemQueryKey(input);
+	return useMutation({
+		scope: { id: `quiz-study:${input.itemId}` },
+		mutationFn: (answer: { questionId: string; textResponse: string }) =>
+			recordQuizShortAnswerFn({
+				data: { itemId: input.itemId, workspaceId: input.workspaceId, ...answer },
+			}),
+		onMutate: () => queryClient.cancelQueries({ queryKey: itemQueryKey }),
+		onSuccess: (studyState) => {
+			queryClient.setQueriesData<QuizViewerData>({ queryKey: itemQueryKey }, (current) =>
+				current ? { ...current, studyState } : current,
+			);
+		},
+		onError: () => {
+			void queryClient.invalidateQueries({ queryKey: itemQueryKey });
+			toast.error("Your answer could not be graded. Your response is still available to retry.");
+		},
+	});
 }

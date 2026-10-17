@@ -50,6 +50,7 @@ describe("applyQuizEdits", () => {
 		expect(result.applied).toBe(5);
 		expect(result.content.questions).toHaveLength(3);
 		const revisedSecond = result.content.questions.find((entry) => entry.id === second!.id)!;
+		if (revisedSecond.kind !== "multiple_choice") throw new Error("Expected multiple choice.");
 		expect(serializeTiptapDocumentToHtml(revisedSecond.explanation)).toBe(
 			"<p>Updated explanation.</p>",
 		);
@@ -81,6 +82,7 @@ describe("applyQuizEdits", () => {
 
 		expect(result.failed).toEqual([]);
 		const revised = result.content.questions[0]!;
+		if (revised.kind !== "multiple_choice") throw new Error("Expected multiple choice.");
 		const correct = revised.options.find((option) => option.id === revised.correctOptionId)!;
 		expect(serializeTiptapDocumentToHtml(correct.text)).toBe("<p>Readily usable energy</p>");
 	});

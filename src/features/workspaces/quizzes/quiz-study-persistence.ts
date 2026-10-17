@@ -1,8 +1,10 @@
 import { and, eq } from "drizzle-orm";
+import { env } from "cloudflare:workers";
 
 import { workspaceItemContents, workspaceItems, workspaceItemUserStates } from "#/db/schema";
 import { withDb } from "#/db/server";
 import { parseQuizSetContent } from "#/features/workspaces/quizzes/quiz-content";
+import { gradeQuizResponse } from "#/features/workspaces/quizzes/quiz-grading";
 import {
 	applyQuizAnswer,
 	createEmptyQuizStudyState,
@@ -65,7 +67,10 @@ export async function recordQuizAnswer(input: {
 			if (!question) {
 				throw new Error("Quiz question not found.");
 			}
-			if (!question.options.some((option) => option.id === input.selectedOptionId)) {
+			if (
+				question.kind !== "multiple_choice" ||
+				!question.options.some((option) => option.id === input.selectedOptionId)
+			) {
 				throw new Error("Quiz option not found.");
 			}
 
@@ -79,6 +84,63 @@ export async function recordQuizAnswer(input: {
 				answeredAt: new Date().toISOString(),
 			});
 
+			await updateQuizStudyState(transaction, input, nextState);
+			return nextState;
+		}),
+	);
+}
+
+export async function recordQuizShortAnswer(input: {
+	itemId: string;
+	questionId: string;
+	textResponse: string;
+	userId: string;
+	workspaceId: string;
+}) {
+	const snapshot = await withDb((db) =>
+		db.transaction(async (transaction) => {
+			const questions = await requireQuizSet(transaction, input);
+			const question = questions.find((entry) => entry.id === input.questionId);
+			if (!question || question.kind !== "short_answer")
+				throw new Error("Short-answer question not found.");
+			const row = await lockQuizStudyStateRecord(transaction, input);
+			return { question, ...row };
+		}),
+	);
+	const { question } = snapshot;
+	if (getQuizAnswer(question, snapshot.state)) return snapshot.state;
+	const grade = await gradeQuizResponse({ ...input, question, env });
+	// The network call runs outside a database transaction. Recheck the question
+	// before saving so edits made during grading cannot receive a stale result.
+	return withDb((db) =>
+		db.transaction(async (transaction) => {
+			const questions = await requireQuizSet(transaction, input);
+			const row = await lockQuizStudyStateRecord(transaction, input);
+			const state = row.state;
+			const current = questions.find((entry) => entry.id === question.id);
+			if (
+				!current ||
+				current.kind !== "short_answer" ||
+				current.gradingRevision !== question.gradingRevision
+			) {
+				throw new Error("The question changed while grading. Please reload and try again.");
+			}
+			if (getQuizAnswer(current, state)) return state;
+			if (row.updatedAt.getTime() !== snapshot.updatedAt.getTime()) {
+				throw new Error("Quiz progress changed while grading. Please try again.");
+			}
+			const nextState = {
+				...state,
+				answers: {
+					...state.answers,
+					[question.id]: {
+						...grade,
+						textResponse: input.textResponse,
+						questionRevision: question.gradingRevision,
+						answeredAt: new Date().toISOString(),
+					},
+				},
+			};
 			await updateQuizStudyState(transaction, input, nextState);
 			return nextState;
 		}),
@@ -117,12 +179,20 @@ async function requireQuizSet(
 				eq(workspaceItems.type, "quiz"),
 			),
 		)
-		.limit(1);
+		.limit(1)
+		.for("share");
 	if (!item) throw new Error("Quiz not found.");
 	return parseQuizSetContent(item.content).questions;
 }
 
 async function lockQuizStudyState(
+	transaction: Transaction,
+	input: { itemId: string; userId: string },
+) {
+	return (await lockQuizStudyStateRecord(transaction, input)).state;
+}
+
+async function lockQuizStudyStateRecord(
 	transaction: Transaction,
 	input: { itemId: string; userId: string },
 ) {
@@ -132,7 +202,7 @@ async function lockQuizStudyState(
 		.values({ itemId: input.itemId, userId: input.userId, state: emptyState })
 		.onConflictDoNothing();
 	const [row] = await transaction
-		.select({ state: workspaceItemUserStates.state })
+		.select({ state: workspaceItemUserStates.state, updatedAt: workspaceItemUserStates.updatedAt })
 		.from(workspaceItemUserStates)
 		.where(
 			and(
@@ -143,7 +213,7 @@ async function lockQuizStudyState(
 		.limit(1)
 		.for("update");
 	if (!row) throw new Error("Quiz study state could not be created.");
-	return parseQuizStudyState(row.state);
+	return { state: parseQuizStudyState(row.state), updatedAt: row.updatedAt };
 }
 
 async function updateQuizStudyState(

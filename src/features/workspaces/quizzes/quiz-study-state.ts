@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { workspaceEntryIdSchema } from "#/features/workspaces/locations/workspace-location";
+import type { QuizQuestion } from "#/features/workspaces/quizzes/quiz-content";
 
 /**
  * One user's current run through a quiz. Answers lock on selection — the
@@ -8,10 +9,20 @@ import { workspaceEntryIdSchema } from "#/features/workspaces/locations/workspac
  * flashcard study state. `kind` keeps the shared user-state rows
  * self-describing next to their flashcard siblings.
  */
-export const quizAnswerSchema = z.object({
+export const multipleChoiceAnswerSchema = z.object({
 	selectedOptionId: z.uuid(),
 	answeredAt: z.string(),
 });
+
+export const shortAnswerSchema = z.object({
+	textResponse: z.string().trim().min(1).max(4_000),
+	correct: z.boolean(),
+	feedback: z.string().trim().min(1).max(4_000),
+	questionRevision: z.uuid(),
+	answeredAt: z.string(),
+});
+
+export const quizAnswerSchema = z.union([shortAnswerSchema, multipleChoiceAnswerSchema]);
 
 export type QuizAnswer = z.output<typeof quizAnswerSchema>;
 
@@ -42,11 +53,7 @@ export function parseQuizStudyState(value: unknown): QuizStudyState {
 }
 
 export function summarizeQuizStudyProgress(
-	questions: ReadonlyArray<{
-		id: string;
-		correctOptionId: string;
-		options: ReadonlyArray<{ id: string }>;
-	}>,
+	questions: ReadonlyArray<QuizQuestion>,
 	state: QuizStudyState,
 ): QuizStudyProgress {
 	let correctCount = 0;
@@ -55,7 +62,7 @@ export function summarizeQuizStudyProgress(
 	for (const question of questions) {
 		const answer = getQuizAnswer(question, state);
 		if (!answer) continue;
-		if (answer.selectedOptionId === question.correctOptionId) correctCount += 1;
+		if (isQuizAnswerCorrect(question, answer)) correctCount += 1;
 		else incorrectCount += 1;
 	}
 
@@ -75,14 +82,27 @@ export function summarizeQuizStudyProgress(
  * than as a wrong pick the user never made.
  */
 export function getQuizAnswer(
-	question: { id: string; options: ReadonlyArray<{ id: string }> },
+	question: QuizQuestion,
 	state: QuizStudyState,
 ): QuizAnswer | undefined {
 	const answer = state.answers[question.id];
 	if (!answer) return undefined;
+	if (question.kind === "short_answer") {
+		return "textResponse" in answer && answer.questionRevision === question.gradingRevision
+			? answer
+			: undefined;
+	}
+	if (!("selectedOptionId" in answer)) return undefined;
 	return question.options.some((option) => option.id === answer.selectedOptionId)
 		? answer
 		: undefined;
+}
+
+export function isQuizAnswerCorrect(question: QuizQuestion, answer: QuizAnswer | undefined) {
+	if (!answer) return false;
+	return question.kind === "short_answer"
+		? "textResponse" in answer && answer.correct
+		: "selectedOptionId" in answer && answer.selectedOptionId === question.correctOptionId;
 }
 
 export function applyQuizAnswer(
