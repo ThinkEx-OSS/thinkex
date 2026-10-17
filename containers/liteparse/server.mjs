@@ -46,6 +46,14 @@ async function handleRequest(request, response) {
 	let holdsParseSlot = false;
 
 	try {
+		// The @cloudflare/containers runtime probes the port with a `GET /` request
+		// before routing work here. Answer the readiness probe so it is logged as a
+		// served request instead of a 404, which this server records as an error.
+		if (request.method === "GET" && request.url === "/") {
+			status = 200;
+			return sendJson(response, status, { status: "ok" });
+		}
+
 		if (
 			request.method === "POST" &&
 			(request.url === "/prepare/pdf" || request.url === "/preview/image")
