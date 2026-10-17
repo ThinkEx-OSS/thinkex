@@ -2,6 +2,7 @@ import { env } from "cloudflare:workers";
 import { createFileRoute } from "@tanstack/react-router";
 
 import { readWorkspaceFileSource } from "#/features/workspaces/persistence/workspace-files";
+import { WorkspaceItemNotFoundError } from "#/features/workspaces/persistence/workspace-postgres-support";
 import { WorkspaceForbiddenError } from "#/features/workspaces/server/permissions";
 import { apiError, apiFailure, getRequestId } from "#/lib/api/http";
 import { getSessionFromRequest } from "#/lib/auth-queries.server";
@@ -49,6 +50,9 @@ async function handleWorkspaceFileContent(request: Request, workspaceId: string,
 				"FORBIDDEN",
 				"You do not have permission to view files in this workspace.",
 			);
+		}
+		if (error instanceof WorkspaceItemNotFoundError) {
+			return apiError(requestId, 404, "FILE_NOT_FOUND", "This workspace file no longer exists.");
 		}
 
 		return apiFailure({
