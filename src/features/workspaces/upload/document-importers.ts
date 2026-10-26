@@ -9,6 +9,7 @@ import {
 } from "#/features/workspaces/documents/code-block-shiki/code-languages";
 import { parseMarkdownToTiptapDocumentProjection } from "#/features/workspaces/documents/document-markdown";
 import { plainTextToTiptapDocument } from "#/features/workspaces/documents/plain-text-document";
+import { stripControlCharacters } from "#/features/workspaces/documents/text-sanitization";
 import {
 	type TiptapDocumentJson,
 	stringifyTiptapDocumentJson,
@@ -114,7 +115,7 @@ async function importCodeFile(file: File): Promise<WorkspaceDocumentCreateConten
 
 	return {
 		initialContent: stringifyTiptapDocumentJson(
-			codeTextToTiptapDocument(await file.text(), language),
+			codeTextToTiptapDocument(stripControlCharacters(await file.text()), language),
 		),
 		metadataJson: {
 			codeLanguage: language,
@@ -127,7 +128,7 @@ async function importCodeFile(file: File): Promise<WorkspaceDocumentCreateConten
 }
 
 async function importMarkdownFile(file: File): Promise<WorkspaceDocumentCreateContent> {
-	const markdown = await file.text();
+	const markdown = stripControlCharacters(await file.text());
 	const projection = parseMarkdownToTiptapDocumentProjection(markdown);
 
 	return {
@@ -143,7 +144,7 @@ async function importMarkdownFile(file: File): Promise<WorkspaceDocumentCreateCo
 }
 
 async function importPlainTextFile(file: File): Promise<WorkspaceDocumentCreateContent> {
-	const text = await file.text();
+	const text = stripControlCharacters(await file.text());
 
 	return {
 		initialContent: stringifyTiptapDocumentJson(plainTextToTiptapDocument(text)),
@@ -175,7 +176,7 @@ function codeTextToTiptapDocument(
 }
 
 function parseDelimitedTable(bytes: Uint8Array, options: { delimiter?: string }) {
-	const text = new TextDecoder("utf-8", { fatal: false }).decode(bytes);
+	const text = stripControlCharacters(new TextDecoder("utf-8", { fatal: false }).decode(bytes));
 	const rows: string[][] = [];
 	let totalColumns = 0;
 	let parseError: string | null = null;
