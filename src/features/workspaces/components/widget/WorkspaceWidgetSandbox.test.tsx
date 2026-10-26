@@ -90,6 +90,29 @@ describe("WorkspaceWidgetSandbox", () => {
 		expect(frame?.querySelector("button")).toBeNull();
 	});
 
+	it("reports first render once and a runtime error with its frame state", async () => {
+		const onFirstRender = vi.fn();
+		const onRuntimeError = vi.fn();
+		await render(
+			root,
+			<WorkspaceWidgetSandbox
+				html="<button>Run</button>"
+				onFirstRender={onFirstRender}
+				onRuntimeError={onRuntimeError}
+			/>,
+		);
+		const iframe = getIframe(container);
+
+		await sendFrameMessage(iframe, { kind: "ready", sessionId: 1 });
+		await sendFrameMessage(iframe, { kind: "ready", sessionId: 1 });
+		expect(onFirstRender).toHaveBeenCalledTimes(1);
+
+		await sendFrameMessage(iframe, { kind: "error", message: "Click failed", sessionId: 1 });
+		await sendFrameMessage(iframe, { kind: "error", message: "Click failed", sessionId: 1 });
+		expect(onRuntimeError).toHaveBeenCalledTimes(1);
+		expect(onRuntimeError).toHaveBeenCalledWith(true);
+	});
+
 	it("keeps a ready widget mounted after a runtime error", async () => {
 		await render(root, <WorkspaceWidgetSandbox html="<button>Run</button>" />);
 		const iframe = getIframe(container);

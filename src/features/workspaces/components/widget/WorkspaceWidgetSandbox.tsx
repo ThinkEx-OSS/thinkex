@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 
 import { useTheme } from "#/components/theme-provider";
 import { Button } from "#/components/ui/button";
@@ -23,6 +23,13 @@ type WorkspaceWidgetSandboxProps = {
 	 * crashed widget. Omit to hide the affordance.
 	 */
 	onAskAiToFix?: (error: string) => void;
+	/** Called once the first time the frame reports it rendered. */
+	onFirstRender?: () => void;
+	/**
+	 * Called once per rendered source when the frame reports a runtime error.
+	 * `preservedFrame` is true when the crash followed a working render.
+	 */
+	onRuntimeError?: (preservedFrame: boolean) => void;
 };
 
 type WidgetSandboxError = {
@@ -42,6 +49,8 @@ export function WorkspaceWidgetSandbox({
 	className,
 	label,
 	onAskAiToFix,
+	onFirstRender,
+	onRuntimeError,
 }: WorkspaceWidgetSandboxProps) {
 	const { resolvedTheme } = useTheme();
 	const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -49,6 +58,14 @@ export function WorkspaceWidgetSandbox({
 	const sessionIdRef = useRef(0);
 	const readySessionIdRef = useRef<number | null>(null);
 	const themeRef = useRef<WidgetSandboxTheme | null>(null);
+	// Reported once per session so a repeated error does not flood the metric.
+	const reportedErrorSessionRef = useRef<number | null>(null);
+	// The message listener is bound once, so reach the latest callbacks through
+	// effect events rather than effect dependencies.
+	const reportFirstRender = useEffectEvent(() => onFirstRender?.());
+	const reportRuntimeError = useEffectEvent((preservedFrame: boolean) =>
+		onRuntimeError?.(preservedFrame),
+	);
 	const [srcDoc, setSrcDoc] = useState<string | null>(null);
 	const [error, setError] = useState<WidgetSandboxError | null>(null);
 	const [height, setHeight] = useState(WIDGET_SANDBOX_MIN_HEIGHT);
@@ -102,10 +119,12 @@ export function WorkspaceWidgetSandbox({
 				return;
 			}
 			if (event.data.kind === "error") {
-				setError({
-					message: event.data.message,
-					preserveFrame: readySessionIdRef.current === event.data.sessionId,
-				});
+				const preserveFrame = readySessionIdRef.current === event.data.sessionId;
+				setError({ message: event.data.message, preserveFrame });
+				if (reportedErrorSessionRef.current !== event.data.sessionId) {
+					reportedErrorSessionRef.current = event.data.sessionId;
+					reportRuntimeError(preserveFrame);
+				}
 				return;
 			}
 			if (event.data.kind === "height") {
@@ -117,7 +136,11 @@ export function WorkspaceWidgetSandbox({
 				);
 				return;
 			}
+			const firstRenderForSession = readySessionIdRef.current !== event.data.sessionId;
 			readySessionIdRef.current = event.data.sessionId;
+			if (firstRenderForSession) {
+				reportFirstRender();
+			}
 			if (themeRef.current) {
 				postWidgetSandboxTheme(iframeRef.current, event.data.sessionId, themeRef.current);
 			}

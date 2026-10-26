@@ -103,23 +103,59 @@ const WIDGET_KATEX_SCRIPT_PATHS = [
 ] as const;
 const WIDGET_KATEX_FONT_PATH = `${WIDGET_KATEX_BASE_PATH}/fonts/`;
 
+/** Path mathjs's browser build is served from (see scripts/copy-widget-libs.mjs). */
+const WIDGET_MATHJS_SCRIPT_PATH = "/widget-libs/mathjs/math.js";
+
+/** Paths uPlot's browser build is served from (see scripts/copy-widget-libs.mjs). */
+const WIDGET_UPLOT_BASE_PATH = "/widget-libs/uplot";
+const WIDGET_UPLOT_STYLESHEET_PATH = `${WIDGET_UPLOT_BASE_PATH}/uPlot.min.css`;
+const WIDGET_UPLOT_SCRIPT_PATH = `${WIDGET_UPLOT_BASE_PATH}/uPlot.iife.min.js`;
+
 const WIDGET_MATH_PATTERN = /data-latex|dataset\.latex/;
+// The graphing skill names these globals, so an authored widget that plots
+// references them by name. Matching is deliberately loose, like the math test
+// below: over-matching only costs a cached fetch, under-matching leaves the
+// graph unrendered.
+const WIDGET_MATHJS_PATTERN = /\bmath\.(?:evaluate|compile|parse|derivative|simplify|chain)\b/;
+const WIDGET_UPLOT_PATTERN = /\buPlot\b/;
+
+/**
+ * Which bundled libraries an authored widget references. Drives both the tags
+ * injected into the frame and the render/error analytics, so a graph widget is
+ * countable apart from an ordinary one.
+ */
+export function detectWidgetLibraries(html: string) {
+	return {
+		katex: WIDGET_MATH_PATTERN.test(html),
+		mathjs: WIDGET_MATHJS_PATTERN.test(html),
+		uplot: WIDGET_UPLOT_PATTERN.test(html),
+	};
+}
 
 /**
  * Restrictive CSP for the frame. Widgets are self-contained HTML: only inline
- * scripts/styles and the exact bundled KaTeX resources may load. Connection
- * APIs such as fetch, XHR, and WebSocket are blocked. A script can still
- * navigate its own sandboxed frame, so this policy promises isolation from the
- * host app rather than impossible zero communication.
+ * scripts/styles and the exact bundled libraries (KaTeX, mathjs, uPlot) may
+ * load. No library uses eval, so the frame never needs script-src
+ * 'unsafe-eval'. Connection APIs such as fetch, XHR, and WebSocket are blocked.
+ * A script can still navigate its own sandboxed frame, so this policy promises
+ * isolation from the host app rather than impossible zero communication.
  */
 function getWidgetSandboxCsp(origin: string) {
-	const stylesheetUrl = `${origin}${WIDGET_KATEX_STYLESHEET_PATH}`;
-	const scriptUrls = WIDGET_KATEX_SCRIPT_PATHS.map((path) => `${origin}${path}`).join(" ");
+	const styleUrls = [WIDGET_KATEX_STYLESHEET_PATH, WIDGET_UPLOT_STYLESHEET_PATH]
+		.map((path) => `${origin}${path}`)
+		.join(" ");
+	const scriptUrls = [
+		...WIDGET_KATEX_SCRIPT_PATHS,
+		WIDGET_MATHJS_SCRIPT_PATH,
+		WIDGET_UPLOT_SCRIPT_PATH,
+	]
+		.map((path) => `${origin}${path}`)
+		.join(" ");
 	const fontUrl = `${origin}${WIDGET_KATEX_FONT_PATH}`;
 
 	return [
 		"default-src 'none'",
-		`style-src 'unsafe-inline' ${stylesheetUrl}`,
+		`style-src 'unsafe-inline' ${styleUrls}`,
 		`script-src 'unsafe-inline' ${scriptUrls}`,
 		"img-src data: blob:",
 		`font-src data: ${fontUrl}`,
@@ -152,13 +188,21 @@ export function buildWidgetSandboxDocument({
 		if (value) tokenDeclarations += `${name}: ${value};`;
 	}
 
-	// Only widgets that actually contain math pay for KaTeX (~290KB plus fonts).
-	// Over-matching just costs a cached fetch; under-matching leaves math
-	// unrendered, so the test is deliberately loose.
-	const katexTags = WIDGET_MATH_PATTERN.test(html)
-		? `<link rel="stylesheet" href="${origin}${WIDGET_KATEX_STYLESHEET_PATH}" />
-${WIDGET_KATEX_SCRIPT_PATHS.map((path) => `<script src="${origin}${path}"></script>`).join("\n")}`
-		: "";
+	// Only widgets that reference a library pay for it: KaTeX is ~290KB plus
+	// fonts, mathjs ~650KB. Over-matching just costs a cached fetch;
+	// under-matching leaves the feature unrendered, so the tests stay loose.
+	const libraries = detectWidgetLibraries(html);
+	const libraryTags = [
+		libraries.katex &&
+			`<link rel="stylesheet" href="${origin}${WIDGET_KATEX_STYLESHEET_PATH}" />
+${WIDGET_KATEX_SCRIPT_PATHS.map((path) => `<script src="${origin}${path}"></script>`).join("\n")}`,
+		libraries.mathjs && `<script src="${origin}${WIDGET_MATHJS_SCRIPT_PATH}"></script>`,
+		libraries.uplot &&
+			`<link rel="stylesheet" href="${origin}${WIDGET_UPLOT_STYLESHEET_PATH}" />
+<script src="${origin}${WIDGET_UPLOT_SCRIPT_PATH}"></script>`,
+	]
+		.filter(Boolean)
+		.join("\n");
 
 	// Widgets and documents use the same data-latex markup. The iframe still has
 	// to render it locally because its opaque origin cannot reuse the parent DOM.
@@ -173,7 +217,7 @@ ${WIDGET_KATEX_SCRIPT_PATHS.map((path) => `<script src="${origin}${path}"></scri
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta http-equiv="Content-Security-Policy" content="${getWidgetSandboxCsp(origin)}" />
-${katexTags}
+${libraryTags}
 <style>
 :root{${tokenDeclarations}color-scheme:${theme};}
 html,body{margin:0;background:var(--background);color:var(--foreground);font-family:var(--font-sans,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif);}
