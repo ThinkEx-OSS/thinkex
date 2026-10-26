@@ -66,6 +66,43 @@ describe("workspace file upload batch failures", () => {
 		});
 	});
 
+	it("captures a server upload failure under a distinct error name", async () => {
+		uploadFileDirectlyToR2.mockResolvedValue(undefined);
+		vi.mocked(fetch)
+			.mockResolvedValueOnce(
+				new Response(
+					JSON.stringify({
+						completionToken: "completion-token",
+						uploadUrl: "https://r2.example/upload",
+					}),
+					{ headers: { "content-type": "application/json" }, status: 200 },
+				),
+			)
+			.mockResolvedValueOnce(
+				new Response(
+					JSON.stringify({
+						code: "UPLOAD_FAILED",
+						message: "Unable to upload file right now.",
+						requestId: "request-id",
+					}),
+					{ headers: { "content-type": "application/json" }, status: 500 },
+				),
+			);
+
+		await runWorkspaceFileUploadBatch({
+			files: [new File([new Uint8Array([1])], "paper.pdf", { type: "application/pdf" })],
+			onLimitReached: vi.fn(),
+			onSuccess: vi.fn(),
+			parentId: null,
+			workspaceId: "workspace-id",
+		});
+
+		expect(captureException).toHaveBeenCalledOnce();
+		expect(captureException.mock.calls[0]?.[0]).toMatchObject({
+			name: "WorkspaceFileUploadRequestError",
+		});
+	});
+
 	it("does not capture a canceled upload", async () => {
 		const error = new DOMException("Upload canceled.", "AbortError");
 		uploadFileDirectlyToR2.mockRejectedValue(error);
