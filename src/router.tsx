@@ -4,6 +4,7 @@ import AppErrorScreen from "./components/AppErrorScreen";
 import AppNotFoundScreen from "./components/AppNotFoundScreen";
 import { capturePostHogClientException } from "./integrations/posthog/provider";
 import { getContext } from "./integrations/tanstack-query/root-provider";
+import { isNetworkError } from "./lib/network-error";
 import { routeTree } from "./routeTree.gen";
 
 export function getRouter() {
@@ -16,6 +17,10 @@ export function getRouter() {
 		defaultPreloadStaleTime: 0,
 		defaultErrorComponent: AppErrorScreen,
 		defaultOnCatch: (error, errorInfo) => {
+			if (isNetworkError(error)) {
+				return;
+			}
+
 			capturePostHogClientException(error, {
 				component_stack: errorInfo.componentStack,
 				error_boundary: "TanStackRouter",
