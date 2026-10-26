@@ -72,7 +72,7 @@
 		"@fix-webm-duration/fix": "1.0.1",
 		"@fontsource-variable/geist": "5.3.0",
 		"@modelcontextprotocol/sdk": "1.29.0",
-		"@posthog/ai": "^8.7.1",
+		"@posthog/ai": "^8.10.1",
 		"@posthog/mcp": "0.11.4",
 		"@posthog/react": "^1.10.3",
 		"@posthog/rollup-plugin": "^1.4.7",
