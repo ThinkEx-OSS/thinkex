@@ -97,6 +97,10 @@ export function captureAiChatGeneration(input: AiChatGenerationTelemetry) {
 			task: input.task,
 			workspace_id: input.workspaceId,
 			thread_id: input.threadId,
+			// True only when prompt/reply content rode this event. A consent-less
+			// turn still emits the event with content stripped; the eval filters on
+			// this so it never grades an empty transcript as a quality swing.
+			content_captured: input.includeContent,
 			...(input.requestedModel ? { requested_model: input.requestedModel } : {}),
 			...(input.outcome ? { outcome: input.outcome } : {}),
 			...(input.toolNames && input.toolNames.length > 0 ? { tool_names: input.toolNames } : {}),
