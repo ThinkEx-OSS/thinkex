@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import type * as Y from "yjs";
 
 import { useTheme } from "#/components/theme-provider";
 import { Button } from "#/components/ui/button";
@@ -10,11 +11,14 @@ import {
 	WIDGET_SANDBOX_MAX_HEIGHT,
 	WIDGET_SANDBOX_MIN_HEIGHT,
 	WIDGET_SANDBOX_HOST_SOURCE,
+	WIDGET_SANDBOX_FRAME_SOURCE,
 	WIDGET_SANDBOX_TOKENS,
 } from "#/features/workspaces/components/widget/workspace-widget-sandbox-document";
 import { cn } from "#/lib/utils";
 
 type WorkspaceWidgetSandboxProps = {
+	fields?: Y.Map<string>;
+	canWriteFields?: boolean;
 	html: string;
 	className?: string;
 	label?: string;
@@ -38,6 +42,8 @@ type WidgetSandboxError = {
  * action) instead of a blank frame.
  */
 export function WorkspaceWidgetSandbox({
+	fields,
+	canWriteFields = false,
 	html,
 	className,
 	label,
@@ -73,6 +79,7 @@ export function WorkspaceWidgetSandbox({
 				setHeight(WIDGET_SANDBOX_MIN_HEIGHT);
 				setSrcDoc(
 					buildWidgetSandboxDocument({
+						shareInputs: Boolean(fields),
 						html,
 						...theme,
 						origin: window.location.origin,
@@ -88,7 +95,37 @@ export function WorkspaceWidgetSandbox({
 			}
 		});
 		return () => cancelAnimationFrame(frame);
-	}, [html, resolvedTheme]);
+	}, [html, resolvedTheme, fields]);
+
+	useEffect(() => {
+		if (!fields) return;
+		let disconnect: (() => void) | undefined;
+		function connect(event: MessageEvent) {
+			if (
+				!fields ||
+				event.source !== iframeRef.current?.contentWindow ||
+				event.origin !== "null" ||
+				event.data?.source !== WIDGET_SANDBOX_FRAME_SOURCE ||
+				event.data.kind !== "connect-inputs" ||
+				event.data.sessionId !== sessionIdRef.current ||
+				!event.ports[0]
+			)
+				return;
+			disconnect?.();
+			const session = sessionIdRef.current;
+			disconnect = connectWidgetInputPort(
+				event.ports[0],
+				fields,
+				canWriteFields,
+				() => session === sessionIdRef.current,
+			);
+		}
+		window.addEventListener("message", connect);
+		return () => {
+			window.removeEventListener("message", connect);
+			disconnect?.();
+		};
+	}, [fields, canWriteFields, html]);
 
 	useEffect(() => {
 		function onMessage(event: MessageEvent) {
@@ -180,6 +217,41 @@ export function WorkspaceWidgetSandbox({
 			) : null}
 		</div>
 	);
+}
+
+function connectWidgetInputPort(
+	port: MessagePort,
+	fields: Y.Map<string>,
+	writable: boolean,
+	isCurrent: () => boolean,
+) {
+	port.postMessage(Array.from(fields.entries()));
+	port.onmessage = ({ data }) => {
+		if (
+			!writable ||
+			!isCurrent() ||
+			typeof data?.key !== "string" ||
+			!data.key.length ||
+			data.key.length > 200 ||
+			typeof data.value !== "string" ||
+			data.value.length > 8192 ||
+			(!fields.has(data.key) && fields.size >= 128) ||
+			fields.get(data.key) === data.value
+		)
+			return;
+		fields.doc?.transact(() => fields.set(data.key, data.value), port);
+	};
+	const onChange = (change: Y.YMapEvent<string>) => {
+		if (change.transaction.origin !== port && isCurrent()) {
+			port.postMessage(Array.from(change.keysChanged, (key) => [key, fields.get(key)]));
+		}
+	};
+	fields.observe(onChange);
+	return () => {
+		fields.unobserve(onChange);
+		port.onmessage = null;
+		port.close();
+	};
 }
 
 function readWidgetSandboxTheme(theme: WidgetSandboxTheme["theme"]): WidgetSandboxTheme {

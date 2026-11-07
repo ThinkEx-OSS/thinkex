@@ -167,6 +167,7 @@ function DocumentEditorInstance({
 						workspaceId={workspaceId}
 					/>
 					<DocumentWidgetActionProvider
+						ydoc={collaborationSession.ydoc}
 						onAskAiToFix={
 							capabilities.canMutateContent
 								? (error) =>
