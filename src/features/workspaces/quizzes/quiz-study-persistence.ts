@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { env } from "cloudflare:workers";
 
 import { workspaceItemContents, workspaceItems, workspaceItemUserStates } from "#/db/schema";
@@ -223,7 +223,12 @@ async function updateQuizStudyState(
 ) {
 	await transaction
 		.update(workspaceItemUserStates)
-		.set({ state, updatedAt: new Date() })
+		// The grading check compares JS millisecond timestamps. A reset must
+		// advance that token even when both writes land in the same millisecond.
+		.set({
+			state,
+			updatedAt: sql`greatest(clock_timestamp(), ${workspaceItemUserStates.updatedAt} + interval '1 millisecond')`,
+		})
 		.where(
 			and(
 				eq(workspaceItemUserStates.userId, input.userId),
