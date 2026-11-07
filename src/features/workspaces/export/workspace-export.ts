@@ -35,14 +35,17 @@ function serializeFlashcardSetToMarkdown(item: WorkspaceItem, set: FlashcardSetC
 function serializeQuizSetToMarkdown(item: WorkspaceItem, set: QuizSetContent) {
 	const questions = set.questions.map((question, index) => {
 		const stem = serializeTiptapDocumentToMarkdown(question.question);
-		const options = question.options
-			.map((option, optionIndex) => {
-				const letter = String.fromCharCode(65 + optionIndex);
-				const text = serializeTiptapDocumentToMarkdown(option.text);
-				const marker = option.id === question.correctOptionId ? " ✓" : "";
-				return `${letter}. ${text}${marker}`;
-			})
-			.join("\n");
+		const options =
+			question.kind === "short_answer"
+				? `**Model answer**\n\n${serializeTiptapDocumentToMarkdown(question.modelAnswer)}\n\n**Grading criteria**\n\n${question.gradingCriteria}`
+				: question.options
+						.map((option, optionIndex) => {
+							const letter = String.fromCharCode(65 + optionIndex);
+							const text = serializeTiptapDocumentToMarkdown(option.text);
+							const marker = option.id === question.correctOptionId ? " ✓" : "";
+							return `${letter}. ${text}${marker}`;
+						})
+						.join("\n");
 		const explanation = serializeTiptapDocumentToMarkdown(question.explanation);
 		return `## Question ${index + 1}\n\n${stem}\n\n${options}\n\n**Explanation**\n\n${explanation}`;
 	});

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Button } from "#/components/ui/button";
 import { Skeleton } from "#/components/ui/skeleton";
+import { Textarea } from "#/components/ui/textarea";
 import { sendComposerPrompt } from "#/features/workspaces/composer/workspace-composer-actions";
 import { StudyProgressStrip } from "#/features/workspaces/components/study/StudyProgressStrip";
 import { StudyRichText } from "#/features/workspaces/components/study/StudyRichText";
@@ -21,6 +22,7 @@ import type { QuizQuestion } from "#/features/workspaces/quizzes/quiz-content";
 import {
 	quizViewerQueryOptions,
 	useRecordQuizAnswer,
+	useRecordQuizShortAnswer,
 	useResetQuizStudyProgress,
 } from "#/features/workspaces/quizzes/quiz-queries";
 import {
@@ -30,6 +32,7 @@ import {
 } from "#/features/workspaces/quizzes/quiz-study-session";
 import {
 	getQuizAnswer,
+	isQuizAnswerCorrect,
 	summarizeQuizStudyProgress,
 	type QuizStudyState,
 } from "#/features/workspaces/quizzes/quiz-study-state";
@@ -137,6 +140,8 @@ function QuizStudySession({
 		workspaceId: item.workspaceId,
 	};
 	const recordAnswer = useRecordQuizAnswer(queryInput);
+	const recordShortAnswer = useRecordQuizShortAnswer(queryInput);
+	const [responses, setResponses] = useState<Record<string, string>>({});
 	const { isPending: isResetting, mutate: resetProgress } = useResetQuizStudyProgress(queryInput);
 	const startSession = useCallback(
 		(nextMode: QuizStudyMode, nextShuffled: boolean) => {
@@ -196,7 +201,7 @@ function QuizStudySession({
 			itemId: item.id,
 			...getQuizStudyViewState({
 				answered: answer !== undefined,
-				...(answer ? { correct: answer.selectedOptionId === currentQuestion.correctOptionId } : {}),
+				...(answer ? { correct: isQuizAnswerCorrect(currentQuestion, answer) } : {}),
 				mode,
 				progress: quizProgress,
 				sessionPosition: currentIndex + 1,
@@ -286,18 +291,21 @@ function QuizStudySession({
 	if (!currentQuestion) return null;
 
 	const graded = answer !== undefined;
-	const isCorrect = answer?.selectedOptionId === currentQuestion.correctOptionId;
-	const selectedOptionId = graded ? answer.selectedOptionId : pendingOptionId;
+	const isCorrect = isQuizAnswerCorrect(currentQuestion, answer);
+	const selectedOptionId =
+		answer && "selectedOptionId" in answer ? answer.selectedOptionId : pendingOptionId;
+	const options = currentQuestion.kind === "multiple_choice" ? currentQuestion.options : [];
+	const correctOptionId =
+		currentQuestion.kind === "multiple_choice" ? currentQuestion.correctOptionId : null;
+	const response = responses[currentQuestion.id] ?? "";
 	const isLastQuestion = currentIndex >= studyQuestions.length - 1;
 	// Khan-style: the pending pick, and the correct option once graded, get an
 	// outline. Wrong picks keep only the filled X — no row chrome — so they
 	// stay in the hairline list.
 	const outlinedOptionIds = new Set(
-		[!graded ? selectedOptionId : null, graded ? currentQuestion.correctOptionId : null].filter(
-			Boolean,
-		),
+		[!graded ? selectedOptionId : null, graded ? correctOptionId : null].filter(Boolean),
 	);
-	const lastOption = currentQuestion.options.at(-1);
+	const lastOption = options.at(-1);
 
 	return (
 		<section
@@ -338,65 +346,98 @@ function QuizStudySession({
 						</div>
 					</div>
 
-					<div role="radiogroup" aria-label="Answer options">
-						{currentQuestion.options.map((option, optionIndex) => {
-							const isSelected = option.id === selectedOptionId;
-							const isCorrectOption = option.id === currentQuestion.correctOptionId;
-							const previousOption = currentQuestion.options[optionIndex - 1];
-							return (
-								<div key={option.id}>
-									<QuizOptionRule
-										visible={
-											!outlinedOptionIds.has(option.id) &&
-											!(previousOption && outlinedOptionIds.has(previousOption.id))
-										}
-									/>
-									<button
-										type="button"
-										role="radio"
-										aria-checked={isSelected}
-										disabled={graded || recordAnswer.isPending}
-										className={cn(
-											"flex w-full items-center gap-3 rounded-xl border border-transparent px-3 py-4 text-left transition-colors",
-											!graded && "cursor-pointer hover:bg-accent/40",
-											!graded && isSelected && "border-primary/60 bg-primary/5",
-											graded && isCorrectOption && "border-emerald-500/60 bg-emerald-500/10",
-											graded && !isSelected && !isCorrectOption && "opacity-60",
-										)}
-										onClick={() =>
-											setSession((current) => ({ ...current, pendingOptionId: option.id }))
-										}
-									>
-										<span
+					{currentQuestion.kind === "short_answer" ? (
+						<div className="space-y-2">
+							<label htmlFor={`response-${currentQuestion.id}`} className="text-sm font-medium">
+								Your answer
+							</label>
+							<Textarea
+								id={`response-${currentQuestion.id}`}
+								rows={6}
+								maxLength={4_000}
+								value={answer && "textResponse" in answer ? answer.textResponse : response}
+								disabled={graded || recordShortAnswer.isPending || isResetting}
+								onChange={(event) =>
+									setResponses((current) => ({
+										...current,
+										[currentQuestion.id]: event.target.value,
+									}))
+								}
+							/>
+							{recordShortAnswer.isPending ? (
+								<p role="status" className="text-sm text-muted-foreground">
+									Grading your response...
+								</p>
+							) : null}
+							{recordShortAnswer.isError && !graded ? (
+								<p role="alert" className="text-sm text-destructive">
+									{recordShortAnswer.error instanceof Error
+										? recordShortAnswer.error.message
+										: "Grading failed. Please try again."}
+								</p>
+							) : null}
+						</div>
+					) : (
+						<div role="radiogroup" aria-label="Answer options">
+							{options.map((option, optionIndex) => {
+								const isSelected = option.id === selectedOptionId;
+								const isCorrectOption = option.id === correctOptionId;
+								const previousOption = options[optionIndex - 1];
+								return (
+									<div key={option.id}>
+										<QuizOptionRule
+											visible={
+												!outlinedOptionIds.has(option.id) &&
+												!(previousOption && outlinedOptionIds.has(previousOption.id))
+											}
+										/>
+										<button
+											type="button"
+											role="radio"
+											aria-checked={isSelected}
+											disabled={graded || recordAnswer.isPending}
 											className={cn(
-												"flex size-6 shrink-0 items-center justify-center rounded-full border text-xs font-semibold text-muted-foreground",
-												!graded &&
-													isSelected &&
-													"border-primary bg-primary text-primary-foreground",
-												graded &&
-													isCorrectOption &&
-													"border-emerald-600 bg-emerald-600 text-white dark:border-emerald-500 dark:bg-emerald-500",
-												graded &&
-													isSelected &&
-													!isCorrectOption &&
-													"border-red-600 bg-red-600 text-white dark:border-red-500 dark:bg-red-500",
+												"flex w-full items-center gap-3 rounded-xl border border-transparent px-3 py-4 text-left transition-colors",
+												!graded && "cursor-pointer hover:bg-accent/40",
+												!graded && isSelected && "border-primary/60 bg-primary/5",
+												graded && isCorrectOption && "border-emerald-500/60 bg-emerald-500/10",
+												graded && !isSelected && !isCorrectOption && "opacity-60",
 											)}
+											onClick={() =>
+												setSession((current) => ({ ...current, pendingOptionId: option.id }))
+											}
 										>
-											{graded && isCorrectOption ? (
-												<Check className="size-3.5" />
-											) : graded && isSelected ? (
-												<X className="size-3.5" />
-											) : (
-												String.fromCharCode(65 + optionIndex)
-											)}
-										</span>
-										<QuizRichText content={option.text} compact />
-									</button>
-								</div>
-							);
-						})}
-						<QuizOptionRule visible={!lastOption || !outlinedOptionIds.has(lastOption.id)} />
-					</div>
+											<span
+												className={cn(
+													"flex size-6 shrink-0 items-center justify-center rounded-full border text-xs font-semibold text-muted-foreground",
+													!graded &&
+														isSelected &&
+														"border-primary bg-primary text-primary-foreground",
+													graded &&
+														isCorrectOption &&
+														"border-emerald-600 bg-emerald-600 text-white dark:border-emerald-500 dark:bg-emerald-500",
+													graded &&
+														isSelected &&
+														!isCorrectOption &&
+														"border-red-600 bg-red-600 text-white dark:border-red-500 dark:bg-red-500",
+												)}
+											>
+												{graded && isCorrectOption ? (
+													<Check className="size-3.5" />
+												) : graded && isSelected ? (
+													<X className="size-3.5" />
+												) : (
+													String.fromCharCode(65 + optionIndex)
+												)}
+											</span>
+											<QuizRichText content={option.text} compact />
+										</button>
+									</div>
+								);
+							})}
+							<QuizOptionRule visible={!lastOption || !outlinedOptionIds.has(lastOption.id)} />
+						</div>
+					)}
 
 					{graded ? (
 						<div
@@ -429,6 +470,14 @@ function QuizStudySession({
 								/>
 							</div>
 							<QuizRichText content={currentQuestion.explanation} compact />
+							{currentQuestion.kind === "short_answer" && answer && "textResponse" in answer ? (
+								<div className="mt-3 space-y-2">
+									<p className="whitespace-pre-wrap break-words text-sm">{answer.feedback}</p>
+									<p className="text-xs font-medium text-muted-foreground">AI feedback</p>
+									<p className="text-sm font-medium">Model answer</p>
+									<QuizRichText content={currentQuestion.modelAnswer} compact />
+								</div>
+							) : null}
 						</div>
 					) : null}
 				</div>
@@ -440,7 +489,7 @@ function QuizStudySession({
 						onSelect={goTo}
 						segments={studyQuestions.map((question, index) => {
 							const questionAnswer = getQuizAnswer(question, studyState);
-							const questionCorrect = questionAnswer?.selectedOptionId === question.correctOptionId;
+							const questionCorrect = isQuizAnswerCorrect(question, questionAnswer);
 							return {
 								id: question.id,
 								label: `Question ${index + 1}: ${
@@ -483,8 +532,21 @@ function QuizStudySession({
 						) : (
 							<Button
 								className="col-start-3 h-11 justify-self-end rounded-xl px-5 text-sm font-medium sm:h-12 sm:px-6 sm:text-base"
-								disabled={!pendingOptionId || recordAnswer.isPending}
+								disabled={
+									isResetting ||
+									(currentQuestion.kind === "short_answer"
+										? !response.trim() || recordShortAnswer.isPending
+										: !pendingOptionId || recordAnswer.isPending)
+								}
 								onClick={() => {
+									if (currentQuestion.kind === "short_answer") {
+										if (response.trim())
+											recordShortAnswer.mutate({
+												questionId: currentQuestion.id,
+												textResponse: response.trim(),
+											});
+										return;
+									}
 									if (!pendingOptionId) return;
 									recordAnswer.mutate({
 										questionId: currentQuestion.id,
@@ -492,7 +554,9 @@ function QuizStudySession({
 									});
 								}}
 							>
-								Submit
+								{currentQuestion.kind === "short_answer" && recordShortAnswer.isPending
+									? "Grading..."
+									: "Submit"}
 							</Button>
 						)}
 					</div>

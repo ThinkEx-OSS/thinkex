@@ -29,7 +29,9 @@ export function buildWorkspaceItemSearchText(type: WorkspaceItemType, content: s
 			return joinSearchTextLines(
 				parseQuizSetContent(content).questions.flatMap((question) => [
 					extractTiptapPlainText(question.question),
-					...question.options.map((option) => extractTiptapPlainText(option.text)),
+					...(question.kind === "multiple_choice"
+						? question.options.map((option) => extractTiptapPlainText(option.text))
+						: [extractTiptapPlainText(question.modelAnswer), question.gradingCriteria]),
 					extractTiptapPlainText(question.explanation),
 				]),
 			);

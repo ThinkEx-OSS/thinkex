@@ -421,6 +421,8 @@ async function readQuiz(
 		measure: (question) =>
 			question.question.length +
 			question.explanation.length +
+			(question.modelAnswer?.length ?? 0) +
+			(question.gradingCriteria?.length ?? 0) +
 			question.options.reduce((total, option) => total + option.text.length, 0),
 		request: input.request,
 		targetEntryId: targetQuestionId,
@@ -449,15 +451,37 @@ async function readQuiz(
 				const source = questionsById.get(question.id);
 				if (!source) throw new Error("Serialized quiz question does not match its source set.");
 				const answer = getQuizAnswer(source, studyState);
-				const selectedIndex = answer
-					? source.options.findIndex((option) => option.id === answer.selectedOptionId)
-					: -1;
-				return {
+				const base = {
 					ref: `${question.id}.r_${await createQuizQuestionRevision(source)}`,
 					question: question.question,
-					options: question.options.map(({ text, correct }) => ({ text, correct })),
 					explanation: question.explanation,
-					...(answer && selectedIndex >= 0
+				};
+				if (source.kind === "short_answer") {
+					return {
+						...base,
+						kind: "short_answer" as const,
+						modelAnswer: question.modelAnswer!,
+						gradingCriteria: source.gradingCriteria,
+						options: [],
+						...(answer && "textResponse" in answer
+							? {
+									answer: {
+										textResponse: answer.textResponse,
+										correct: answer.correct,
+										feedback: answer.feedback,
+									},
+								}
+							: {}),
+					};
+				}
+				const selectedIndex =
+					answer && "selectedOptionId" in answer && source.kind === "multiple_choice"
+						? source.options.findIndex((option) => option.id === answer.selectedOptionId)
+						: -1;
+				return {
+					...base,
+					options: question.options.map(({ text, correct }) => ({ text, correct })),
+					...(answer && "selectedOptionId" in answer && selectedIndex >= 0
 						? {
 								answer: {
 									selected: selectedIndex + 1,
