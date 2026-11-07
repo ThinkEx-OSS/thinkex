@@ -112,34 +112,13 @@ export function WorkspaceWidgetSandbox({
 			)
 				return;
 			disconnect?.();
-			const port = event.ports[0];
 			const session = sessionIdRef.current;
-			port.postMessage(Array.from(fields.entries()));
-			port.onmessage = ({ data }) => {
-				if (
-					!canWriteFields ||
-					session !== sessionIdRef.current ||
-					typeof data?.key !== "string" ||
-					!data.key.length ||
-					data.key.length > 200 ||
-					typeof data.value !== "string" ||
-					data.value.length > 8192 ||
-					(!fields.has(data.key) && fields.size >= 128) ||
-					fields.get(data.key) === data.value
-				)
-					return;
-				fields.doc?.transact(() => fields.set(data.key, data.value), port);
-			};
-			const onChange = (change: Y.YMapEvent<string>) => {
-				if (change.transaction.origin !== port && session === sessionIdRef.current) {
-					port.postMessage(Array.from(change.keysChanged, (key) => [key, fields.get(key)]));
-				}
-			};
-			fields.observe(onChange);
-			disconnect = () => {
-				fields.unobserve(onChange);
-				port.close();
-			};
+			disconnect = connectWidgetInputPort(
+				event.ports[0],
+				fields,
+				canWriteFields,
+				() => session === sessionIdRef.current,
+			);
 		}
 		window.addEventListener("message", connect);
 		return () => {
@@ -238,6 +217,41 @@ export function WorkspaceWidgetSandbox({
 			) : null}
 		</div>
 	);
+}
+
+function connectWidgetInputPort(
+	port: MessagePort,
+	fields: Y.Map<string>,
+	writable: boolean,
+	isCurrent: () => boolean,
+) {
+	port.postMessage(Array.from(fields.entries()));
+	port.onmessage = ({ data }) => {
+		if (
+			!writable ||
+			!isCurrent() ||
+			typeof data?.key !== "string" ||
+			!data.key.length ||
+			data.key.length > 200 ||
+			typeof data.value !== "string" ||
+			data.value.length > 8192 ||
+			(!fields.has(data.key) && fields.size >= 128) ||
+			fields.get(data.key) === data.value
+		)
+			return;
+		fields.doc?.transact(() => fields.set(data.key, data.value), port);
+	};
+	const onChange = (change: Y.YMapEvent<string>) => {
+		if (change.transaction.origin !== port && isCurrent()) {
+			port.postMessage(Array.from(change.keysChanged, (key) => [key, fields.get(key)]));
+		}
+	};
+	fields.observe(onChange);
+	return () => {
+		fields.unobserve(onChange);
+		port.onmessage = null;
+		port.close();
+	};
 }
 
 function readWidgetSandboxTheme(theme: WidgetSandboxTheme["theme"]): WidgetSandboxTheme {

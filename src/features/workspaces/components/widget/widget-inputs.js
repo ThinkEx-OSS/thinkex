@@ -3,6 +3,7 @@
 {
 	const { port1, port2 } = new MessageChannel();
 	const saved = new Map();
+	const notified = new Map();
 	const selector = "textarea,select,input";
 	let restoring = false;
 
@@ -35,6 +36,7 @@
 		const value = valueOf(control);
 		if (key.length > 200 || value.length > 8192 || saved.get(key) === value) return;
 		saved.set(key, value);
+		notified.set(key, value);
 		port1.postMessage({ key, value });
 	}
 
@@ -58,8 +60,13 @@
 						return;
 					}
 					if (!Array.isArray(values)) return;
-					for (const option of control.options) option.selected = values.includes(option.value);
+					const selected = new Set(values);
+					for (const option of control.options) option.selected = selected.has(option.value);
 				} else control.value = value;
+				// A widget can rebuild its controls in its input handler. Restore the
+				// replacement without triggering that same render indefinitely.
+				if (notified.get(key) === value) return;
+				notified.set(key, value);
 				control.dispatchEvent(new Event("input", { bubbles: true }));
 				control.dispatchEvent(new Event("change", { bubbles: true }));
 			});
@@ -68,7 +75,13 @@
 		}
 	}
 	port1.onmessage = ({ data }) => {
-		for (const [key, value] of data) saved.set(key, value);
+		for (const [key, value] of data) {
+			if (typeof value === "string") saved.set(key, value);
+			else {
+				saved.delete(key);
+				notified.delete(key);
+			}
+		}
 		restore();
 	};
 	document.addEventListener("input", capture, true);
