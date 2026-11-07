@@ -1,7 +1,6 @@
 import { DOMParser, DOMSerializer, Fragment, type Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { parse as parseJavaScript } from "acorn";
 import { parseHTML } from "linkedom";
-import { nanoid } from "nanoid";
 
 import type { WorkspaceLocation } from "#/features/workspaces/locations/workspace-location";
 import {
@@ -10,6 +9,7 @@ import {
 } from "#/features/workspaces/documents/tiptap-document";
 import {
 	getTiptapDocumentSchema,
+	createDocumentBlockId,
 	tiptapDocumentAiRefAttribute,
 } from "#/features/workspaces/documents/tiptap-schema";
 import { sha256Base64UrlText } from "#/lib/binary";
@@ -155,10 +155,6 @@ export function ensureProseMirrorDocumentBlockIds(document: ProseMirrorNode): {
 		changed: true,
 		document: document.type.create(document.attrs, Fragment.fromArray(children)),
 	};
-}
-
-function createDocumentBlockId() {
-	return `b_${nanoid(12)}`;
 }
 
 export function readTiptapNodeBlockId(node: ProseMirrorNode) {

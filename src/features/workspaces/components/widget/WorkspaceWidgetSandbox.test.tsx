@@ -3,6 +3,7 @@
 import { act, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import * as Y from "yjs";
 
 import { WorkspaceWidgetSandbox } from "#/features/workspaces/components/widget/WorkspaceWidgetSandbox";
 import {
@@ -73,6 +74,53 @@ describe("WorkspaceWidgetSandbox", () => {
 		await sendFrameMessage(iframe, { height: 500, kind: "height", sessionId: 1 });
 		expect(frame?.style.height).toBe("120px");
 	});
+
+	it.each([true, false])(
+		"restores and observes shared fields with write access %s",
+		async (canWrite) => {
+			const doc = new Y.Doc();
+			const fields = doc.getMap<string>("widget-inputs:block");
+			fields.set("text:id:a", "saved");
+			await render(
+				root,
+				<WorkspaceWidgetSandbox html="<input id='a'>" fields={fields} canWriteFields={canWrite} />,
+			);
+			const iframe = getIframe(container);
+			const channel = new MessageChannel();
+			const received: unknown[] = [];
+			channel.port1.onmessage = (event) => received.push(event.data);
+			try {
+				window.dispatchEvent(
+					new MessageEvent("message", {
+						origin: "null",
+						source: iframe.contentWindow,
+						ports: [channel.port2],
+						data: { kind: "connect-inputs", sessionId: 1, source: WIDGET_SANDBOX_FRAME_SOURCE },
+					}),
+				);
+				await vi.waitFor(() => expect(received).toContainEqual([["text:id:a", "saved"]]));
+				channel.port1.postMessage({ key: "text:id:b", value: "b".repeat(8193) });
+				channel.port1.postMessage({ key: "text:id:a", value: "edited" });
+				// Wait until both port messages have been delivered before checking a rejected write.
+				await new Promise<void>((resolve) => {
+					channel.port2.addEventListener("message", (event) => {
+						if (event.data === "barrier") resolve();
+					});
+					channel.port1.postMessage("barrier");
+				});
+				expect(fields.get("text:id:a")).toBe(canWrite ? "edited" : "saved");
+				expect(fields.has("text:id:b")).toBe(false);
+				fields.set("text:id:b", "from collaborator");
+				await vi.waitFor(() =>
+					expect(received).toContainEqual([["text:id:b", "from collaborator"]]),
+				);
+			} finally {
+				channel.port1.close();
+				channel.port2.close();
+				doc.destroy();
+			}
+		},
+	);
 
 	it("lets a load error size itself instead of reloading broken source", async () => {
 		await render(root, <WorkspaceWidgetSandbox html="<p>broken</p>" />);

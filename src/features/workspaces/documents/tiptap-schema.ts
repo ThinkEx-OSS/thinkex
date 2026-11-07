@@ -10,6 +10,7 @@ import { TableKit } from "@tiptap/extension-table";
 import TextAlign from "@tiptap/extension-text-align";
 import UnderlineExtension from "@tiptap/extension-underline";
 import StarterKit from "@tiptap/starter-kit";
+import { nanoid } from "nanoid";
 
 import {
 	type WorkspaceLocation,
@@ -126,6 +127,10 @@ export const Widget = Node.create({
 });
 
 export const tiptapDocumentAiRefAttribute = "aiRef";
+
+export function createDocumentBlockId() {
+	return `b_${nanoid(12)}`;
+}
 
 const DocumentAiRef = Extension.create({
 	name: "documentAiRef",

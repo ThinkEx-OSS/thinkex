@@ -19,6 +19,8 @@
  */
 
 /** Frame → host messages (ready / height / runtime errors). */
+import widgetInputsScript from "./widget-inputs.js?raw";
+
 export const WIDGET_SANDBOX_FRAME_SOURCE = "thinkex-widget-frame" as const;
 export const WIDGET_SANDBOX_HOST_SOURCE = "thinkex-widget-host" as const;
 
@@ -132,6 +134,7 @@ function getWidgetSandboxCsp(origin: string) {
 }
 
 type BuildWidgetSandboxDocumentInput = WidgetSandboxTheme & {
+	shareInputs?: boolean;
 	html: string;
 	/** App origin the frame may load bundled libraries from. */
 	origin: string;
@@ -140,6 +143,7 @@ type BuildWidgetSandboxDocumentInput = WidgetSandboxTheme & {
 };
 
 export function buildWidgetSandboxDocument({
+	shareInputs = false,
 	html,
 	theme,
 	tokens,
@@ -301,6 +305,7 @@ textarea{resize:vertical;}
     window.addEventListener("load",measure);
     measure();
     post({kind:"ready"});
+    ${shareInputs ? widgetInputsScript : ""}
   },{once:true});
 })();
 </script>
