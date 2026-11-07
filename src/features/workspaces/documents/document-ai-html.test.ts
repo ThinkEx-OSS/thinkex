@@ -69,6 +69,15 @@ describe("document AI HTML", () => {
 		expect(html).toContain("$5 and dinner was $10");
 	});
 
+	it("preserves escaped prices beside inline and display math", () => {
+		const content = JSON.stringify(
+			parseDocumentAiHtml(String.raw`<p>Prices \$5, \$10. Use $x + 1$ or $$y = 2$$.</p>`),
+		);
+		expect(content).toContain("Prices \\\\$5, \\\\$10.");
+		expect(content).toContain('"latex":"x + 1"');
+		expect(content).toContain('"latex":"y = 2"');
+	});
+
 	it("keeps dollar math inside code and widgets literal", () => {
 		const document = parseDocumentAiHtml(
 			'<p>Write <code>$x = 1$</code> in LaTeX.</p><div data-type="widget" title="Demo">const label = "$x$";</div>',

@@ -348,14 +348,17 @@ function splitDollarMath(text: string): DollarMathSegment[] | null {
 	};
 
 	while (index < text.length) {
-		if (text[index] !== "$") {
+		if (text[index] !== "$" || isEscapedDollar(text, index)) {
 			buffer += text[index];
 			index += 1;
 			continue;
 		}
 
 		if (text[index + 1] === "$") {
-			const close = text.indexOf("$$", index + 2);
+			let close = text.indexOf("$$", index + 2);
+			while (close !== -1 && isEscapedDollar(text, close)) {
+				close = text.indexOf("$$", close + 1);
+			}
 			const body = close === -1 ? "" : text.slice(index + 2, close).trim();
 			if (body) {
 				flushBuffer();
@@ -397,11 +400,18 @@ function findInlineMathClose(text: string, start: number) {
 		if (text[index] === "\n") {
 			return -1;
 		}
-		if (text[index] === "$") {
+		if (text[index] === "$" && !isEscapedDollar(text, index)) {
+			if (text[index + 1] === "$") return -1;
 			return index === start ? -1 : index;
 		}
 	}
 	return -1;
+}
+
+function isEscapedDollar(text: string, index: number) {
+	let backslashes = 0;
+	while (index > 0 && text[--index] === "\\") backslashes++;
+	return backslashes % 2 === 1;
 }
 
 function validateDocumentAiHtml(root: HTMLElement) {
