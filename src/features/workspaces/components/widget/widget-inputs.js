@@ -15,11 +15,19 @@
 			)
 		)
 			return null;
-		if (control.type === "radio" && control.name) return "radio:name:" + control.name;
+		if (control.type === "radio" && control.name) {
+			const form = control.form;
+			const owner = form?.id
+				? "id:" + form.id
+				: "index:" + Array.from(document.forms).indexOf(form);
+			return "radio:" + JSON.stringify([owner, control.name]);
+		}
 		return control.type + ":" + (control.id ? "id:" + control.id : "index:" + index);
 	}
 
-	function valueOf(control) {
+	function valueOf(control, index) {
+		if (control.type === "radio")
+			return control.checked ? (control.id ? "id:" + control.id : "index:" + index) : "";
 		if (control.type === "checkbox") return String(control.checked);
 		if (control.type === "select-multiple")
 			return JSON.stringify(Array.from(control.selectedOptions, (option) => option.value));
@@ -32,9 +40,11 @@
 			return;
 		const index = Array.from(document.querySelectorAll(selector)).indexOf(control);
 		const key = keyFor(control, index);
-		if (!key) return;
-		const value = valueOf(control);
-		if (key.length > 200 || value.length > 8192 || saved.get(key) === value) return;
+		save(key, valueOf(control, index));
+	}
+
+	function save(key, value) {
+		if (!key || key.length > 200 || value.length > 8192 || saved.get(key) === value) return;
 		saved.set(key, value);
 		notified.set(key, value);
 		port1.postMessage({ key, value });
@@ -48,8 +58,11 @@
 				if (!saved.has(key)) return;
 				const value = saved.get(key);
 				if (control.type === "radio") {
-					if (control.checked || control.value !== value) return;
-					control.checked = true;
+					const option = control.id ? "id:" + control.id : "index:" + index;
+					if (value && value !== option) return;
+					const checked = value === option;
+					if (checked === control.checked) return;
+					control.checked = checked;
 				} else if (valueOf(control) === value) return;
 				else if (control.type === "checkbox") control.checked = value === "true";
 				else if (control.type === "select-multiple") {
@@ -86,6 +99,25 @@
 	};
 	document.addEventListener("input", capture, true);
 	document.addEventListener("change", capture, true);
+	document.addEventListener(
+		"reset",
+		(event) => {
+			const form = event.target;
+			// Reset fires before native controls receive their defaults.
+			setTimeout(() => {
+				if (event.defaultPrevented) return;
+				const defaults = new Map();
+				document.querySelectorAll(selector).forEach((control, index) => {
+					if (control.form !== form) return;
+					const key = keyFor(control, index);
+					if (!key || (control.type === "radio" && !control.checked && defaults.has(key))) return;
+					defaults.set(key, valueOf(control, index));
+				});
+				for (const [key, value] of defaults) save(key, value);
+			}, 0);
+		},
+		true,
+	);
 	new MutationObserver((records) => {
 		if (
 			records.some((record) =>
