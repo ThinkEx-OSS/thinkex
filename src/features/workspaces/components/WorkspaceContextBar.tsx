@@ -92,7 +92,7 @@ export default function WorkspaceContextBar({
 
 	return (
 		<>
-			<div className="relative z-10 flex h-12 items-center gap-3 bg-background px-4 text-sm sm:h-11">
+			<div className="@container/context relative z-10 flex h-12 min-w-0 items-center gap-3 bg-background px-4 text-sm sm:h-11">
 				<Breadcrumb className="min-w-0 flex-1">
 					<BreadcrumbList className="flex-nowrap gap-1.5 overflow-hidden sm:gap-1.5">
 						<BreadcrumbItem className="min-w-0">
@@ -127,12 +127,12 @@ export default function WorkspaceContextBar({
 							)}
 						</BreadcrumbItem>
 						<WorkspaceBreadcrumbOverflow
-							className="sm:hidden"
+							className="@min-[40rem]/context:hidden"
 							items={mobileOverflowBreadcrumbs}
 							onNavigateToItem={onNavigateToItem}
 						/>
 						<WorkspaceBreadcrumbOverflow
-							className="hidden sm:flex"
+							className="hidden @min-[40rem]/context:flex"
 							items={overflowBreadcrumbs}
 							onNavigateToItem={onNavigateToItem}
 						/>
@@ -226,7 +226,7 @@ function WorkspaceBreadcrumbItem({
 	const visibilityClassName = isCollapsed
 		? "hidden"
 		: isMobileHidden
-			? "hidden sm:flex"
+			? "hidden @min-[40rem]/context:flex"
 			: undefined;
 
 	return (
@@ -361,8 +361,8 @@ function CrumbLabel({
 	return (
 		<span
 			className={cn(
-				"min-w-0 max-w-40 truncate sm:max-w-none",
-				hideOnMobile && "hidden sm:inline",
+				"min-w-0 max-w-40 truncate @min-[40rem]/context:max-w-none",
+				hideOnMobile && "hidden @min-[40rem]/context:inline",
 				// Keep the active emphasis visual only so breadcrumb spacing never reflows.
 				isCurrent && currentCrumbLabelClassName,
 			)}

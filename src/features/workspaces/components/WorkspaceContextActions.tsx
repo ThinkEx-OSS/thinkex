@@ -51,9 +51,9 @@ function WorkspaceSearchAction({ hotkey, onSearch }: { hotkey: string; onSearch:
 		<Tooltip>
 			<TooltipTrigger
 				render={
-					<WorkspaceToolbarTextButton onClick={onSearch}>
+					<WorkspaceToolbarTextButton aria-label="Search" onClick={onSearch}>
 						<Search />
-						<span className="hidden sm:inline">Search</span>
+						<span className="hidden @min-[40rem]/context:inline">Search</span>
 					</WorkspaceToolbarTextButton>
 				}
 			/>
