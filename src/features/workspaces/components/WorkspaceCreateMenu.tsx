@@ -39,9 +39,9 @@ export default function WorkspaceCreateMenu({ parentId, onCreateItem }: Workspac
 
 	return (
 		<DropdownMenu>
-			<DropdownMenuTrigger render={<WorkspaceToolbarTextButton />}>
+			<DropdownMenuTrigger render={<WorkspaceToolbarTextButton aria-label="New" />}>
 				<Plus className="size-4.5" />
-				<span className="hidden sm:inline">New</span>
+				<span className="hidden @min-[40rem]/context:inline">New</span>
 			</DropdownMenuTrigger>
 			<DropdownMenuContent align="end" className="w-56">
 				<WorkspaceCreateMenuContent parentId={parentId} onCreateItem={onCreateItem} />

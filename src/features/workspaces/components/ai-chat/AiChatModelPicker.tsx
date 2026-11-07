@@ -100,7 +100,7 @@ export default function AiChatModelPicker({ modelId, onModelChange }: AiChatMode
 		>
 			<PopoverTrigger
 				render={
-					<WorkspaceToolbarTextButton className="min-w-0 max-w-48 px-2 font-normal sm:px-2" />
+					<WorkspaceToolbarTextButton className="min-w-0 max-w-48 shrink px-2 font-normal sm:px-2" />
 				}
 			>
 				<span className="truncate">{selectedModel.name}</span>

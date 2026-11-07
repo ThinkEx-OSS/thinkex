@@ -82,14 +82,14 @@ function WorkspaceResponsiveToolbar({
 }) {
 	return (
 		<>
-			<WorkspaceToolbarGroup className="sm:hidden">
+			<WorkspaceToolbarGroup className="@min-[40rem]/context:hidden">
 				<WorkspaceToolbarMenuButton
 					aria-label={mobileLabel}
 					content={mobileContent}
 					contentClassName={mobileContentClassName}
 				/>
 			</WorkspaceToolbarGroup>
-			<WorkspaceToolbarGroup scrollable={scrollable} className="hidden sm:flex">
+			<WorkspaceToolbarGroup scrollable={scrollable} className="hidden @min-[40rem]/context:flex">
 				{children}
 			</WorkspaceToolbarGroup>
 		</>

@@ -39,7 +39,7 @@ export const workspaceItemCardHeaderClass =
 	"relative z-10 min-w-0 flex-1 self-center justify-start gap-1 py-2 pr-24 pl-3 sm:flex-none sm:shrink-0 sm:self-auto sm:px-3";
 
 export const workspaceItemGridClass =
-	"grid grid-cols-1 gap-3 sm:grid-cols-[repeat(auto-fill,minmax(13rem,1fr))] sm:gap-5";
+	"grid grid-cols-1 gap-3 sm:grid-cols-[repeat(auto-fill,minmax(min(13rem,100%),1fr))] sm:gap-5";
 
 export const workspaceItemPreviewStageClass =
 	"pointer-events-none relative z-10 w-14 shrink-0 overflow-hidden bg-muted sm:min-h-20 sm:w-auto sm:flex-1";
