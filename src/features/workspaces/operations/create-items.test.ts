@@ -16,9 +16,21 @@ vi.mock("#/features/workspaces/persistence/workspace-items", () => ({
 
 vi.mock("cloudflare:workers", () => ({ env: {} }));
 
+const readDocumentCitationRefs = vi.hoisted(() => vi.fn());
+vi.mock("#/features/workspaces/documents/document-ai-html", async (importOriginal) => {
+	const original =
+		await importOriginal<typeof import("#/features/workspaces/documents/document-ai-html")>();
+	readDocumentCitationRefs.mockImplementation(original.readDocumentCitationRefs);
+	return { ...original, readDocumentCitationRefs };
+});
+
+const recordOperationalFailure = vi.hoisted(() => vi.fn());
+vi.mock("#/integrations/observability/operational-events", () => ({ recordOperationalFailure }));
+
 import { createWorkspaceItemsOperation } from "#/features/workspaces/operations/create-items";
 import { createWorkspaceAccessContext } from "#/features/workspaces/operations/workspace-access-context";
 import { parseFlashcardSetContent } from "#/features/workspaces/flashcards/flashcard-content";
+import { parseTiptapDocumentJson } from "#/features/workspaces/documents/tiptap-document";
 
 describe("createWorkspaceItemsOperation", () => {
 	beforeEach(() => {
@@ -95,5 +107,42 @@ describe("createWorkspaceItemsOperation", () => {
 			front: { type: "doc" },
 			back: { type: "doc" },
 		});
+	});
+
+	it("keeps the document when citation parsing crashes", async () => {
+		persistence.createWorkspaceItem.mockResolvedValue({
+			status: "applied",
+			command: { result: { name: "Notes" }, revision: 1 },
+		});
+		readDocumentCitationRefs.mockImplementationOnce(() => {
+			throw new TypeError("Cannot read properties of null (reading 'nodeType')");
+		});
+		const html = '<p>Energy <citation ref="wr_AAAAAAAA">Cell biology</citation></p>';
+
+		const result = await createWorkspaceItemsOperation(
+			createWorkspaceAccessContext({
+				operationId: "create-cited",
+				scopes: ["workspace:write"],
+				userId: "user-1",
+				workspaceId: "workspace-1",
+			}),
+			{ items: [{ initialContent: html, path: "/Notes", type: "document" }] },
+		);
+
+		expect(result).toMatchObject({ failed: [], items: [{ path: "/Notes", type: "document" }] });
+		expect(
+			parseTiptapDocumentJson(persistence.createWorkspaceItem.mock.calls[0]?.[1].initialContent),
+		).toMatchObject({
+			content: [{ content: [{ text: "Energy Cell biology", type: "text" }], type: "paragraph" }],
+		});
+		expect(recordOperationalFailure).toHaveBeenCalledWith(
+			expect.objectContaining({
+				event: "document_citation_resolution",
+				fields: expect.objectContaining({
+					html_length: html.length,
+					html_sha256: expect.any(String),
+				}),
+			}),
+		);
 	});
 });
