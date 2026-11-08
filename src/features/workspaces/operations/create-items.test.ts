@@ -25,10 +25,7 @@ vi.mock("#/features/workspaces/documents/document-ai-html", async (importOrigina
 });
 
 const recordOperationalFailure = vi.hoisted(() => vi.fn());
-vi.mock("#/integrations/observability/operational-events", () => ({
-	recordOperationalFailure,
-	recordOperationalOutcome: vi.fn(),
-}));
+vi.mock("#/integrations/observability/operational-events", () => ({ recordOperationalFailure }));
 
 import { createWorkspaceItemsOperation } from "#/features/workspaces/operations/create-items";
 import { createWorkspaceAccessContext } from "#/features/workspaces/operations/workspace-access-context";
