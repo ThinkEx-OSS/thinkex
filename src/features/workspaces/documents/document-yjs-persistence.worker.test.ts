@@ -37,6 +37,7 @@ describe("document Yjs persistence", () => {
 			await storage.transaction((transaction) =>
 				writePersistedDocumentYjsUpdate(transaction, largeUpdate),
 			);
+			expect(await getPartKeys(storage)).not.toHaveLength(0);
 			await storage.transaction((transaction) =>
 				writePersistedDocumentYjsUpdate(transaction, smallUpdate),
 			);

@@ -7,9 +7,7 @@ const maximumPersistedDocumentYjsPartBytes = 1024 * 1024;
 
 interface PersistedDocumentYjsManifest {
 	generation: string;
-	partCount: number;
 	totalBytes: number;
-	version: 1;
 }
 
 type PersistedDocumentYjsValue = Uint8Array | PersistedDocumentYjsManifest;
@@ -19,9 +17,6 @@ export async function readPersistedDocumentYjsUpdate(storage: DurableObjectStora
 	if (!stored || stored instanceof Uint8Array) {
 		return stored;
 	}
-	if (!isPersistedDocumentYjsManifest(stored)) {
-		throw new Error("Persisted document state manifest is invalid.");
-	}
 
 	const keys = getPersistedDocumentYjsPartKeys(stored);
 	const parts = await storage.get<Uint8Array>(keys);
@@ -30,7 +25,7 @@ export async function readPersistedDocumentYjsUpdate(storage: DurableObjectStora
 
 	for (const key of keys) {
 		const part = parts.get(key);
-		if (!(part instanceof Uint8Array) || offset + part.byteLength > update.byteLength) {
+		if (!part) {
 			throw new Error("Persisted document state is incomplete.");
 		}
 		update.set(part, offset);
@@ -55,9 +50,7 @@ export async function writePersistedDocumentYjsUpdate(
 	} else {
 		const manifest: PersistedDocumentYjsManifest = {
 			generation: crypto.randomUUID(),
-			partCount: Math.ceil(update.byteLength / maximumPersistedDocumentYjsPartBytes),
 			totalBytes: update.byteLength,
-			version: 1,
 		};
 
 		await Promise.all(
@@ -72,28 +65,14 @@ export async function writePersistedDocumentYjsUpdate(
 		await transaction.put(persistedDocumentYjsUpdateKey, manifest);
 	}
 
-	if (previous && isPersistedDocumentYjsManifest(previous)) {
+	if (previous && !(previous instanceof Uint8Array)) {
 		await transaction.delete(getPersistedDocumentYjsPartKeys(previous));
 	}
 }
 
 function getPersistedDocumentYjsPartKeys(manifest: PersistedDocumentYjsManifest) {
 	return Array.from(
-		{ length: manifest.partCount },
+		{ length: Math.ceil(manifest.totalBytes / maximumPersistedDocumentYjsPartBytes) },
 		(_, index) => `${persistedDocumentYjsPartKeyPrefix}${manifest.generation}:${index}`,
-	);
-}
-
-function isPersistedDocumentYjsManifest(
-	value: PersistedDocumentYjsValue,
-): value is PersistedDocumentYjsManifest {
-	return (
-		!(value instanceof Uint8Array) &&
-		value.version === 1 &&
-		typeof value.generation === "string" &&
-		value.generation.length > 0 &&
-		Number.isInteger(value.totalBytes) &&
-		value.totalBytes > maximumPersistedDocumentYjsPartBytes &&
-		value.partCount === Math.ceil(value.totalBytes / maximumPersistedDocumentYjsPartBytes)
 	);
 }
