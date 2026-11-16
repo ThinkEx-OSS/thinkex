@@ -15,7 +15,11 @@ import type {
 	WorkspacePageChange,
 	WorkspaceRealtimeServerMessage,
 } from "#/features/workspaces/realtime/messages";
-import { recordOperationalFailure } from "#/integrations/observability/operational-events";
+import {
+	logOperationalEvent,
+	recordOperationalFailure,
+} from "#/integrations/observability/operational-events";
+import { getTelemetryRuntimeContext } from "#/integrations/posthog/server-context";
 
 const workspacePurgeMaximumAttempts = 5;
 
@@ -83,10 +87,11 @@ export class WorkspaceRoom extends Agent<Cloudflare.Env> {
 			workspaceId: this.name,
 		});
 		if (result.failed > 0) {
-			recordOperationalFailure({
-				error: new Error("Workspace item cleanup was incomplete."),
+			logOperationalEvent({
 				event: "workspace_item_cleanup_incomplete",
 				fields: { ...result, workspace_id: this.name },
+				outcome: "partial",
+				requestContext: getTelemetryRuntimeContext(),
 			});
 			this.scheduleCleanupRetry("purgeDeletedItems", input, input.attempt);
 		}
