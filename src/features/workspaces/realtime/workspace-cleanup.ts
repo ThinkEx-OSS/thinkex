@@ -1,8 +1,13 @@
 import { getDocumentSessionStubFromEnv } from "#/features/workspaces/document-session-access";
+import { isTransientDurableObjectError } from "#/features/workspaces/durable-object-errors";
 import { getWorkspaceFileItemObjectPrefix } from "#/features/workspaces/files/workspace-file-object-keys";
 import { getWorkspaceRecordingObjectPrefix } from "#/features/workspaces/recordings/workspace-recording-object-keys";
 import type { ResourcePurgeResult } from "#/features/workspaces/resource-purge-result";
-import { recordOperationalFailure } from "#/integrations/observability/operational-events";
+import {
+	logOperationalEvent,
+	recordOperationalFailure,
+} from "#/integrations/observability/operational-events";
+import { getTelemetryRuntimeContext } from "#/integrations/posthog/server-context";
 import { deleteR2Prefix } from "#/lib/r2";
 
 export async function purgeDeletedWorkspaceItems(
@@ -56,11 +61,19 @@ async function purgeDocumentSession(env: Cloudflare.Env, workspaceId: string, it
 	try {
 		await getDocumentSessionStubFromEnv(env, { workspaceId, itemId }).purgeForDeletion();
 	} catch (error) {
-		recordOperationalFailure({
-			error,
-			event: "workspace_document_purge",
-			fields: { item_id: itemId, workspace_id: workspaceId },
-		});
+		const fields = { item_id: itemId, workspace_id: workspaceId };
+		// The room retries incomplete cleanup and captures only when retries run out.
+		if (isTransientDurableObjectError(error)) {
+			logOperationalEvent({
+				error,
+				event: "workspace_document_purge",
+				fields: { ...fields, transient: true },
+				outcome: "rejected",
+				requestContext: getTelemetryRuntimeContext(),
+			});
+		} else {
+			recordOperationalFailure({ error, event: "workspace_document_purge", fields });
+		}
 		throw error;
 	}
 }
