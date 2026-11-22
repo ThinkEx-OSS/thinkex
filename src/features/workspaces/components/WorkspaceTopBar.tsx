@@ -98,7 +98,11 @@ export default function WorkspaceTopBar({
 							</span>
 						</button>
 					) : null}
-					<WorkspacePresence status={presence.status} users={presence.users} />
+					<WorkspacePresence
+						status={presence.status}
+						users={presence.users}
+						workspaceId={workspace.id}
+					/>
 					{/* ponytail: Share/more keep the Search/New token; a little more space before the avatar so it reads as account, not a third toolbar icon. */}
 					<div className="flex items-center gap-1.5">
 						<WorkspaceToolbarGroup>
