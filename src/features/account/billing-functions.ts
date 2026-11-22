@@ -8,10 +8,15 @@ import {
 	getOrCreateAutumnCustomer,
 	openAutumnCustomerPortal,
 	type AutumnBalance,
+	type AutumnCustomer,
 } from "#/integrations/autumn/rest";
 import { resolveAutumnSecretKey } from "#/integrations/autumn/secret-key";
 import { getAppOrigin } from "#/lib/app-origin";
+import { z } from "zod";
+
 import { withAuth } from "#/lib/auth.server";
+import { listWorkspaceMembers } from "#/features/workspaces/members/workspace-members.server";
+import { withWorkspaceDb } from "#/features/workspaces/server/workspace-db";
 
 /**
  * What the plan UI needs, and nothing else. Autumn's customer response carries
@@ -30,6 +35,20 @@ const PRO_PLAN_IDS = {
 	annual: "pro_annual",
 	monthly: "pro",
 } as const;
+
+// Scheduled plans sit in the same array as active ones and the status enum is
+// open, so only an explicitly active Pro counts.
+function isProCustomer(customer: AutumnCustomer) {
+	return customer.subscriptions.some(
+		(subscription) =>
+			Object.values(PRO_PLAN_IDS).some((planId) => planId === subscription.plan_id) &&
+			subscription.status === "active",
+	);
+}
+
+// One Autumn request per member, so a hard ceiling on the fan-out. Past this a
+// workspace just shows fewer crowns, which is cosmetic.
+const MAX_CROWN_LOOKUPS = 50;
 
 async function getSignedInUserId() {
 	return await withAuth(async (auth) => {
@@ -77,16 +96,61 @@ export const getWorkspaceBillingStateFn = createServerFn({ method: "GET" }).hand
 						: [],
 				),
 			),
-			// Scheduled plans sit in the same array as active ones and the status
-			// enum is open, so only an explicitly active Pro counts.
-			isPro: customer.subscriptions.some(
-				(subscription) =>
-					Object.values(PRO_PLAN_IDS).some((planId) => planId === subscription.plan_id) &&
-					subscription.status === "active",
-			),
+			isPro: isProCustomer(customer),
 		};
 	},
 );
+
+/**
+ * Which members of a workspace are on Pro, for the crowns on collaborator
+ * avatars. Gated on being able to read the workspace (listWorkspaceMembers
+ * asserts that), and it returns only ids, never balances: the plan is
+ * something members show each other, the allowance is not.
+ *
+ * getOrCreate because Autumn has no plain get on this API surface. Creating a
+ * member's customer here is the same record their own first billing call would
+ * create, with the same fields, so it is not a new side effect, just an early
+ * one. A failed lookup reads as not-Pro rather than failing the whole list.
+ */
+const workspaceProUserIdsInputSchema = z.object({
+	workspaceId: z.string().min(1),
+	userIds: z.array(z.string().min(1)).max(MAX_CROWN_LOOKUPS),
+});
+
+export const listWorkspaceProUserIdsFn = createServerFn({ method: "GET" })
+	.validator(workspaceProUserIdsInputSchema)
+	.handler(async ({ data }): Promise<string[]> => {
+		const secretKey = resolveAutumnSecretKey(env);
+
+		if (!secretKey) {
+			return [];
+		}
+
+		// Only ever answers for actual members: the ids come from the browser, and
+		// a plan is something members show each other, not anyone who asks.
+		const requested = new Set(data.userIds);
+		const members = (
+			await withWorkspaceDb(({ db, userId }) =>
+				listWorkspaceMembers(db, { workspaceId: data.workspaceId, userId }),
+			)
+		).filter((member) => requested.has(member.userId));
+
+		const results = await Promise.allSettled(
+			members.map(async (member) => {
+				const customer = await getOrCreateAutumnCustomer({
+					customerId: member.userId,
+					secretKey,
+					...(await getAutumnCustomerFields(member.userId)),
+				});
+
+				return isProCustomer(customer) ? member.userId : null;
+			}),
+		);
+
+		return results.flatMap((result) =>
+			result.status === "fulfilled" && result.value ? [result.value] : [],
+		);
+	});
 
 /**
  * Returns a URL for the browser to follow rather than redirecting here: the

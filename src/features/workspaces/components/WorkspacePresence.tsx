@@ -7,6 +7,8 @@ import {
 	AvatarGroupCount,
 	AvatarImage,
 } from "#/components/ui/avatar";
+import { Crowned } from "#/features/account/components/ProCrown";
+import { useWorkspaceProUserIds } from "#/features/account/use-workspace-pro-user-ids";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "#/components/ui/hover-card";
 import type { WorkspacePresenceUser } from "#/features/workspaces/realtime/messages";
 import { getAuthSessionQueryOptions } from "#/lib/session-query";
@@ -14,6 +16,7 @@ import { getAuthSessionQueryOptions } from "#/lib/session-query";
 interface WorkspacePresenceProps {
 	status: "connecting" | "connected" | "disconnected";
 	users: WorkspacePresenceUser[];
+	workspaceId: string;
 }
 
 function getInitials(name: string) {
@@ -25,10 +28,14 @@ function getInitials(name: string) {
 	return `${first}${second}`.toUpperCase() || fallback.toUpperCase();
 }
 
-export function WorkspacePresence({ status, users }: WorkspacePresenceProps) {
+export function WorkspacePresence({ status, users, workspaceId }: WorkspacePresenceProps) {
 	const { data: session } = useQuery(getAuthSessionQueryOptions());
 	const currentUserId = session?.user.id;
 	const otherUsers = currentUserId ? users.filter((user) => user.id !== currentUserId) : [];
+	const proUserIds = useWorkspaceProUserIds(
+		workspaceId,
+		otherUsers.map((user) => user.id),
+	);
 	const visibleUsers = otherUsers.slice(0, 3);
 	const overflowCount = Math.max(otherUsers.length - visibleUsers.length, 0);
 
@@ -52,10 +59,12 @@ export function WorkspacePresence({ status, users }: WorkspacePresenceProps) {
 			>
 				<AvatarGroup>
 					{visibleUsers.map((user) => (
-						<Avatar key={user.connectionId} size="sm">
-							<AvatarImage src={user.image ?? undefined} alt="" />
-							<AvatarFallback>{getInitials(user.name)}</AvatarFallback>
-						</Avatar>
+						<Crowned key={user.connectionId} crowned={proUserIds.has(user.id)} size="sm">
+							<Avatar size="sm">
+								<AvatarImage src={user.image ?? undefined} alt="" />
+								<AvatarFallback>{getInitials(user.name)}</AvatarFallback>
+							</Avatar>
+						</Crowned>
 					))}
 					{overflowCount > 0 ? <AvatarGroupCount>+{overflowCount}</AvatarGroupCount> : null}
 				</AvatarGroup>
@@ -67,10 +76,12 @@ export function WorkspacePresence({ status, users }: WorkspacePresenceProps) {
 							key={user.connectionId}
 							className="flex min-w-0 items-center gap-2 rounded-sm px-2 py-1.5"
 						>
-							<Avatar size="sm">
-								<AvatarImage src={user.image ?? undefined} alt="" />
-								<AvatarFallback>{getInitials(user.name)}</AvatarFallback>
-							</Avatar>
+							<Crowned crowned={proUserIds.has(user.id)} size="sm">
+								<Avatar size="sm">
+									<AvatarImage src={user.image ?? undefined} alt="" />
+									<AvatarFallback>{getInitials(user.name)}</AvatarFallback>
+								</Avatar>
+							</Crowned>
 							<p className="min-w-0 truncate text-sm font-medium">{user.name}</p>
 						</div>
 					))}

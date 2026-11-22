@@ -31,6 +31,7 @@ import {
 	DropdownMenuTrigger,
 } from "#/components/ui/dropdown-menu";
 import { Skeleton } from "#/components/ui/skeleton";
+import { ProCrown } from "#/features/account/components/ProCrown";
 import { useBillingState } from "#/features/account/use-billing-state";
 import { showUpgradeDialog } from "#/features/account/upgrade-navigation";
 import { getErrorMessage } from "#/lib/error-message";
@@ -100,10 +101,12 @@ export default function UserProfileDropdown() {
 							/>
 						}
 					>
-						<Avatar className="size-9 sm:size-7">
-							<AvatarImage src={session.user.image ?? undefined} alt="" />
-							<AvatarFallback>{displayName.charAt(0).toUpperCase()}</AvatarFallback>
-						</Avatar>
+						<ProCrown>
+							<Avatar className="size-9 sm:size-7">
+								<AvatarImage src={session.user.image ?? undefined} alt="" />
+								<AvatarFallback>{displayName.charAt(0).toUpperCase()}</AvatarFallback>
+							</Avatar>
+						</ProCrown>
 					</DropdownMenuTrigger>
 					<DropdownMenuContent align="end" className="w-64">
 						<DropdownMenuGroup>

@@ -4,6 +4,8 @@ import { toast } from "sonner";
 
 import { Avatar, AvatarFallback, AvatarImage } from "#/components/ui/avatar";
 import { Button } from "#/components/ui/button";
+import { Crowned } from "#/features/account/components/ProCrown";
+import { useWorkspaceProUserIds } from "#/features/account/use-workspace-pro-user-ids";
 import { WorkspaceShareRoleMenu } from "#/features/workspaces/components/WorkspaceShareRoleMenu";
 import {
 	getWorkspaceEmailInvitesQueryKey,
@@ -76,6 +78,10 @@ export function WorkspaceShareMemberList({
 	const { data: session } = useQuery(getAuthSessionQueryOptions());
 	const currentUserId = session?.user.id;
 	const sortedMembers = sortMembersWithCurrentUserFirst(members, currentUserId);
+	const proUserIds = useWorkspaceProUserIds(
+		workspaceId,
+		members.map((member) => member.userId),
+	);
 
 	const updateRoleMutation = useMutation({
 		mutationFn: updateWorkspaceMemberRoleFn,
@@ -134,6 +140,7 @@ export function WorkspaceShareMemberList({
 					key={member.userId}
 					assignableRoles={assignableRoles}
 					currentUserId={currentUserId}
+					isPro={proUserIds.has(member.userId)}
 					member={member}
 					membershipRole={membershipRole}
 					onRemove={() =>
@@ -198,6 +205,7 @@ function WorkspaceShareEmailInviteRow({
 function WorkspaceShareMemberRow({
 	assignableRoles,
 	currentUserId,
+	isPro,
 	member,
 	membershipRole,
 	onRemove,
@@ -205,6 +213,7 @@ function WorkspaceShareMemberRow({
 }: {
 	assignableRoles: WorkspaceMembershipRole[];
 	currentUserId: string | undefined;
+	isPro: boolean;
 	member: WorkspaceMemberSummary;
 	membershipRole: WorkspaceMembershipRole;
 	onRemove: () => void;
@@ -215,10 +224,12 @@ function WorkspaceShareMemberRow({
 
 	return (
 		<div className="flex items-center gap-2 rounded-md px-1 py-1.5 hover:bg-muted/50">
-			<Avatar size="sm">
-				<AvatarImage src={member.image ?? undefined} alt="" />
-				<AvatarFallback className="text-xs">{getInitials(member.name)}</AvatarFallback>
-			</Avatar>
+			<Crowned crowned={isPro} size="sm">
+				<Avatar size="sm">
+					<AvatarImage src={member.image ?? undefined} alt="" />
+					<AvatarFallback className="text-xs">{getInitials(member.name)}</AvatarFallback>
+				</Avatar>
+			</Crowned>
 			<div className="min-w-0 flex-1">
 				<p className="truncate text-sm">
 					{member.name}

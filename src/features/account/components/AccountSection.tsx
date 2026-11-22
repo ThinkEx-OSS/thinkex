@@ -2,6 +2,7 @@ import { LogOut } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "#/components/ui/avatar";
 import { Button } from "#/components/ui/button";
+import { ProCrown } from "#/features/account/components/ProCrown";
 import { DeleteAccountSection } from "#/features/account/components/DeleteAccountSection";
 import {
 	Item,
@@ -32,10 +33,12 @@ export function AccountSection({ createdAt, email, image, name, onSignOut }: Acc
 			{/* Email sits under the name rather than in its own row: guests have no
 				    email, and a row reading "—" is worse than no row. */}
 			<Item size="sm" className="px-0">
-				<Avatar className="size-9">
-					<AvatarImage src={image ?? undefined} alt="" />
-					<AvatarFallback>{displayName.charAt(0).toUpperCase()}</AvatarFallback>
-				</Avatar>
+				<ProCrown>
+					<Avatar className="size-9">
+						<AvatarImage src={image ?? undefined} alt="" />
+						<AvatarFallback>{displayName.charAt(0).toUpperCase()}</AvatarFallback>
+					</Avatar>
+				</ProCrown>
 				<ItemContent className="gap-0.5">
 					<ItemTitle>{displayName}</ItemTitle>
 					{email ? <ItemDescription>{email}</ItemDescription> : null}
